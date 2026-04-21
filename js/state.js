@@ -9,7 +9,6 @@
 // Objet mutable unique : tous les modules partagent la même référence
 // Les propriétés sont librement mutables depuis n'importe quel module.
 export const _S = {};
-console.log('[STATE] state.js loaded — TRAP V2 active');
 
 // ── Core data ──
 _S.finalData = [];
@@ -253,19 +252,7 @@ _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, to
 _S.anglesMorts = [];           // [{cc, nom, metier, commercial, missing:[{famCode,fam,pctClients,avgCA,clientCA,potentiel}], totalPotentiel}]
 
 // ── Agences clones (scoring similarité inter-agences) ──
-// DEBUG TRAP V2: log TOUTE écriture + non-configurable pour empêcher remplacement silencieux
-let __cloneStoresVal = [];
-Object.defineProperty(_S, '_cloneStores', {
-  get() { return __cloneStoresVal; },
-  set(v) {
-    const isArr = Array.isArray(v);
-    console.log(`[TRAP] _cloneStores SET → ${isArr ? 'Array(' + v.length + ')' : String(v)}`);
-    if (v === undefined || v === null) console.trace('[TRAP] ⚠️ _cloneStores SET to', v);
-    __cloneStoresVal = v;
-  },
-  enumerable: true,
-  configurable: false,  // empêche delete + redefine
-});
+_S._cloneStores = [];          // [{code, score, simMix, simCA, simGeo, distKm, ca}]
 _S._cloneSet = null;           // Set<storeCode> — cache, recalculé à la demande
 _S.seasonalIndexClones = null; // {famille → [12 coefficients]} — clones uniquement
 
