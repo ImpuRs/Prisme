@@ -2,6 +2,7 @@
 // PRISME — animation.js
 // Onglet Animation : préparation d'animations commerciales par marque
 // + sous-onglet Associations (co-achat familial)
+// + Pépites Réseau (spécialités par agence vs médiane réseau, période-filtré)
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
@@ -9,6 +10,256 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml, famLib, _copyCodeBtn } from './utils.js';
 import { computeAnimation } from './engine.js';
 import { renderAssociationsTab } from './associations.js';
+
+// ═══════════════════════════════════════════════════════════════
+// Onglet Animation — Tab bar interne (Animation / Pépites Réseau)
+// ═══════════════════════════════════════════════════════════════
+
+let _animTopView = 'animation'; // 'animation' | 'pepites'
+
+function _animTabBar() {
+  const hasMultiStore = _S.storesIntersection?.size > 1;
+  if (!hasMultiStore) return ''; // pas de tab bar si mono-agence
+  const tab = (key, icon, label) => {
+    const active = _animTopView === key;
+    return `<button onclick="window._animSetTopView('${key}')"
+      class="text-[12px] px-5 py-2.5 cursor-pointer border-b-2 transition-colors font-semibold ${active ? 'font-bold' : 'hover:t-primary'}"
+      style="${active ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${icon} ${label}</button>`;
+  };
+  return `<div style="position:sticky;top:0;z-index:20;background:var(--color-bg-primary,#0f172a);padding-top:4px">
+    <div class="flex gap-0 border-b b-light mb-3">
+      ${tab('animation', '🎯', 'Animation Marque')}
+      ${tab('pepites', '💎', 'Pépites Réseau')}
+    </div>
+  </div>`;
+}
+
+window._animSetTopView = function(view) {
+  _animTopView = view;
+  _renderAnimTabBar();
+  const searchWrap = document.getElementById('animSearchWrapper');
+  const content = document.getElementById('animContent');
+  if (view === 'pepites') {
+    if (searchWrap) searchWrap.classList.add('hidden');
+    if (content) { content.innerHTML = _renderPepitesReseauContent(); delete content.dataset.animActive; }
+  } else {
+    if (searchWrap) searchWrap.classList.remove('hidden');
+    // Re-render : si une animation marque était active, la restaurer, sinon overview familles
+    if (content) {
+      if (_S._animationData) {
+        content.innerHTML = _renderAnimation(_S._animationData);
+        content.dataset.animActive = '1';
+      } else if (_S._prData?.families?.length) {
+        content.innerHTML = _renderFamilyOverview();
+        delete content.dataset.animActive;
+      }
+    }
+  }
+};
+
+function _renderAnimTabBar() {
+  const bar = document.getElementById('animTabBar');
+  if (bar) bar.innerHTML = _animTabBar();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Pépites Réseau — Top articles par agence vs médiane réseau
+// Utilise _byMonthStoreArtCanal pour le filtre période
+// ═══════════════════════════════════════════════════════════════
+
+let _pepStoreFilter = ''; // '' = toutes agences, 'AGxx' = filtre une agence
+const _PEP_TOP = 10;
+
+function _buildPeriodFilteredStoreCA() {
+  // Pépites = comptoir (MAGASIN prélevé) uniquement
+  const bmsac = _S._byMonthStoreArtCanal;
+  const pStart = _S.periodFilterStart;
+  const pEnd = _S.periodFilterEnd;
+  const hasPeriod = !!(pStart || pEnd);
+
+  // Fallback pleine période — ventesParMagasinByCanal MAGASIN prélevé
+  if (!bmsac) {
+    const vbc = _S.ventesParMagasinByCanal || {};
+    const result = {};
+    for (const store in vbc) {
+      result[store] = {};
+      const magMap = vbc[store]?.['MAGASIN'];
+      if (!magMap) continue;
+      for (const code in magMap) {
+        if (!/^\d{6}$/.test(code)) continue;
+        const d = magMap[code];
+        const ca = d.sumPrelevee || 0; // CA prélevé
+        if (!ca) continue;
+        result[store][code] = { sumCA: ca, countBL: d.countBL || 0 };
+      }
+    }
+    return { data: result, filtered: false };
+  }
+
+  // Via _byMonthStoreArtCanal — canal MAGASIN, sumPrelevee = CA prélevé
+  const startIdx = hasPeriod && pStart ? (pStart.getFullYear() * 12 + pStart.getMonth()) : 0;
+  const endIdx = hasPeriod && pEnd ? (pEnd.getFullYear() * 12 + pEnd.getMonth()) : 999999;
+  const result = {};
+
+  for (const store in bmsac) {
+    result[store] = {};
+    const codeMap = bmsac[store]?.['MAGASIN'];
+    if (!codeMap) continue;
+    for (const code in codeMap) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const months = codeMap[code];
+      let sumCA = 0, countBL = 0;
+      for (const midxStr in months) {
+        const midx = +midxStr;
+        if (midx < startIdx || midx > endIdx) continue;
+        sumCA += months[midxStr].sumPrelevee || 0; // CA prélevé
+        countBL += months[midxStr].countBL || 0;
+      }
+      if (!sumCA) continue;
+      result[store][code] = { sumCA, countBL };
+    }
+  }
+
+  return { data: result, filtered: hasPeriod };
+}
+
+function _renderPepitesReseauContent() {
+  const myStore = _S.selectedMyStore;
+  const { data: storeCA, filtered: isPeriodFiltered } = _buildPeriodFilteredStoreCA();
+  const stores = Object.keys(storeCA).filter(s => s !== myStore).sort();
+  if (!stores.length) return '<div class="t-disabled text-sm text-center py-12">Chargez un consommé multi-agences pour activer les Pépites Réseau.</div>';
+
+  const artFam = _S.articleFamille || {};
+  const catFam = _S.catalogueFamille;
+  const allStores = [myStore, ...stores];
+
+  // Pré-calcul : médiane CA réseau par article
+  const articleMedian = new Map();
+  const allCodes = new Set();
+  for (const store of allStores) {
+    const sd = storeCA[store];
+    if (!sd) continue;
+    for (const code of Object.keys(sd)) allCodes.add(code);
+  }
+  for (const code of allCodes) {
+    const cas = allStores.map(s => storeCA[s]?.[code]?.sumCA || 0).filter(v => v > 0).sort((a, b) => a - b);
+    if (!cas.length) continue;
+    const mid = cas.length % 2 === 0 ? (cas[cas.length / 2 - 1] + cas[cas.length / 2]) / 2 : cas[Math.floor(cas.length / 2)];
+    articleMedian.set(code, mid);
+  }
+
+  // Pour chaque agence, top articles vs médiane réseau
+  const storeList = _pepStoreFilter ? allStores.filter(s => s === _pepStoreFilter) : allStores;
+  const sections = [];
+
+  for (const store of storeList) {
+    const sd = storeCA[store];
+    if (!sd) continue;
+    const candidates = [];
+    for (const [code, data] of Object.entries(sd)) {
+      const caStore = data.sumCA || 0;
+      if (caStore <= 10) continue;
+      const blStore = data.countBL || 0;
+      const med = articleMedian.get(code) || 0;
+      if (med <= 0) continue;
+      const ratio = caStore / med;
+      if (ratio < 2.0) continue;
+      const cf = catFam?.get(code)?.codeFam || artFam[code] || '';
+      const lib = _S.libelleLookup?.[code] || code;
+      const fam = famLib(cf) || cf;
+      candidates.push({ code, lib, fam, caStore, blStore, median: Math.round(med), ratio: Math.round(ratio * 10) / 10, ecart: Math.round(caStore - med) });
+    }
+    candidates.sort((a, b) => b.ecart - a.ecart);
+    const top = candidates.slice(0, _PEP_TOP);
+    if (top.length) {
+      const totalEcart = top.reduce((s, a) => s + a.ecart, 0);
+      sections.push({ store, top, totalEcart, totalCandidates: candidates.length, isMe: store === myStore });
+    }
+  }
+
+  sections.sort((a, b) => b.totalEcart - a.totalEcart);
+
+  // Période label
+  const pStart = _S.periodFilterStart;
+  const pEnd = _S.periodFilterEnd;
+  const fmtD = d => d ? d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '';
+  const periodLabel = isPeriodFiltered && pStart && pEnd
+    ? `<span class="text-[10px] px-2 py-0.5 rounded font-bold" style="background:rgba(59,130,246,0.15);color:#60a5fa">${fmtD(pStart)} → ${fmtD(pEnd)}</span>`
+    : '<span class="text-[10px] px-2 py-0.5 rounded" style="background:rgba(100,116,139,0.15);color:var(--t-secondary)">12 mois glissants</span>';
+
+  // Filtre agence
+  const filterBtns = allStores.map(s => {
+    const active = _pepStoreFilter === s;
+    const isMe = s === myStore;
+    return `<button onclick="window._pepFilterStore('${s}')"
+      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+      style="border-color:${active ? 'var(--c-action)' : 'var(--b-default)'};${active ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}">${s}${isMe ? ' (moi)' : ''}</button>`;
+  }).join('');
+  const allActive = !_pepStoreFilter;
+  const allBtn = `<button onclick="window._pepFilterStore('')"
+    class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${allActive ? 'font-bold' : 'hover:t-primary'}"
+    style="border-color:${allActive ? 'var(--c-action)' : 'var(--b-default)'};${allActive ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}">Toutes</button>`;
+
+  let html = `<div class="mb-3">
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+      <span class="text-[11px] t-secondary font-semibold">Agence :</span>
+      ${allBtn} ${filterBtns}
+      <span class="ml-2">${periodLabel}</span>
+    </div>
+    <p class="text-[10px] t-disabled">Spécialités de chaque agence : articles où le CA dépasse ≥ 2× la médiane réseau. ${isPeriodFiltered ? 'Filtré par la période sélectionnée.' : 'Utilisez le filtre période pour cibler un mois.'}</p>
+  </div>`;
+
+  if (!sections.length) {
+    html += '<div class="py-8 text-center t-disabled text-sm italic">Aucune pépite identifiée pour cette sélection.</div>';
+    return html;
+  }
+
+  for (const sec of sections) {
+    const storeColor = sec.isMe ? '#3b82f6' : '#22c55e';
+    const storeLabel = sec.isMe ? `${sec.store} (moi)` : sec.store;
+    html += `<details class="mb-3 s-card rounded-lg overflow-hidden" ${_pepStoreFilter ? 'open' : ''}>
+      <summary class="px-4 py-3 cursor-pointer select-none flex items-center justify-between hover:s-hover" style="background:${storeColor}0a">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-[13px]" style="color:${storeColor}">💎 ${storeLabel}</span>
+          <span class="text-[10px] t-disabled">${sec.totalCandidates} spécialités · ${formatEuro(sec.totalEcart)} au-dessus de la médiane</span>
+        </div>
+        <span class="acc-arrow" style="color:${storeColor}">▶</span>
+      </summary>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[11px] border-collapse">
+          <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+            <th class="py-1.5 px-3 text-left">Code</th>
+            <th class="py-1.5 px-3 text-left">Libellé</th>
+            <th class="py-1.5 px-3 text-left">Famille</th>
+            <th class="py-1.5 px-3 text-right">CA ${sec.store}</th>
+            <th class="py-1.5 px-3 text-right">BL</th>
+            <th class="py-1.5 px-3 text-right">Méd. réseau</th>
+            <th class="py-1.5 px-3 text-right">×</th>
+          </tr></thead>
+          <tbody>${sec.top.map(a => {
+            return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+              <td class="py-1.5 px-3 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
+              <td class="py-1.5 px-3 t-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.lib)}</td>
+              <td class="py-1.5 px-3 t-secondary text-[10px]">${escapeHtml(a.fam)}</td>
+              <td class="py-1.5 px-3 text-right font-bold" style="color:${storeColor}">${formatEuro(a.caStore)}</td>
+              <td class="py-1.5 px-3 text-right t-secondary">${a.blStore}</td>
+              <td class="py-1.5 px-3 text-right t-disabled">${formatEuro(a.median)}</td>
+              <td class="py-1.5 px-3 text-right font-bold" style="color:#f59e0b">${a.ratio}×</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </details>`;
+  }
+
+  return html;
+}
+
+window._pepFilterStore = function(store) {
+  _pepStoreFilter = store;
+  const content = document.getElementById('animContent');
+  if (content) content.innerHTML = _renderPepitesReseauContent();
+};
 
 // Aliases marques commerciales → fournisseur catalogue
 const MARQUE_ALIASES = {
@@ -676,6 +927,9 @@ export async function renderAnimationTab() {
   const el = document.getElementById('tabAnimation');
   if (!el) return;
 
+  // Render tab bar (Animation / Pépites)
+  _renderAnimTabBar();
+
   // Lazy load : charger le catalogue au premier accès
   if (!_S.catalogueMarques) {
     const content = document.getElementById('animContent');
@@ -683,19 +937,26 @@ export async function renderAnimationTab() {
     if (!_S.catalogueMarques?.size) await loadCatalogueMarques();
   }
 
-  if (!_S.catalogueMarques?.size) {
+  if (!_S.catalogueMarques?.size && _animTopView === 'animation') {
     document.getElementById('animContent').innerHTML =
       '<div class="text-center py-8 t-disabled text-sm">Catalogue marques non disponible (js/catalogue-marques.json manquant).</div>';
     return;
   }
 
-  // Init search si pas encore fait
-  initAnimationSearch();
-
-  // Si Plan Rayon chargé → afficher l'overview familles par défaut
+  const searchWrap = document.getElementById('animSearchWrapper');
   const content = document.getElementById('animContent');
-  if (content && _S._prData?.families?.length && !content.dataset.animActive) {
-    content.innerHTML = _renderFamilyOverview();
+
+  if (_animTopView === 'pepites') {
+    if (searchWrap) searchWrap.classList.add('hidden');
+    if (content) { content.innerHTML = _renderPepitesReseauContent(); delete content.dataset.animActive; }
+  } else {
+    if (searchWrap) searchWrap.classList.remove('hidden');
+    // Init search si pas encore fait
+    initAnimationSearch();
+    // Si Plan Rayon chargé → afficher l'overview familles par défaut
+    if (content && _S._prData?.families?.length && !content.dataset.animActive) {
+      content.innerHTML = _renderFamilyOverview();
+    }
   }
 }
 

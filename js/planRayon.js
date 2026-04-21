@@ -2698,6 +2698,7 @@ function _prRenderReseau(fam) {
     const medFreq = csFreqs.length ? csFreqs[Math.floor(csFreqs.length / 2)] : 0;
     const lib = _S.libelleLookup?.[code] || _S.catalogueDesignation?.get(code) || code;
     const shortLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib;
+    if (!myFreq && !medFreq && !myCA) continue; // aucune activité nulle part → pas pertinent
     incont.push({ code, lib: shortLib, myFreq, medFreq: Math.round(medFreq), myCA: Math.round(myCA) });
   }
   incont.sort((a, b) => b.myCA - a.myCA);
@@ -3060,7 +3061,7 @@ function _renderPlanRayonContent(data) {
 function _prRerender() {
   const el = document.getElementById('planRayonBlock');
   if (!el || !_S._prData) return;
-  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _prTopView === 'palmares' ? _renderPalmaresContent() : _prTopView === 'pepites' ? _renderPepitesReseauContent() : _renderPlanRayonContent(_S._prData));
+  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _prTopView === 'palmares' ? _renderPalmaresContent() : _renderPlanRayonContent(_S._prData));
   if (_prTopView === 'famille') _initPrSearch();
   if (_prTopView === 'metier') _initPrMetierInput();
 }
@@ -4897,143 +4898,6 @@ function _renderPalmaresContent() {
   return html;
 }
 
-// ── PÉPITES RÉSEAU — Top articles par agence vs moi ─────────────────
-// ══════════════════════════════════════════════════════════════════════
-
-let _pepStoreFilter = ''; // '' = toutes agences, 'AG02' = filtre une agence
-const _PEP_TOP = 10;
-
-function _renderPepitesReseauContent() {
-  const vpm = _S.ventesParMagasin || {};
-  const myStore = _S.selectedMyStore;
-  const stores = Object.keys(vpm).filter(s => s !== myStore).sort();
-  if (!stores.length) return '<div class="t-disabled text-sm text-center py-12">Chargez un consommé multi-agences pour activer les Pépites Réseau.</div>';
-
-  const artFam = _S.articleFamille || {};
-  const catFam = _S.catalogueFamille;
-  const allStores = [myStore, ...stores];
-
-  // Pré-calcul : médiane CA réseau par article
-  const articleMedian = new Map(); // code → médiane CA
-  const allCodes = new Set();
-  for (const store of allStores) {
-    const sd = vpm[store];
-    if (!sd) continue;
-    for (const code of Object.keys(sd)) {
-      if (/^\d{6}$/.test(code)) allCodes.add(code);
-    }
-  }
-  for (const code of allCodes) {
-    const cas = allStores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0).sort((a, b) => a - b);
-    if (!cas.length) continue;
-    const mid = cas.length % 2 === 0 ? (cas[cas.length / 2 - 1] + cas[cas.length / 2]) / 2 : cas[Math.floor(cas.length / 2)];
-    articleMedian.set(code, mid);
-  }
-
-  // Pour chaque agence (y compris moi), top articles vs médiane réseau
-  const storeList = _pepStoreFilter ? allStores.filter(s => s === _pepStoreFilter) : allStores;
-  const sections = [];
-
-  for (const store of storeList) {
-    const sd = vpm[store];
-    if (!sd) continue;
-    const candidates = [];
-    for (const [code, data] of Object.entries(sd)) {
-      if (!/^\d{6}$/.test(code)) continue;
-      const caStore = data.sumCA || 0;
-      if (caStore <= 10) continue;
-      const blStore = data.countBL || 0;
-      const med = articleMedian.get(code) || 0;
-      if (med <= 0) continue;
-      const ratio = caStore / med;
-      if (ratio < 2.0) continue; // surperformance ≥ 2× la médiane
-      const cf = catFam?.get(code)?.codeFam || artFam[code] || '';
-      const lib = _S.libelleLookup?.[code] || articleLib(code) || code;
-      const fam = famLib(cf) || cf;
-      candidates.push({ code, lib, fam, caStore, blStore, median: Math.round(med), ratio: Math.round(ratio * 10) / 10, ecart: Math.round(caStore - med) });
-    }
-    candidates.sort((a, b) => b.ecart - a.ecart);
-    const top = candidates.slice(0, _PEP_TOP);
-    if (top.length) {
-      const totalEcart = top.reduce((s, a) => s + a.ecart, 0);
-      sections.push({ store, top, totalEcart, totalCandidates: candidates.length, isMe: store === myStore });
-    }
-  }
-
-  sections.sort((a, b) => b.totalEcart - a.totalEcart);
-
-  // Filtre agence
-  const filterBtns = allStores.map(s => {
-    const active = _pepStoreFilter === s;
-    const isMe = s === myStore;
-    return `<button onclick="window._pepFilterStore('${s}')"
-      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
-      style="border-color:${active ? 'var(--c-action)' : 'var(--b-default)'};${active ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}">${s}${isMe ? ' (moi)' : ''}</button>`;
-  }).join('');
-  const allActive = !_pepStoreFilter;
-  const allBtn = `<button onclick="window._pepFilterStore('')"
-    class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${allActive ? 'font-bold' : 'hover:t-primary'}"
-    style="border-color:${allActive ? 'var(--c-action)' : 'var(--b-default)'};${allActive ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}">Toutes</button>`;
-
-  let html = `<div class="mb-3">
-    <div class="flex items-center gap-2 mb-2 flex-wrap">
-      <span class="text-[11px] t-secondary font-semibold">Agence :</span>
-      ${allBtn} ${filterBtns}
-    </div>
-    <p class="text-[10px] t-disabled">Spécialités de chaque agence : articles où le CA dépasse ≥ 2× la médiane réseau. Révèle les forces locales de chaque point de vente.</p>
-  </div>`;
-
-  if (!sections.length) {
-    html += '<div class="py-8 text-center t-disabled text-sm italic">Aucune pépite identifiée pour cette sélection.</div>';
-    return html;
-  }
-
-  for (const sec of sections) {
-    const storeColor = sec.isMe ? '#3b82f6' : '#22c55e';
-    const storeLabel = sec.isMe ? `${sec.store} (moi)` : sec.store;
-    html += `<details class="mb-3 s-card rounded-lg overflow-hidden" ${_pepStoreFilter ? 'open' : ''}>
-      <summary class="px-4 py-3 cursor-pointer select-none flex items-center justify-between hover:s-hover" style="background:${storeColor}0a">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-[13px]" style="color:${storeColor}">💎 ${storeLabel}</span>
-          <span class="text-[10px] t-disabled">${sec.totalCandidates} spécialités · ${formatEuro(sec.totalEcart)} au-dessus de la médiane</span>
-        </div>
-        <span class="acc-arrow" style="color:${storeColor}">▶</span>
-      </summary>
-      <div class="overflow-x-auto">
-        <table class="w-full text-[11px] border-collapse">
-          <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1.5 px-3 text-left">Code</th>
-            <th class="py-1.5 px-3 text-left">Libellé</th>
-            <th class="py-1.5 px-3 text-left">Famille</th>
-            <th class="py-1.5 px-3 text-right">CA ${sec.store}</th>
-            <th class="py-1.5 px-3 text-right">BL</th>
-            <th class="py-1.5 px-3 text-right">Méd. réseau</th>
-            <th class="py-1.5 px-3 text-right">×</th>
-          </tr></thead>
-          <tbody>${sec.top.map(a => {
-            return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
-              <td class="py-1.5 px-3 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
-              <td class="py-1.5 px-3 t-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.lib)}</td>
-              <td class="py-1.5 px-3 t-secondary text-[10px]">${escapeHtml(a.fam)}</td>
-              <td class="py-1.5 px-3 text-right font-bold" style="color:${storeColor}">${formatEuro(a.caStore)}</td>
-              <td class="py-1.5 px-3 text-right t-secondary">${a.blStore}</td>
-              <td class="py-1.5 px-3 text-right t-disabled">${formatEuro(a.median)}</td>
-              <td class="py-1.5 px-3 text-right font-bold" style="color:#f59e0b">${a.ratio}×</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-    </details>`;
-  }
-
-  return html;
-}
-
-window._pepFilterStore = function(store) {
-  _pepStoreFilter = store;
-  const el = document.getElementById('planRayonBlock');
-  if (el) el.innerHTML = _prPerfBanner() + _prTopTabBar() + _renderPepitesReseauContent();
-};
 
 window._prOpenFamily = function(codeFam) {
   _prTopView = 'famille';
@@ -5100,7 +4964,6 @@ function _prTopTabBar() {
       ${tab('famille', '📦', 'Pilotage Famille')}
       ${tab('metier', '🎯', 'Pilotage Métier')}
       ${_S.storesIntersection?.size > 1 ? tab('palmares', '🏆', 'Palmarès Réseau') : ''}
-      ${_S.storesIntersection?.size > 1 ? tab('pepites', '💎', 'Pépites Réseau') : ''}
     </div>
     <div class="relative py-2">
       <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
@@ -5989,7 +5852,7 @@ export function renderPlanRayon() {
   _prMPage = 60;
   // _S._prSqData déjà peuplé par computePlanStock() → on garde le cache
 
-  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _prTopView === 'palmares' ? _renderPalmaresContent() : _prTopView === 'pepites' ? _renderPepitesReseauContent() : _renderPlanRayonContent(data));
+  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _prTopView === 'palmares' ? _renderPalmaresContent() : _renderPlanRayonContent(data));
   if (_prTopView === 'famille') _initPrSearch();
   if (_prTopView === 'metier') _initPrMetierInput();
   // Exposer les lookups squelette pour les filtres sidebar
