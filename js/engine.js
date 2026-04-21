@@ -850,6 +850,14 @@ export function computeBenchMetier() {
     if (!metierCAs[m]) metierCAs[m] = [];
     metierCAs[m].push(ca);
   }
+  // 1b. Compter les clients actifs PDV par métier (dénominateur tronc commun)
+  const actifsPDVByMetier = {};
+  const cfa = _S.clientFamCA || {};
+  for (const [cc, info] of _S.chalandiseData) {
+    const m = (info.metier || '').trim();
+    if (!m || !cfa[cc]) continue;
+    actifsPDVByMetier[m] = (actifsPDVByMetier[m] || 0) + 1;
+  }
   // 2. Calculer médiane (Q1 exclu = bottom 25% ignoré) + tronc commun
   for (const m in metierCAs) {
     const cas = metierCAs[m].sort((a, b) => a - b);
@@ -859,9 +867,9 @@ export function computeBenchMetier() {
     const n = filtered.length;
     if (n < 3) continue;
     const medianCA = n % 2 === 0 ? (filtered[n / 2 - 1] + filtered[n / 2]) / 2 : filtered[Math.floor(n / 2)];
-    // Tronc commun : familles achetées par > 50% des clients de ce métier
+    // Tronc commun : familles achetées par > 50% des clients ACTIFS PDV de ce métier
     const mfb = _S.metierFamBench?.[m];
-    const nTotal = cas.length; // total brut avant exclusion Q1
+    const nTotal = actifsPDVByMetier[m] || cas.length;
     const troncCommun = [];
     if (mfb) {
       for (const fam in mfb) {
