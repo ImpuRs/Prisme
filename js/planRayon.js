@@ -2474,17 +2474,23 @@ function _prBuildConqueteKit(codeFam) {
   const p2 = notInStock.filter(a => a.role === 'specialiste' && !p1Set.has(a.code))
     .sort((a, b) => b.caZone - a.caZone).slice(0, 10);
   const p12Set = new Set([...p1Set, ...p2.map(a => a.code)]);
-  const p3 = notInStock.filter(a => a.role === 'standard' && !p12Set.has(a.code) && (a.caZone > 0 || a.nbClientsZone > 0))
+  // P3 — demande zone prouvée OU fallback réseau pour les conquêtes (famille inactive)
+  const _p3zone = notInStock.filter(a => a.role === 'standard' && !p12Set.has(a.code) && (a.caZone > 0 || a.nbClientsZone > 0))
     .sort((a, b) => (b.caZone + b.nbClientsZone * 100) - (a.caZone + a.nbClientsZone * 100)).slice(0, 5);
+  // Fallback réseau : si aucune demande zone (conquête), prendre les plus vendus du réseau
+  const p3 = _p3zone.length > 0 ? _p3zone
+    : notInStock.filter(a => a.role === 'standard' && !p12Set.has(a.code) && a.caReseau > 0)
+        .sort((a, b) => b.caReseau - a.caReseau).slice(0, 10);
   const p123Set = new Set([...p12Set, ...p3.map(a => a.code)]);
   const p4 = notInStock.filter(a => a.role === 'nouveaute' && !p123Set.has(a.code))
     .sort((a, b) => b.caReseau - a.caReseau).slice(0, 3);
 
+  const _isConquete = p1.length === 0 && _p3zone.length === 0 && p3.length > 0;
   return {
     priorities: [
       { key: 'p1', label: '🏆 Trous Critiques',     color: '#22c55e', desc: 'Incontournables réseau absents de ton stock', items: p1 },
       { key: 'p2', label: '🎯 La Conquête',          color: '#8b5cf6', desc: 'Spécialistes à forte demande zone',          items: p2 },
-      { key: 'p3', label: '📦 Opportunité Locale',   color: '#3b82f6', desc: 'Standards avec demande zone prouvée',        items: p3 },
+      { key: 'p3', label: _isConquete ? '📡 Signal Réseau' : '📦 Opportunité Locale', color: '#3b82f6', desc: _isConquete ? 'Les plus vendus du réseau — pas encore de demande locale' : 'Standards avec demande zone prouvée', items: p3 },
       { key: 'p4', label: '🆕 Pari du Réseau',       color: '#f59e0b', desc: 'Nouveautés à tester',                        items: p4 },
     ],
     totalKit: p1.length + p2.length + p3.length + p4.length,
