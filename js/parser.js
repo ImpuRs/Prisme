@@ -574,7 +574,8 @@ export function launchClientWorker(progressCb) {
       const worker = new Worker(url);
       _S._activeClientWorker = worker;
       const ventesCA = [];
-      for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
+      const _srcVentes = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+      for (const [cc, artMap] of _srcVentes.entries()) {
         const arts = [];
         for (const [code2, data] of artMap.entries()) arts.push([code2, data]);
         ventesCA.push([cc, arts]);
