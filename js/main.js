@@ -2983,7 +2983,7 @@ _S.canalAgence=newCanalAgence;
       _mc('crossing + distances');
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
-      if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { computeOmniScores(); computeFamillesHors(); }
+      if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors(); }
       buildClientStore();_applyForcageCommercial();_mc('buildClientStore');
       if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
       if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
