@@ -187,6 +187,19 @@ function _prVerdict(classif, role, code) {
   return VERDICT_MATRIX[classif]?.[role] || { name: '—', icon: '', color: '#94a3b8', tip: '' };
 }
 
+// Helper : détecte si un incontournable est LOCAL (ABC-A + W≥12, détention < 60%)
+const _isLocalIncont = (code, roleOrMap) => {
+  const role = typeof roleOrMap === 'string' ? roleOrMap : roleOrMap?.get(code);
+  if (role !== 'incontournable') return false;
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  const nbStores = stores.length || 1;
+  let nbSt = 0;
+  for (const s of stores) { if (vpm[s]?.[code]?.countBL > 0) nbSt++; }
+  return nbSt / nbStores < 0.6;
+};
+
 // ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
 function _prComputeRoles(codeFam) {
   const vpm = _S.ventesParMagasin || {};
@@ -505,7 +518,7 @@ function computePlanStock() {
           if (g === 'socle' || g === 'implanter') {
             f._incCodes.add(a.code);
           }
-          // KPIs Scanner : incontournables + potentiel externe
+          // KPIs Scanner : incontournables (Capitaine + Sergent) + potentiel externe
           const role = _getRole(a);
           if (role === 'incontournable') {
             f.nbIncontournables++;
@@ -1847,7 +1860,7 @@ function _prRenderPhysigamme(fam) {
   const medNS = _med(storeStats.map(s => s.ns));
   const myRot = mySV > 0 ? myCA / mySV : 0, medRot = _med(storeStats.filter(s => s.sv > 0).map(s => s.ca / s.sv));
 
-  // Détention incontournables
+  // Détention incontournables (Capitaine + Sergent)
   const incont = artList.filter(a => a.role === 'incontournable');
   const incontOK = incont.filter(a => a.enStock).length;
   const tauxInc = incont.length ? Math.round(incontOK / incont.length * 100) : 100;
@@ -1917,7 +1930,7 @@ function _prRenderPhysigamme(fam) {
       <td class="py-1 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
       <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(a.lib)}</td>
       <td class="py-1 px-2">
-        <span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>
+        <span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>${a.role === 'incontournable' && a.detention < 0.6 ? '<span class="text-[7px] px-1 py-0.5 rounded font-bold ml-0.5" style="background:rgba(139,92,246,0.15);color:#a78bfa">LOCAL</span>' : ''}
         ${sqBadge ? `<span class="text-[8px] px-1 py-0.5 rounded ml-0.5" style="background:${sqBadge.bg};color:${sqBadge.color}">${sqBadge.icon} ${sqBadge.label}</span>` : ''}
       </td>
       <td class="py-1 px-2 text-right t-secondary">${Math.round(a.detention * 100)}%</td>
@@ -2341,7 +2354,7 @@ function _prRenderPilotage(fam) {
         return `<td class="py-1.5 px-2 text-center whitespace-nowrap" style="color:${starColor};font-weight:600">${stars}${deltaIcon}${maxLabel}</td>`;
       })() : ''}
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
-        <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>
+        <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>${_isLocalIncont(a.code, a.role) ? '<span class="text-[7px] px-1 py-0.5 rounded font-bold ml-1" style="background:rgba(139,92,246,0.15);color:#a78bfa">LOCAL</span>' : ''}
       </td>
     </tr>`;
   }).join('');
@@ -3448,10 +3461,11 @@ window._prExportPilotage = function() {
     const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
     const facingLabel = a._facingIdx == null ? '' : a._facingIdx === 0 ? '⚠️' : '★'.repeat(a._facingIdx);
     const deltaLabel = a._facingDelta === 'up' ? '⬆️ élargir' : a._facingDelta === 'down' ? '⬇️ réduire' : a._facingDelta === 'remove' ? '❌ retrait' : '';
+    const local = _isLocalIncont(a.code, a.role) ? 'LOCAL' : '';
     return [a.code, lib, a.emplacement || '', sf, a.stockActuel || 0, a.W,
-      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name, facingLabel, deltaLabel].join(';');
+      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name, local, facingLabel, deltaLabel].join(';');
   });
-  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict;Facing;Action Facing', ...rows].join('\n');
+  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict;Local;Facing;Action Facing', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
