@@ -2425,9 +2425,9 @@ function _prBuildConqueteKit(codeFam) {
   };
   const allCodes = new Set();
   for (const arts of Object.values(vpm)) {
-    for (const code of Object.keys(arts)) { if (matchFam(code)) allCodes.add(code); }
+    for (const code of Object.keys(arts)) { if (/^\d{6}$/.test(code) && matchFam(code)) allCodes.add(code); }
   }
-  for (const r of (_S.finalData || [])) { if (matchFam(r.code)) allCodes.add(r.code); }
+  for (const r of (_S.finalData || [])) { if (/^\d{6}$/.test(r.code) && matchFam(r.code)) allCodes.add(r.code); }
 
   // Get squelette data for zone metrics
   const sqData = _S._prSqData || computeSquelette();
