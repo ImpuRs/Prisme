@@ -6,7 +6,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro, famLib, famLabel, escapeHtml } from './utils.js';
+import { formatEuro, famLib, escapeHtml } from './utils.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
 import { buildAgenceStore } from './agence-store.js';
 import { getCaClientParStoreMap } from './sales.js';
@@ -23,6 +23,60 @@ let _duelDrillTab = 'manquant';
 let _duelShowAllMetiers = false;
 let _duelOpenMetier = '';
 let _duelMetierTab = 'partages'; // partages | conquete | fideles
+let _duelClientsTab = 'conquete'; // conquete | partages | fideles
+
+// Cache local (évite de re-parcourir 40k clients à chaque re-render sur un simple toggle UI)
+let _duelClientsCacheKey = '';
+let _duelClientsCache = null;
+
+// Cache duel (évite de recalculer toute l'agrégation sur de simples toggles UI)
+let _duelCacheKey = '';
+let _duelCache = null;
+
+// Index finalData (stock selected store) — évite de reconstruire un gros lookup à chaque drill-down
+let _duelFDIndexSrc = null; // Array reference
+let _duelFDIndex = null;    // Object {code → row}
+function _getFinalDataIndex() {
+  const src = _S.finalData || [];
+  if (_duelFDIndex && _duelFDIndexSrc === src) return _duelFDIndex;
+  const out = {};
+  for (const r of src) { if (r && r.code) out[r.code] = r; }
+  _duelFDIndexSrc = src;
+  _duelFDIndex = out;
+  return out;
+}
+
+function _periodMonthIdxBounds() {
+  const pStart = _S.periodFilterStart;
+  const pEnd = _S.periodFilterEnd;
+  const startIdx = pStart ? (pStart.getFullYear() * 12 + pStart.getMonth()) : 0;
+  const endIdx = pEnd ? (pEnd.getFullYear() * 12 + pEnd.getMonth()) : 999999;
+  return { startIdx, endIdx, hasPeriod: !!(pStart || pEnd) };
+}
+
+function _isSixDigit(code) {
+  return typeof code === 'string' ? /^\d{6}$/.test(code) : false;
+}
+
+function _getPeriodClientSetForStore(store) {
+  const { startIdx, endIdx, hasPeriod } = _periodMonthIdxBounds();
+  const bmsc = _S._byMonthStoreClients?.[store];
+  if (bmsc) {
+    const out = new Set();
+    for (const midxStr in bmsc) {
+      const midx = +midxStr;
+      if (hasPeriod && (midx < startIdx || midx > endIdx)) continue;
+      const s = bmsc[midxStr];
+      if (s instanceof Set) { for (const cc of s) out.add(cc); }
+      else if (Array.isArray(s)) { for (const cc of s) out.add(cc); }
+    }
+    return out;
+  }
+  const vcs = _S.ventesClientsPerStore?.[store];
+  if (vcs instanceof Set) return new Set(vcs);
+  if (Array.isArray(vcs)) return new Set(vcs);
+  return new Set();
+}
 
 // ═══════════════════════════════════════════════════════════════
 // computeDuel — calcule le comparatif entre deux agences
@@ -55,38 +109,26 @@ function _computeDuel(myStore, targetStore) {
   _addToFam(myRec.artMap, 'my');
   _addToFam(tgtRec.artMap, 'tgt');
 
-  // Refs stockées
-  function _countStock(storeCode, famData) {
+  // Refs stockées — O(n) (évite O(familles × refs) sur les gros stocks)
+  function _countStockByFam(storeCode) {
     const sd = spm[storeCode];
-    if (!sd) return;
+    if (!sd) return {};
+    const out = {};
     for (const code in sd) {
-      if (!/^\d{6}$/.test(code)) continue;
+      if (!_isSixDigit(code)) continue;
       const s = sd[code];
       if ((s.qteMin || 0) <= 0 && (s.qteMax || 0) <= 0) continue;
       const fam = artFam[code] || '';
       if (!fam) continue;
-      if (!famData[fam]) famData[fam] = { myCA: 0, tgtCA: 0, myBL: 0, tgtBL: 0, myRefs: 0, tgtRefs: 0, myVMB: 0, tgtVMB: 0, myRefsStock: 0, tgtRefsStock: 0 };
+      out[fam] = (out[fam] || 0) + 1;
     }
+    return out;
   }
-  _countStock(myStore, famMap);
-  _countStock(targetStore, famMap);
-
+  const myStockByFam = _countStockByFam(myStore);
+  const tgtStockByFam = _countStockByFam(targetStore);
   for (const fam in famMap) {
-    let myStk = 0, tgtStk = 0;
-    const mySD = spm[myStore] || {};
-    const tgtSD = spm[targetStore] || {};
-    for (const code in mySD) {
-      if (!/^\d{6}$/.test(code)) continue;
-      if (artFam[code] !== fam) continue;
-      if ((mySD[code].qteMin || 0) > 0 || (mySD[code].qteMax || 0) > 0) myStk++;
-    }
-    for (const code in tgtSD) {
-      if (!/^\d{6}$/.test(code)) continue;
-      if (artFam[code] !== fam) continue;
-      if ((tgtSD[code].qteMin || 0) > 0 || (tgtSD[code].qteMax || 0) > 0) tgtStk++;
-    }
-    famMap[fam].myRefsStock = myStk;
-    famMap[fam].tgtRefsStock = tgtStk;
+    famMap[fam].myRefsStock = myStockByFam[fam] || 0;
+    famMap[fam].tgtRefsStock = tgtStockByFam[fam] || 0;
   }
 
   // ── Familles en tableau ──
@@ -126,6 +168,25 @@ function _computeDuel(myStore, targetStore) {
   return { my: myRec, tgt: tgtRec, familles, univers, metiers };
 }
 
+function _getCachedDuel(myStore, targetStore) {
+  if (!myStore || !targetStore) return null;
+  const { startIdx, endIdx } = _periodMonthIdxBounds();
+  const stamp = [
+    myStore,
+    targetStore,
+    startIdx,
+    endIdx,
+    _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : 0,
+    _S.finalData?.length || 0,
+    _S.storeCountConsomme || (_S.storesIntersection?.size || 0),
+  ].join('|');
+  if (_duelCache && _duelCacheKey === stamp) return _duelCache;
+  const duel = _computeDuel(myStore, targetStore);
+  _duelCacheKey = stamp;
+  _duelCache = duel;
+  return duel;
+}
+
 // ── CA client par store — période-filtré si byMonthStoreClientCA disponible ──
 function _buildPeriodCAMapForStore(store) {
   const pStart = _S.periodFilterStart;
@@ -152,28 +213,8 @@ function _computeMetierMix(myStore, tgtStore) {
   const chal = _S.chalandiseData;
   if (!chal?.size) return [];
 
-  const bmsc = _S._byMonthStoreClients;
-
-  function _getStoreClients(store) {
-    const clients = new Set();
-    const storeBmsc = bmsc?.[store];
-    if (storeBmsc) {
-      for (const midxStr in storeBmsc) {
-        const s = storeBmsc[midxStr];
-        if (s instanceof Set) for (const cc of s) clients.add(cc);
-        else if (Array.isArray(s)) for (const cc of s) clients.add(cc);
-      }
-    }
-    if (!clients.size) {
-      const vcs = _S.ventesClientsPerStore?.[store];
-      if (vcs instanceof Set) for (const cc of vcs) clients.add(cc);
-      else if (Array.isArray(vcs)) for (const cc of vcs) clients.add(cc);
-    }
-    return clients;
-  }
-
-  const myClients = _getStoreClients(myStore);
-  const tgtClients = _getStoreClients(tgtStore);
+  const myClients = _getPeriodClientSetForStore(myStore);
+  const tgtClients = _getPeriodClientSetForStore(tgtStore);
 
   const myCAMap = _buildPeriodCAMapForStore(myStore);
   const tgtCAMap = _buildPeriodCAMapForStore(tgtStore);
@@ -254,7 +295,7 @@ export function renderDuelTab() {
   }
 
   const t0 = performance.now();
-  const duel = _computeDuel(myStore, _duelTarget);
+  const duel = _getCachedDuel(myStore, _duelTarget);
   if (!duel) {
     el.innerHTML = '<div class="p-8 text-center t-secondary">Données insuffisantes pour ce duel.</div>';
     return;
@@ -278,6 +319,9 @@ export function renderDuelTab() {
 
   // ── Section 1 : KPI Scorecard ──
   html.push(_buildKPIScorecard(duel, myStore, _duelTarget));
+
+  // ── Section 1.5 : Opportunités clients (zone chalandise) ──
+  html.push(_buildClientsSection(myStore, _duelTarget));
 
   // ── Section 2 : Mix Métier ──
   html.push(_buildMetierSection(duel, myStore, _duelTarget));
@@ -360,14 +404,14 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
     for (const canal in bmsac[myStore]) {
       for (const code in bmsac[myStore][canal]) {
         for (const midx in bmsac[myStore][canal][code]) {
-          myMonths[midx] = (myMonths[midx] || 0) + (bmsac[myStore][canal][code][midx].ca || 0);
+          myMonths[midx] = (myMonths[midx] || 0) + (bmsac[myStore][canal][code][midx].sumCA || 0);
         }
       }
     }
     for (const canal in bmsac[tgtStore]) {
       for (const code in bmsac[tgtStore][canal]) {
         for (const midx in bmsac[tgtStore][canal][code]) {
-          tgtMonths[midx] = (tgtMonths[midx] || 0) + (bmsac[tgtStore][canal][code][midx].ca || 0);
+          tgtMonths[midx] = (tgtMonths[midx] || 0) + (bmsac[tgtStore][canal][code][midx].sumCA || 0);
         }
       }
     }
@@ -414,6 +458,150 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
       ${rows.join('')}
     </div>
     ${monthlyHtml}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Opportunités Clients (zone chalandise) — duel 1v1
+// ═══════════════════════════════════════════════════════════════
+function _computeDuelClients(myStore, tgtStore) {
+  const chal = _S.chalandiseData;
+  if (!chal?.size) return null;
+
+  const { startIdx, endIdx } = _periodMonthIdxBounds();
+  const stamp = [
+    myStore,
+    tgtStore,
+    startIdx,
+    endIdx,
+    chal.size,
+    _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : 0,
+  ].join('|');
+  if (_duelClientsCache && _duelClientsCacheKey === stamp) return _duelClientsCache;
+
+  const myClients = _getPeriodClientSetForStore(myStore);
+  const tgtClients = _getPeriodClientSetForStore(tgtStore);
+  const myCAMap = _buildPeriodCAMapForStore(myStore);
+  const tgtCAMap = _buildPeriodCAMapForStore(tgtStore);
+
+  const conquest = [];
+  const shared = [];
+  const fideles = [];
+  let dormant = 0;
+
+  for (const [cc, info] of chal) {
+    const buysMine = myClients.has(cc);
+    const buysHis = tgtClients.has(cc);
+    if (!buysMine && !buysHis) { dormant++; continue; }
+
+    const myCA = myCAMap?.get(cc) || 0;
+    const hisCA = tgtCAMap?.get(cc) || 0;
+    const rec = { cc, myCA, hisCA, gap: hisCA - myCA };
+
+    if (buysHis && !buysMine) conquest.push(rec);
+    else if (buysMine && buysHis) shared.push(rec);
+    else if (buysMine && !buysHis) fideles.push(rec);
+  }
+
+  const recover = shared.filter(r => r.gap > 0);
+
+  conquest.sort((a, b) => b.hisCA - a.hisCA);
+  recover.sort((a, b) => b.gap - a.gap);
+  fideles.sort((a, b) => b.myCA - a.myCA);
+
+  const out = {
+    zoneCount: chal.size,
+    dormant,
+    conquest,
+    recover,
+    fideles,
+    sums: {
+      conquestCA: conquest.reduce((s, r) => s + (r.hisCA || 0), 0),
+      recoverGap: recover.reduce((s, r) => s + (r.gap || 0), 0),
+      fidelesCA: fideles.reduce((s, r) => s + (r.myCA || 0), 0),
+    },
+  };
+
+  _duelClientsCacheKey = stamp;
+  _duelClientsCache = out;
+  return out;
+}
+
+function _buildClientsSection(myStore, tgtStore) {
+  const chal = _S.chalandiseData;
+  if (!chal?.size) return '';
+  const nomLookup = _S.clientNomLookup || {};
+
+  const data = _computeDuelClients(myStore, tgtStore);
+  if (!data) return '';
+
+  const tab = _duelClientsTab;
+  const list = tab === 'conquete' ? data.conquest : tab === 'partages' ? data.recover : data.fideles;
+
+  const LIMIT = 15;
+  const show = list.slice(0, LIMIT);
+  const more = Math.max(0, list.length - show.length);
+
+  const tabBtn = (id, label, count, kpi, color) => {
+    const active = tab === id;
+    return `<button onclick="window._duelClientsSetTab('${id}')" class="px-3 py-2 text-[11px] font-semibold rounded-lg border transition-all ${active ? 'text-white shadow-lg' : 't-primary hover:border-blue-400'}" style="${active ? `background:${color};border-color:${color}` : 'background:var(--s-card);border-color:var(--b-default)'}">
+      ${label} <span class="font-normal opacity-80">${count}</span>${kpi ? ` <span class="text-[10px] font-normal opacity-80">${kpi}</span>` : ''}
+    </button>`;
+  };
+
+  const rows = show.map(c => {
+    const info = chal.get(c.cc) || {};
+    const nom = info.nom || nomLookup[c.cc] || c.cc;
+    const metier = info.metier || '';
+    const classif = info.classification || '';
+    const distanceKm = (info.distanceKm == null ? null : info.distanceKm);
+    const open360 = `if(window.openClient360)window.openClient360('${c.cc}','duel')`;
+    const gap = c.gap || 0;
+    const gapColor = gap > 0 ? 'text-red-500' : gap < 0 ? 'text-emerald-500' : 't-disabled';
+    const dkm = (distanceKm != null && !isNaN(+distanceKm)) ? `${Math.round(+distanceKm)}km` : '';
+    const meta = [metier, dkm].filter(Boolean).join(' · ');
+    return `<tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" style="border-color:var(--b-light)" onclick="${open360}">
+      <td class="py-2 px-2 text-xs">
+        <div class="font-semibold">${escapeHtml(c.cc)} <span class="t-primary">${escapeHtml(nom)}</span></div>
+        ${meta ? `<div class="text-[10px] t-disabled mt-0.5 truncate">${escapeHtml(meta)}</div>` : ''}
+      </td>
+      <td class="py-2 px-2 text-[11px] t-secondary max-w-[160px] truncate" title="${escapeHtml(classif || '')}">${escapeHtml(classif || '—')}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${c.myCA > 0 ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${c.hisCA > 0 ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-bold font-mono ${gapColor}">${gap ? (gap > 0 ? '+' : '') + formatEuro(gap) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="s-card rounded-xl border mb-5 overflow-hidden">
+    <div class="p-4 pb-2">
+      <h3 class="text-sm font-bold t-primary mb-0.5">Opportunités clients <span class="text-xs font-normal t-disabled">— zone chalandise</span></h3>
+      <p class="text-[10px] t-disabled">Basé sur tes clients zone (Chalandise) croisés avec le consommé ${escapeHtml(myStore)} et ${escapeHtml(tgtStore)} sur la période active.</p>
+    </div>
+
+    <div class="flex gap-2 px-4 pb-3 flex-wrap">
+      ${tabBtn('conquete', 'À conquérir', data.conquest.length, data.sums.conquestCA > 0 ? formatEuro(data.sums.conquestCA) : '', '#ef4444')}
+      ${tabBtn('partages', 'À récupérer', data.recover.length, data.sums.recoverGap > 0 ? formatEuro(data.sums.recoverGap) : '', '#3b82f6')}
+      ${tabBtn('fideles', 'Mes fidèles', data.fideles.length, data.sums.fidelesCA > 0 ? formatEuro(data.sums.fidelesCA) : '', '#10b981')}
+      <div class="flex-1"></div>
+      <div class="text-[10px] t-disabled self-center">${data.dormant} dormants</div>
+    </div>
+
+    ${show.length === 0
+      ? `<div class="text-[11px] t-disabled text-center py-6">Aucun client dans ce groupe.</div>`
+      : `<div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead><tr class="text-[10px] t-disabled border-b" style="border-color:var(--b-dark);background:var(--s-page)">
+            <th class="py-1.5 px-2 font-medium">Client</th>
+            <th class="py-1.5 px-2 font-medium">Classif</th>
+            <th class="py-1.5 px-2 text-right font-medium">${escapeHtml(myStore)}</th>
+            <th class="py-1.5 px-2 text-right font-medium">${escapeHtml(tgtStore)}</th>
+            <th class="py-1.5 px-2 text-right font-medium">Gap</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          ${more > 0 ? `<tfoot><tr><td colspan="5" class="text-[10px] t-disabled text-center py-2">… et ${more} autres</td></tr></tfoot>` : ''}
+        </table>
+      </div>`
+    }
   </div>`;
 }
 
@@ -557,8 +745,8 @@ function _buildMetierDrillDown(metierData, myStore, tgtStore) {
   if (!chal?.size) return `<tr><td colspan="6" class="py-4 px-4 text-[11px] t-disabled text-center" style="background:var(--bg-card)">
     Chargez la Zone de Chalandise pour voir les clients nommés.</td></tr>`;
 
-  const myClientsStore = _S.ventesClientsPerStore?.[myStore] || new Set();
-  const tgtClientsStore = _S.ventesClientsPerStore?.[tgtStore] || new Set();
+  const myClientsStore = _getPeriodClientSetForStore(myStore);
+  const tgtClientsStore = _getPeriodClientSetForStore(tgtStore);
   const myCAMap = _buildPeriodCAMapForStore(myStore);
   const tgtCAMap = _buildPeriodCAMapForStore(tgtStore);
   const nomLookup = _S.clientNomLookup || {};
@@ -567,13 +755,13 @@ function _buildMetierDrillDown(metierData, myStore, tgtStore) {
   const metier = metierData.metier;
 
   // ── Familles fortes chez l'adversaire (pour suggestions familles manquantes) ──
-  const vpm = _S.ventesParMagasin || {};
   const tgtFamCA = {};
-  const tgtVpm = vpm[tgtStore] || {};
-  for (const code in tgtVpm) {
+  const tgtRec = _S.agenceStore?.get(tgtStore);
+  const tgtArtMap = tgtRec?.artMap || _S.ventesParMagasin?.[tgtStore] || {};
+  for (const code in tgtArtMap) {
     if (!/^\d{6}$/.test(code)) continue;
     const fam = artFam[code];
-    if (fam) tgtFamCA[fam] = (tgtFamCA[fam] || 0) + (tgtVpm[code].sumCA || 0);
+    if (fam) tgtFamCA[fam] = (tgtFamCA[fam] || 0) + (tgtArtMap[code].sumCA || 0);
   }
 
   // ── Classifier tous les clients zone de ce métier ──
@@ -939,14 +1127,13 @@ function _buildDrillDown(famCode) {
   const artFam = _S.articleFamille || {};
   const libLookup = _S.libelleLookup || {};
   const spm = _S.stockParMagasin || {};
-  const vpm = _S.ventesParMagasin || {};
   const myStock = spm[myStore] || {};
   const tgtStock = spm[tgtStore] || {};
-  const myVpm = vpm[myStore] || {};
-  const tgtVpm = vpm[tgtStore] || {};
+  // Source : artMap déjà période-filtré via buildAgenceStore()
+  const myVpm = myRec.artMap || {};
+  const tgtVpm = tgtRec.artMap || {};
   // Index finalData pour stock actuel + MIN/MAX calculé
-  const fdByCode = {};
-  for (const r of (_S.finalData || [])) fdByCode[r.code] = r;
+  const fdByCode = _getFinalDataIndex();
 
   const allCodes = new Set();
   for (const code in myVpm) { if (artFam[code] === famCode && /^\d{6}$/.test(code)) allCodes.add(code); }
@@ -1091,6 +1278,11 @@ window._duelSelectTarget = function(val) {
   _duelTarget = val;
   _duelOpenFam = '';
   _duelShowAllMetiers = false;
+  renderDuelTab();
+};
+
+window._duelClientsSetTab = function(tab) {
+  _duelClientsTab = tab;
   renderDuelTab();
 };
 

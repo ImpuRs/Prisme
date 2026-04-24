@@ -1519,8 +1519,8 @@ function _renderCommercialScorecard(containerId) {
         + (_caDegraded ? ' · CA figé (cache ancien)' : ''),
       'var(--c-action)',
       _scCanal && _scCanal !== 'MAGASIN' ? 'CA via ' + (_CANAL_LABELS_OV[_scCanal] || _scCanal) + ' par les clients du portefeuille sur la période filtrée' : 'CA réalisé en agence (canal MAGASIN) par les clients du portefeuille sur la période filtrée')}
-    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients', '#c4b5fd',
-      'CA total Legallais tous canaux (source Qlik nationale) — inclut MAGASIN + INTERNET + REP + DCS')}
+    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients · source Qlik', '#c4b5fd',
+      'CA total Legallais (source Chalandise/Qlik). Ne varie pas avec la période PRISME, seulement avec le fichier Chalandise et les filtres clients.')}
     ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)',
       'Part de marché PDV = CA PDV ÷ CA Zone. Objectif : capter le max du potentiel en agence')}
     ${cibleComptoir > 0 ? _kpi('Cible Comptoir', formatEuro(cibleComptoir), pctCompat + '% compatible', '#22d3ee',
