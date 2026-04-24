@@ -12,9 +12,10 @@ import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 import { articleLib } from './article-store.js';
+import { getVentesClientMagFull } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
-const _vcaFull = () => _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+const _vcaFull = () => getVentesClientMagFull();
 
 function _isSixDigitCode(code) {
   if (code == null) return false;
@@ -1109,7 +1110,7 @@ export function computeArticleZoneIndex() {
     c.ca += ca; c.mon += mon;
   };
 
-  // Source 1 : ventesClientArticleFull (MAGASIN = mon agence, pleine période 12MG)
+  // Source 1 : ventesClientMagFull (MAGASIN = mon agence, pleine période 12MG)
   for (const [cc, artMap] of (_vcaFull() || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
@@ -1364,7 +1365,9 @@ export function computeSquelette(directionFilter) {
       const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
       if (_isFin) { a.classification = 'bruit'; continue; }
       // 2. Signal réseau mort : toutes les agences qui vendent ont MIN/MAX=0/0 → produit bloqué nationalement
-      if (a.nbAgencesReseau >= 1 && _S.stockParMagasin) {
+      // Exception : si ≥3 agences vendent ET CA réseau ≥ 3000€ → clairement actif, pas bloqué
+      // (couvre les articles commandés à la demande sans MIN/MAX formalisé)
+      if (a.nbAgencesReseau >= 1 && _S.stockParMagasin && !(a.nbAgencesReseau >= 3 && a.caReseau >= 3000)) {
         let _anyMinMax = false;
         for (const s of Object.keys(vpm)) {
           if (s === myStore) continue;
@@ -1413,7 +1416,7 @@ export function computeSquelette(directionFilter) {
   directions.sort((a, b) =>
     (b.implanter.length + b.challenger.length) - (a.implanter.length + a.challenger.length)
   );
-  const _result = { directions, totals };
+  const _result = { directions, totals, _allArticles: articleData };
   _sqCacheKey = _sk; _sqCacheResult = _result;
   return _result;
 }
@@ -1435,13 +1438,15 @@ const _VERDICT_MAP = {
 // pendant l'étape "Verdicts" (hot path au chargement).
 function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes }) {
   const nbStByCode = new Map(); // code → nb agences réseau (hors myStore) où countBL>0
+  const caReseauByCode = new Map(); // code → CA réseau total (hors myStore)
   for (const code of finalCodes) {
-    let n = 0;
+    let n = 0, caR = 0;
     for (let i = 0; i < stores.length; i++) {
       const d = vpm[stores[i]]?.[code];
-      if (d && d.countBL > 0) n++;
+      if (d && d.countBL > 0) { n++; caR += d.sumCA || 0; }
     }
     nbStByCode.set(code, n);
+    if (caR > 0) caReseauByCode.set(code, caR);
   }
 
   // Chalandise zone: caZone + nbClientsZone (capé à 5 car seul le seuil >=5 est utilisé)
@@ -1541,7 +1546,10 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
       const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
       if (_isFin) { classif = 'bruit'; }
       else {
-        if (nbAgencesReseau >= 1 && _S.stockParMagasin) {
+        // Signal réseau mort : si aucune agence n'a de MIN/MAX → produit bloqué nationalement
+        // Exception : ≥3 agences vendent ET caReseau ≥ 3000€ → article à la demande, pas bloqué
+        const _caR = caReseauByCode.get(code) || 0;
+        if (nbAgencesReseau >= 1 && _S.stockParMagasin && !(nbAgencesReseau >= 3 && _caR >= 3000)) {
           let anyMinMax = false;
           for (let i = 0; i < stores.length; i++) {
             const stk = _S.stockParMagasin[stores[i]]?.[code];
@@ -1561,7 +1569,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
     if (classif !== 'bruit') classifMap.set(code, classif);
   }
 
-  return { classifMap, nbStByCode };
+  return { classifMap, nbStByCode, caReseauByCode };
 }
 
 export function applyVerdictOverrides() {
@@ -1597,7 +1605,7 @@ export function applyVerdictOverrides() {
   }
 
   // Squelette : classifications par code (lite, finalData uniquement)
-  const { classifMap, nbStByCode } = _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes });
+  const { classifMap, nbStByCode, caReseauByCode } = _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes });
 
   let overrideCount = 0;
   let facingCount = 0;
@@ -1637,9 +1645,9 @@ export function applyVerdictOverrides() {
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
     // Fix Poids Mort : challenger avec demande externe → upgrade rôle
-    if (role === 'standard' && W === 0 && (r.stockActuel || 0) > 0) {
-      if (nbSt >= 1) role = 'incontournable';
-      else if (nbCli >= 1) role = 'specialiste';
+    if (role === 'standard' && classif === 'challenger') {
+      if (nbSt >= 3 || detention >= 0.3) role = 'incontournable';
+      else if (nbCliMetierStrat >= 1) role = 'specialiste';
     }
 
     r._sqRole = role;

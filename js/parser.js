@@ -14,8 +14,7 @@ import { CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAMILLE_LOOKUP, AGENCE_CP } f
 import { cleanOmniPrice, readExcel, _wsToHR, yieldToMain, parseCSVTextToHR, _median, _isMetierStrategique, extractClientCode, escapeHtml, famLib, haversineKm } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { buildAgenceStore } from './agence-store.js';
-import { getCloneSet } from './clone-store.js';
-
+import { getVentesClientMagFull } from './sales.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
 export async function parseChalandise(file) {
@@ -575,7 +574,7 @@ export function launchClientWorker(progressCb) {
       const worker = new Worker(url);
       _S._activeClientWorker = worker;
       const ventesCA = [];
-      const _srcVentes = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+      const _srcVentes = getVentesClientMagFull();
       for (const [cc, artMap] of _srcVentes.entries()) {
         const arts = [];
         for (const [code2, data] of artMap.entries()) arts.push([code2, data]);
@@ -681,13 +680,10 @@ export function computeBenchmark(canaux = new Set()) {
   // Cache miss — invalider les médianes (reconstruites depuis ventesParMagasin période-courante)
   delete _S._artMedianBL; delete _S._artMedianQte; delete _S._artMedianCA;
 
-  // Bassin : sélection manuelle > clones > tous les stores
-  const _cloneSet = getCloneSet();
+  // Bassin : sélection manuelle > tous les stores
   const bassinStores = _S.selectedBenchBassin?.size > 0
     ? [..._S.selectedBenchBassin]
-    : _cloneSet.size >= 2
-      ? [..._cloneSet]
-      : [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
+    : [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
   const cs = bassinStores.filter(s => _S.storesIntersection.has(s));
   const csSet = new Set(cs);
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };

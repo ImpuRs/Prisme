@@ -463,7 +463,7 @@ async function _saveSessionToIDBNow() {
       clientsMagasinFreq:    [..._S.clientsMagasinFreq],
       // ── Client data ──
       ventesClientArticle:      _serializeNestedMap(_S.ventesClientArticle),
-      ventesClientArticleFull:  _serializeNestedMap(_S.ventesClientArticleFull),
+      ventesClientMagFull:  _serializeNestedMap(_S.ventesClientMagFull),
       ventesClientArticleReseau: _serializeNestedMap(_S.ventesClientArticleReseau),
       byMonth:                  _S._byMonth || null,
       byMonthFull:              _S._byMonthFull || null,
@@ -473,6 +473,7 @@ async function _saveSessionToIDBNow() {
         ? Object.fromEntries(Object.entries(_S._byMonthStoreClients).map(([sk, months]) =>
             [sk, Object.fromEntries(Object.entries(months).map(([mi, s]) => [mi, [...s]]))]))
         : null,
+      byMonthStoreClientCA:     _S._byMonthStoreClientCA || null,
       byMonthClients:           _S._byMonthClients
         ? Object.fromEntries(Object.entries(_S._byMonthClients).map(([k, v]) => [k, [...v]]))
         : null,
@@ -489,6 +490,7 @@ async function _saveSessionToIDBNow() {
       clientLastOrderByCanal: [..._S.clientLastOrderByCanal].map(([cc, cMap]) => [cc, [...cMap].map(([c, d]) => [c, d instanceof Date ? d.getTime() : d])]),
       clientNomLookup:       _S.clientNomLookup,
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
+      caClientParStore: _serializeMapsObj(_S.caClientParStore),
       commandesPerStoreCanal: _serializeCmdPerStoreCanal(_S.commandesPerStoreCanal),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
       articleClientsFull:    [..._S.articleClientsFull].map(([k, v]) => [k, [...v]]),
@@ -529,9 +531,6 @@ async function _saveSessionToIDBNow() {
       _clientsActiveTab:     _S._clientsActiveTab   || 'priorites',
       // ── Benchmark (cache rendu) ──
       benchLists:            _serializeBenchLists(_S.benchLists),
-      // ── Agences clones ──
-      _cloneStores:          _S._cloneStores || [],
-      seasonalIndexClones:   _S.seasonalIndexClones || null,
       // ── Moteur saisonnier (B3) ──
       seasonalIndex:         _S.seasonalIndex,
       articleMonthlySales:   _S.articleMonthlySales,
@@ -620,7 +619,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientsMagasinFreq   = new Map(data.clientsMagasinFreq || []);
 
     _S.ventesClientArticle      = _deserializeNestedMap(data.ventesClientArticle      || []);
-    _S.ventesClientArticleFull  = _deserializeNestedMap(data.ventesClientArticleFull  || []);
+    _S.ventesClientMagFull  = _deserializeNestedMap(data.ventesClientMagFull  || []);
     _S.ventesClientArticleReseau = _deserializeNestedMap(data.ventesClientArticleReseau || []);
     if (data.byMonth)      _S._byMonth      = data.byMonth;
     if (data.byMonthFull)  _S._byMonthFull  = data.byMonthFull;
@@ -630,6 +629,7 @@ export async function _restoreSessionFromIDB() {
       _S._byMonthStoreClients = {};
       for (const sk in data.byMonthStoreClients) { _S._byMonthStoreClients[sk] = {}; for (const mi in data.byMonthStoreClients[sk]) _S._byMonthStoreClients[sk][mi] = new Set(data.byMonthStoreClients[sk][mi]); }
     }
+    if (data.byMonthStoreClientCA) _S._byMonthStoreClientCA = data.byMonthStoreClientCA;
     if (data.byMonthClients) {
       _S._byMonthClients = Object.fromEntries(
         Object.entries(data.byMonthClients).map(([k, arr]) => [k, new Set(arr)])
@@ -651,6 +651,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientLastOrderByCanal = new Map((data.clientLastOrderByCanal || []).map(([cc, arr]) => [cc, new Map((arr || []).map(([c, d]) => [c, d ? new Date(d) : null]))]));
     _S.clientNomLookup       = data.clientNomLookup       || {};
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
+    _S.caClientParStore = _deserializeMapsObj(data.caClientParStore || {});
     _S.commandesPerStoreCanal = _deserializeCmdPerStoreCanal(data.commandesPerStoreCanal || {});
     _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
     _S.articleClientsFull    = new Map((data.articleClientsFull || []).map(([k, v]) => [k, new Set(v)]));
@@ -691,10 +692,6 @@ export async function _restoreSessionFromIDB() {
     // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
     _S.articleCanalCA = _deserializeNestedMap(data.articleCanalCA || []);
 
-    // ── Agences clones ──
-    _S._cloneStores        = data._cloneStores        || [];
-    _S._cloneSet           = null; // recalculé à la demande depuis _cloneStores
-    _S.seasonalIndexClones = data.seasonalIndexClones  || null;
     // ── Moteur saisonnier (B3) ──
     _S.seasonalIndex       = data.seasonalIndex       || {};
     _S.articleMonthlySales = data.articleMonthlySales || {};
@@ -823,6 +820,18 @@ export function _serializeSetsObj(obj) {
 export function _deserializeSetsObj(obj) {
   const out = {};
   for (const [k, v] of Object.entries(obj)) out[k] = Array.isArray(v) ? new Set(v) : v;
+  return out;
+}
+
+// { store: Map<cc, CA> } ↔ { store: [[cc, CA]] }
+export function _serializeMapsObj(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) out[k] = v instanceof Map ? [...v] : v;
+  return out;
+}
+export function _deserializeMapsObj(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) out[k] = Array.isArray(v) ? new Map(v) : v;
   return out;
 }
 

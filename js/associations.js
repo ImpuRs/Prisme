@@ -321,6 +321,8 @@ function _findClientTargets(famA, famB) {
       if (cf === famB) hasB = true;
     }
     if (hasA && !hasB) {
+      // Uniquement clients PDV (au moins 1 achat MAGASIN)
+      if (!_S.ventesClientMagFull?.has(cc) && !_S.ventesClientArticle?.has(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       targets.push({
         cc,

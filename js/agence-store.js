@@ -73,7 +73,7 @@ export function buildAgenceStore(opts = {}) {
         for (const code in codeMap) {
           if (univFilter && _S.articleUnivers[code] !== univFilter) continue;
           const months = codeMap[code];
-          let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0;
+          let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0, sumQteP = 0;
           for (const midxStr in months) {
             const midx = +midxStr;
             if (midx < startIdx || midx > endIdx) continue;
@@ -82,6 +82,7 @@ export function buildAgenceStore(opts = {}) {
             sumPrel += d.sumPrelevee || 0;
             countBL += d.countBL || 0;
             sumVMB  += d.sumVMB || 0;
+            sumQteP += d.sumQteP || 0;
           }
           if (!countBL && !sumCA) continue;
           // Mode magasin : ajuster CA selon prélevé/enlevé
@@ -91,11 +92,12 @@ export function buildAgenceStore(opts = {}) {
           } else if (canal === 'MAGASIN' && magMode === 'enleve') {
             lineCA = sumCA - sumPrel;
           }
-          if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0 };
+          if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumQteP: 0 };
           artMap[code].sumCA       += lineCA;
           artMap[code].sumPrelevee += sumPrel;
           artMap[code].countBL     += countBL;
           artMap[code].sumVMB      += lineVMB;
+          artMap[code].sumQteP     += sumQteP;
         }
       }
       rec.artMap = artMap;
@@ -109,23 +111,25 @@ export function buildAgenceStore(opts = {}) {
         for (const code in codeMap) {
           if (univFilter && _S.articleUnivers[code] !== univFilter) continue;
           const months = codeMap[code];
-          let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0;
+          let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0, sumQteP = 0;
           for (const midxStr in months) {
             const d = months[midxStr];
             sumCA   += d.sumCA || 0;
             sumPrel += d.sumPrelevee || 0;
             countBL += d.countBL || 0;
             sumVMB  += d.sumVMB || 0;
+            sumQteP += d.sumQteP || 0;
           }
           if (!countBL && !sumCA) continue;
           let lineCA = sumCA, lineVMB = sumVMB;
           if (canal === 'MAGASIN' && magMode === 'preleve') { lineCA = sumPrel; }
           else if (canal === 'MAGASIN' && magMode === 'enleve') { lineCA = sumCA - sumPrel; }
-          if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0 };
+          if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumQteP: 0 };
           artMap[code].sumCA       += lineCA;
           artMap[code].sumPrelevee += sumPrel;
           artMap[code].countBL     += countBL;
           artMap[code].sumVMB      += lineVMB;
+          artMap[code].sumQteP     += sumQteP;
         }
       }
       rec.artMap = artMap;

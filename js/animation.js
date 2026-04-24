@@ -424,7 +424,7 @@ window._selectAnimMarque = function(marque) {
 // ═══════════════════════════════════════════════════════════════
 
 const CLASSIF_ORIENTATION = {
-  challenger:  { icon: '🔴', label: 'En décalage', conseil: 'Animation de Découverte / Conquête — demandez un fort dépôt-vente au fournisseur', style: 'background:#fef2f2;color:#991b1b;border-color:#fecaca' },
+  challenger:  { icon: '🔴', label: 'En décalage', conseil: 'Animation de Découverte / Conquête — négociez un stock de lancement avec le fournisseur', style: 'background:#fef2f2;color:#991b1b;border-color:#fecaca' },
   implanter:   { icon: '🟡', label: 'À développer', conseil: 'Animation de Développement — misez sur les best-sellers réseau absents de votre rayon', style: 'background:#fffbeb;color:#92400e;border-color:#fde68a' },
   socle:       { icon: '🟢', label: 'Performante', conseil: 'Animation Expert / VIP — ciblez les nouveautés et les machines premium', style: 'background:#f0fdf4;color:#166534;border-color:#bbf7d0' },
   surveiller:  { icon: '🔵', label: 'À surveiller', conseil: 'Animation ciblée — identifiez les références clés du réseau à tester', style: 'background:#eff6ff;color:#1e40af;border-color:#bfdbfe' },
@@ -704,8 +704,8 @@ function _renderAnimation(data) {
   const trous = data.trousCritiques || [];
   if (trous.length > 0) {
     html += `<div class="px-4 py-3 border-b" style="background:rgba(239,68,68,0.08)">
-      <h5 class="font-extrabold text-[12px] c-danger mb-2">🕳️ ${trous.length} Trous Critiques — demander dépôt-vente au fournisseur</h5>
-      <p class="text-[9px] t-secondary mb-2">Articles non référencés chez vous mais vendus par ${_S.storesIntersection?.size > 1 ? 'le réseau' : 'd\'autres agences'} — à négocier en dépôt-vente pour le Jour J</p>
+      <h5 class="font-extrabold text-[12px] c-danger mb-2">🕳️ ${trous.length} Trous Critiques — articles à commander pour le Jour J</h5>
+      <p class="text-[9px] t-secondary mb-2">Articles non référencés chez vous mais vendus par ${_S.storesIntersection?.size > 1 ? 'le réseau' : 'd\'autres agences'} — à implanter avant l'animation</p>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead class="text-[9px] t-disabled">

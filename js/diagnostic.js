@@ -13,6 +13,7 @@ import { computeSquelette } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
+import { getClientCAMagasinInMonthRange } from './sales.js';
 import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
@@ -189,7 +190,7 @@ function _renderClient360(clientCode,source){
   const _csRec=_S.clientStore?.get(clientCode);
   const nom=_csRec?.nom||info.nom||clientCode;
   const artMapPeriod=DataStore.ventesClientArticle?.get(clientCode);
-  const artMapFull=_S.ventesClientArticleFull?.get(clientCode);
+  const artMapFull=_S.ventesClientMagFull?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
@@ -216,9 +217,18 @@ function _renderClient360(clientCode,source){
   }else if(!artMap&&ca2025>0){
     statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-orange-100">HORS AGENCE</span>';
     statusBg='border-l-4 border-orange-500';
-  }else if(daysSince!==null&&daysSince>=30){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100">SILENCIEUX</span>';
+  }else if(daysSince!==null&&daysSince>365){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">ABANDONNÉ</span>';
+    statusBg='border-l-4 border-gray-600';
+  }else if(daysSince!==null&&daysSince>180){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-800 text-red-200">PERDU</span>';
+    statusBg='border-l-4 border-red-600';
+  }else if(daysSince!==null&&daysSince>60){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100">EN DANGER</span>';
     statusBg='border-l-4 border-red-500';
+  }else if(daysSince!==null&&daysSince>30){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-700 text-yellow-100">À SURVEILLER</span>';
+    statusBg='border-l-4 border-yellow-500';
   }else{
     statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">ACTIF</span>';
     statusBg='border-l-4 border-emerald-500';
@@ -238,7 +248,7 @@ function _renderClient360(clientCode,source){
         ${classifBadge}
       </div>
       <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
-      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
+      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
     </div>
     <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;
@@ -254,11 +264,17 @@ function _renderClient360(clientCode,source){
   }else if(!artMap&&ca2025>0){
     actionText=`Jamais venu en agence — ${formatEuro(ca2025)} chez Legallais. Opportunité directe.`;
     actionBg='bg-orange-900/40 border-orange-700';
-  }else if(daysSince!==null&&daysSince>=60){
-    actionText=`Client silencieux depuis ${daysSince}j — à risque de perte définitive. Appeler cette semaine.`;
+  }else if(daysSince!==null&&daysSince>365){
+    actionText=`Client abandonné depuis ${Math.round(daysSince/30)} mois — vérifier s'il est récupérable (CA historique ${formatEuro(ca2025||caPDV)}).`;
+    actionBg='bg-gray-800/60 border-gray-600';
+  }else if(daysSince!==null&&daysSince>180){
+    actionText=`Client perdu depuis ${Math.round(daysSince/30)} mois — campagne reconquête. "On ne vous a plus vu, j'ai une offre sur vos familles habituelles."`;
     actionBg='bg-red-900/40 border-red-700';
-  }else if(daysSince!==null&&daysSince>=30){
-    actionText=`${daysSince}j sans commande — à relancer avant que ça devienne critique.`;
+  }else if(daysSince!==null&&daysSince>60){
+    actionText=`Client en danger depuis ${daysSince}j — appeler cette semaine. "Ça fait ${Math.round(daysSince/30)} mois, qu'est-ce qui s'est passé ?"`;
+    actionBg='bg-red-900/40 border-red-700';
+  }else if(daysSince!==null&&daysSince>30){
+    actionText=`${daysSince}j sans commande — à surveiller, relancer avant que ça devienne critique.`;
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(horsMag&&horsMag.size>0){
     const nbOpp=[...horsMag.keys()].filter(c=>!artMap?.has(c)).length;
@@ -281,16 +297,21 @@ function _renderClient360(clientCode,source){
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];
   // ── Carte 1 : CA Magasin (période) + CA PDV année si filtre actif ──
-  const _bm360=_S._byMonth?.[clientCode];
-  let _caPdv26=0;
-  if(_bm360){const _curY=new Date().getFullYear(),_ymS=_curY*12,_ymE=_curY*12+11;for(const code in _bm360){const months=_bm360[code];for(const m in months){const mi=+m;if(mi>=_ymS&&mi<=_ymE)_caPdv26+=months[m].sumCA||0;}}}
+  const _curY=new Date().getFullYear(),_ymS=_curY*12,_ymE=_curY*12+11;
+  const _caPdv26=getClientCAMagasinInMonthRange(clientCode,{min:_ymS,max:_ymE})||0;
   const _hasPeriodFilter=!!_S.periodFilterStart;
   if(caPDV>0||artMap||_caPdv26>0){
+    const _isFallbackFull=!artMapPeriod&&artMapFull?.size>0;
     const mois=_S.consommeMoisCouverts||3;
-    const _pStart=_S.periodFilterStart||_S.consommePeriodMin;
-    const _pEnd=_S.periodFilterEnd||_S.consommePeriodMax;
-    const _fS=_pStart?fmtDate(_pStart):'',_fE=_pEnd?fmtDate(_pEnd):'';
-    const periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
+    let periode;
+    if(_isFallbackFull){
+      periode='12 mois glissants';
+    }else{
+      const _pStart=_S.periodFilterStart||_S.consommePeriodMin;
+      const _pEnd=_S.periodFilterEnd||_S.consommePeriodMax;
+      const _fS=_pStart?fmtDate(_pStart):'',_fE=_pEnd?fmtDate(_pEnd):'';
+      periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
+    }
     const subLine=_hasPeriodFilter&&_caPdv26>0&&_caPdv26!==caPDV
       ?`<p class="text-[10px] t-inverse-muted mt-0.5">Année 2026 : <strong class="t-inverse">${formatEuro(_caPdv26)}</strong></p>`:'';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p>${subLine}</div>`);
@@ -321,15 +342,15 @@ function _renderClient360(clientCode,source){
     }
   }
   if(daysSince!==null){
-    const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
-    const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
+    const silCol=daysSince>365?'t-disabled':daysSince>180?'c-danger':daysSince>60?'c-caution':'c-ok';
+    const silLabel=daysSince>365?'Abandonné':daysSince>180?'Perdu':daysSince>60?'En danger':daysSince>30?'À surveiller':'Actif récemment';
     const CANAL_ICONS={INTERNET:'🌐',REPRESENTANT:'🤝',DCS:'📦',MAGASIN:'🏪'};
     const CANAL_LABELS={INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',MAGASIN:'Magasin'};
     const CANAL_ORDER=['MAGASIN','INTERNET','REPRESENTANT','DCS'];
     const canalMap=_S.clientLastOrderByCanal?.get(clientCode);
     const canalRows=[];
     if(canalMap&&canalMap.size>0){
-      for(const c of CANAL_ORDER){const d=canalMap.get(c);if(!d)continue;const dj=Math.round((today-d)/86400000);const dc=dj>=60?'c-danger':dj>=30?'c-caution':'c-ok';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${CANAL_ICONS[c]||''} ${CANAL_LABELS[c]||c}</span><span class="text-[11px] font-bold ${dc}">${dj}j</span></div>`);}
+      for(const c of CANAL_ORDER){const d=canalMap.get(c);if(!d)continue;const dj=Math.round((today-d)/86400000);const dc=dj>180?'c-danger':dj>60?'c-caution':'c-ok';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${CANAL_ICONS[c]||''} ${CANAL_LABELS[c]||c}</span><span class="text-[11px] font-bold ${dc}">${dj}j</span></div>`);}
     }
     if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-[11px] font-bold ${silCol}">${daysSince}j</span></div>`);}
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
@@ -671,7 +692,7 @@ function _c360CopyResume(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
   const _artP=DataStore.ventesClientArticle?.get(clientCode);
-  const _artF=_S.ventesClientArticleFull?.get(clientCode);
+  const _artF=_S.ventesClientMagFull?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const _rec2=_S.clientStore?.get(clientCode);
@@ -779,14 +800,15 @@ function openArticlePanel(code,source){
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
     const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
-    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">[${escapeHtml(code)}] ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
+    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">[${escapeHtml(code)}] ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
   const _today=new Date();
   // Header badges
   const abcCls=r.abcClass==='A'?'diag-ok':r.abcClass==='B'?'diag-warn':'diag-lock';
   const fmrCls=r.fmrClass==='F'?'diag-ok':r.fmrClass==='M'?'diag-warn':'diag-lock';
-  const badges=[r.famille?`<span class="diag-badge diag-lock">${escapeHtml(r.famille)}</span>`:'',r.abcClass?`<span class="diag-badge ${abcCls}">ABC-${escapeHtml(r.abcClass)}</span>`:'',r.fmrClass?`<span class="diag-badge ${fmrCls}">FMR-${escapeHtml(r.fmrClass)}</span>`:''].filter(Boolean).join(' ');
+  const _marque=_S.catalogueMarques?.get(r.code)||'';
+  const badges=[r.famille?`<span class="diag-badge diag-lock">${escapeHtml(r.famille)}</span>`:'',_marque?`<span class="diag-badge" style="background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.3)">${escapeHtml(_marque)}</span>`:'',r.abcClass?`<span class="diag-badge ${abcCls}">ABC-${escapeHtml(r.abcClass)}</span>`:'',r.fmrClass?`<span class="diag-badge ${fmrCls}">FMR-${escapeHtml(r.fmrClass)}</span>`:''].filter(Boolean).join(' ');
   // Stock section
   const stockColor=r.stockActuel<=0?'c-danger font-extrabold':'c-ok';
   const joursRup=r.stockActuel<=0?Math.min(r.ageJours>=999?90:r.ageJours,90):0;

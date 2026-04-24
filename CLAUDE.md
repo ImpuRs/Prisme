@@ -126,8 +126,9 @@ _S.articleCanalCA            // Map<code, Map<canal, {ca, qteP, countBL}>>
 ```js
 _S.ventesClientArticle       // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sumCA,sumCAAll,countBL}>>
                               // Source : canal MAGASIN, myStore uniquement — FILTRÉ par période
-_S.ventesClientArticleFull   // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sumCA,sumCAAll,countBL}>>
+_S.ventesClientMagFull   // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sumCA,sumCAAll,countBL}>>
                               // Même structure que ventesClientArticle mais PLEINE PÉRIODE (12MG)
+                              // Dev: utiliser la façade `js/sales.js` (getVentesClientMagFull, getClientCAFullAllCanaux)
 _S.ventesClientHorsMagasin   // Map<cc, Map<code, {sumCA,sumPrelevee,sumCAPrelevee,countBL,canal}>>
                               // Source : tous canaux hors-MAGASIN
 _S.clientOmniScore           // Map<cc, {segment,score,caPDV,caHors,caTotal,nbCanaux,nbBL,silenceDays}>
@@ -159,6 +160,9 @@ _S.canalAgence               // {MAGASIN:{bl,ca,caP,caE}, INTERNET:{...}, REPRES
 _S.cannauxHorsMagasin        // Set<canal> — canaux détectés hors MAGASIN
 _S.blCanalMap                // Map<bl, canal>
 _S.caByArticleCanal          // Map<code, {INTERNET:ca, REPRESENTANT:ca, DCS:ca}>
+_S.caClientParStore          // {store → Map<cc, totalCA>} — TOUS canaux, PLEINE PÉRIODE 12MG
+                              // Accumulé AVANT filtre période dans parse-worker
+                              // Usage : CA PDV tous canaux (commerce L4, duel agence)
 ```
 
 ### Données territoire & réseau
@@ -252,17 +256,17 @@ Niveaux du diagnostic :
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).
 8. **Articles spéciaux** : code ≠ 6 chiffres exactement → non stockable, exclu du calcul MIN/MAX.
-9. **Dualité PDV/hors-agence** : `ventesClientArticle` = MAGASIN only (period-filtered) ; `ventesClientArticleFull` = MAGASIN only (pleine période 12MG) ; `ventesClientHorsMagasin` = tout sauf MAGASIN. Ne jamais mélanger.
+9. **Dualité PDV/hors-agence** : `ventesClientArticle` = MAGASIN only (period-filtered) ; `ventesClientMagFull` = MAGASIN only (pleine période 12MG) ; `ventesClientHorsMagasin` = tout sauf MAGASIN. Ne jamais mélanger.
 10. **Reset colonne cache** : appeler `_resetColCache()` entre parsing consommé et stock (colonnes différentes).
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
-16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesClientArticleFull.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesClientArticle` (period-filtered) ni `ventesParMagasin` (tous canaux prélevé+enlevé).
+16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesClientMagFull.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesClientArticle` (period-filtered) ni `ventesParMagasin` (tous canaux prélevé+enlevé).
 17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesClientArticle` + `ventesClientHorsMagasin` + `territoireLines`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
 15. **Filtre Fin de Vie** : un article ne peut PAS être classé "implanter" dans le squelette si (a) son statut ERP contient "fin de série"/"fin de stock", OU (b) TOUTES les agences réseau qui le vendent ont MIN/MAX = 0/0 dans `stockParMagasin` (= produit bloqué nationalement). Exception : s'il est physiquement en stock local, il reste visible (classé challenger/poids mort pour la purge).
-19. **nbClientsPDV squelette — pleine période** : `computeSquelette()` utilise `_S.articleClientsFull` (Map<code, Set<cc>>, pleine période 12MG, hoisté hors filtre période) pour calculer `nbClientsPDV`. NE PAS utiliser `articleClients` (period-filtered) ni `clientsMagasin` (period-filtered). Même pattern que `ventesClientArticleFull` pour `caAnnuel`.
+19. **nbClientsPDV squelette — pleine période** : `computeSquelette()` utilise `_S.articleClientsFull` (Map<code, Set<cc>>, pleine période 12MG, hoisté hors filtre période) pour calculer `nbClientsPDV`. NE PAS utiliser `articleClients` (period-filtered) ni `clientsMagasin` (period-filtered). Même pattern que `ventesClientMagFull` pour `caAnnuel`.
 
 ---
 
@@ -357,8 +361,8 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
-`finalData`, `ventesClientArticle`, `ventesClientArticleFull`, `ventesClientHorsMagasin`,
-`chalandiseData`, `territoireLines`, `clientsByCommercial`, `clientLastOrder`,
+`finalData`, `ventesClientArticle`, `ventesClientMagFull`, `ventesClientHorsMagasin`,
+`caClientParStore`, `chalandiseData`, `territoireLines`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
 `benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
 `_selectedMetier`, `_globalCanal`, `periodFilterStart`, `periodFilterEnd`
@@ -392,7 +396,7 @@ MIN/MAX, ABC/FMR, OmniScores, Reconquête, Opportunités Nettes, Animation marqu
 → **toujours 12MG pleine période**, filtre période ignoré.
 Ce sont des **décisions d'assortiment**, pas de performance commerciale.
 
-**Source obligatoire** : `ventesClientArticleFull` (+ `articleClientsFull` pour nbClientsPDV).
+**Source obligatoire** : `ventesClientMagFull` (+ `articleClientsFull` pour nbClientsPDV).
 NE JAMAIS utiliser `ventesClientArticle` dans un moteur de calcul structurel.
 
 ### Règle Commerce — filtre période actif
@@ -405,15 +409,15 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 ### Fonctions concernées (engine.js)
 | Fonction | Source correcte | Raison |
 |---|---|---|
-| `computeArticleZoneIndex()` | `ventesClientArticleFull` | PdM% assortiment |
-| `computeSquelette()` | `ventesClientArticleFull` / `articleClientsFull` | Classification structurelle |
+| `computeArticleZoneIndex()` | `ventesClientMagFull` | PdM% assortiment |
+| `computeSquelette()` | `ventesClientMagFull` / `articleClientsFull` | Classification structurelle |
 | `computeAnglesMorts()` | via `clientFamCA` (Full) | Tronc commun métier |
-| `computeOpportuniteNette()` | `ventesClientArticleFull` | Familles manquantes |
-| `computeOmniScores()` | `ventesClientArticleFull` | Segmentation client |
-| `computeReconquestCohort()` | `ventesClientArticleFull` | Historique complet |
-| `computeAnimation()` | `ventesClientArticleFull` | Ciblage marque/conquête |
-| `computeFamillesHors()` | `ventesClientArticleFull` | Fuite par famille |
-| `computeMonRayon()` | `ventesClientArticleFull` | Clients par famille |
+| `computeOpportuniteNette()` | `ventesClientMagFull` | Familles manquantes |
+| `computeOmniScores()` | `ventesClientMagFull` | Segmentation client |
+| `computeReconquestCohort()` | `ventesClientMagFull` | Historique complet |
+| `computeAnimation()` | `ventesClientMagFull` | Ciblage marque/conquête |
+| `computeFamillesHors()` | `ventesClientMagFull` | Fuite par famille |
+| `computeMonRayon()` | `ventesClientMagFull` | Clients par famille |
 
 ---
 
@@ -426,10 +430,10 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 - Recalculer `finalData` au changement de canal (invariant canal)
 - Appeler `getVal()` sans avoir appelé `_resetColCache()` entre consommé et stock
 - Mélanger `ventesClientArticle` (MAGASIN) et `ventesClientHorsMagasin` (hors-MAGASIN)
-- Utiliser `ventesClientArticle` dans un moteur de calcul structurel (voir Doctrine temporelle) — utiliser `ventesClientArticleFull`
-- Utiliser `ventesClientArticle` pour caAnnuel (period-filtered) — utiliser `ventesClientArticleFull`
+- Utiliser `ventesClientArticle` dans un moteur de calcul structurel (voir Doctrine temporelle) — utiliser `ventesClientMagFull`
+- Utiliser `ventesClientArticle` pour caAnnuel (period-filtered) — utiliser `ventesClientMagFull`
 - Utiliser `articleClients` ou `clientsMagasin` pour nbClientsPDV squelette (period-filtered) — utiliser `articleClientsFull`
-- Utiliser `ventesParMagasin.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesClientArticleFull.sumCAPrelevee`
+- Utiliser `ventesParMagasin.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesClientMagFull.sumCAPrelevee`
 - Calculer l'omnicanalité sans `territoireLines` — le consommé local ne voit pas les ventes dans d'autres agences
 - Créer de nouvelles variables `_S.xxx` sans les ajouter dans `resetAppState()`
 - Mettre du `await` sans `yieldToMain()` dans les boucles de parsing (bloque l'UI)

@@ -21,6 +21,7 @@ import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
+import { getClientCAFullAllCanaux, getClientCAMagasinInMonthRange, getClientCAFullInMonthRange } from './sales.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -31,7 +32,8 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
 const getKPIsByCanal = (...a) => window.getKPIsByCanal?.(...a);
 
 // ── Nav 4 sous-vues Commerce ─────────────────────────────────────────────
-let _cmTab = 'silencieux';
+let _cmTab = 'enDanger';
+let _cmShowSurveiller = false; // toggle "À surveiller" (30-60j) dans onglet En danger
 let _commerceRafId = 0; // rAF ID pour annuler les rAF en attente au re-render
 
 // ── Secteur dropdown outside click handler (migré depuis omni.js) ─────────
@@ -56,8 +58,9 @@ document.addEventListener('change', function(e) {
 // ── Nav 4 sous-vues — helpers ────────────────────────────────────────────
 function _cmRenderNav(counts) {
   const tabs = [
-    { id: 'silencieux',   label: '🟡 Silencieux (30-90j)',   n: counts.silencieux },
-    { id: 'perdus',       label: '🔴 En danger (3-12m)',     n: counts.perdus },
+    { id: 'enDanger',     label: '⚠️ En danger (60j-6m)',    n: counts.enDanger },
+    { id: 'perdus',       label: '🔴 Perdus (6-12m)',        n: counts.perdus },
+    { id: 'abandonnes',   label: '⚫ Abandonnés (>12m)',     n: counts.abandonnes },
     { id: 'potentiels',   label: '🎯 Potentiels',            n: counts.potentiels },
   ];
   const tabHtml = tabs.map(t => {
@@ -75,15 +78,16 @@ function _cmRenderNav(counts) {
 // Pour déplacer un pavé : changer le case ici, rien d'autre.
 function _cmInjectSlot(id, content) {
   switch (id) {
-    case 'silencieux': content.innerHTML = `<div id="terrSilencieux"></div>`; break;
+    case 'enDanger':   content.innerHTML = `<div id="terrEnDanger"></div>`; break;
     case 'perdus':     content.innerHTML = `<div id="terrPerdus"></div>`; break;
+    case 'abandonnes': content.innerHTML = `<div id="terrAbandonnes"></div>`; break;
     case 'potentiels': content.innerHTML = `<div id="terrACapter"></div>`; break;
     case 'canal': content.innerHTML = ''; break;
   }
 }
 
 function _cmRenderContent(id) {
-  if (id === 'silencieux' || id === 'perdus' || id === 'potentiels') _renderCockpitTables();
+  if (id === 'enDanger' || id === 'perdus' || id === 'abandonnes' || id === 'potentiels') _renderCockpitTables();
   if (id === 'canal') window.renderCanalAgence?.();
 }
 
@@ -115,10 +119,10 @@ function _cmSwitchTabRenderOnly(id) {
 
 function _cmComputeCounts() {
   return {
-    silencieux: _S._cockpitExportData?.silencieux?.length || 0,
+    enDanger: (_S._cockpitExportData?.surveiller?.length || 0) + (_S._cockpitExportData?.enDanger?.length || 0),
     perdus: _S._cockpitExportData?.perdus?.length || 0,
+    abandonnes: _S._cockpitExportData?.abandonnes?.length || 0,
     potentiels: _S._cockpitExportData?.jamaisVenus?.length || 0,
-    opportunites: null
   };
 }
 
@@ -940,7 +944,7 @@ window._ccc = (di,mi,ci) => {
 
     // Scorecard portefeuille au-dessus du contenu
     const comScorecardHtml = _S.chalandiseReady && _S._selectedCommercial ? '<div id="comScorecardPDV"></div>' : '';
-    // Tabs Silencieux/Perdus/Potentiels (déplacés depuis Conquête Terrain)
+    // Tabs En danger/Perdus/Abandonnés/Potentiels (déplacés depuis Conquête Terrain)
     const tabNavHtml = `<div class="flex items-center gap-1 border-b b-default mb-0 overflow-x-auto mt-3" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div><div id="cm-tab-content" class="pt-3"></div>`;
     el.innerHTML = comScorecardHtml + tabNavHtml + oppsHtml + anglesMortsHtml + nomadesMissedHtml + nouveauxHtml + topPDVHtml + horsZoneHtml + digitauxHtml;
     // Peuple les tableaux cockpit dans les slots
@@ -1284,6 +1288,10 @@ function _toggleAlerteCapitaines(){
   }
   _S._alerteCapitaines=next;
   _buildCockpitClient(true);
+}
+function _cmToggleSurveiller(){
+  _cmShowSurveiller=!_cmShowSurveiller;
+  _renderCockpitTables();
 }
 // ── Shared helper: populate a commercial <select> + KPI span ───────────
 // Build commercial → dominant secteur mapping (cached)
@@ -1658,25 +1666,11 @@ function _renderComTopClients(el) {
     ? (_pocheActive === 'E' ? (_ruptureClientSet.size ? _ruptureClientSet : null) : new Set((_pocheData[_pocheActive] || []).map(c => c.cc)))
     : null;
 
-  // ── CA PDV année en cours (2026) depuis _byMonth — même base que ca2026 chalandise ──
+  // ── CA PDV année en cours depuis _byMonth (MAGASIN/myStore) ──
+  // Optimisation : calcul à la demande (uniquement pour les clients affichés),
+  // au lieu de parcourir tous les clients du byMonth à chaque render.
   const _curYear = new Date().getFullYear();
-  const _ymStart = _curYear * 12;      // jan 2026
-  const _ymEnd = _curYear * 12 + 11;   // dec 2026
-  const _bm = _S._byMonth || {};
-  const _caPDVYear = new Map(); // cc → CA PDV année en cours
-  for (const cc in _bm) {
-    const articles = _bm[cc];
-    let ca = 0;
-    for (const code in articles) {
-      const months = articles[code];
-      for (const midxStr in months) {
-        const midx = +midxStr;
-        if (midx < _ymStart || midx > _ymEnd) continue;
-        ca += months[midxStr].sumCA || 0;
-      }
-    }
-    if (ca > 0) _caPDVYear.set(cc, ca);
-  }
+  const _ymRange = { min: _curYear * 12, max: _curYear * 12 + 11 };
 
   const clients = [];
   for (const cc of ccs) {
@@ -1687,7 +1681,7 @@ function _renderComTopClients(el) {
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
     const caPDV = _S._selectedUnivers.size ? getUniversFilteredCA(cc) : (rec?.caPDV || 0); // CA PDV filtré par univers si actif
-    const caPDV26 = _caPDVYear.get(cc) || caPDV; // CA PDV année (pour calcul écart)
+    const caPDV26 = getClientCAMagasinInMonthRange(cc, _ymRange) ?? caPDV; // CA PDV année (pour calcul écart)
     // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même base année)
     const caZone = info.ca2026 || rec?.caTotal || caPDV26 || 0;
     const gap = Math.max(0, caZone - caPDV26);
@@ -2347,6 +2341,13 @@ function _overviewClientSort(a,b){
 }
 function _renderOverviewL4(el,direction,metier,secteur,limit){
   limit=limit||20;
+  // CA PDV : respecte le filtre période UI si actif, sinon année civile en cours
+  const _pStart=_S.periodFilterStart, _pEnd=_S.periodFilterEnd;
+  const _curYear=new Date().getFullYear();
+  const _ymRange=(_pStart&&_pEnd)
+    ? {min:_pStart.getFullYear()*12+_pStart.getMonth(), max:_pEnd.getFullYear()*12+_pEnd.getMonth()}
+    : {min:_curYear*12, max:_curYear*12+11};
+  const _periodLabel=(_pStart&&_pEnd)?'période':'année';
   const clients=[];
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
@@ -2357,9 +2358,11 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     if((info.secteur||'—')!==secteur)continue;
     const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(!_passesClientCrossFilter(cc))continue;
-    // CA Magasin = somme des CA depuis ventesClientArticle (période filtrée)
-    let _caMag=0;const _vca=_S.ventesClientArticle?.get(cc);if(_vca)for(const v of _vca.values())_caMag+=v.sumCA||0;
-    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:info.ca2026||0,caMag:_caMag,ville:info.ville||'',_pdvActif:pdvActif});
+    // CA PDV = CA tous canaux myStore, sur la période sélectionnée (ou année civile)
+    // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable)
+    const _caPDV=getClientCAFullInMonthRange(cc,_ymRange)||0;
+    const _caLeg=info.ca2026||0;
+    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:_caLeg,caMag:_caPDV,ville:info.ville||'',_pdvActif:pdvActif});
   }
   clients.sort(_overviewClientSort);
   if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
@@ -2527,10 +2530,11 @@ function _buildCockpitClient(force){
   const now=performance.now();
   if(!force&&now-_bccLastRun<100){_renderCockpitTables();return;} // debounce 100ms — rendu seul
   _bccLastRun=now;
-  const silEl=document.getElementById('terrSilencieux');
+  const dangerEl=document.getElementById('terrEnDanger');
   const perduEl=document.getElementById('terrPerdus');
+  const abandEl=document.getElementById('terrAbandonnes');
   const capEl=document.getElementById('terrACapter');
-  if(!_S.clientStore?.size&&!_S.clientLastOrder?.size){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
+  if(!_S.clientStore?.size&&!_S.clientLastOrder?.size){if(dangerEl)dangerEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(abandEl)abandEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
 
   // ── Canal-aware date picking ──
   const _canal=_S._globalCanal||'';
@@ -2574,20 +2578,23 @@ function _buildCockpitClient(force){
   }
   function _hasLostCapitaine(cc){
     if(!_socleCodes)return false;
-    const fullArts=_S.ventesClientArticleFull?.get(cc);
+    const fullArts=_S.ventesClientMagFull?.get(cc);
     if(!fullArts)return false;
     for(const[code] of fullArts){if(_socleCodes.has(code))return true;}
     return false;
   }
 
-  // ── Collect 3 categories ──
-  const silencieux=[],perdus=[],jamaisVenus=[];
+  // ── Collect 4 categories + potentiels ──
+  const surveiller=[],enDanger=[],perdus=[],abandonnes=[],jamaisVenus=[];
   const hasChal=_S.chalandiseReady;
 
   for(const rec of _S.clientStore.values()){
     // Filtres chalandise (si chargée)
+    // Éligibilité : le client doit avoir une activité connue (immunisé du filtre période)
+    const _hasActivity = rec.isPDVActif || rec.caHors > 0 || rec.caPDVNChal > 0 || rec.caLegallaisN1 > 0
+      || rec.lastOrderPDV || rec.lastOrderAll;
     if(hasChal){
-      if(!rec.inChalandise&&!rec.isPDVActif)continue; // ni chalandise ni PDV actif → skip
+      if(!rec.inChalandise&&!_hasActivity)continue;
       if(rec.inChalandise){
         const info=_S.chalandiseData.get(rec.cc);
         if(info&&!_clientPassesFilters(info,rec.cc))continue;
@@ -2595,8 +2602,8 @@ function _buildCockpitClient(force){
         if(!_passesClientCrossFilter(rec.cc))continue;
       }
     }else{
-      // Mode dégradé : seulement les clients avec CA PDV
-      if(!rec.caPDV)continue;
+      // Mode dégradé : clients avec activité (tous canaux)
+      if(!_hasActivity)continue;
     }
     if(_S.excludedClients.has(rec.cc))continue;
     if(_cockpitComSet&&!_cockpitComSet.has(rec.cc))continue;
@@ -2614,31 +2621,34 @@ function _buildCockpitClient(force){
 
     const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,caZone:caZone||caPDVFull||caLeg,caPDVN:caPDVN||caPDVFull,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
 
-    // 1. Silencieux : 30-90j sans commande (zone de frappe comptoir)
-    // _caOk : daysSince valide = le client A commandé dans la période consommé → éligible silencieux/perdu
-    // On accepte aussi caPDV/caLeg/caZone > 0 pour les clients sans date exploitable
+    // _caOk : daysSince valide = le client A commandé dans la période consommé → éligible
     const _caOk=daysSince!==null||(caPDVN>0||caLeg>0||caZone>0);
-    if(daysSince!==null&&daysSince>30&&daysSince<=90&&_caOk){
-      // Alerte Capitaines : marquer si le client achetait un Socle/Capitaine
+    if(daysSince!==null&&_caOk){
       if(_alerteCap) c._capitainPerdu=_hasLostCapitaine(rec.cc);
       if(_alerteCap&&!c._capitainPerdu){/* skip — filtre actif, pas de capitaine perdu */}
-      else{silencieux.push(c);continue;}
+      // 1. À surveiller : 30-60j (watch list, replié par défaut)
+      else if(daysSince>30&&daysSince<=60){surveiller.push(c);continue;}
+      // 2. En danger : 60-180j (appel cette semaine)
+      else if(daysSince>60&&daysSince<=180){enDanger.push(c);continue;}
+      // 3. Perdus : 6-12m (campagne reconquête)
+      else if(daysSince>180&&daysSince<=365){perdus.push(c);continue;}
+      // 4. Abandonnés : >12m (filtrés CA > 500€)
+      else if(daysSince>365){
+        const caHist=(caPDVFull||0)+(caLeg||0);
+        if(caHist>=500){abandonnes.push(c);continue;}
+      }
     }
-    // 2. Perdus : 90-365j sans commande (urgences → tièdes)
-    if(daysSince!==null&&daysSince>90&&daysSince<=365&&_caOk){
-      if(_alerteCap) c._capitainPerdu=_hasLostCapitaine(rec.cc);
-      if(_alerteCap&&!c._capitainPerdu){/* skip */}
-      else{perdus.push(c);continue;}
-    }
-    // 3. Potentiels : jamais venus au comptoir
+    // 5. Potentiels : jamais venus au comptoir
     if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
 
-  silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.caZone||0)-(a.caZone||0));
+  surveiller.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.caZone||0)-(a.caZone||0));
+  enDanger.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caZone||0)-(a.caZone||0));
   perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caZone||0)-(a.caZone||0));
+  abandonnes.sort((a,b)=>(b.caZone||0)-(a.caZone||0));
   const _classifPrio={'FID Pot+':0,'OCC Pot+':1,'FID Pot-':2,'OCC Pot-':3,'NC':4};
   jamaisVenus.sort((a,b)=>(_classifPrio[a.classification]??5)-(_classifPrio[b.classification]??5)||(b.caZone||0)-(a.caZone||0));
-  _S._cockpitExportData={silencieux,perdus,jamaisVenus};
+  _S._cockpitExportData={surveiller,enDanger,perdus,abandonnes,jamaisVenus};
   _renderCockpitTables();
 }
 
@@ -2676,7 +2686,7 @@ function _directTable(clients,listId,dayThreshold){
   if(nbFid)html+=`<span class="text-[11px] font-bold" style="color:#34d399">${nbFid} FID</span><span class="t-disabled text-[9px]">·</span>`;
   if(nbStrat)html+=`<span class="text-[11px] font-bold c-caution">${nbStrat} ⭐ stratégiques</span>`;
   // Alerte Capitaines perdus — visible uniquement sur silencieux/perdus, requiert Plan Rayon
-  if((listId==='cockpit-sil-full'||listId==='cockpit-perdu-full')&&typeof window._getArticleSqInfo==='function'){
+  if((listId==='cockpit-danger-full'||listId==='cockpit-perdu-full')&&typeof window._getArticleSqInfo==='function'){
     const _acActive=_S._alerteCapitaines;
     html+=`<button onclick="_toggleAlerteCapitaines()" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;${_acActive?'background:#dc2626;color:#fff;border:1px solid #dc2626':'background:transparent;color:var(--t-primary);border:1px solid var(--b-default)'}" title="Filtrer : clients ayant perdu un article Capitaine (Socle)">🚨 Capitaines${_acActive?' ✕':''}</button>`;
   }
@@ -2729,13 +2739,26 @@ function _renderCockpitTables(){
   // Refresh nav (counts + toggle Alerte Capitaines)
   const nav=document.getElementById('cm-tab-nav');
   if(nav)nav.innerHTML=_cmRenderNav(_cmComputeCounts());
-  const silEl=document.getElementById('terrSilencieux');
+  const dangerEl=document.getElementById('terrEnDanger');
   const perduEl=document.getElementById('terrPerdus');
+  const abandEl=document.getElementById('terrAbandonnes');
   const capEl=document.getElementById('terrACapter');
   const _canal=_S._globalCanal||'';
   const _useByCanal=_canal&&_canal!=='MAGASIN';
-  if(silEl)silEl.innerHTML=_directTable(d.silencieux||[],'cockpit-sil-full',60);
-  if(perduEl)perduEl.innerHTML=_directTable(d.perdus||[],'cockpit-perdu-full',180);
+  if(dangerEl){
+    // Toggle "À surveiller" (30-60j) — bouton comme Capitaines
+    const surv=d.surveiller||[];
+    const danger=d.enDanger||[];
+    const combined=_cmShowSurveiller?[...surv,...danger]:danger;
+    // Bouton toggle À surveiller
+    let survBtn='';
+    if(surv.length){
+      survBtn=`<div style="margin-bottom:6px"><button onclick="_cmToggleSurveiller()" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;${_cmShowSurveiller?'background:#eab308;color:#000;border:1px solid #eab308':'background:transparent;color:var(--t-primary);border:1px solid var(--b-default)'}" title="Inclure les clients 30-60j (watch list)">👀 À surveiller (${surv.length})${_cmShowSurveiller?' ✕':''}</button></div>`;
+    }
+    dangerEl.innerHTML=survBtn+_directTable(combined,'cockpit-danger-full',90);
+  }
+  if(perduEl)perduEl.innerHTML=_directTable(d.perdus||[],'cockpit-perdu-full',270);
+  if(abandEl)abandEl.innerHTML=_directTable(d.abandonnes||[],'cockpit-abandon-full',999);
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=_directTable(d.jamaisVenus||[],'cockpit-cap-full',999);}}
 }
 function _setCrossFilter(status){
@@ -2781,7 +2804,7 @@ function _downloadCockpitCSV(rows,filename,label){
 }
 function exportCockpitCSV(catKey){
   if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-  const map={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
+  const map={'cockpit-danger-full':['En danger',[...(_S._cockpitExportData.surveiller||[]),...(_S._cockpitExportData.enDanger||[])]],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-abandon-full':['Abandonnés',_S._cockpitExportData.abandonnes],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
   const entry=map[catKey];if(!entry)return;
   const[catLabel,clients]=entry;
   const rows=clients.map(c=>_cockpitRowCSV(catLabel,c,'Non',''));
@@ -2792,7 +2815,7 @@ function exportCockpitCSV(catKey){
 }
 function exportCockpitCSVAll(){
   if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-  const catMap={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
+  const catMap={'cockpit-danger-full':['En danger',[...(_S._cockpitExportData.surveiller||[]),...(_S._cockpitExportData.enDanger||[])]],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-abandon-full':['Abandonnés',_S._cockpitExportData.abandonnes],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
   const rows=[];
   for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
   const date=new Date().toISOString().slice(0,10);
@@ -2830,7 +2853,7 @@ function _showExcludePrompt(cc,encodedNom,catKey){
 function _confirmExclude(cc,encodedNom,catKey){
   const nom=decodeURIComponent(encodedNom);
   const sel=document.getElementById('excl-sel-'+cc);const reason=sel?sel.value:'Pas pertinent';
-  const allClients=[...(_S._cockpitExportData?.silencieux||[]),...(_S._cockpitExportData?.urgences||[]),...(_S._cockpitExportData?.developper||[]),...(_S._cockpitExportData?.fideliser||[])];
+  const allClients=[...(_S._cockpitExportData?.surveiller||[]),...(_S._cockpitExportData?.enDanger||[]),...(_S._cockpitExportData?.perdus||[]),...(_S._cockpitExportData?.abandonnes||[])];
   const clientData=allClients.find(c=>c.code===cc)||{code:cc,nom};
   _S.excludedClients.set(cc,{reason,date:formatLocalYMD(new Date()),by:_S.selectedMyStore||'',category:catKey,nom,clientData});
   _saveExclusions();
@@ -2866,7 +2889,7 @@ function importExclusionsJSON(input){
       const data=JSON.parse(e.target.result);
       if(!data.exclusions||!Array.isArray(data.exclusions))throw new Error('Format invalide');
       let count=0;
-      const allClients=[...(_S._cockpitExportData?.silencieux||[]),...(_S._cockpitExportData?.urgences||[]),...(_S._cockpitExportData?.developper||[]),...(_S._cockpitExportData?.fideliser||[])];
+      const allClients=[...(_S._cockpitExportData?.surveiller||[]),...(_S._cockpitExportData?.enDanger||[]),...(_S._cockpitExportData?.perdus||[]),...(_S._cockpitExportData?.abandonnes||[])];
       for(const ex of data.exclusions){
         if(!ex.code)continue;
         const clientData=allClients.find(c=>c.code===ex.code)||{code:ex.code,nom:ex.nom||ex.code};
@@ -3106,6 +3129,7 @@ window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
 window._togglePerdu24m            = _togglePerdu24m;
 window._toggleAlerteCapitaines   = _toggleAlerteCapitaines;
+window._cmToggleSurveiller       = _cmToggleSurveiller;
 window._resetChalandiseFilters    = _resetChalandiseFilters;
 window._setPDVCanalFilter         = _setPDVCanalFilter;
 window._setCrossFilter            = _setCrossFilter;

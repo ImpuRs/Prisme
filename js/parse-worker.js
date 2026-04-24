@@ -586,11 +586,13 @@ async function _handleParseMessage(data) {
     var ventesParMagasin = {};
     var ventesParMagasinByCanal = {};
     var ventesClientArticle = new Map();
-    var ventesClientArticleFull = new Map();
+    var ventesClientMagFull = new Map();
     var ventesClientArticleReseau = new Map();
     var ventesClientHorsMagasin = new Map();
     var ventesClientsPerStore = {};
+    var caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
     var byMonthStoreClients = {}; // {store → {monthIdx → Set<cc>}} — pour rebuild période
+    var byMonthStoreClientCA = {}; // {store → {monthIdx → {cc → sumCA}}} — CA client par mois par store
     var commandesPerStoreCanal = {};
     var clientsMagasin = new Set();
     var clientsMagasinFreq = new Map(); // built post-loop from _clientMagasinBLsTemp
@@ -816,18 +818,40 @@ async function _handleParseMessage(data) {
               if (!byMonthStoreClients[_storeKey_bm]) byMonthStoreClients[_storeKey_bm] = {};
               if (!byMonthStoreClients[_storeKey_bm][_midx_h]) byMonthStoreClients[_storeKey_bm][_midx_h] = new Set();
               byMonthStoreClients[_storeKey_bm][_midx_h].add(_cc_bm_h);
+              // byMonthStoreClientCA — CA mensuel par client par store
+              if (caLigne_h > 0) {
+                if (!byMonthStoreClientCA[_storeKey_bm]) byMonthStoreClientCA[_storeKey_bm] = {};
+                if (!byMonthStoreClientCA[_storeKey_bm][_midx_h]) byMonthStoreClientCA[_storeKey_bm][_midx_h] = {};
+                byMonthStoreClientCA[_storeKey_bm][_midx_h][_cc_bm_h] = (byMonthStoreClientCA[_storeKey_bm][_midx_h][_cc_bm_h] || 0) + caLigne_h;
+              }
             }
             if (!byMonthStoreArtCanal[_storeKey_bm]) byMonthStoreArtCanal[_storeKey_bm] = {};
             if (!byMonthStoreArtCanal[_storeKey_bm][canal]) byMonthStoreArtCanal[_storeKey_bm][canal] = {};
             if (!byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h]) byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h] = {};
             var _bmsac_h = byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h];
-            if (!_bmsac_h[_midx_h]) _bmsac_h[_midx_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            if (!_bmsac_h[_midx_h]) _bmsac_h[_midx_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0, sumQteP: 0 };
             var _bme_h = _bmsac_h[_midx_h];
             _bme_h.sumCA += caLigne_h;
             _bme_h.sumPrelevee += _rcp;
+            if (_rqp > 0) _bme_h.sumQteP += _rqp;
             _bme_h.countBL++;
             _bme_h.sumVMB += _rvp + _rve;
             _bme_h.sumVMBPrel += _rvp;
+          }
+          // caClientParStore hors-MAGASIN — AVANT filtre période
+          if (_cc_bm_h && codeArt_h && caLigne_h > 0) {
+            var _skCps_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
+            if (!caClientParStore[_skCps_h]) caClientParStore[_skCps_h] = new Map();
+            caClientParStore[_skCps_h].set(_cc_bm_h, (caClientParStore[_skCps_h].get(_cc_bm_h) || 0) + caLigne_h);
+          }
+          // byMonthFull hors-MAGASIN — accumulation mensuelle TOUS canaux, myStore
+          var _skBmf = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
+          if (_cc_bm_h && codeArt_h && dateV && caLigne_h > 0 && (!selectedStore || _skBmf === selectedStore)) {
+            var _midxBmf = dateV.getFullYear() * 12 + dateV.getMonth();
+            if (!byMonthFull[_cc_bm_h]) byMonthFull[_cc_bm_h] = {};
+            if (!byMonthFull[_cc_bm_h][codeArt_h]) byMonthFull[_cc_bm_h][codeArt_h] = {};
+            if (!byMonthFull[_cc_bm_h][codeArt_h][_midxBmf]) byMonthFull[_cc_bm_h][codeArt_h][_midxBmf] = { sumCA: 0 };
+            byMonthFull[_cc_bm_h][codeArt_h][_midxBmf].sumCA += caLigne_h;
           }
           // Filtre période — le reste est period-sensitive
           if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
@@ -847,7 +871,7 @@ async function _handleParseMessage(data) {
             hm.set(codeArt_h, ex_h);
             ventesClientHorsMagasin.set(cc_h, hm);
           }
-          // ventesClientsPerStore — hors-MAGASIN (même logique que MAGASIN, pour benchmark tous canaux)
+          // ventesClientsPerStore — hors-MAGASIN (caClientParStore déjà accumulé avant filtre)
           if (cc_h && codeArt_h) {
             var _skCli_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
             if (!ventesClientsPerStore[_skCli_h]) ventesClientsPerStore[_skCli_h] = new Set();
@@ -930,10 +954,10 @@ async function _handleParseMessage(data) {
         else { var ex_r = a.bls[nc]; if (Math.max(qteP, 0) > ex_r.p) ex_r.p = Math.max(qteP, 0); if (Math.max(qteE, 0) > ex_r.e) ex_r.e = Math.max(qteE, 0); }
       }
 
-      // ventesClientArticleFull (pleine période, MAGASIN, myStore only)
+      // ventesClientMagFull (pleine période, MAGASIN, myStore only)
       if (!lowMem && cc2 && code && (!selectedStore || sk === selectedStore)) {
-        if (!ventesClientArticleFull.has(cc2)) ventesClientArticleFull.set(cc2, new Map());
-        var _artF = ventesClientArticleFull.get(cc2);
+        if (!ventesClientMagFull.has(cc2)) ventesClientMagFull.set(cc2, new Map());
+        var _artF = ventesClientMagFull.get(cc2);
         if (!_artF.has(code)) _artF.set(code, { sumPrelevee: 0, sumCAPrelevee: 0, sumCA: 0, sumCAAll: 0, countBL: 0 });
         var _eF = _artF.get(code);
         if (qteP > 0) { _eF.sumPrelevee += qteP; _eF.sumCAPrelevee += caP; }
@@ -974,6 +998,15 @@ async function _handleParseMessage(data) {
         byMonthFull[cc2][code][_monthIdxF].sumCA += caP + caE;
       }
 
+      // caClientParStore — TOUS canaux, PAS de filtre période, par store × client
+      if (!lowMem && cc2 && code) {
+        var _ccaS = caP + caE;
+        if (_ccaS > 0) {
+          if (!caClientParStore[sk]) caClientParStore[sk] = new Map();
+          caClientParStore[sk].set(cc2, (caClientParStore[sk].get(cc2) || 0) + _ccaS);
+        }
+      }
+
       // ventesParMagasin (PAS de filtre période — cohérent avec articleRaw)
       if (storesIntersection.has(sk) || !storesIntersection.size) {
         if (!ventesParMagasin[sk]) ventesParMagasin[sk] = {};
@@ -1011,10 +1044,11 @@ async function _handleParseMessage(data) {
             if (!byMonthStoreArtCanal[sk][_canalKey]) byMonthStoreArtCanal[sk][_canalKey] = {};
             if (!byMonthStoreArtCanal[sk][_canalKey][code]) byMonthStoreArtCanal[sk][_canalKey][code] = {};
             var _bmsac_m = byMonthStoreArtCanal[sk][_canalKey][code];
-            if (!_bmsac_m[_midx_m]) _bmsac_m[_midx_m] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            if (!_bmsac_m[_midx_m]) _bmsac_m[_midx_m] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0, sumQteP: 0 };
             var _bme_m = _bmsac_m[_midx_m];
             _bme_m.sumCA += caP + caE;
             _bme_m.sumPrelevee += caP;
+            if (qteP > 0) _bme_m.sumQteP += qteP;
             if (qteP > 0 || qteE > 0) _bme_m.countBL++;
             _bme_m.sumVMB += _rvp + _rve;
             _bme_m.sumVMBPrel += _rvp;
@@ -1026,6 +1060,13 @@ async function _handleParseMessage(data) {
           if (!byMonthStoreClients[sk]) byMonthStoreClients[sk] = {};
           if (!byMonthStoreClients[sk][_midx_cl]) byMonthStoreClients[sk][_midx_cl] = new Set();
           byMonthStoreClients[sk][_midx_cl].add(cc2);
+          // byMonthStoreClientCA MAGASIN — CA mensuel par client par store
+          var _ccaM = caP + caE;
+          if (_ccaM > 0) {
+            if (!byMonthStoreClientCA[sk]) byMonthStoreClientCA[sk] = {};
+            if (!byMonthStoreClientCA[sk][_midx_cl]) byMonthStoreClientCA[sk][_midx_cl] = {};
+            byMonthStoreClientCA[sk][_midx_cl][cc2] = (byMonthStoreClientCA[sk][_midx_cl][cc2] || 0) + _ccaM;
+          }
         }
       }
 
@@ -1034,7 +1075,7 @@ async function _handleParseMessage(data) {
       if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
 
       if (!lowMem) {
-      // ventesClientsPerStore + clientsMagasin
+      // ventesClientsPerStore + clientsMagasin (caClientParStore déplacé avant filtre période)
       if (cc2 && code) {
         if (!ventesClientsPerStore[sk]) ventesClientsPerStore[sk] = new Set();
         ventesClientsPerStore[sk].add(cc2);
@@ -1130,8 +1171,8 @@ async function _handleParseMessage(data) {
         });
       });
       _tempCAAllFull.forEach(function(_arts, _cc) {
-        if (!ventesClientArticleFull.has(_cc)) return;
-        var _cMap = ventesClientArticleFull.get(_cc);
+        if (!ventesClientMagFull.has(_cc)) return;
+        var _cMap = ventesClientMagFull.get(_cc);
         _arts.forEach(function(_ca, _code) {
           var _e = _cMap.get(_code);
           if (_e) _e.sumCAAll += _ca;
@@ -1193,6 +1234,17 @@ async function _handleParseMessage(data) {
         txMarge: _caCalc > 0 ? _vmbCalc / _caCalc * 100 : null,
         vmc: commandesPDV.size > 0 ? _caCalc / commandesPDV.size : null
       };
+
+      // ── Enlevé mono-ligne : BL MAGASIN, 1 seul article, 100% enlevé ──
+      var enleveSingleBL = {}; // code → count
+      for (var blk in blData) {
+        var _blE = blData[blk];
+        if (_blE.codes.size !== 1) continue; // uniquement BL mono-article
+        if (blPreleveeSet.has(blk)) continue; // a du prélevé → pas une rupture
+        if (blCanalMap.get(blk) !== 'MAGASIN') continue; // uniquement canal MAGASIN
+        var _singleCode = _blE.codes.values().next().value;
+        enleveSingleBL[_singleCode] = (enleveSingleBL[_singleCode] || 0) + 1;
+      }
 
       // ── blData: convert Sets to counts for serialization ───────────────
       for (var blk in blData) {
@@ -1433,6 +1485,12 @@ async function _handleParseMessage(data) {
       ventesClientsPerStoreSer[vsk] = Array.from(ventesClientsPerStore[vsk]);
     }
 
+    // Serialize caClientParStore (Map<cc,CA> → array of [cc,CA])
+    var caClientParStoreSer = {};
+    for (var csk2 in caClientParStore) {
+      caClientParStoreSer[csk2] = Array.from(caClientParStore[csk2]);
+    }
+
     // Serialize commandesPerStoreCanal ({store: {canal: Set}} → {store: {canal: array}})
     var commandesPerStoreCanalSer = {};
     for (var csk in commandesPerStoreCanal) {
@@ -1465,6 +1523,7 @@ async function _handleParseMessage(data) {
       payload.seasonalIndexReseau = seasonalIndexReseau;
       payload.ventesParMagasinByCanal = ventesParMagasinByCanal;
       payload.ventesClientsPerStore = ventesClientsPerStoreSer;
+      payload.caClientParStore = caClientParStoreSer;
       payload.commandesPerStoreCanal = commandesPerStoreCanalSer;
       payload.clientNomLookup = clientNomLookup;
       payload.articleFamille = articleFamille;
@@ -1478,7 +1537,7 @@ async function _handleParseMessage(data) {
       payload.headersC = headersC;
       // Maps sérialisées
       payload.ventesClientArticle = serMap(ventesClientArticle);
-      payload.ventesClientArticleFull = serMap(ventesClientArticleFull);
+      payload.ventesClientMagFull = serMap(ventesClientMagFull);
       payload.ventesClientArticleReseau = serMap(ventesClientArticleReseau);
       payload.ventesClientHorsMagasin = serMap(ventesClientHorsMagasin);
       payload.clientLastOrder = Array.from(clientLastOrder).map(function(kv) { return [kv[0], kv[1] instanceof Date ? kv[1].getTime() : kv[1]]; });
@@ -1493,12 +1552,14 @@ async function _handleParseMessage(data) {
       payload.clientsMagasinFreq = Array.from(clientsMagasinFreq);
       payload.cannauxHorsMagasin = Array.from(cannauxHorsMagasin);
       payload.blPreleveeSet = Array.from(blPreleveeSet);
+      payload.enleveSingleBL = enleveSingleBL;
       payload.passagesUniques = Array.from(passagesUniques);
       payload.byMonth = byMonth;
       payload.byMonthFull = byMonthFull;
       payload.byMonthCanal = byMonthCanal;
       payload.byMonthStoreArtCanal = byMonthStoreArtCanal;
       payload.byMonthStoreClients = (function() { var o = {}; for (var sk in byMonthStoreClients) { o[sk] = {}; for (var mi in byMonthStoreClients[sk]) o[sk][mi] = Array.from(byMonthStoreClients[sk][mi]); } return o; })();
+      payload.byMonthStoreClientCA = byMonthStoreClientCA; // plain objects, no serialization needed
       payload.byMonthClients = Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; }));
       payload.ventesClientAutresAgences = Array.from(ventesClientAutresAgences);
       payload.byMonthClientsByCanal = Object.fromEntries(Object.entries(byMonthClientsByCanal).map(function(kv) {

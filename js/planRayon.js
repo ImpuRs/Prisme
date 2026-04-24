@@ -5,6 +5,7 @@ import { computeSquelette, computeMonRayon, computeArticleZoneIndex } from './en
 import { articleLib, articleZoneFiltered } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
+import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange } from './sales.js';
 
 // ── State local ──────────────────────────────────────────────────────
 let _prFilterClassif = '';
@@ -32,19 +33,17 @@ const _prLivMonthRange = () => {
   return { min: dMin.getFullYear() * 12 + dMin.getMonth(), max: dMax.getFullYear() * 12 + dMax.getMonth() };
 };
 // CA agence par client×article filtré sur la période Livraisons (via byMonthFull)
-// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesClientArticleFull.sumCA
+// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesClientMagFull.sumCA
 const _prClientArtCA = (cc, code, range) => {
-  if (range && _S._byMonthFull?.[cc]?.[code]) {
-    const months = _S._byMonthFull[cc][code];
-    let ca = 0;
-    for (const midx in months) {
-      if (+midx >= range.min && +midx <= range.max) ca += months[midx].sumCA;
-    }
-    return ca;
+  if (range) {
+    const caR = getClientArticleCAFullInMonthRange(cc, code, range);
+    if (typeof caR === 'number') return caR;
   }
   // Fallback: données agrégées pleine période
-  const full = (_S.ventesClientArticleFull || _S.ventesClientArticle);
-  return full?.get(cc)?.get(code)?.sumCA || 0;
+  const full = getVentesClientMagFull();
+  const e = full?.get(cc)?.get(code);
+  if (!e) return 0;
+  return (typeof e.sumCAAll === 'number') ? e.sumCAAll : (e.sumCA || 0);
 };
 let _prConqueteMode  = false; // true when viewing an inactive family in conquest mode
 let _prTopView       = 'famille'; // 'famille' | 'metier'
@@ -147,6 +146,7 @@ const CLASSIF_BADGE = {
   implanter:  { label: 'Implanter',  bg: 'rgba(59,130,246,0.2)',  color: '#3b82f6',           icon: '🔵' },
   challenger: { label: 'Challenger', bg: 'rgba(239,68,68,0.2)',   color: '#ef4444',           icon: '🔴' },
   surveiller: { label: 'Surveiller', bg: 'rgba(148,163,184,0.2)', color: 'var(--t-secondary)', icon: '👁'  },
+  bruit:      { label: 'Bruit',      bg: 'rgba(100,116,139,0.15)', color: '#64748b',            icon: '⛔' },
 };
 
 // ── Matrice verdict Squelette × Physigamme ──────────────────────────
@@ -174,6 +174,12 @@ const VERDICT_MATRIX = {
     nouveaute:      { name: 'Le Pari du Réseau', icon: '🎲', color: '#3b82f6', tip: 'Opportunité de capter les early adopters. ACTION : On implante si ça correspond à ta clientèle cible.' },
     specialiste:    { name: 'La Conquête / Fidélisation', icon: '🧲', color: '#8b5cf6', tip: 'Produit pour aller chercher un client strat. ou compléter la gamme de ceux que tu as déjà. ACTION : On implante pour envoyer un signal fort.' },
     standard:       { name: "L'Opportunité Locale", icon: '📡', color: '#94a3b8', tip: 'Produit standard avec forte demande prouvée sur ta zone (données livraison). ACTION : Analyser le couple produit/métier et implanter si potentiel validé.' },
+  },
+  bruit: {
+    incontournable: { name: 'Le Bouclier',     icon: '⛔', color: '#64748b', tip: 'Produit incontournable réseau mais signal mort chez toi ET chez les autres. Pas d\'achat. Si le siège insiste, montre cet écran.' },
+    nouveaute:      { name: 'Le Bouclier',     icon: '⛔', color: '#64748b', tip: 'Nouveauté sans traction réseau. Aucune agence ne la vend. Pas d\'achat.' },
+    specialiste:    { name: 'Le Bouclier',     icon: '⛔', color: '#64748b', tip: 'Produit de niche sans marché local ni réseau. Pas d\'achat.' },
+    standard:       { name: 'Le Bouclier',     icon: '⛔', color: '#64748b', tip: 'Aucun signal de vente — ni chez toi, ni sur ta zone, ni en réseau. Verdict : ne pas acheter. Si le siège pousse cette réf, montre cet écran.' },
   },
 };
 const _ANCRE_METIER = { name: 'Ancre Métier', icon: '🎯', color: '#8b5cf6', tip: 'Trahison pardonnée — dernier lien avec un métier clé. Stock de survie 1/1.' };
@@ -273,14 +279,17 @@ function _prComputeRoles(codeFam) {
     }
 
     let role = 'standard';
+    // Priorité : le comportement d'achat écrase l'âge du produit
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
-    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
+    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
 
-    // Fix Poids Mort : un challenger (W=0) avec de la demande externe
-    // n'est PAS un Poids Mort — c'est une Réf Schizo ou une Trahison
-    if (role === 'standard' && W === 0 && fd?.stockActuel > 0) {
-      if (nbSt >= 1) role = 'incontournable'; // vendu ailleurs dans le réseau → Réf Schizo
+    // Fix : un article référencé avec 0 vente locale mais de la demande réseau/zone
+    // n'est ni un Poids Mort ni une Erreur de Casting — le marché parle
+    // Référencé = en stock, OU emplacement, OU MIN/MAX ERP, OU Vitesse Réseau
+    const _isRef = (fd?.stockActuel || 0) > 0 || !!(fd?.emplacement) || (fd?.ancienMin || 0) > 0 || !!fd?._vitesseReseau;
+    if ((role === 'standard' || role === 'nouveaute') && W === 0 && _isRef) {
+      if (nbSt >= 3) role = 'incontournable'; // vendu dans 3+ agences → Réf Schizo
       else if (nbCli >= 1) role = 'specialiste'; // clients zone l'achètent hors PDV → Trahison
     }
 
@@ -333,7 +342,7 @@ function _prAgenceVocationCtx() {
   if (_prAgenceCtxCache && _prAgenceCtxStore === currentStore) return _prAgenceCtxCache;
   _prAgenceCtxStore = currentStore;
   const cd = _S.chalandiseData;
-  const vca = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  const vca = getVentesClientMagFull();
   const vcm = _S.ventesClientHorsMagasin;
   const metierCA = new Map();   // metier → CA total
   const segCA = { chantier: 0, erp: 0, deco: 0, source: 0 };
@@ -487,22 +496,22 @@ function computePlanStock() {
     const W = fd?.W || vpmPlan?.[myStorePlan]?.[code]?.countBL || 0;
 
     let role = 'standard';
+    // Priorité : le comportement d'achat écrase l'âge du produit
+    const buyersMag = _S.articleClients?.get(code);
+    let nbCli = 0, nbCliMetierStrat = 0;
+    if (buyersMag?.size) {
+      for (const cc of buyersMag) {
+        nbCli++;
+        if (stratClients.has(cc)) nbCliMetierStrat++;
+      }
+    }
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    else if (nbCli >= 2 && (nbCliMetierStrat / nbCli) >= 0.5) role = 'specialiste';
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
-    else {
-      const buyersMag = _S.articleClients?.get(code);
-      let nbCli = 0, nbCliMetierStrat = 0;
-      if (buyersMag?.size) {
-        for (const cc of buyersMag) {
-          nbCli++;
-          if (stratClients.has(cc)) nbCliMetierStrat++;
-        }
-      }
-      if (nbCli >= 2 && (nbCliMetierStrat / nbCli) >= 0.5) role = 'specialiste';
-      if (role === 'standard' && W === 0 && (fd?.stockActuel || 0) > 0) {
-        if (nbSt >= 1) role = 'incontournable';
-        else if (nbCli >= 1) role = 'specialiste';
-      }
+    const _isRef = (fd?.stockActuel || 0) > 0 || !!(fd?.emplacement) || (fd?.ancienMin || 0) > 0 || !!fd?._vitesseReseau;
+    if ((role === 'standard' || role === 'nouveaute') && W === 0 && _isRef) {
+      if (nbSt >= 3) role = 'incontournable';
+      else if (nbCli >= 1) role = 'specialiste';
     }
 
     _roleCache.set(code, role);
@@ -555,7 +564,7 @@ function computePlanStock() {
   // nbClients + signal spécialiste (CA clients métiers strat vs CA total)
   const seenClientsByFam = new Map(); // codeFam → Set<cc>
   const caByFamClient = new Map(); // codeFam → { total, strat }
-  const vcaFull = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  const vcaFull = getVentesClientMagFull();
   if (vcaFull) {
     for (const [cc, artMap] of vcaFull) {
       const isStrat = stratClients.has(cc);
@@ -686,7 +695,8 @@ function computePlanStock() {
     else if (f.scoreSante < 50 || (hasBench && f.perfReseau < 80))
       f.classifGlobal = 'challenger';    // À retravailler
     // 2. Bien couverte (VERT) : santé ≥ 80 ET perf réseau au-dessus médiane (ou pas de bench)
-    else if (f.scoreSante >= 80 && (!hasBench || f.perfReseau > 100))
+    //    Garde-fou : au moins 1 article socle ET du CA — sinon score artificiellement gonflé
+    else if (f.scoreSante >= 80 && f.socle > 0 && f.caAgence > 0 && (!hasBench || f.perfReseau > 100))
       f.classifGlobal = 'socle';         // Bien couverte
     // 3. À développer : gros potentiel externe OU captation faible sur gros marché
     else if (f.potentielExterne > 30000 || (f.captation !== null && f.captation < 10 && f.caZoneTotal > 50000))
@@ -1225,15 +1235,27 @@ function _prBuildSqTable(arts) {
         <button onclick="window._prClearHighlightRef()" class="ml-2 hover:t-primary" style="font-size:11px">✕</button>
       </span>
     </div>`;
-    if (!refArt.length) return pill + '<div class="t-disabled text-sm text-center py-4">Article absent du squelette de cette famille.</div>';
+    if (!refArt.length) {
+      // Chercher dans les articles "bruit" exclus du squelette
+      const sqData = _S._prSqData;
+      const bruitArt = sqData?._allArticles?.get(_prHighlightRef);
+      if (bruitArt) {
+        const fd = (_S.finalData || []).find(r => r.code === _prHighlightRef);
+        const _g = bruitArt.classification || 'bruit';
+        refArt = [{ ...bruitArt, _g, W: fd?.W || 0 }];
+      } else {
+        return pill + '<div class="t-disabled text-sm text-center py-4">Article introuvable dans les données.</div>';
+      }
+    }
     arts = refArt;
   }
   const filter = _S._prSqFilter || '';
-  const filtered = filter === 'absent'
-    ? arts.filter(a => !a.enStock)
-    : filter
-      ? arts.filter(a => a._g === filter)
-      : arts;
+  const filtered = _prHighlightRef ? arts
+    : filter === 'absent'
+      ? arts.filter(a => !a.enStock)
+      : filter
+        ? arts.filter(a => a._g === filter)
+        : arts;
   if (!filtered.length) return '<div class="t-disabled text-sm text-center py-4">Aucun article.</div>';
 
   const _sqBaseFn = _SQ_SORT_FNS[_prSqSort] || _SQ_SORT_FNS.reseau;
@@ -1488,9 +1510,8 @@ function _prRenderMetiers(fam) {
 
   // 1) Mon agence — CA aligné sur la période Livraisons si disponible
   const _livRange = _prLivMonthRange();
-  const vcaFull = _S.ventesClientArticleFull?.size
-    ? _S.ventesClientArticleFull
-    : _S.ventesClientArticle;
+  const hasFull = hasVentesClientMagFull();
+  const vcaFull = getVentesClientMagFull();
   if (vcaFull) {
     for (const [cc, artMap] of vcaFull) {
       if (!_distOk(cc)) continue;
@@ -1499,7 +1520,7 @@ function _prRenderMetiers(fam) {
       let caFam = 0;
       for (const [code, v] of artMap) {
         if (!_matchFam(code)) continue;
-        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCA || 0);
+        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCAAll || v.sumCA || 0);
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
@@ -1509,9 +1530,9 @@ function _prRenderMetiers(fam) {
       }
     }
   }
-  // Aussi les canaux hors-MAGASIN — seulement si ventesClientArticleFull n'existe pas
+  // Aussi les canaux hors-MAGASIN — seulement si ventesClientMagFull n'existe pas
   // (Full contient déjà TOUS les canaux, évite le double-comptage)
-  if (!_S.ventesClientArticleFull?.size && _S.ventesClientHorsMagasin?.size) {
+  if (!hasFull && _S.ventesClientHorsMagasin?.size) {
     for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
@@ -1843,9 +1864,10 @@ function _prRenderPhysigamme(fam) {
     }
     // Rôle
     let role = 'standard';
+    // Priorité : le comportement d'achat écrase l'âge du produit
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
-    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
+    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
 
     // Classification squelette (O(1) lookup via cached Map)
     const sqClassif = _sqClassifMap.get(code) || '';
@@ -2083,98 +2105,6 @@ function _prRenderPilotage(fam) {
     }
   }
 
-  // ── Indice Facing dynamique (articles en stock uniquement) ──
-  // Score relatif basé sur classif × rôle × rotation dans l'emplacement
-  // Proxy allocation actuelle = nouveauMax (intention de stock ≈ espace alloué)
-  {
-    const fdMap2 = _prGetFdMap();
-    // 1) Calculer score facing brut par article
-    for (const a of arts) {
-      if (a._g === 'implanter') { a._facingIdx = null; continue; }
-      const fd = fdMap2.get(a.code);
-      // Exclure articles Vitesse Réseau (MAX calculé réseau, pas politique locale)
-      if (fd?._vitesseReseau) { a._facingIdx = null; a._facingNote = 'vitesse'; continue; }
-      // Score : classif (socle=3, challenger=1, poids_mort=0) × rôle (incont=3, spec=2, nouv=2, std=1)
-      const classifW = a._g === 'socle' ? 3 : a._g === 'challenger' ? 1 : a._g === 'surveiller' ? 2 : 0;
-      const roleW = a.role === 'incontournable' ? 3 : a.role === 'specialiste' ? 2 : a.role === 'nouveaute' ? 2 : 1;
-      a._facingScore = classifW * roleW + (a.W || 0) * 0.1; // rotation pondère le tri intra-niveau
-      a._facingMax = fd?.nouveauMax || 0;
-    }
-    // 2) Collecter les articles éligibles au facing (pas implanter, pas vitesse)
-    const facingArts = arts.filter(a => a._facingIdx === undefined);
-    // Médiane W pour seuils relatifs
-    const allWs = facingArts.map(a => a.W || 0).sort((x, y) => x - y);
-    const medW = allWs.length ? allWs[Math.floor(allWs.length / 2)] : 0;
-    // 3) Attribuer l'indice ★★★/★★/★/⚠️
-    for (const a of facingArts) {
-      const isPoidsMort = a.verdict?.name === 'Le Poids Mort' || a.verdict?.name === "L'Erreur de Casting"
-        || (a._g === 'challenger' && a.role === 'standard' && (a.W || 0) === 0);
-      if (isPoidsMort) {
-        a._facingIdx = 0; // ⚠️
-      } else if ((a._g === 'socle' && (a.role === 'incontournable' || a.role === 'specialiste')) || (a.W || 0) > medW * 2) {
-        a._facingIdx = 3; // ★★★
-      } else if (a._g === 'socle' || (a.W || 0) >= medW) {
-        a._facingIdx = 2; // ★★
-      } else {
-        a._facingIdx = 1; // ★
-      }
-    }
-    // 4) Delta : rang facing vs rang MAX (percentile dans la famille)
-    // Un article ★★★ avec un MAX dans le bas du classement → sous-investi
-    // Un article ★ avec un MAX dans le haut du classement → sur-investi
-    const withMax = facingArts.filter(a => a._facingMax > 0);
-    if (withMax.length >= 3) {
-      // Rang par facing score (desc) et rang par MAX (desc)
-      const byScore = [...withMax].sort((a, b) => (b._facingScore || 0) - (a._facingScore || 0));
-      const byMax = [...withMax].sort((a, b) => b._facingMax - a._facingMax);
-      const n = withMax.length;
-      const scorePctMap = new Map(); // code → percentile 0-1 (1 = top)
-      const maxPctMap = new Map();
-      for (let i = 0; i < n; i++) {
-        scorePctMap.set(byScore[i].code, 1 - i / n);
-        maxPctMap.set(byMax[i].code, 1 - i / n);
-      }
-      for (const a of facingArts) {
-        if (a._facingIdx === 0) {
-          // ⚠️ poids mort — candidat retrait si stock ou MAX > 0
-          const hasAlloc = a._facingMax > 0 || (fdMap2.get(a.code)?.stockActuel || 0) > 0;
-          a._facingDelta = hasAlloc ? 'remove' : 'ok';
-        } else {
-          const sp = scorePctMap.get(a.code);
-          const mp = maxPctMap.get(a.code);
-          // Règle percentile : gap entre rang facing et rang MAX
-          if (sp != null && mp != null) {
-            const gap = sp - mp;
-            if (gap > 0.3) a._facingDelta = 'up';
-            else if (gap < -0.3) a._facingDelta = 'down';
-            else a._facingDelta = 'ok';
-          } else {
-            a._facingDelta = 'ok';
-          }
-          // Règle absolue : ★ (faible) + 0 client PDV + MAX > 0 → ⬇️ sur-alloué
-          // L'article a du linéaire mais aucun client ne l'achète en agence
-          if (a._facingDelta === 'ok' && a._facingIdx <= 1 && a._facingMax > 0 && (a.cliPDV || 0) === 0) {
-            a._facingDelta = 'down';
-          }
-          // Règle absolue : ★★★ + MAX ≤ 2 → ⬆️ top article, allocation minimale
-          if (a._facingDelta === 'ok' && a._facingIdx >= 3 && a._facingMax > 0 && a._facingMax <= 2) {
-            a._facingDelta = 'up';
-          }
-        }
-      }
-    } else {
-      // Pas assez d'articles pour comparer — juste marquer les poids morts
-      for (const a of facingArts) {
-        if (a._facingIdx === 0) {
-          const hasAlloc = a._facingMax > 0 || (fdMap2.get(a.code)?.stockActuel || 0) > 0;
-          a._facingDelta = hasAlloc ? 'remove' : 'ok';
-        } else {
-          a._facingDelta = 'ok';
-        }
-      }
-    }
-  }
-
   // ── Potentiel Zone pour IMPLANTER ──
   {
     const _vpm = _S.ventesParMagasin || {};
@@ -2199,7 +2129,7 @@ function _prRenderPilotage(fam) {
   // ── Filtre ref directe (depuis recherche code article) ──
   let _refPill = '';
   if (_prHighlightRef) {
-    const refArt = arts.filter(a => a.code === _prHighlightRef);
+    let refArt = arts.filter(a => a.code === _prHighlightRef);
     const lib = articleLib(_prHighlightRef);
     _refPill = `<div class="flex items-center gap-2 mb-3">
       <span class="text-[11px] px-2 py-1 rounded border s-panel-inner font-bold" style="border-color:var(--c-action);background:rgba(139,92,246,0.15);color:var(--c-action,#8b5cf6)">
@@ -2207,7 +2137,29 @@ function _prRenderPilotage(fam) {
         <button onclick="window._prClearHighlightRef()" class="ml-2 hover:t-primary" style="font-size:11px">✕</button>
       </span>
     </div>`;
-    if (!refArt.length) return _refPill + '<div class="t-disabled text-sm text-center py-4">Article absent du squelette de cette famille.</div>';
+    if (!refArt.length) {
+      const sqData = _S._prSqData;
+      const bruitArt = sqData?._allArticles?.get(_prHighlightRef);
+      if (bruitArt) {
+        const fd = (_S.finalData || []).find(r => r.code === _prHighlightRef);
+        const _g = bruitArt.classification || 'bruit';
+        const _famCode = _prOpenFam || '';
+        const role = _famCode ? _prGetRole(bruitArt.code, _famCode) : 'standard';
+        const verdict = _prVerdict(_g, role, bruitArt.code);
+        refArt = [{
+          ...bruitArt, _g, role, verdict,
+          W: fd?.W || 0,
+          prix: fd?.prixUnitaire || 0,
+          sf: '', codeSF: '',
+          cliPDV: bruitArt.nbClientsPDV || 0,
+          caZone: bruitArt.caClientsZone || 0,
+          cliZone: bruitArt.nbClientsZone || 0,
+          pdm: null,
+        }];
+      } else {
+        return _refPill + '<div class="t-disabled text-sm text-center py-4">Article introuvable dans les données.</div>';
+      }
+    }
     arts = refArt;
   }
 
@@ -2216,14 +2168,15 @@ function _prRenderPilotage(fam) {
   for (const g of CLASSIFS) counts[g] = 0;
   for (const a of arts) { if (a._g in counts) counts[a._g]++; }
 
-  // ── Filtre classif + verdict ──
-  let filtered = _prPilotFilter
-    ? arts.filter(a => a._g === _prPilotFilter)
-    : arts;
-  if (_prPilotVerdict) {
+  // ── Filtre classif + verdict (bypass en recherche ciblée) ──
+  let filtered = _prHighlightRef ? arts
+    : _prPilotFilter
+      ? arts.filter(a => a._g === _prPilotFilter)
+      : arts;
+  if (!_prHighlightRef && _prPilotVerdict) {
     filtered = filtered.filter(a => a.verdict.name === _prPilotVerdict);
   }
-  if (_prPilotRole) {
+  if (!_prHighlightRef && _prPilotRole) {
     filtered = filtered.filter(a => a.role === _prPilotRole);
   }
 
@@ -2237,7 +2190,6 @@ function _prRenderPilotage(fam) {
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
     pdm:     (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
     potentiel: (a, b) => (b._potentielZone || 0) - (a._potentielZone || 0),
-    facing:  (a, b) => (b._facingIdx ?? -1) - (a._facingIdx ?? -1),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
     verdict: (a, b) => {
       const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
@@ -2256,15 +2208,11 @@ function _prRenderPilotage(fam) {
 
   // ── KPIs synthèse (single pass over arts) ──
   const nbTotal = arts.length;
-  let nbEnStock = 0, valStock = 0, nbFacingUp = 0, nbFacingDown = 0, nbFacingRemove = 0;
+  let nbEnStock = 0, valStock = 0;
   for (const a of arts) {
     if (a.enStock) { nbEnStock++; valStock += (a.stockActuel || 0) * (a.prix || 0); }
-    if (a._facingDelta === 'up') nbFacingUp++;
-    else if (a._facingDelta === 'down') nbFacingDown++;
-    else if (a._facingDelta === 'remove') nbFacingRemove++;
   }
   const nbImplanter = counts.implanter || 0;
-  const nbFacingActions = nbFacingUp + nbFacingDown + nbFacingRemove;
 
   // ── Pills filtre classif ──
   const pills = CLASSIFS.map(g => {
@@ -2356,17 +2304,6 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
       ${_prPilotFilter === 'implanter' ? `<td class="py-1.5 px-2 text-right font-bold" style="color:${a._potentielZone ? '#22c55e' : 'var(--t-disabled)'}">${a._potentielZone ? formatEuro(a._potentielZone) : '—'}</td>` : ''}
-      ${_prPilotFilter !== 'implanter' ? (() => {
-        if (a._facingIdx == null) return '<td class="py-1.5 px-2 text-center t-disabled text-[9px]">—</td>';
-        const stars = a._facingIdx === 0 ? '⚠️' : '★'.repeat(a._facingIdx);
-        const starColor = a._facingIdx === 0 ? '#ef4444' : a._facingIdx === 3 ? '#22c55e' : a._facingIdx === 2 ? '#60a5fa' : '#94a3b8';
-        const deltaIcon = a._facingDelta === 'up' ? ' <span title="MAX bas vs rotation forte — élargir le facing" style="color:#22c55e">⬆️</span>'
-          : a._facingDelta === 'down' ? ' <span title="MAX haut vs rotation faible — réduire le facing" style="color:#f59e0b">⬇️</span>'
-          : a._facingDelta === 'remove' ? ' <span title="Poids mort avec stock — candidat retrait" style="color:#ef4444">❌</span>'
-          : '';
-        const maxLabel = a._facingMax > 0 ? `<span class="text-[9px] t-disabled"> MAX ${a._facingMax}</span>` : '';
-        return `<td class="py-1.5 px-2 text-center whitespace-nowrap" style="color:${starColor};font-weight:600">${stars}${deltaIcon}${maxLabel}</td>`;
-      })() : ''}
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>${_isLocalIncont(a.code, a.role) ? '<span class="text-[7px] px-1 py-0.5 rounded font-bold ml-1" style="background:rgba(139,92,246,0.15);color:#a78bfa">LOCAL</span>' : ''}
       </td>
@@ -2374,11 +2311,8 @@ function _prRenderPilotage(fam) {
   }).join('');
 
   // ── Résumé ──
-  const facingSummary = nbFacingActions > 0
-    ? ` · <span style="color:#f59e0b" title="${nbFacingUp} à élargir, ${nbFacingDown} à réduire, ${nbFacingRemove} candidats retrait">📐 ${nbFacingActions} actions facing</span>`
-    : '';
   const summary = `<div class="flex items-center gap-4 mb-3 text-[10px] flex-wrap">
-    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter${facingSummary}</span>
+    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter</span>
     <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
   </div>`;
 
@@ -2396,7 +2330,6 @@ function _prRenderPilotage(fam) {
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
         ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
         ${_prPilotFilter === 'implanter' ? _thSort('potentiel', '💰 Potentiel', 'text-right', 'CA médian réseau × pénétration zone') : ''}
-        ${_prPilotFilter !== 'implanter' ? _thSort('facing', '📐 Facing', 'text-center', 'Indice d\'allocation linéaire vs rotation réelle') : ''}
         ${_thSort('verdict', 'Verdict', 'text-left')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -3480,13 +3413,11 @@ window._prExportPilotage = function() {
     const lib = a.libelle || articleLib(a.code);
     const caZ = +(a.caClientsZone || 0);
     const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
-    const facingLabel = a._facingIdx == null ? '' : a._facingIdx === 0 ? '⚠️' : '★'.repeat(a._facingIdx);
-    const deltaLabel = a._facingDelta === 'up' ? '⬆️ élargir' : a._facingDelta === 'down' ? '⬇️ réduire' : a._facingDelta === 'remove' ? '❌ retrait' : '';
     const local = _isLocalIncont(a.code, a.role) ? 'LOCAL' : '';
     return [a.code, lib, a.emplacement || '', sf, a.stockActuel || 0, a.W,
-      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name, local, facingLabel, deltaLabel].join(';');
+      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name, local].join(';');
   });
-  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict;Local;Facing;Action Facing', ...rows].join('\n');
+  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict;Local', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3788,21 +3719,22 @@ function _prGatherFamData(codeFam, matchFn) {
   });
 
   if (_S.chalandiseReady && _S.chalandiseData?.size) {
-    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+    const hasFull2 = hasVentesClientMagFull();
+    for (const [cc, artMap] of (getVentesClientMagFull() || new Map())) {
       if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       const metier = info?.metier || 'Hors chalandise';
       let caFam = 0;
       for (const [code, data] of artMap) {
         if (!_match(code)) continue;
-        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (data.sumCA || 0);
+        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (data.sumCAAll || data.sumCA || 0);
       }
       if (caFam > 0) {
         metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
         metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
       }
     }
-    if (!_S.ventesClientArticleFull?.size) {
+    if (!hasFull2) {
       for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
         if (!_prDistOk(cc)) continue;
         const info = _S.chalandiseData?.get(cc);
@@ -4342,8 +4274,8 @@ function _prBuildDiagText(codeFam) {
       const _legende = `Légende : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX à paramétrer · [AF] = classe ABC/FMR (A=top CA, F=fréquent).\n`;
       if (aIncont.length) {
         const nbRupInc = aIncont.filter(a => a.status === 'rupture').length;
-        txt += `═══ ÉTAPE 3 — INCONTOURNABLES (${aIncont.length} refs${nbRupInc ? ` · ${nbRupInc} ruptures` : ''}) — pépites + socle réseau, prio facing ═══\n`;
-        txt += `⏱ Budget : ~25 min  ·  Geste : vérifier facing, MIN/MAX, traiter les ruptures en priorité.\n`;
+        txt += `═══ ÉTAPE 3 — INCONTOURNABLES (${aIncont.length} refs${nbRupInc ? ` · ${nbRupInc} ruptures` : ''}) — pépites + socle réseau ═══\n`;
+        txt += `⏱ Budget : ~25 min  ·  Geste : vérifier MIN/MAX, traiter les ruptures en priorité.\n`;
         txt += _legende;
         _printByEmp(aIncont, _fmt4);
         txt += '\n';

@@ -1441,8 +1441,7 @@
         <button data-tab="direction" onclick="switchSuperTab('direction')" class="tab-btn supertab-btn" id="stbtn-direction" style="--tab-color:#8B5CF6;--tab-bg:#8B5CF61F;--tab-text:#4C1D95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Direction</span></button>
         <div class="supertab-pills" id="stpills-direction">
           <button class="supertab-pill active" data-subtab="conformite" onclick="switchTab('conformite')">Tronc Commun</button>
-          <button class="supertab-pill" data-subtab="marques" onclick="switchTab('marques')">Marques</button>
-          <button class="supertab-pill" data-subtab="clones" onclick="switchTab('clones')">Clones</button>
+          <button class="supertab-pill" data-subtab="duel" onclick="switchTab('duel')">Duel Agence</button>
         </div>
       </div>
 
@@ -2032,8 +2031,7 @@
 
     <!-- Direction Réseau -->
     <div id="tabConformite" class="tab-content hidden"><div id="conformiteContent" class="p-4"></div></div>
-    <div id="tabMarques" class="tab-content hidden"><div id="marquesContent" class="p-4"></div></div>
-    <div id="tabClones" class="tab-content hidden"><div id="clonesContent" class="p-4"></div></div>
+    <div id="tabDuel" class="tab-content hidden"><div id="duelContent" class="p-4"></div></div>
 
   </div><!-- /container -->
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
@@ -2045,6 +2043,7 @@
 
   <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
   <script type="module" src="js/direction.js"></script>
-  <script type="module" src="js/main.js?v=20260421a"></script>
+  <script type="module" src="js/duel-agence.js"></script>
+  <script type="module" src="js/main.js?v=20260422c"></script>
 </body>
 </html>

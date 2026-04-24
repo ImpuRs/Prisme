@@ -16,7 +16,7 @@ import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioL
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
-import { computeCloneStores, getCloneSet } from './clone-store.js';
+import { getVentesClientMagFull, hasVentesClientMagFull } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
@@ -96,37 +96,29 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
       (async()=>{
         showLoading('Recalcul période…','');
         try{
-          // Multi-consommé : relire tous les fichiers si disponibles
+          // IMPORTANT : éviter Promise.all(arrayBuffer) qui double le pic mémoire (iOS / PC low-RAM).
           const _allFilesC = _S._filesC || [_S._fileC];
-          const bufPromises = [];
-          const fnames = [];
-          for (let i = 0; i < _allFilesC.length; i++) { bufPromises.push(_allFilesC[i].arrayBuffer()); fnames.push(_allFilesC[i].name); }
-          bufPromises.push(_S._fileS?_S._fileS.arrayBuffer():Promise.resolve(null));
-          const allBufs = await Promise.all(bufPromises);
-          const bufS_r = allBufs.pop();
-          const bufCArray_r = allBufs;
-          const parseResult=await launchParseWorker(bufCArray_r,bufS_r,{
+          const parseResult=await launchParseWorkerFromFiles(_allFilesC,_S._fileS||null,{
             selectedStore:_S.selectedMyStore||'',
-            filenamesC: fnames,
             periodStart:_S.periodFilterStart?_S.periodFilterStart.getTime():null,
             periodEnd:_S.periodFilterEnd?_S.periodFilterEnd.getTime():null,
             isRefilter:true,
             lowMem: !!_S.lowMemMode,
           });
           // Sauvegarder les données période-invariantes avant hydratation
-          const _savedFull=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+          const _savedFull=_S.ventesClientMagFull.size?_S.ventesClientMagFull:new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
           const _savedHors=_S.ventesClientHorsMagasin;
           const _savedLastOrderAll=_S.clientLastOrderAll;
           const _savedLastOrderByCanal=_S.clientLastOrderByCanal;
           _hydrateStateFromParseResult(parseResult,_S.selectedMyStore);
           // Restaurer les invariants période (hors-MAGASIN ne change pas au refilter)
-          if(!_S.ventesClientArticleFull.size&&_savedFull.size)_S.ventesClientArticleFull=_savedFull;
+          if(!_S.ventesClientMagFull.size&&_savedFull.size)_S.ventesClientMagFull=_savedFull;
           if(!_S.ventesClientHorsMagasin.size&&_savedHors.size)_S.ventesClientHorsMagasin=_savedHors;
           if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
           if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
           enrichPrixUnitaire();_enrichFinalDataWithCA();
-          if(_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');computeBenchmark();}
-          computeClientCrossing();_computeClientDominantUnivers();
+          if(!_S.lowMemMode&&_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');computeBenchmark();}
+          if(!_S.lowMemMode){computeClientCrossing();_computeClientDominantUnivers();}
           renderCanalAgence();renderCurrentTab();
 
         }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();}
@@ -216,10 +208,11 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
       }
     }
 
-    // sumCAAll : copier depuis ventesClientArticleFull (pleine période) — MAGASIN uniquement
-    if((!activeCanal||activeCanal==='MAGASIN')&&_S.ventesClientArticleFull?.size){
+    // sumCAAll : copier depuis ventesClientMagFull (pleine période) — MAGASIN uniquement
+    if((!activeCanal||activeCanal==='MAGASIN')&&hasVentesClientMagFull()){
+      const _fullVCA = getVentesClientMagFull();
       for(const[cc,artMap]of newVCA){
-        const fullMap=_S.ventesClientArticleFull.get(cc);
+        const fullMap=_fullVCA.get(cc);
         if(!fullMap)continue;
         for(const[code,e]of artMap){
           const ef=fullMap.get(code);
@@ -1035,6 +1028,11 @@ _S.canalAgence=newCanalAgence;
       try{
         const totalBytes = Array.from(filesC||[]).reduce((s,f)=>s+(f?.size||0),0) + (f2?.size||0);
         const totalMB = totalBytes / (1024*1024);
+        // Seuil "hard stop" : au-delà, Safari iOS tue souvent l'onglet (OOM) pendant arrayBuffer()+XLSX.
+        if (totalMB >= 80) {
+          showToast(`📱 Mode mobile : ${totalMB.toFixed(1)} Mo — trop volumineux pour Safari iOS. Faites l'analyse sur PC puis "📱 Exporter pour Scan" (scan.html → Import .json).`,'error',8000);
+          return;
+        }
         if(totalMB >= 25){
           showToast(`📱 Mode mobile : ${totalMB.toFixed(1)} Mo à analyser — risque élevé de crash. Conseil: faites l'analyse sur PC puis "📱 Exporter pour Scan".`,'warning',7000);
           const ok = confirm(`Mode mobile: ${totalMB.toFixed(1)} Mo à analyser.\nSafari iOS peut planter sur ce volume.\n\nOK = continuer quand même\nAnnuler = arrêter`);
@@ -1117,54 +1115,6 @@ _S.canalAgence=newCanalAgence;
     // Étapes post-hydratation côté main thread : enrichPrixUnitaire, chalandise, benchmark, render
     await _postParseMain({storeOverride: selectedStore||'', _f1: filesC, _f2: f2||null});
     buildPeriodFilter();
-  }
-
-  // ── launchParseWorker — lance parse-worker.js et retourne le payload ──
-  // bufCInput : ArrayBuffer (single, rétrocompat) ou ArrayBuffer[] (multi-consommé)
-  function launchParseWorker(bufCInput, bufS, opts) {
-    const bufCArray = Array.isArray(bufCInput) ? bufCInput : [bufCInput];
-    return new Promise(function(resolve, reject) {
-      const worker = new Worker('js/parse-worker.js' + _ASSET_VER_Q);
-      worker.onmessage = async function(ev) {
-        const msg = ev.data;
-        if (msg.type === 'progress') {
-          updateProgress(msg.pct, 100, msg.msg);
-        } else if (msg.type === 'stores') {
-          // Le Worker a détecté les agences — sélectionner et répondre
-          const storesI = new Set(msg.storesIntersection || []);
-          _S.storesIntersection = storesI;
-          _S.storeCountConsomme = (msg.storesFoundC || []).length;
-          _S.storeCountStock = (msg.storesFoundS || []).length;
-          let store = (opts.selectedStore || '').toUpperCase();
-          if (storesI.size === 1) {
-            store = [...storesI][0];
-          } else if (storesI.size > 1 && (!store || !storesI.has(store))) {
-            store = await _showStoreSelector(storesI) || '';
-          }
-          if (store) localStorage.setItem('prisme_selectedStore', store);
-          // Mettre à jour le dropdown agence
-          const _selStore = document.getElementById('selectMyStore');
-          if (_selStore && storesI.size) {
-            _selStore.innerHTML = '<option value="">—</option>' + [...storesI].sort().map(s => `<option value="${s}">${s}</option>`).join('');
-            if (store) _selStore.value = store;
-          }
-          document.getElementById('storeSelector')?.classList.add('hidden');
-          // Confirmer au Worker — il peut continuer le parse complet
-          opts._resolvedStore = store;
-          worker.postMessage({ type: 'continue', selectedStore: store });
-        } else if (msg.type === 'done') {
-          worker.terminate();
-          resolve(msg.payload);
-        } else if (msg.type === 'error') {
-          worker.terminate();
-          reject(new Error(msg.msg));
-        }
-      };
-      worker.onerror = function(err) { worker.terminate(); reject(new Error('ParseWorker: ' + (err.message||'erreur'))); };
-      const transferables = bufCArray.slice(); // clone pour transfert
-      if (bufS) transferables.push(bufS);
-      worker.postMessage(Object.assign({ bufCArray: bufCArray, bufS: bufS || null }, opts), transferables);
-    });
   }
 
   // ── launchParseWorkerFromFiles — stream File → Worker (faible pic mémoire) ──
@@ -1295,6 +1245,7 @@ _S.canalAgence=newCanalAgence;
       for (const sk in r.byMonthStoreClients) { _bmsc[sk] = {}; for (const mi in r.byMonthStoreClients[sk]) _bmsc[sk][mi] = new Set(r.byMonthStoreClients[sk][mi]); }
       _S._byMonthStoreClients = _bmsc;
     } else { _S._byMonthStoreClients = null; }
+    _S._byMonthStoreClientCA = r.byMonthStoreClientCA || null;
     if (r.byMonthClients) {
       const _bmc = {};
       for (const k in r.byMonthClients) _bmc[k] = new Set(r.byMonthClients[k]);
@@ -1320,6 +1271,10 @@ _S.canalAgence=newCanalAgence;
     _S.ventesClientsPerStore = {};
     for (const sk in vcps) { _S.ventesClientsPerStore[sk] = new Set(vcps[sk]); }
 
+    // Reconstruire caClientParStore (Maps)
+    const ccps = r.caClientParStore || {};
+    _S.caClientParStore = {};
+    for (const sk in ccps) { _S.caClientParStore[sk] = new Map(ccps[sk]); }
     // Reconstruire commandesPerStoreCanal (Sets)
     const cpsc = r.commandesPerStoreCanal || {};
     _S.commandesPerStoreCanal = {};
@@ -1348,7 +1303,7 @@ _S.canalAgence=newCanalAgence;
 
     // Maps imbriquées
     _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
-    _S.ventesClientArticleFull = new Map((r.ventesClientArticleFull||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesClientMagFull = new Map((r.ventesClientMagFull||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientArticleReseau = new Map((r.ventesClientArticleReseau||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientHorsMagasin = new Map((r.ventesClientHorsMagasin||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
@@ -1363,6 +1318,7 @@ _S.canalAgence=newCanalAgence;
     _S.clientsMagasinFreq      = new Map(r.clientsMagasinFreq||[]);
     _S.cannauxHorsMagasin      = new Set(r.cannauxHorsMagasin||[]);
     _S.blPreleveeSet           = new Set(r.blPreleveeSet||[]);
+    _S.enleveSingleBL          = r.enleveSingleBL || {};
     _S.ventesClientAutresAgences = new Map(r.ventesClientAutresAgences||[]);
 
     // Recalcul seasonalIndex depuis monthlySales (B3)
@@ -1395,10 +1351,6 @@ _S.canalAgence=newCanalAgence;
     const _vpm=_S.ventesParMagasin||{};
     const _allStoresFull=Object.keys(_vpm).filter(s=>s!==_myS);
     if(_allStoresFull.length<2)return;
-    // Priorité clones, fallback all stores si < 2 clones vendent l'article
-    const _cloneSet=getCloneSet();
-    const _cloneStores=_allStoresFull.filter(s=>_cloneSet.has(s));
-    const _useClones=_cloneStores.length>=2;
     let _applied=0;
     for(const r of DataStore.finalData){
       if(r.nouveauMin>0||r.nouveauMax>0)continue;
@@ -1406,12 +1358,8 @@ _S.canalAgence=newCanalAgence;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
       // Top 3 agences par CA — sélection en un passage (pas de sort/slice)
-      // D'abord parmi les clones, fallback all si < 2 clones ont l'article
-      let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false,_nbHit=0;
-      const _pool=_useClones?_cloneStores:_allStoresFull;
-      for(const s of _pool){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;_nbHit++;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
-      // Fallback : si < 2 clones ont l'article, re-scan all stores
-      if(_useClones&&_nbHit<2){_t1ca=0;_t1bl=0;_t2ca=0;_t2bl=0;_t3ca=0;_t3bl=0;_any=false;for(const s of _allStoresFull){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}}
+      let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false;
+      for(const s of _allStoresFull){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
       if(!_any)continue;
       let _tCA=_t1ca+_t2ca+_t3ca,_tBL=_t1bl+_t2bl+_t3bl;
       const _pu=r.prixUnitaire||0;
@@ -1441,7 +1389,7 @@ _S.canalAgence=newCanalAgence;
         _applied++;
       }
     }
-    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStoresFull.length, _useClones ? `clones: ${_cloneStores.length} (${_cloneStores.join(',')})` : '(no clones)');
+    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStoresFull.length);
   }
 
   // ── _postParseMain — étapes post-hydratation côté main thread ────────────
@@ -1458,8 +1406,6 @@ _S.canalAgence=newCanalAgence;
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
-      // Scoring clones AVANT vitesse réseau et seasonal (les deux en dépendent)
-      if(useMulti) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
       if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 
@@ -1503,7 +1449,7 @@ _S.canalAgence=newCanalAgence;
 
       // Chalandise + livraisons (si fichiers chargés)
       _mark('Avant chalandise');
-      console.log('[PERF] chalandiseReady=',_S.chalandiseReady,'livraisonsReady=',_S.livraisonsReady,'chalFiles=',document.getElementById('fileChalandise').files?.length,'livFile=',!!document.getElementById('fileLivraisons').files[0]);
+      console.log('[PERF] avant parsing optionnels — chalFiles=',document.getElementById('fileChalandise').files?.length||0,'livFile=',!!document.getElementById('fileLivraisons').files[0]);
       if (!lowMem) {
         {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
       } else {
@@ -1597,43 +1543,6 @@ _S.canalAgence=newCanalAgence;
     finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
   }
 
-  // ── Seasonal Index Clones — reconstruit depuis _byMonthStoreArtCanal filtré clones ──
-  function _buildSeasonalIndexClones() {
-    const clones = getCloneSet();
-    const bmsac = _S._byMonthStoreArtCanal;
-    if (!clones.size || !bmsac) { _S.seasonalIndexClones = null; return; }
-    // Agréger quantités mensuelles par famille (clones uniquement)
-    const famMonthly = {};  // fam → [12 qtés]
-    for (const store of clones) {
-      const canalMap = bmsac[store];
-      if (!canalMap) continue;
-      for (const canal in canalMap) {
-        const codeMap = canalMap[canal];
-        for (const code in codeMap) {
-          const fam = _S.articleFamille[code];
-          if (!fam) continue;
-          const months = codeMap[code];
-          if (!famMonthly[fam]) famMonthly[fam] = new Array(12).fill(0);
-          for (const midxStr in months) {
-            const d = months[midxStr];
-            // Convertir monthIdx absolu en mois relatif 0-11
-            const m = (+midxStr) % 12;
-            famMonthly[fam][m] += d.countBL || 0; // fréquence comme proxy saisonnalité
-          }
-        }
-      }
-    }
-    // Calculer coefficients saisonniers (même formule que parse-worker)
-    const result = {};
-    for (const [fam, months] of Object.entries(famMonthly)) {
-      const total = months.reduce((s, v) => s + v, 0);
-      const avg = total / 12;
-      if (avg <= 0) continue;
-      result[fam] = months.map(v => Math.round(v / avg * 100) / 100);
-    }
-    _S.seasonalIndexClones = Object.keys(result).length > 0 ? result : null;
-    console.log(`[PRISME] SeasonalIndexClones: ${Object.keys(result).length} familles (${clones.size} clones)`);
-  }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
   // Règle : chaque fonction a une seule responsabilité, paramètres explicites, pas de
@@ -1661,8 +1570,8 @@ _S.canalAgence=newCanalAgence;
       localIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
     }
 
-    // Blend avec réseau — priorité clones si disponibles
-    const reseauIndex=_S.seasonalIndexClones||_S.seasonalIndexReseau||{};
+    // Blend avec réseau
+    const reseauIndex=_S.seasonalIndexReseau||{};
     _S.seasonalIndex={};
     const allFams=new Set([...Object.keys(localIndex),...Object.keys(reseauIndex)]);
     for(const fam of allFams){
@@ -1706,9 +1615,9 @@ _S.canalAgence=newCanalAgence;
   }
 
   function _enrichFinalDataWithCA() {
-    // Injecte caAnnuel sur chaque article depuis ventesClientArticleFull (12 mois glissants, myStore)
+    // Injecte caAnnuel sur chaque article depuis ventesClientMagFull (12 mois glissants, myStore)
     // Pleine période comme PRÉL/ENL/FRÉQ — invariant au filtre période UI
-    const _full=_S.ventesClientArticleFull;
+    const _full=_S.ventesClientMagFull;
     if(_full?.size){
       const _caByCode=new Map();
       for(const[,artMap] of _full){
@@ -1719,7 +1628,7 @@ _S.canalAgence=newCanalAgence;
       for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
       return;
     }
-    // Fallback VPM si ventesClientArticleFull pas encore peuplé
+    // Fallback VPM si ventesClientMagFull pas encore peuplé
     const _myStore=_S.selectedMyStore;
     const _vpmStore=_myStore?(_S.ventesParMagasin?.[_myStore]||null):null;
     if(_vpmStore){
@@ -1833,13 +1742,13 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes consommé différentes du stock
       _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
       _S.ventesParMagasinByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();const _tempCAAll=new Map(); // accumulation sumCAAll tous canaux, filtré période, fusionné après la boucle
-      const _tempCAAllFull=new Map(); // accumulation sumCAAll tous canaux, pleine période, pour ventesClientArticleFull
+      const _tempCAAllFull=new Map(); // accumulation sumCAAll tous canaux, pleine période, pour ventesClientMagFull
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2 / OPT3 : pré-mapper les colonnes UNE FOIS avant la boucle (évite findKey par row)
       let _hasCommandeCol=false;
@@ -1871,7 +1780,7 @@ _S.canalAgence=newCanalAgence;
       // Ne PAS créer d'entrée dans ventesClientArticle ici — seules les lignes MAGASIN (L1686) le font
       if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
       {const _ccA=extractClientCode(_rc);const _codeA=cleanCode(_ra);const _skA=_rs;if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAT=_rcp+_rce;if(_caAT>0){if(!_tempCAAll.has(_ccA))_tempCAAll.set(_ccA,new Map());const _amA=_tempCAAll.get(_ccA);_amA.set(_codeA,(_amA.get(_codeA)||0)+_caAT);}}}
-      // _tempCAAllFull — tous canaux, pleine période (sans filtre), pour ventesClientArticleFull.sumCAAll
+      // _tempCAAllFull — tous canaux, pleine période (sans filtre), pour ventesClientMagFull.sumCAAll
       if(!isRefilter){const _ccAF=extractClientCode(_rc);const _codeAF=cleanCode(_ra);if(_ccAF&&_codeAF&&(!_S.selectedMyStore||_rs==='INCONNU'||_rs===_S.selectedMyStore)){const _caAF=_rcp+_rce;if(_caAF>0){if(!_tempCAAllFull.has(_ccAF))_tempCAAllFull.set(_ccAF,new Map());const _amAF=_tempCAAllFull.get(_ccAF);_amAF.set(_codeAF,(_amAF.get(_codeAF)||0)+_caAF);}}}
       // clientNomLookup — ALL canals, before the canal split, so hors-MAGASIN clients get named too
       if(!isRefilter){const _ccNom=extractClientCode(_rc);if(_ccNom&&!_S.clientNomLookup[_ccNom]){const _rawFull=_rc;const _di=_rawFull.indexOf(' - ');if(_di>=0)_S.clientNomLookup[_ccNom]=_rawFull.slice(_di+3).trim();}}
@@ -1896,19 +1805,19 @@ _S.canalAgence=newCanalAgence;
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
       const famConso=((CI.famille!==null?(row[CI.famille]??''):'')||(CI.univers!==null?(row[CI.univers]??''):'')||'').toString().trim();const _codeFamConso=(CI.codeFam!==null?(row[CI.codeFam]??''):'').toString().trim();const _famCode=_codeFamConso||extractFamCode(famConso);if(_famCode&&code)_S.articleFamille[code]=_famCode;const _uv2=(CI.univers!==null?(row[CI.univers]??''):'').toString().trim();const _cf2=_codeFamConso||'';const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
       if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
-      // Hoistés avant le filtre période : invariants (W/V/MIN/MAX), ventesClientArticleFull
+      // Hoistés avant le filtre période : invariants (W/V/MIN/MAX), ventesClientMagFull
       const cc2=extractClientCode(_rc);const nc=(_hasCommandeCol?(_rncb||''):('__r'+j)).toString().trim()||('__r'+j);
       if(!isRefilter&&dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
       if(!isRefilter&&(!useMulti||sk===_S.selectedMyStore)){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}}
-      if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!_S.ventesClientArticleFull.has(cc2))_S.ventesClientArticleFull.set(cc2,new Map());const _artF=_S.ventesClientArticleFull.get(cc2);if(!_artF.has(code))_artF.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const _eF=_artF.get(code);if(qteP>0){_eF.sumPrelevee+=qteP;_eF.sumCAPrelevee+=caP;}_eF.sumCA+=caP+caE;if(qteP>0||qteE>0)_eF.countBL++;}
+      if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!_S.ventesClientMagFull.has(cc2))_S.ventesClientMagFull.set(cc2,new Map());const _artF=_S.ventesClientMagFull.get(cc2);if(!_artF.has(code))_artF.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const _eF=_artF.get(code);if(qteP>0){_eF.sumPrelevee+=qteP;_eF.sumCAPrelevee+=caP;}_eF.sumCA+=caP+caE;if(qteP>0||qteE>0)_eF.countBL++;}
       // articleClientsFull — pleine période, hoisté hors filtre période (pour squelette invariant)
       if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const _ccFull=extractClientCode(_rc);if(_ccFull){if(!_S.articleClientsFull.has(code))_S.articleClientsFull.set(code,new Set());_S.articleClientsFull.get(code).add(_ccFull);}}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=_rvp+_rve;if(canal){const _bck=_S.ventesParMagasin[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=_rvp+_rve;}if(code&&(!canal||canal==='MAGASIN')){const _canalKey='MAGASIN';if(!_S.ventesParMagasinByCanal[sk])_S.ventesParMagasinByCanal[sk]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey])_S.ventesParMagasinByCanal[sk][_canalKey]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey][code])_S.ventesParMagasinByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParMagasinByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=_rvp;const _vmbE2=_rve;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
       // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
-      // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesClientArticleFull)
-      if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
+      // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesClientMagFull)
+      if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);{const _cca=caP+caE;if(_cca>0){if(!_S.caClientParStore[sk])_S.caClientParStore[sk]=new Map();_S.caClientParStore[sk].set(cc2,(_S.caClientParStore[sk].get(cc2)||0)+_cca);}}}
       // commandesPerStoreCanal : N° commande (ou BL) uniques par store × canal (pour nbCommandes dans agenceStore)
       {const _ncCmd=_rncb;if(_ncCmd){const _canalCmd=canal||'MAGASIN';if(!_S.commandesPerStoreCanal[sk])_S.commandesPerStoreCanal[sk]={};if(!_S.commandesPerStoreCanal[sk][_canalCmd])_S.commandesPerStoreCanal[sk][_canalCmd]=new Set();_S.commandesPerStoreCanal[sk][_canalCmd].add(_ncCmd);}}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
@@ -1935,8 +1844,8 @@ _S.canalAgence=newCanalAgence;
       if(!useMulti||sk===_S.selectedMyStore){if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));if(qteP>0)_S.blPreleveeSet.add(blNum);}}}updateProgress(45+Math.round(i/dataC.rows.length*20),100);await yieldToMain();}
       // Fusion sumCAAll : enrichir ventesClientArticle avec les CA tous canaux (seuls les clients MAGASIN existants)
       for(const [_cc,_arts] of _tempCAAll){if(!_S.ventesClientArticle.has(_cc))continue;const _cMap=_S.ventesClientArticle.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}
-      // Fusion sumCAAll pleine période dans ventesClientArticleFull
-      if(!isRefilter){for(const [_cc,_arts] of _tempCAAllFull){if(!_S.ventesClientArticleFull.has(_cc))continue;const _cMap=_S.ventesClientArticleFull.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}}
+      // Fusion sumCAAll pleine période dans ventesClientMagFull
+      if(!isRefilter){for(const [_cc,_arts] of _tempCAAllFull){if(!_S.ventesClientMagFull.has(_cc))continue;const _cMap=_S.ventesClientMagFull.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}}
       // Build blCanalMap + convert canalAgence bl sets — skipped for isRefilter (canalAgence unchanged)
       if(!isRefilter){
       _S.blCanalMap = new Map();
@@ -2076,9 +1985,6 @@ _S.canalAgence=newCanalAgence;
 
       enrichPrixUnitaire();
       _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
-
-      // Scoring clones AVANT vitesse réseau et seasonal (les deux en dépendent)
-      if(useMulti) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
 
       // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
       if(useMulti) _applyVitesseReseau();
@@ -2841,11 +2747,8 @@ _S.canalAgence=newCanalAgence;
       case 'conformite':
         window.renderConformiteTab?.();
         break;
-      case 'marques':
-        window.renderMarquesTab?.();
-        break;
-      case 'clones':
-        window.renderClonesTab?.();
+      case 'duel':
+        window.renderDuelTab?.();
         break;
     }
     if (id !== 'conformite') _S._tabRendered[id]=true;
@@ -2997,8 +2900,6 @@ _S.canalAgence=newCanalAgence;
       _mc('filteredData + sync');
       if(useMulti){
         buildAgenceStore();
-        // Clones : recalculer si pas encore dans le cache IDB
-        if (!_S._cloneStores?.length) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
       }
 
       _S._parsingInProgress=false;
@@ -3006,8 +2907,8 @@ _S.canalAgence=newCanalAgence;
       collapseImportZone();
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
-      if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
-        _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+      if(!_S.ventesClientMagFull.size&&_S.ventesClientArticle.size){
+        _S.ventesClientMagFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
       invalidateCache('tab','terr');buildPeriodFilter();
       _mc('pré-render');

@@ -106,7 +106,7 @@ async function loadData() {
           console.log('[Scan] EAN depuis IDB : ' + _eanMap.size);
         }
         console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (scan/session)');
-        _saveToLS();
+        _scheduleSaveToLS();
         return;
       }
       // Fallback : données scan importées via JSON, persistées en IDB
@@ -162,7 +162,7 @@ function _loadFromScanPayload(data) {
   _applyCorrections();
   document.getElementById('refCount').textContent = _articles.size + ' refs';
   document.getElementById('importZone').style.display = 'none';
-  _saveToLS();
+  _scheduleSaveToLS();
 }
 
 // ── localStorage fallback (Safari iOS purge IDB) ─────────────────────
@@ -189,6 +189,15 @@ function _saveToLS() {
   } catch (e) {
     console.warn('[Scan] LS save échoué:', e);
   }
+}
+
+let _lsSaveScheduled = false;
+function _scheduleSaveToLS() {
+  if (_lsSaveScheduled) return;
+  _lsSaveScheduled = true;
+  const run = () => { _lsSaveScheduled = false; _saveToLS(); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 1500 });
+  else setTimeout(run, 120);
 }
 
 function _loadFromLS() {
@@ -708,14 +717,11 @@ async function purgeCache() {
 }
 window.purgeCache = purgeCache;
 
-// ── Service Worker — désenregistrer les anciens puis réenregistrer ────
+// ── Service Worker (cache offline) ─────────────────────────────────────
+// Ne pas désenregistrer/vider les caches à chaque load : trop agressif sur iOS.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    for (const r of regs) r.unregister();
-  }).then(() => {
-    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-  }).then(() => {
-    navigator.serviceWorker.register('./sw.js');
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    try { reg.update?.(); } catch (_) {}
   }).catch(() => {});
 }
 

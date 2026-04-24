@@ -57,6 +57,7 @@ _S.abcMatrixData = {};
 _S.canalAgence = {};
 _S.blConsommeSet = new Set();
 _S.blPreleveeSet = new Set(); // BL numbers where qteP > 0 (prélevé uniquement)
+_S.enleveSingleBL = {}; // {code → count} BL MAGASIN mono-article 100% enlevé (signal rupture)
 _S.clientsMagasin = new Set();
 _S.clientsMagasinFreq = new Map(); // Map<clientCode, nbBL> — fréquence MAGASIN par client
 _S.articleClientsFull = new Map(); // Map<code, Set<cc>> — pleine période, invariant UI (pour squelette)
@@ -149,7 +150,7 @@ _S._clientDominantUnivers = new Map(); // cc → univers dominant (par CA)
 // Achats comptoir : cc → Map(codeArticle → ClientArticleFact) — myStore, canal MAGASIN uniquement
 _S.ventesClientArticle = new Map();
 // Snapshot période-invariante (toute la période consommé) — pour cockpit/silencieux/Top 5
-_S.ventesClientArticleFull = new Map();
+_S.ventesClientMagFull = new Map();
 // Réseau = client × article TOUTES agences du consommé (pour Tronc Commun Réseau)
 _S.ventesClientArticleReseau = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
@@ -165,6 +166,7 @@ _S.clientLastOrderAll = new Map(); // Map<clientCode, {date:Date, canal:string}>
 _S.clientLastOrderByCanal = new Map(); // Map<clientCode, Map<canal, Date>> — dernière commande par canal
 _S.clientNomLookup = {};
 _S.ventesClientsPerStore = {};
+_S.caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
 _S.commandesPerStoreCanal = {};
 _S.articleClients = new Map();
 _S.clientArticles = new Map();
@@ -251,17 +253,13 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 _S.anglesMorts = [];           // [{cc, nom, metier, commercial, missing:[{famCode,fam,pctClients,avgCA,clientCA,potentiel}], totalPotentiel}]
 
-// ── Agences clones (scoring similarité inter-agences) ──
-_S._cloneStores = [];          // [{code, score, simMix, simCA, simGeo, distKm, ca}]
-_S._cloneSet = null;           // Set<storeCode> — cache, recalculé à la demande
-_S.seasonalIndexClones = null; // {famille → [12 coefficients]} — clones uniquement
-
 // ── Accumulation mensuelle pour filtre période instantané ──
 _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
 _S._byMonthFull = null;     // accumulation mensuelle cc→code→monthIdx→{sumCA} (TOUS canaux, myStore)
 _S._byMonthCanal = null;    // accumulation mensuelle store→canal→monthIdx→agg
 _S._byMonthStoreArtCanal = null; // accumulation mensuelle store→canal→code→monthIdx→agg (rebuild ventesParMagasinByCanal période)
 _S._byMonthStoreClients = null;  // accumulation mensuelle store→monthIdx→Set<cc> (rebuild nbClients période)
+_S._byMonthStoreClientCA = null; // accumulation mensuelle store→monthIdx→{cc: sumCA} (rebuild CA client période)
 _S._byMonthClients = null;  // accumulation mensuelle monthIdx→Set<cc> — tous canaux, pleine période
 _S._byMonthClientsByCanal = null;  // accumulation mensuelle monthIdx→canal→Set<cc> — clients par canal+période
 _S._clientsTousCanaux = null; // Set<cc> — clients ayant au moins 1 BL dans la période sélectionnée (tous canaux)
@@ -370,8 +368,8 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientArticleReseau = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
-  _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
+  _S.ventesClientArticle = new Map(); _S.ventesClientMagFull = new Map(); _S.ventesClientArticleReseau = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
@@ -442,8 +440,7 @@ export function resetAppState() {
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._fileC = null; _S._filesC = null; _S._fileS = null;
-  _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthStoreClients = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
-  _S._cloneStores = []; _S._cloneSet = null; _S.seasonalIndexClones = null;
+  _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthStoreClients = null; _S._byMonthStoreClientCA = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S.clientOmniScore = new Map();
   _S.clientStore = new Map();
