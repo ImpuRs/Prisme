@@ -21,7 +21,7 @@ import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
-import { getClientCAFullAllCanaux, getClientCAMagasinInMonthRange, getClientCAFullInMonthRange, getClientsActiveSetInPeriod } from './sales.js';
+import { getClientCAMagasinInMonthRange, getClientCAFullInMonthRange, getClientCAByCanalInPeriod, getClientsActiveSetInPeriod } from './sales.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -30,6 +30,21 @@ const buildTerrContrib = (...a) => window.buildTerrContrib?.(...a);
 const renderTerrContrib = (...a) => window.renderTerrContrib?.(...a);
 const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary?.(...a);
 const getKPIsByCanal = (...a) => window.getKPIsByCanal?.(...a);
+
+// ── Indices finalData (hot path) ─────────────────────────────────────────
+// Beaucoup de renders construisaient `new Map(finalData.map(...))` à répétition.
+// On garde un cache par référence d'array (finalData ne change qu'au parsing).
+let _finalDataIndexSrc = null;
+let _finalDataIndex = null;
+function _getFinalDataIndex() {
+  const src = DataStore.finalData || [];
+  if (_finalDataIndex && _finalDataIndexSrc === src) return _finalDataIndex;
+  const m = new Map();
+  for (const r of src) { if (r && r.code) m.set(r.code, r); }
+  _finalDataIndexSrc = src;
+  _finalDataIndex = m;
+  return m;
+}
 
 // ── Nav 4 sous-vues Commerce ─────────────────────────────────────────────
 let _cmTab = 'enDanger';
@@ -592,7 +607,7 @@ window._ccc = (di,mi,ci) => {
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
-    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
+    const stockMap=_getFinalDataIndex();
     // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
     const _ctx=DataStore.byContext();
     const _canalGlobal=_ctx.activeFilters.canal;
@@ -1381,7 +1396,12 @@ function _renderCommercialScorecard(containerId) {
   // ── Agrégats portefeuille (respecte filtres chalandise actifs) ──
   // Univers : le filtre ne cache pas les clients, il filtre les MONTANTS
   const _hasUnivFilter = _S._selectedUnivers.size > 0;
+  // Canal-aware captation (même source que Conquête)
+  const _scCanal = _S._globalCanal || '';
+  const _scMagMode = _S._reseauMagasinMode || 'all';
+  const _scCaptePDVSet = getClientsActiveSetInPeriod(_scCanal, { magasinMode: _scMagMode });
   let caPDVTotal = 0, ca2026 = 0, nbClients = 0, nbCaptes = 0;
+  let _caDegraded = false; // caches anciens : CA par canal indisponible au refilter depuis IDB
 
   for (const cc of ccs) {
     const info = _S.chalandiseData?.get(cc);
@@ -1391,9 +1411,35 @@ function _renderCommercialScorecard(containerId) {
     nbClients++;
     ca2026 += info.ca2026 || 0;
 
-    const _caPDV = _hasUnivFilter ? getUniversFilteredCA(cc) : (_S.clientStore?.get(cc)?.caPDV || 0);
+    // CA canal-aware (period-aware même après restauration IDB)
+    let _caPDV = 0;
+    if (_hasUnivFilter) {
+      _caPDV = getUniversFilteredCA(cc);
+    } else if (_scCanal === 'MAGASIN') {
+      // MAGASIN = reconstruit par _refilterFromByMonth (mode prélèvement/enlèvement inclus)
+      _caPDV = _S.clientStore?.get(cc)?.caPDV || 0;
+    } else {
+      // Canal '' (tous) ou hors-MAGASIN : priorité à la source mensuelle byMonthClientCAByCanal
+      const _caBM = getClientCAByCanalInPeriod(cc, _scCanal, { magasinMode: _scMagMode });
+      if (typeof _caBM === 'number') {
+        _caPDV = _caBM;
+      } else {
+        // Fallback legacy (caches anciens) : ventesClientHorsMagasin est figé au refilter depuis IDB
+        if (!_scCanal) {
+          const rec = _S.clientStore?.get(cc);
+          _caPDV = (rec?.caPDV || 0) + (rec?.caHors || 0);
+          if (_S.periodFilterStart || _S.periodFilterEnd) _caDegraded = true;
+        } else {
+          const hm = _S.ventesClientHorsMagasin?.get(cc);
+          if (hm) for (const [, d] of hm) { if ((d.canal || '') === _scCanal) _caPDV += d.sumCA || 0; }
+          if (_S.periodFilterStart || _S.periodFilterEnd) _caDegraded = true;
+        }
+      }
+    }
     caPDVTotal += _caPDV;
-    if (_caPDV > 0) nbCaptes++;
+    // Canal-aware : utiliser le set capté (comme Conquête) au lieu de caPDV seul
+    const _isCapte = _scCaptePDVSet ? _scCaptePDVSet.has(cc) : (_caPDV > 0 || _isPDVActif(cc));
+    if (_isCapte) nbCaptes++;
   }
 
   const _partDenom = Math.max(caPDVTotal, ca2026);
@@ -1402,7 +1448,7 @@ function _renderCommercialScorecard(containerId) {
 
   // ── Cible Comptoir : potentiel × % PDV-compatible (articles F/M rotatifs) ──
   let caHorsTotal = 0, caHorsCompat = 0;
-  const _fdIndex = DataStore.finalData ? new Map(DataStore.finalData.map(r => [r.code, r])) : new Map();
+  const _fdIndex = _getFinalDataIndex();
   for (const cc of ccs) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
@@ -1467,8 +1513,12 @@ function _renderCommercialScorecard(containerId) {
       <span class="text-[9px] t-disabled">${nbClients} clients zone</span>
       <button onclick="window._comToggleMixCanal()" class="text-[9px] c-action hover:underline cursor-pointer mt-1 text-left font-semibold">📡 Mix canal</button>
     </div>
-    ${_kpi('CA PDV', formatEuro(caPDVTotal), nbCaptes + ' / ' + nbClients + ' captés', 'var(--c-action)',
-      'CA réalisé en agence (canal MAGASIN) par les clients du portefeuille sur la période filtrée')}
+    ${_kpi('CA PDV', formatEuro(caPDVTotal),
+      nbCaptes + ' / ' + nbClients + ' captés'
+        + (_scCanal && _scCanal !== 'MAGASIN' ? ' · via ' + (_CANAL_LABELS_OV[_scCanal] || _scCanal) : '')
+        + (_caDegraded ? ' · CA figé (cache ancien)' : ''),
+      'var(--c-action)',
+      _scCanal && _scCanal !== 'MAGASIN' ? 'CA via ' + (_CANAL_LABELS_OV[_scCanal] || _scCanal) + ' par les clients du portefeuille sur la période filtrée' : 'CA réalisé en agence (canal MAGASIN) par les clients du portefeuille sur la période filtrée')}
     ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients', '#c4b5fd',
       'CA total Legallais tous canaux (source Qlik nationale) — inclut MAGASIN + INTERNET + REP + DCS')}
     ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)',
@@ -2398,17 +2448,26 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable)
     const _caPDV=getClientCAFullInMonthRange(cc,_ymRange)||0;
     const _caLeg=info.ca2026||0;
-    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:_caLeg,caMag:_caPDV,ville:info.ville||'',_pdvActif:pdvActif});
+    const _pdvActifGlobal=_isPDVActif(cc);
+    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:_caLeg,caMag:_caPDV,ville:info.ville||'',_pdvActif:pdvActif,_pdvActifGlobal:_pdvActifGlobal});
   }
   clients.sort(_overviewClientSort);
   if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
   const show=clients.slice(0,limit),more=clients.length-limit;
   let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+  const _l4Canal=_S._globalCanal||'';
   for(const c of show){
     const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
     const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
+    // Badge contextuel : si canal filtré, distinguer "actif via ce canal" (vert) de "actif via autre canal" (gris)
+    let _badge;
+    if(_l4Canal&&c._pdvActifGlobal&&!c._pdvActif){
+      _badge='<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.35)">Actif PDV</span>';
+    }else{
+      _badge=_clientStatusBadge(c.code,c);
+    }
     html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:i-info-bg" onclick="openClient360('${c.code}','reseau')">
-      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span><button onclick="event.stopPropagation();openClient360('${c.code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}</td>
+      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span><button onclick="event.stopPropagation();openClient360('${c.code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${_badge}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.commercial||'—'}</td>
       <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
       <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
@@ -2426,7 +2485,7 @@ function _toggleClientArticles(row,clientCode){
   if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
   // [Adapter Étape 5] — territoireLines / finalData / ventesClientArticle : canal-invariants
   const hasTerr=_hasTerritoire();
-  const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
+  const stockMap=_getFinalDataIndex();
   // Section 1 : achats comptoir (DataStore.ventesClientArticle — MAGASIN/myStore only)
   const artData=DataStore.ventesClientArticle.get(clientCode);
   let comptoirArts=[];
@@ -2516,7 +2575,7 @@ function _buildDegradedCockpit(){
   const qClient=_S._terrClientSearch||'';
   const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
   const _today=new Date();
-  const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
+  const fdIndex=_getFinalDataIndex();
   // [V3.2] Canal + commercial depuis DataStore.byContext() — API unifiée
   const {activeFilters:{canal:_terrCanalFilter,commercial:_terrComFilter}}=DataStore.byContext();
   const _terrComSet=_terrComFilter?(_S.clientsByCommercial.get(_terrComFilter)||new Set()):null;
@@ -2543,7 +2602,7 @@ function _buildDegradedCockpit(){
     for(const rec of _S.clientStore.values()){
       const d=rec.silenceDaysPDV;if(d===null||d<=30||d>90)continue;
       const artMap=_clientArtMap.get(rec.cc);if(!artMap)continue;
-      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
+      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||(fdIndex.get(artCode)?.famille||'')===selFam)ca+=(v.sumCAAll||v.sumCA||0);
       if(ca<=0)continue;
       if(qClient&&!matchQuery(qClient,rec.cc,rec.nom))continue;
       silencieux.push({cc:rec.cc,nom:rec.nom,ca,d});

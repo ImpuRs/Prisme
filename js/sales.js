@@ -269,6 +269,71 @@ export function buildArticleAggFromByMonth(range, opts = {}) {
   return res;
 }
 
+/**
+ * CA client par canal dans une plage de mois, depuis _byMonthClientCAByCanal.
+ * Retourne null si la source mensuelle n'est pas disponible (caches anciens / lowMem).
+ *
+ * canal='' => somme tous canaux (MAGASIN + hors-MAGASIN), en respectant magasinMode
+ * (évite double comptage MAGASIN vs MAGASIN_PREL/MAGASIN_ENL).
+ *
+ * @param {string} cc
+ * @param {string} canal ''|'MAGASIN'|'INTERNET'|'REPRESENTANT'|'DCS'|'AUTRE'|...
+ * @param {{min:number,max:number}} range monthIdx inclusif
+ * @param {{magasinMode?: 'all'|'preleve'|'enleve'}} [opts]
+ * @returns {number|null}
+ */
+export function getClientCAByCanalInMonthRange(cc, canal, range, opts = {}) {
+  if (!cc || !range) return null;
+  const src = _S._byMonthClientCAByCanal;
+  if (!src) return null;
+
+  const magasinMode = opts.magasinMode || 'all';
+  const canalKey = _effectiveCanalKeyForClientSets(canal, magasinMode);
+
+  let ca = 0;
+
+  // Canal spécifique
+  if (canalKey) {
+    for (const midxStr in src) {
+      const midx = +midxStr;
+      if (midx < range.min || midx > range.max) continue;
+      const cm = src[midxStr];
+      const m = cm ? cm[canalKey] : null;
+      if (!m) continue;
+      ca += m[cc] || 0;
+    }
+    return ca;
+  }
+
+  // Tous canaux : un seul "magasin key" selon le mode (évite double comptage)
+  const magKey = _effectiveCanalKeyForClientSets('MAGASIN', magasinMode) || 'MAGASIN';
+  for (const midxStr in src) {
+    const midx = +midxStr;
+    if (midx < range.min || midx > range.max) continue;
+    const cm = src[midxStr];
+    if (!cm) continue;
+    for (const c in cm) {
+      if (c === 'MAGASIN' || c === 'MAGASIN_PREL' || c === 'MAGASIN_ENL') {
+        if (c !== magKey) continue;
+      }
+      const m = cm[c];
+      if (!m) continue;
+      ca += m[cc] || 0;
+    }
+  }
+  return ca;
+}
+
+/**
+ * CA client par canal sur la période courante (UI), depuis _byMonthClientCAByCanal.
+ * @returns {number|null}
+ */
+export function getClientCAByCanalInPeriod(cc, canal = '', opts = {}) {
+  const range = opts.range || getCurrentPeriodMonthRange();
+  if (!range) return null;
+  return getClientCAByCanalInMonthRange(cc, canal, range, opts);
+}
+
 // ── Clients actifs (période) depuis byMonthClients* ──────────────────────
 // Problème : quand on restaure depuis IDB et qu'on change la période, les
 // agrégats period-filtered (ex: ventesClientHorsMagasin) ne sont pas

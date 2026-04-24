@@ -624,6 +624,7 @@ async function _handleParseMessage(data) {
     var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
     var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
     var byMonthClientsByCanal = {}; // monthIdx → canal → Set<cc> — pour comptage clients par canal+période
+    var byMonthClientCAByCanal = {}; // monthIdx → canal → {cc → sumCA} — CA client par canal+période (myStore)
     var byMonthStoreArtCanal = {}; // store → canal → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBPrel} — pour rebuild ventesParMagasinByCanal filtré période
 
     var rows = dataC.rows;
@@ -758,6 +759,23 @@ async function _handleParseMessage(data) {
             if (_rce || _rve) {
               if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'] = new Set();
               byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'].add(_ccBMC);
+            }
+          }
+          // byMonthClientCAByCanal — CA mensuel client×canal (répare CA canal-aware au refilter depuis IDB)
+          var _caBMC = _rcp + _rce;
+          if (_caBMC) {
+            if (!byMonthClientCAByCanal[_midxBMC]) byMonthClientCAByCanal[_midxBMC] = {};
+            if (!byMonthClientCAByCanal[_midxBMC][_cBMC]) byMonthClientCAByCanal[_midxBMC][_cBMC] = {};
+            byMonthClientCAByCanal[_midxBMC][_cBMC][_ccBMC] = (byMonthClientCAByCanal[_midxBMC][_cBMC][_ccBMC] || 0) + _caBMC;
+            if (_cBMC === 'MAGASIN') {
+              if (_rcp) {
+                if (!byMonthClientCAByCanal[_midxBMC]['MAGASIN_PREL']) byMonthClientCAByCanal[_midxBMC]['MAGASIN_PREL'] = {};
+                byMonthClientCAByCanal[_midxBMC]['MAGASIN_PREL'][_ccBMC] = (byMonthClientCAByCanal[_midxBMC]['MAGASIN_PREL'][_ccBMC] || 0) + _rcp;
+              }
+              if (_rce) {
+                if (!byMonthClientCAByCanal[_midxBMC]['MAGASIN_ENL']) byMonthClientCAByCanal[_midxBMC]['MAGASIN_ENL'] = {};
+                byMonthClientCAByCanal[_midxBMC]['MAGASIN_ENL'][_ccBMC] = (byMonthClientCAByCanal[_midxBMC]['MAGASIN_ENL'][_ccBMC] || 0) + _rce;
+              }
             }
           }
         }
@@ -1567,6 +1585,7 @@ async function _handleParseMessage(data) {
         for (var _k in kv[1]) _cm[_k] = Array.from(kv[1][_k]);
         return [kv[0], _cm];
       }));
+      payload.byMonthClientCAByCanal = byMonthClientCAByCanal;
     }
     self.postMessage({ type: 'done', payload: payload });
 
