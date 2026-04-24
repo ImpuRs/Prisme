@@ -746,23 +746,64 @@ function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
   const r=DataStore.finalData.find(d=>d.code===code);
+  const _isDuelScope = source === 'duel' && (_S.periodFilterStart || _S.periodFilterEnd) && _S._byMonthStoreArtCanal;
   if(!r){
     const lib=_S.libelleLookup?.[code]||code;
     const fam=_S.articleFamille?.[code]||'';
-    let nbAg=0,nbBL=0;
-    const agRows=[];
+    let nbBL=0;
+    const kitRows=[];
     for(const [ag,arts] of Object.entries(_S.ventesParMagasin||{})){
-      if(arts[code]){nbAg++;const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];agRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
+      if(arts[code]){const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];kitRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
     }
+    kitRows.sort((a,b)=>b.ca-a.ca);
+    const nbAgKit = kitRows.length;
+
+    // Réseau : par défaut (historique) = MAGASIN pleine période via ventesParMagasin.
+    // Depuis Duel Agence, on préfère afficher la période active PRISME + tous canaux
+    // (sinon on voit des CA "qui baissent" en ouvrant la fiche).
+    let agRows = kitRows;
+    let reseauTitle = '🏪 Réseau';
+    if (_isDuelScope) {
+      const bmsac = _S._byMonthStoreArtCanal || {};
+      const pStart=_S.periodFilterStart;
+      const pEnd=_S.periodFilterEnd;
+      const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
+      const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+      const stores = _S.storesIntersection?.size ? [..._S.storesIntersection] : Object.keys(bmsac);
+      agRows = [];
+      for (const ag of stores) {
+        const canalMap = bmsac?.[ag];
+        if (!canalMap) continue;
+        let ca = 0, bl = 0;
+        for (const canal in canalMap) {
+          const months = canalMap?.[canal]?.[code];
+          if (!months) continue;
+          for (const midxStr in months) {
+            const midx = +midxStr;
+            if (midx < startIdx || midx > endIdx) continue;
+            const d = months[midxStr];
+            if (!d) continue;
+            ca += d.sumCA || 0;
+            bl += d.countBL || 0;
+          }
+        }
+        if (!ca && !bl) continue;
+        const stk=_S.stockParMagasin?.[ag]?.[code];
+        agRows.push({ ag, ca, bl, min:stk?.qteMin??'—', max:stk?.qteMax??'—', stock:stk?.stockActuel??'—' });
+      }
+      agRows.sort((a,b)=>b.ca-a.ca);
+      reseauTitle = '🏪 Réseau (période PRISME · tous canaux)';
+    }
+
+    const nbAg = agRows.length;
     for(const l of (_S.territoireLines||[])) if(l.code===code) nbBL++;
-    agRows.sort((a,b)=>b.ca-a.ca);
-    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🏪 Réseau</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
+    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau ──
     // Formule : (CA total Top 3 / PU) / nb BL Top 3 = vitesse (qté/BL)
     // MIN = vitesse arrondie, MAX = vitesse × 2
     let kitHtml='';
-    if(agRows.length){
-      const top3=agRows.slice(0,3);
+    if(kitRows.length){
+      const top3=kitRows.slice(0,3);
       let totCA=0,totBL=0;
       for(const a of top3){
         const v=_S.ventesParMagasin?.[a.ag]?.[code];
@@ -777,18 +818,18 @@ function openArticlePanel(code,source){
       const sugMin=Math.max(Math.ceil(vitesse),1);
       const sugMax=Math.max(Math.ceil(vitesse*2),sugMin+1);
       // Indice de confiance
-      const confidence=nbAg>=8?'haute':nbAg>=4?'moyenne':'faible';
-      const confColor=nbAg>=8?'#22c55e':nbAg>=4?'#f59e0b':'#ef4444';
-      const confIcon=nbAg>=8?'🏆':nbAg>=4?'📊':'⚡';
+      const confidence=nbAgKit>=8?'haute':nbAgKit>=4?'moyenne':'faible';
+      const confColor=nbAgKit>=8?'#22c55e':nbAgKit>=4?'#f59e0b':'#ef4444';
+      const confIcon=nbAgKit>=8?'🏆':nbAgKit>=4?'📊':'⚡';
       // Médiane réseau MIN/MAX (info seulement, pas source de vérité)
-      const mins=agRows.map(a=>a.min).filter(v=>typeof v==='number'&&v>0);
-      const maxs=agRows.map(a=>a.max).filter(v=>typeof v==='number'&&v>0);
+      const mins=kitRows.map(a=>a.min).filter(v=>typeof v==='number'&&v>0);
+      const maxs=kitRows.map(a=>a.max).filter(v=>typeof v==='number'&&v>0);
       const medMin=mins.length?mins.sort((a,b)=>a-b)[Math.floor(mins.length/2)]:null;
       const medMax=maxs.length?maxs.sort((a,b)=>a-b)[Math.floor(maxs.length/2)]:null;
       const medLine=medMin!=null&&medMax!=null?`<div class="text-[10px] t-disabled mt-1">Méd. réseau MIN/MAX : ${medMin} / ${medMax} <span class="text-[9px]">(info ERP)</span></div>`:'';
-      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Vitesse réseau : ${vitesse.toFixed(1)} pièces/BL (Top ${top3.length} agences, ${totBL} BL, ${formatEuro(totCA)})</div>`:'';
+      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Vitesse réseau (MAGASIN · pleine période) : ${vitesse.toFixed(1)} pièces/BL (Top ${top3.length} agences, ${totBL} BL, ${formatEuro(totCA)})</div>`:'';
       kitHtml=`<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)">
-        <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAg} agences)</span></div>
+        <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAgKit} agences)</span></div>
         <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Réseau)</span></div>
         ${vitLine}${medLine}
         <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
@@ -868,23 +909,59 @@ function openArticlePanel(code,source){
   }
   // Réseau section — benchmark par agence (CA, BL, MIN/MAX)
   let reseauHtml='';
-  if(_S.storesIntersection?.size>1&&_S.ventesParMagasin){
+  if(_S.storesIntersection?.size>1){
     const rows=[];
-    for(const [ag,arts] of Object.entries(_S.ventesParMagasin)){
-      if(ag===_S.selectedMyStore)continue;
-      const d=arts?.[code];
-      if(!d)continue;
-      const stockAg=_S.stockParMagasin?.[ag]?.[code];
-      const minAg=stockAg?.qteMin??'—';
-      const maxAg=stockAg?.qteMax??'—';
-      rows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:minAg,max:maxAg});
+    let title='🏪 Réseau';
+    if(_isDuelScope){
+      // Duel Agence : période active + tous canaux
+      const bmsac=_S._byMonthStoreArtCanal||{};
+      const pStart=_S.periodFilterStart;
+      const pEnd=_S.periodFilterEnd;
+      const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
+      const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+      const stores=_S.storesIntersection?.size?[..._S.storesIntersection]:Object.keys(bmsac);
+      for(const ag of stores){
+        if(ag===_S.selectedMyStore)continue;
+        const canalMap=bmsac?.[ag];
+        if(!canalMap)continue;
+        let ca=0,bl=0;
+        for(const canal in canalMap){
+          const months=canalMap?.[canal]?.[code];
+          if(!months)continue;
+          for(const midxStr in months){
+            const midx=+midxStr;
+            if(midx<startIdx||midx>endIdx)continue;
+            const d=months[midxStr];
+            if(!d)continue;
+            ca+=d.sumCA||0;
+            bl+=d.countBL||0;
+          }
+        }
+        if(!ca&&!bl)continue;
+        const stockAg=_S.stockParMagasin?.[ag]?.[code];
+        const minAg=stockAg?.qteMin??'—';
+        const maxAg=stockAg?.qteMax??'—';
+        rows.push({ag,ca,bl,min:minAg,max:maxAg});
+      }
+      title='🏪 Réseau (période PRISME · tous canaux)';
+    }else if(_S.ventesParMagasin){
+      // Défaut : MAGASIN pleine période (historique)
+      for(const [ag,arts] of Object.entries(_S.ventesParMagasin)){
+        if(ag===_S.selectedMyStore)continue;
+        const d=arts?.[code];
+        if(!d)continue;
+        const stockAg=_S.stockParMagasin?.[ag]?.[code];
+        const minAg=stockAg?.qteMin??'—';
+        const maxAg=stockAg?.qteMax??'—';
+        rows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:minAg,max:maxAg});
+      }
     }
     rows.sort((a,b)=>b.ca-a.ca);
     if(rows.length){
       const medMin=(()=>{const vals=rows.map(r=>r.min).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
       const medMax=(()=>{const vals=rows.map(r=>r.max).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
       const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-[10px]" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
-      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🏪 Réseau</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">${title}</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
   }
   let canalHtml='';
