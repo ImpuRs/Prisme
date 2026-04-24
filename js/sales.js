@@ -268,3 +268,83 @@ export function buildArticleAggFromByMonth(range, opts = {}) {
   _artAggCache = { bm, key, value: res };
   return res;
 }
+
+// ── Clients actifs (période) depuis byMonthClients* ──────────────────────
+// Problème : quand on restaure depuis IDB et qu'on change la période, les
+// agrégats period-filtered (ex: ventesClientHorsMagasin) ne sont pas
+// reconstruits. Ces helpers donnent un Set<cc> exact par période/canal,
+// sans re-parser les fichiers.
+
+function _effectiveCanalKeyForClientSets(canal, magasinMode) {
+  const c = (canal || '').toUpperCase();
+  if (!c) return '';
+  if (c !== 'MAGASIN') return c;
+  const m = (magasinMode || 'all').toLowerCase();
+  if (m === 'preleve') return 'MAGASIN_PREL';
+  if (m === 'enleve') return 'MAGASIN_ENL';
+  return 'MAGASIN';
+}
+
+export function getCurrentPeriodMonthRange() {
+  const dMin = _S.periodFilterStart || _S.consommePeriodMinFull || _S.consommePeriodMin;
+  const dMax = _S.periodFilterEnd || _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  return monthRangeFromDates(dMin, dMax);
+}
+
+let _clientsActiveCache = { src: null, key: '', value: null };
+
+/**
+ * Set<cc> des clients actifs sur la période courante, pour un canal donné.
+ * canal='' => tous canaux (MAGASIN + hors MAGASIN)
+ *
+ * @param {string} canal ''|'MAGASIN'|'INTERNET'|'REPRESENTANT'|'DCS'|'AUTRE'|...
+ * @param {{range?: {min:number,max:number}, magasinMode?: 'all'|'preleve'|'enleve'}} [opts]
+ * @returns {Set<string>|null}
+ */
+export function getClientsActiveSetInPeriod(canal = '', opts = {}) {
+  const range = opts.range || getCurrentPeriodMonthRange();
+  if (!range) return null;
+
+  const magasinMode = opts.magasinMode || 'all';
+  const canalKey = _effectiveCanalKeyForClientSets(canal, magasinMode);
+
+  // Tous canaux : réutiliser le Set pré-calculé par _refilterFromByMonth quand dispo.
+  if (!canalKey) {
+    if (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size) return _S._clientsTousCanaux;
+    const src = _S._byMonthClients;
+    if (!src) return null;
+    const key = range.min + '|' + range.max + '|ALL';
+    if (_clientsActiveCache.src === src && _clientsActiveCache.key === key && _clientsActiveCache.value) return _clientsActiveCache.value;
+    const out = new Set();
+    for (const midxStr in src) {
+      const midx = +midxStr;
+      if (midx < range.min || midx > range.max) continue;
+      const s = src[midxStr];
+      if (!s) continue;
+      for (const cc of s) out.add(cc);
+    }
+    _clientsActiveCache = { src, key, value: out };
+    return out;
+  }
+
+  // Canal spécifique
+  const src = _S._byMonthClientsByCanal;
+  if (!src) {
+    // Fallback (caches anciens) : canal MAGASIN peut être dérivé de clientsMagasin.
+    if (canalKey === 'MAGASIN' && _S.clientsMagasin instanceof Set) return _S.clientsMagasin;
+    return null;
+  }
+  const key = range.min + '|' + range.max + '|' + canalKey;
+  if (_clientsActiveCache.src === src && _clientsActiveCache.key === key && _clientsActiveCache.value) return _clientsActiveCache.value;
+  const out = new Set();
+  for (const midxStr in src) {
+    const midx = +midxStr;
+    if (midx < range.min || midx > range.max) continue;
+    const cm = src[midxStr];
+    const s = cm ? cm[canalKey] : null;
+    if (!s) continue;
+    for (const cc of s) out.add(cc);
+  }
+  _clientsActiveCache = { src, key, value: out };
+  return out;
+}

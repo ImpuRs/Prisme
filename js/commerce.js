@@ -21,7 +21,7 @@ import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
-import { getClientCAFullAllCanaux, getClientCAMagasinInMonthRange, getClientCAFullInMonthRange } from './sales.js';
+import { getClientCAFullAllCanaux, getClientCAMagasinInMonthRange, getClientCAFullInMonthRange, getClientsActiveSetInPeriod } from './sales.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -142,8 +142,8 @@ window._chalToggleMode = function(mode) {
 };
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
-  // Cache : canal-invariant, ne dépend que des filtres sidebar chalandise + mode
-  const _key = `${_chalDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}`;
+  // Cache : dépend des filtres sidebar chalandise + mode + canal
+  const _key = `${_chalDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${_S._reseauMagasinMode||'all'}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}|${_S._globalCanal||''}`;
   if (_chalDirKey === _key && _chalDirHtml) {
     if (blkEl.dataset.cdk === _key) return;
     blkEl.innerHTML = _chalDirHtml;
@@ -151,7 +151,22 @@ function _buildChalDirBlock(blkEl) {
     return;
   }
   // Single-pass: filter + group by primary axis (direction or secteur) → métier → clients
-  const cmSet = _S.clientsMagasin;
+  // Canal-aware captation set (same logic as overview)
+  const _cdCanal=_S._globalCanal||'';
+  let cmSet = getClientsActiveSetInPeriod(_cdCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
+  if (!cmSet) {
+    // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
+    if(!_cdCanal){
+      cmSet=new Set(_S.clientsMagasin||[]);
+      if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())cmSet.add(cc);
+    }else if(_cdCanal==='MAGASIN'){
+      cmSet=_S.clientsMagasin||new Set();
+    }else{
+      cmSet=new Set();
+      if(_S.ventesClientHorsMagasin)for(const[cc,artMap] of _S.ventesClientHorsMagasin){for(const[,v] of artMap){if((v.canal||'')===_cdCanal){cmSet.add(cc);break;}}}
+    }
+  }
+  const _cdLabel=_cdCanal?(_CANAL_LABELS_OV[_cdCanal]||_cdCanal):'PDV';
   const chalData = _S.chalandiseData || new Map();
   const byDir = new Map();
   let allLen = 0, allActifs = 0, allPDV = 0;
@@ -267,7 +282,7 @@ function _buildChalDirBlock(blkEl) {
         for(const c of [...cc_list].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,20)){
           const ca=(c.ca2025||0)+(c.ca2026||0),star2=c.classification?.includes('Pot+')?'⭐ ':'';
           html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-c="${di}_${mi}_${ci}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
-            <td class="py-1 px-2 pl-12">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button> <span class="t-disabled">${c.cc}</span></td>
+            <td class="py-1 px-2 pl-12">${cmSet?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button> <span class="t-disabled">${c.cc}</span></td>
             <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
             <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
             <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
@@ -290,15 +305,15 @@ function _buildChalDirBlock(blkEl) {
       <span onclick="window._chalToggleMode('direction')" style="${_tabStyle(_isDir)}">Direction</span>
       <span onclick="window._chalToggleMode('secteur')" style="${_tabStyle(_isSec)}">Secteur</span>
     </div>
-    <span class="text-[10px] t-disabled">${byDir.size} ${_axisLabel.toLowerCase()}s · ${allLen} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
+    <span class="text-[10px] t-disabled">${byDir.size} ${_axisLabel.toLowerCase()}s · ${allLen} clients · ${totalPDV} actifs PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' (via '+_cdLabel+')':''} · ${pctCap}% captés</span>
   </div>
   <div class="overflow-x-auto"><table class="min-w-full text-xs">
     <thead class="s-panel-inner t-inverse"><tr class="text-[10px]">
       <th class="py-1.5 px-2 text-left">${_axisLabel}</th>
       <th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Actifs Leg.</th>
-      <th class="py-1.5 px-2 text-right">Actifs PDV</th><th class="py-1.5 px-2 text-right">Prospects</th>
+      <th class="py-1.5 px-2 text-right">Actifs PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' <span class="t-disabled font-normal">(via '+_cdLabel+')</span>':''}</th><th class="py-1.5 px-2 text-right">Prospects</th>
       <th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th>
-      <th class="py-1.5 px-2 text-right">% Capté Leg.</th><th class="py-1.5 px-2 text-right">% Capté PDV</th>
+      <th class="py-1.5 px-2 text-right">% Capté Leg.</th><th class="py-1.5 px-2 text-right">% Capté PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' <span class="t-disabled font-normal">(via '+_cdLabel+')</span>':''}</th>
     </tr></thead>
     <tbody>${html||`<tr><td colspan="9" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
   </table></div>`;
@@ -1978,15 +1993,37 @@ function _buildChalandiseOverview(){
 // _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner
 let _bcoiCacheKey='';
 let _overviewDirMode='direction'; // 'direction' | 'secteur'
+const _CANAL_LABELS_OV={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+let _overviewCaptePDVSet=null; // shared with L2 renderer
 window._overviewToggleMode=function(mode){_overviewDirMode=mode;_bcoiCacheKey='';_buildChalandiseOverviewInner(true);const _det=document.querySelector('#terrChalandiseOverview details');if(_det)_det.open=true;};
 function _buildChalandiseOverviewInner(force){
   // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
-  const _key=`${_overviewDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
+  const _key=`${_overviewDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${_S._reseauMagasinMode||'all'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
   if(!force&&_bcoiCacheKey===_key)return;
   _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
   // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
   const _isSec=_overviewDirMode==='secteur';
+  // Set de clients captés PDV — canal-aware (consommé = toujours à l'agence)
+  const _oCanal=_S._globalCanal||'';
+  let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
+  if (!_captePDVSet) {
+    // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
+    if(!_oCanal){
+      // Tous canaux : clientsMagasin (period-filtered, comportement d'origine)
+      _captePDVSet=new Set(_S.clientsMagasin||[]);
+      // + hors-MAGASIN period-filtered
+      if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())_captePDVSet.add(cc);
+    }else if(_oCanal==='MAGASIN'){
+      _captePDVSet=_S.clientsMagasin||new Set();
+    }else{
+      // Hors-MAGASIN : ventesClientHorsMagasin filtré par canal (period-filtered comme clientsMagasin)
+      _captePDVSet=new Set();
+      if(_S.ventesClientHorsMagasin)for(const[cc,artMap] of _S.ventesClientHorsMagasin){for(const[,v] of artMap){if((v.canal||'')===_oCanal){_captePDVSet.add(cc);break;}}}
+    }
+  }
+  _overviewCaptePDVSet=_captePDVSet; // share with L2 renderer
+  const _captLabel=_oCanal?(_CANAL_LABELS_OV[_oCanal]||_oCanal):'PDV';
   const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
   for(const[cc,info] of _S.chalandiseData.entries()){
     totalClients++;
@@ -2001,7 +2038,7 @@ function _buildChalandiseOverviewInner(force){
     if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,parentDir:_parentDir,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0,_comCounts:{}};
     const d=dirMap[dirKey];d.total++;
     if(_isSec&&info.commercial){d._comCounts[info.commercial]=(d._comCounts[info.commercial]||0)+1;}
-    const pdvActif=!!_S.clientsMagasin?.has(cc);
+    const pdvActif=_captePDVSet.has(cc);
     if(_isProspect(info)){d.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
     else{d.actifsLeg++;totalActifsLeg++;}
@@ -2025,25 +2062,21 @@ function _buildChalandiseOverviewInner(force){
   {const bar=document.getElementById('terrSummaryBar');
   if(bar){
     const _canal=_S._globalCanal||'';
-    const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _ca_all=_S.canalAgence||{};
     let _ca,_nbBL,_sumVMB,_nbClients,_canalLabel;
     if(!_canal){
       _ca=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
       _nbBL=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
       _sumVMB=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
-      _nbClients=_S.clientLastOrderByCanal?.size||0;
+      // Period-aware : réutiliser le set capté PDV déjà calculé (tous canaux)
+      _nbClients=_captePDVSet?.size||0;
       _canalLabel='Tous canaux';
     }else{
       const _d=_ca_all[_canal]||{};
       _ca=_d.ca||0;_nbBL=_d.bl||0;_sumVMB=_d.sumVMB||0;
-      if(_canal==='MAGASIN'){
-        _nbClients=_S.clientsMagasin?.size||0;
-      }else{
-        _nbClients=0;
-        for(const[,cMap] of (_S.clientLastOrderByCanal||new Map())){if(cMap.has(_canal))_nbClients++;}
-      }
-      _canalLabel=CANAL_LABELS[_canal]||_canal;
+      // Period-aware : réutiliser le set capté PDV déjà calculé (canal courant)
+      _nbClients=_captePDVSet?.size||0;
+      _canalLabel=_CANAL_LABELS_OV[_canal]||_canal;
     }
     const _caClient=_nbClients>0?Math.round(_ca/_nbClients):0;
     const _freq=_nbClients>0?(_nbBL/_nbClients).toFixed(1):'—';
@@ -2068,7 +2101,7 @@ function _buildChalandiseOverviewInner(force){
       ${_filterBadge}
       ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
       ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
-      ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#4ade80')}
+      ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}${_oCanal&&_oCanal!=='MAGASIN'?' · via '+_canalLabel:''}`,'#4ade80')}
       ${_tile('⚠️',_horsZoneCount.toLocaleString('fr-FR'),'Hors zone',_horsZoneCA>0?formatEuro(_horsZoneCA)+' CA PDV':'','#fcd34d')}
       ${_exclusBadge}
     </div>`;
@@ -2093,9 +2126,10 @@ function _buildChalandiseOverviewInner(force){
   const colSpan=9;
   const headEl=document.getElementById('terrOverviewL1Head');
   if(headEl){
-    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">${_axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
+    const _captSub=_oCanal&&_oCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_captLabel})</span>`:'';
+    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">${_axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_captSub}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV${_captSub}</th></tr>`;
   }
-  const _nbDirs=Object.keys(dirMap).length;const _axisN=_isSec?'secteur':'direction';const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} ${_axisN}${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
+  const _nbDirs=Object.keys(dirMap).length;const _axisN=_isSec?'secteur':'direction';const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} ${_axisN}${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV${_oCanal&&_oCanal!=='MAGASIN'?' (via '+_captLabel+')':''} · ${pctCapte}% capté`;
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
@@ -2218,7 +2252,7 @@ function _renderOverviewL2(el,direction){
     const m=info.metier||'Autre';
     if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
     const md=metierMap[m];md.total++;
-    const pdvActif=!!_S.clientsMagasin?.has(cc);
+    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
     if(_isProspect(info)){md.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
     else{md.actifsLeg++;}
@@ -2230,7 +2264,8 @@ function _renderOverviewL2(el,direction){
   metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
   if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun client pour ce filtre.</div>';return;}
   const dirEnc=encodeURIComponent(direction);
-  const headCols='<th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV</th><th class="py-1.5 px-2 text-center">🔍</th>';
+  const _cl=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
+  const headCols=`<th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_cl}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${_cl}</th><th class="py-1.5 px-2 text-center">🔍</th>`;
   let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="i-danger-bg c-danger font-bold"><tr>${headCols}</tr></thead><tbody>`;
   metiersArr.forEach((m,mIdx)=>{
     const base=m.total-m.prospects;
@@ -2284,7 +2319,7 @@ function _renderOverviewL3(el,direction,metier){
     const key=sect+'||'+comm;
     if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
     const sd=sectMap[key];sd.total++;
-    const pdvActif=!!_S.clientsMagasin?.has(cc);
+    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
     if(_isProspect(info)){sd.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
     else{sd.actifsLeg++;}
@@ -2295,7 +2330,8 @@ function _renderOverviewL3(el,direction,metier){
   sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
   if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun secteur identifié.</div>';return;}
   const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
-  const headCols='<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV</th>';
+  const _cl3=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
+  const headCols=`<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_cl3}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${_cl3}</th>`;
   let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="s-hover t-primary font-bold"><tr>${headCols}</tr></thead><tbody>`;
   sectsArr.forEach((s,sIdx)=>{
     const base=s.total-s.prospects;
@@ -2356,7 +2392,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
     if((info.secteur||'—')!==secteur)continue;
-    const pdvActif=!!_S.clientsMagasin?.has(cc);
+    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
     if(!_passesClientCrossFilter(cc))continue;
     // CA PDV = CA tous canaux myStore, sur la période sélectionnée (ou année civile)
     // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable)

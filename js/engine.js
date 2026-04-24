@@ -12,7 +12,7 @@ import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 import { articleLib } from './article-store.js';
-import { getVentesClientMagFull } from './sales.js';
+import { getVentesClientMagFull, getClientsActiveSetInPeriod } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
 const _vcaFull = () => getVentesClientMagFull();
@@ -208,15 +208,21 @@ export function _isGlobalActif(info) {
 }
 
 export function _isPDVActif(cc) {
-  // Source structurelle Qlik — Activité PDV Zone (indépendant de la période)
-  // Les filtres KM/métier/commercial/etc. sont appliqués en amont par _clientPassesFilters
+  // Quand byMonthClients existe (restauration IDB + refilter), _clientsTousCanaux donne un Set exact par période.
+  if (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.has(cc)) return true;
+  // Sinon, reconstruire best-effort depuis byMonthClients (tous canaux, période courante).
+  const _pdvSet = getClientsActiveSetInPeriod('');
+  if (_pdvSet && _pdvSet.has(cc)) return true;
+  // Fallback legacy : MAGASIN only
+  if (_S.clientsMagasin?.has(cc)) return true;
+  // Fallback legacy : hors-MAGASIN period-filtered (si présent)
+  if (_S.ventesClientHorsMagasin?.has(cc)) return true;
+  // Sinon, chalandise Qlik comme fallback
   if (_S.chalandiseReady && _S.chalandiseData?.size) {
     const info = _S.chalandiseData.get(cc);
     if (info) return (info.activitePDV || '').startsWith('Actif PDV Zone');
   }
-  // Fallback si chalandise non chargée
-  if (_S.clientsMagasin && _S.clientsMagasin.size > 0) return _S.clientsMagasin.has(cc);
-  const art = _S.ventesClientArticle.get(cc);
+  const art = _S.ventesClientArticle?.get(cc);
   return art && art.size > 0;
 }
 
@@ -237,13 +243,24 @@ export function _isPerdu24plus(info) {
 
 // ── Croisement consommé × chalandise ──────────────────────────
 export function computeClientCrossing() {
-  if (!_S.chalandiseReady || !_S.clientsMagasin.size) { _S.crossingStats = null; return; }
+  // PDV = clients ayant acheté chez nous sur la période (tous canaux).
+  // Quand _clientsTousCanaux existe (refilter byMonth), c'est la source de vérité.
+  // Sinon, fallback legacy : union clientsMagasin + ventesClientHorsMagasin (cache ancien).
+  let pdvSet = (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size)
+    ? _S._clientsTousCanaux
+    : null;
+  if (!pdvSet) {
+    const s = new Set(_S.clientsMagasin || []);
+    if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) s.add(cc);
+    pdvSet = s;
+  }
+  if (!_S.chalandiseReady || !pdvSet.size) { _S.crossingStats = null; return; }
   const fideles = new Set(), potentiels = new Set(), captes = new Set(), fidelespdv = new Set();
-  for (const cc of _S.clientsMagasin) {
+  for (const cc of pdvSet) {
     if (_S.chalandiseData.has(cc)) captes.add(cc); else fideles.add(cc);
   }
   for (const [cc, info] of _S.chalandiseData.entries()) {
-    if (!_S.clientsMagasin.has(cc)) {
+    if (!pdvSet.has(cc)) {
       if (_isGlobalActif(info)) potentiels.add(cc);
     }
   }
@@ -406,7 +423,7 @@ export function _clientPassesFilters(info, cc='') {
   // pas sur la visibilité des clients. Un client sans achats dans l'univers filtré est une
   // cible de conquête, pas un client à cacher. Voir getUniversFilteredCA().
   // Distance : client PDV actif → vient déjà au comptoir, ne pas exclure par distance
-  const distOk = clientMatchesDistanceFilter(info) || (cc && _S.clientsMagasin?.has(cc));
+  const distOk = clientMatchesDistanceFilter(info) || (cc && _isPDVActif(cc));
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
     clientMatchesActivitePDVFilter(info) && clientMatchesDirectionFilter(info) &&

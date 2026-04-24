@@ -70,6 +70,7 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
       },0);
     }
   }
+  let _warnedByMonthClientsMissing = false;
   function applyPeriodFilter(startTs,endTs){
     const tdd=document.getElementById('tabPeriodDropdown');if(tdd)tdd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
@@ -79,6 +80,10 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
     // Chemin rapide — byMonth disponible (nouveau worker) → refilter <100ms
     if(_S._byMonth){
       _refilterFromByMonth();
+      if(!_S._byMonthClients&&!_warnedByMonthClientsMissing){
+        showToast('⚠️ Cache ancien : refilter tous canaux partiel. Rechargez le fichier consommé une fois pour compter correctement REPRESENTANT/DCS/INTERNET sur une nouvelle période.','warning',7000);
+        _warnedByMonthClientsMissing=true;
+      }
       buildPeriodFilter();
       computeClientCrossing();_computeClientDominantUnivers();
       renderCanalAgence();renderCurrentTab();
@@ -1056,15 +1061,22 @@ _S.canalAgence=newCanalAgence;
           const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
           const _unchanged = await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
           if (_unchanged) {
-            showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
-            btn.disabled = false;
-            hideLoading();
-            if (!_S.clientStore?.size) buildClientStore();
-            _applyForcageCommercial();
-            if (_S.storesIntersection.size > 1 && !_S.agenceStore?.size) buildAgenceStore();
-            renderAll();
-            buildPeriodFilter();
-            return;
+            // Cache "schema upgrade" : certaines features (clients actifs tous canaux par mois)
+            // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
+            // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
+            const _needsUpgrade = !_S.lowMemMode && _S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal);
+            if (!_needsUpgrade) {
+              showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
+              btn.disabled = false;
+              hideLoading();
+              if (!_S.clientStore?.size) buildClientStore();
+              _applyForcageCommercial();
+              if (_S.storesIntersection.size > 1 && !_S.agenceStore?.size) buildAgenceStore();
+              renderAll();
+              buildPeriodFilter();
+              return;
+            }
+            showToast('⚠️ Cache ancien — mise à jour nécessaire pour un refilter tous canaux correct. Analyse en cours…', 'warning', 6000);
           }
         }
       }

@@ -871,11 +871,11 @@ async function _handleParseMessage(data) {
             hm.set(codeArt_h, ex_h);
             ventesClientHorsMagasin.set(cc_h, hm);
           }
-          // ventesClientsPerStore — hors-MAGASIN (caClientParStore déjà accumulé avant filtre)
-          if (cc_h && codeArt_h) {
+          // ventesClientsPerStore — hors-MAGASIN (period-filtered)
+          if (_cc_bm_h && codeArt_h) {
             var _skCli_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
             if (!ventesClientsPerStore[_skCli_h]) ventesClientsPerStore[_skCli_h] = new Set();
-            ventesClientsPerStore[_skCli_h].add(cc_h);
+            ventesClientsPerStore[_skCli_h].add(_cc_bm_h);
           }
           // ventesParMagasinByCanal
           if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
@@ -897,9 +897,9 @@ async function _handleParseMessage(data) {
             commandesPerStoreCanal[skHors][canal].add(_rncb);
           }
           // ventesClientAutresAgences — CA client dans autres agences (hors-MAGASIN)
-          if (cc_h && codeArt_h && selectedStore && skHors !== 'INCONNU' && skHors !== selectedStore) {
+          if (_cc_bm_h && codeArt_h && selectedStore && skHors !== 'INCONNU' && skHors !== selectedStore) {
             var _caAutH = _rcp + _rce;
-            if (_caAutH > 0) ventesClientAutresAgences.set(cc_h, (ventesClientAutresAgences.get(cc_h) || 0) + _caAutH);
+            if (_caAutH > 0) ventesClientAutresAgences.set(_cc_bm_h, (ventesClientAutresAgences.get(_cc_bm_h) || 0) + _caAutH);
           }
         }
         continue;

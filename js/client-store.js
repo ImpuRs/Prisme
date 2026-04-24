@@ -7,6 +7,7 @@
 'use strict';
 
 import { _S } from './state.js';
+import { getClientsActiveSetInPeriod } from './sales.js';
 
 /**
  * Construit _S.clientStore = Map<cc, ClientRecord> à partir de toutes les
@@ -33,6 +34,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     if (_S.clientLastOrder) for (const cc of _S.clientLastOrder.keys()) allCc.add(cc);
     if (_S.clientLastOrderAll) for (const cc of _S.clientLastOrderAll.keys()) allCc.add(cc);
     if (_S.clientsMagasin) for (const cc of _S.clientsMagasin) allCc.add(cc);
+    if (_S._clientsTousCanaux instanceof Set) for (const cc of _S._clientsTousCanaux) allCc.add(cc);
     if (_S.forcageCommercial?.size) for (const cc of _S.forcageCommercial.keys()) allCc.add(cc);
 
     for (const cc of allCc) {
@@ -82,7 +84,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         caLegallaisN1: chalInfo?.ca2025 || 0,
         caPDVNChal: chalInfo?.caPDVN || 0,
         ca2026: chalInfo?.ca2026 || 0,
-        // Hors-MAGASIN (period-invariant)
+        // Hors-MAGASIN (agrégats legacy : period-filtered au parse, et parfois figés au refilter depuis IDB)
         caHors,
         canaux,
         // Récence
@@ -109,6 +111,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   }
 
   // ── PDV agrégats (period-dependent, toujours recalculés) ──
+  const _pdvActiveSet = getClientsActiveSetInPeriod(''); // tous canaux, période courante (si byMonthClients dispo)
   for (const [cc, rec] of store) {
     const pdvArts = _S.ventesClientArticle?.get(cc) || null;
     rec.artMapPDV = pdvArts; // référence directe, mise à jour au refilter
@@ -124,7 +127,9 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     rec.caPDVPrelevee = caPDVPrel;
     rec.nbArticlesPDV = nbArts;
     rec.nbBLPDV = _S.clientsMagasinFreq?.get(cc) || 0;
-    rec.isPDVActif = caPDV > 0;
+    // "PDV actif" = a acheté chez nous sur la période (tous canaux).
+    // Source de vérité : byMonthClients (via getClientsActiveSetInPeriod), sinon fallback sur agrégats legacy.
+    rec.isPDVActif = _pdvActiveSet ? _pdvActiveSet.has(cc) : (caPDV > 0 || (rec.caHors || 0) > 0);
     // silenceDaysPDV
     const lastPDV = rec.lastOrderPDV;
     const lastValid = lastPDV && (!_minC || lastPDV >= _minC);
@@ -167,6 +172,15 @@ export function buildClientStore({ pdvOnly = false } = {}) {
       if (!store.has(cc)) {
         // Nouveau client apparu après refilter — full build pour lui
         buildClientStore(); // rebuild complet, sort de la boucle
+        return _S.clientStore;
+      }
+    }
+  }
+  // Même logique, mais pour les clients "PDV actifs tous canaux" (ex: REPRESENTANT-only).
+  if (pdvOnly && _pdvActiveSet && _pdvActiveSet.size) {
+    for (const cc of _pdvActiveSet) {
+      if (!store.has(cc)) {
+        buildClientStore();
         return _S.clientStore;
       }
     }
