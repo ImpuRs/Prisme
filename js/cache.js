@@ -482,6 +482,7 @@ async function _saveSessionToIDBNow() {
             const _o = {}; for (const _c in cm) _o[_c] = [...cm[_c]]; return [k, _o];
           }))
         : null,
+      byMonthClientCAByCanal:   _S._byMonthClientCAByCanal || null,
       ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
       ventesClientAutresAgences: [...(_S.ventesClientAutresAgences || [])],
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
@@ -643,6 +644,7 @@ export async function _restoreSessionFromIDB() {
         })
       );
     }
+    _S._byMonthClientCAByCanal = data.byMonthClientCAByCanal || null;
     _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);
     _S.ventesClientAutresAgences = new Map(data.ventesClientAutresAgences || []);
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
