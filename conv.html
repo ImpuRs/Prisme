@@ -149,10 +149,11 @@
                 </div>
               </div>
             </div>
-            <div id=”priorityFileZone” style=”margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:rgba(139,92,246,0.08)”>
-              <label for=”convPriorityFile” style=”color:#a78bfa;font-weight:600;font-size:12px”>📌 Chalandise de mon agence (prioritaire)</label>
-              <input id=”convPriorityFile” type=”file” accept=”.xlsx,.xls,.csv” style=”margin-top:6px”>
-              <div class=”muted” style=”margin-top:4px”>Ce fichier est traité en premier. En cas de doublon client, c'est sa ligne qui gagne.</div>
+            <div id=”secondaryFileZone” style=”margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:rgba(139,92,246,0.08)”>
+              <label for=”convSecondaryFiles” style=”color:#a78bfa;font-weight:600;font-size:12px”>📎 Fichiers complémentaires (autres agences)</label>
+              <input id=”convSecondaryFiles” type=”file” multiple accept=”.xlsx,.xls,.csv” style=”margin-top:6px”>
+              <div class=”filelist” id=”convSecondaryList” style=”display:none”></div>
+              <div class=”muted” style=”margin-top:4px”>En cas de doublon client, c'est le fichier principal (au-dessus) qui gagne.</div>
             </div>
           </div>
         </div>
@@ -175,6 +176,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425d"></script>
+  <script src="js/conv.js?v=20260425e"></script>
 </body>
 </html>
