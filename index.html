@@ -1674,6 +1674,10 @@
                 <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
                   <option value="">Statut actuel: tous</option>
                 </select>
+                <label id="toggleExcludeActifsConsomme" class="text-[10px] flex items-center gap-1.5 cursor-pointer" title="Masque les clients classés inactifs dans la chalandise mais qui ont acheté dans le consommé">
+                  <input type="checkbox" onchange="_toggleExcludeActifsConsomme(this.checked)" class="rounded accent-amber-500">
+                  <span class="t-secondary font-semibold">Vrais inactifs uniquement</span>
+                </label>
                 <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
                   <span class="t-secondary font-semibold">Inclure inactifs &gt;12m</span>

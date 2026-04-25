@@ -511,6 +511,7 @@ window._ccc = (di,mi,ci) => {
         if(_hasChal&&rec.inChalandise){
           const info=_S.chalandiseData.get(rec.cc);
           if(info&&!_clientPassesFilters(info,rec.cc))continue;
+          if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(rec.cc))continue;
           if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
         }
         // ── Top clients par canal ──
@@ -1077,7 +1078,8 @@ function _resetChalandiseFilters(){
   const dLabel=document.getElementById('distKmLabel');if(dLabel)dLabel.textContent='∞';
   _buildDeptFilter();
   // Activité
-  _S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._includePerdu24m=false;
+  _S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._includePerdu24m=false;_S._excludeActifsConsomme=false;
+  const eaCb=document.getElementById('toggleExcludeActifsConsomme')?.querySelector('input');if(eaCb)eaCb.checked=false;
   const aSel=document.getElementById('terrActPDVSelect');if(aSel)aSel.value='';
   const sdSel=document.getElementById('terrStatutDetailleSelect');if(sdSel)sdSel.value='';
   const stSel=document.getElementById('terrStatutSelect');if(stSel)stSel.value='';
@@ -1089,7 +1091,7 @@ function _resetChalandiseFilters(){
   if(_S._activeCommerceTab&&_S._tabFilters[_S._activeCommerceTab]){
     const slot=_S._tabFilters[_S._activeCommerceTab];
     slot.distanceMaxKm=0;slot.selectedDepts=new Set();slot.selectedMetier='';slot.filterStrategiqueOnly=false;
-    slot.selectedClassifs=new Set();slot.selectedStatuts=new Set();slot.selectedActivitesPDV=new Set();slot.selectedStatutDetaille='';slot.includePerdu24m=false;
+    slot.selectedClassifs=new Set();slot.selectedStatuts=new Set();slot.selectedActivitesPDV=new Set();slot.selectedStatutDetaille='';slot.includePerdu24m=false;slot.excludeActifsConsomme=false;
     slot.selectedDirections=new Set();slot.selectedUnivers=new Set();
   }
   _buildChalandiseOverview();
@@ -1304,6 +1306,7 @@ function _navigateToOverviewMetier(metier){
     }else _ltNav=t;
   },100);
 }
+function _toggleExcludeActifsConsomme(checked){_S._excludeActifsConsomme=checked;_buildChalandiseOverview();}
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
 function _toggleAlerteCapitaines(){
   const next=!_S._alerteCapitaines;
@@ -1372,6 +1375,7 @@ function _populateCommercialSelect(inputId, kpiId) {
             const info = _S.chalandiseData?.get(cc);
             if (!info) continue;
             if (!_clientPassesFilters(info, cc)) continue;
+            if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
             if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
             nb++;
           }
@@ -1407,6 +1411,7 @@ function _renderCommercialScorecard(containerId) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
     if (!_clientPassesFilters(info, cc)) continue;
+    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     nbClients++;
     ca2026 += info.ca2026 || 0;
@@ -1453,6 +1458,7 @@ function _renderCommercialScorecard(containerId) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
     if (!_clientPassesFilters(info, cc)) continue;
+    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
     if (!horArts) continue;
@@ -1475,6 +1481,7 @@ function _renderCommercialScorecard(containerId) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
     if (!_clientPassesFilters(info, cc)) continue;
+    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     if (_S.ventesClientArticle?.has(cc)) comClientSet.add(cc);
   }
@@ -1743,6 +1750,7 @@ function _renderComTopClients(el) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
     if (!_clientPassesFilters(info, cc)) continue;
+    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
     const caPDV = _S._selectedUnivers.size ? getUniversFilteredCA(cc) : (rec?.caPDV || 0); // CA PDV filtré par univers si actif
@@ -1833,6 +1841,7 @@ function _renderPochesTerrain(containerId) {
     const info = _S.chalandiseData?.get(cc);
     if (!info) continue;
     if (!_clientPassesFilters(info, cc)) continue;
+    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     pool.push({ cc, rec, info });
   }
@@ -2022,7 +2031,7 @@ function _buildChalandiseOverview(){
   if(_S._activeCommerceTab&&_S._tabFilters[_S._activeCommerceTab]){
     const slot=_S._tabFilters[_S._activeCommerceTab];
     slot.distanceMaxKm=_S._distanceMaxKm;slot.selectedDepts=new Set(_S._selectedDepts);slot.selectedMetier=_S._selectedMetier;slot.filterStrategiqueOnly=_S._filterStrategiqueOnly;
-    slot.selectedClassifs=new Set(_S._selectedClassifs);slot.selectedStatuts=new Set(_S._selectedStatuts);slot.selectedActivitesPDV=new Set(_S._selectedActivitesPDV);slot.selectedStatutDetaille=_S._selectedStatutDetaille;slot.includePerdu24m=_S._includePerdu24m;
+    slot.selectedClassifs=new Set(_S._selectedClassifs);slot.selectedStatuts=new Set(_S._selectedStatuts);slot.selectedActivitesPDV=new Set(_S._selectedActivitesPDV);slot.selectedStatutDetaille=_S._selectedStatutDetaille;slot.includePerdu24m=_S._includePerdu24m;slot.excludeActifsConsomme=_S._excludeActifsConsomme;
     slot.selectedDirections=new Set(_S._selectedDirections);slot.selectedUnivers=new Set(_S._selectedUnivers);
   }
   // Rafraîchir le sous-onglet actif + overview data
@@ -2078,6 +2087,8 @@ function _buildChalandiseOverviewInner(force){
   for(const[cc,info] of _S.chalandiseData.entries()){
     totalClients++;
     if(!_clientPassesFilters(info,cc))continue;
+    // Superfiltre "vrais inactifs" : exclure les clients actifs dans le consommé
+    if(_S._excludeActifsConsomme&&_captePDVSet.has(cc))continue;
     // Exclude perdus >24m when toggle is OFF
     const is24plus=_isPerdu24plus(info);
     if(is24plus&&!_S._includePerdu24m){totalExcluded24m++;continue;}
@@ -2104,7 +2115,7 @@ function _buildChalandiseOverviewInner(force){
   // ── Badges groupes sidebar Terrain ──
   {const _nGeo=(_S._selectedDepts.size||0)+((_S._distanceMaxKm>0)?1:0)+((_S._includePerdu24m)?1:0);
   const _bgG=document.getElementById('fgBadgeGeo');if(_bgG){_bgG.textContent=_nGeo;_bgG.classList.toggle('hidden',_nGeo===0);}
-  const _nAct=(_S._selectedActivitesPDV.size||0)+((_S._selectedStatutDetaille)?1:0)+(_S._selectedStatuts.size||0)+(_S._selectedClassifs.size||0);
+  const _nAct=(_S._selectedActivitesPDV.size||0)+((_S._selectedStatutDetaille)?1:0)+(_S._selectedStatuts.size||0)+(_S._selectedClassifs.size||0)+(_S._excludeActifsConsomme?1:0);
   const _bgA=document.getElementById('fgBadgeTerritoire');if(_bgA){_bgA.textContent=_nAct;_bgA.classList.toggle('hidden',_nAct===0);}
   const _nOrg=((_S._selectedMetier)?1:0)+((_S._selectedCommercial)?1:0)+(_S._selectedDirections.size||0)+(_S._selectedUnivers.size||0)+((_S._filterStrategiqueOnly)?1:0);
   const _bgO=document.getElementById('fgBadgeOrga');if(_bgO){_bgO.textContent=_nOrg;_bgO.classList.toggle('hidden',_nOrg===0);}}
@@ -2296,6 +2307,7 @@ function _renderOverviewL2(el,direction){
   const metierMap={};
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
+    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
@@ -2360,6 +2372,7 @@ function _renderOverviewL3(el,direction,metier){
   const sectMap={};
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
+    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
@@ -2437,6 +2450,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
   const clients=[];
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
+    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
@@ -2693,6 +2707,7 @@ function _buildCockpitClient(force){
       if(rec.inChalandise){
         const info=_S.chalandiseData.get(rec.cc);
         if(info&&!_clientPassesFilters(info,rec.cc))continue;
+        if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(rec.cc))continue;
         if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
         if(!_passesClientCrossFilter(rec.cc))continue;
       }
@@ -3091,6 +3106,7 @@ export {
   _onTerrClientSearch,
   _onMetierFilter,
   _navigateToOverviewMetier,
+  _toggleExcludeActifsConsomme,
   _togglePerdu24m,
   _buildOverviewFilterChips,
   _buildChalandiseOverview,
@@ -3222,6 +3238,7 @@ window._updateDistQuickBtns       = _updateDistQuickBtns;
 window._onTerrClientSearch        = _onTerrClientSearch;
 window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
+window._toggleExcludeActifsConsomme = _toggleExcludeActifsConsomme;
 window._togglePerdu24m            = _togglePerdu24m;
 window._toggleAlerteCapitaines   = _toggleAlerteCapitaines;
 window._cmToggleSurveiller       = _cmToggleSurveiller;
