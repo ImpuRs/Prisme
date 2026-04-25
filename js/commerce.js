@@ -34,6 +34,13 @@ import {
   passesOverviewClient as _passesOverviewClientRaw,
   setOverviewMode
 } from './commerce-conquete.js';
+import {
+  renderOverviewHead,
+  renderOverviewL1Rows,
+  renderOverviewL2Table,
+  renderOverviewL3Table,
+  renderOverviewL4Table
+} from './commerce-conquete-view.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -2168,88 +2175,13 @@ function _buildChalandiseOverviewInner(force){
   const headEl=document.getElementById('terrOverviewL1Head');
   if(headEl){
     const _captSub=_oCanal&&_oCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_captLabel})</span>`:'';
-    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">${_axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_captSub}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV${_captSub}</th></tr>`;
+    headEl.innerHTML=renderOverviewHead(_axisLabel,_captSub);
   }
   const _nbDirs=Object.keys(dirMap).length;const _axisN=_isSec?'secteur':'direction';const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} ${_axisN}${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV${_oCanal&&_oCanal!=='MAGASIN'?' (via '+_captLabel+')':''} · ${pctCapte}% capté`;
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
-  let html='';
-  if(_isSec){
-    // Mode Secteur : grouper par direction parente — accordéon fermé par défaut
-    const byParent={};
-    dirsArr.forEach(d=>{const p=d.parentDir||'Autre';if(!byParent[p])byParent[p]=[];byParent[p].push(d);});
-    const parentDirs=Object.keys(byParent).sort((a,b)=>{
-      const sa=byParent[a].reduce((s,d)=>s+d.actifsLeg,0),sb=byParent[b].reduce((s,d)=>s+d.actifsLeg,0);return sb-sa;
-    });
-    let idx=0;
-    parentDirs.forEach((pDir,pIdx)=>{
-      const sects=byParent[pDir];
-      const pTotal=sects.reduce((s,d)=>s+d.total,0);
-      const pActL=sects.reduce((s,d)=>s+d.actifsLeg,0);
-      const pActP=sects.reduce((s,d)=>s+d.actifsPDV,0);
-      const pBase=pTotal-sects.reduce((s,d)=>s+d.prospects,0);
-      const pPctL=pBase>0?Math.round(pActL/pBase*100):0;
-      const pPctP=pBase>0?Math.round(pActP/pBase*100):0;
-      const pBarColor=pPctP>=50?'bg-emerald-500':pPctP>=25?'bg-amber-500':'bg-red-500';
-      const grpId='secGrp-'+pIdx;
-      html+=`<tr class="border-b text-[11px] font-black hover:s-card-alt cursor-pointer" style="background:rgba(139,92,246,0.08)" onclick="_toggleSecGrp('${grpId}')">
-        <td class="py-1.5 px-2 text-xs font-black">${pDir} <span class="t-disabled text-[10px]">(${sects.length})</span> <span id="${grpId}-arrow" class="t-disabled text-[9px]">▶</span></td>
-        <td class="py-1.5 px-2 text-center font-bold">${pTotal}</td>
-        <td class="py-1.5 px-2 text-center c-ok font-bold">${pActL||'—'}</td>
-        <td class="py-1.5 px-2 text-center c-ok font-bold">${pActP||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.prospects,0)||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.perdus12_24,0)||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.inactifs,0)||'—'}</td>
-        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pPctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pPctL}%</span></div></td>
-        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${pBarColor}" style="width:${pPctP}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pPctP}%</span></div></td>
-      </tr>`;
-      sects.forEach(d=>{
-        const base=d.total-d.prospects;
-        const pctC=base>0?Math.round(d.actifsPDV/base*100):0;
-        const pctL=base>0?Math.round(d.actifsLeg/base*100):0;
-        const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
-        const dirEnc=encodeURIComponent(d.dir);
-        const _comEntries=Object.entries(d._comCounts||{});
-        _comEntries.sort((a,b)=>b[1]-a[1]);
-        const _mainCom=_comEntries.length?_comEntries[0][0]:'';
-        const _comLabel=_mainCom?` <span class="t-tertiary font-normal">· ${_mainCom}</span>`:'';
-        html+=`<tr class="${grpId} border-b text-[11px] hover:s-card-alt cursor-pointer" style="display:none" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
-          <td class="py-1.5 px-2 pl-5 font-semibold">${d.dir}${_comLabel} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>
-          <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
-          <td class="py-1.5 px-2 text-center ${d.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${d.actifsLeg||'—'}</td>
-          <td class="py-1.5 px-2 text-center ${d.actifsPDV>0?'c-ok font-bold':'t-disabled'}">${d.actifsPDV||'—'}</td>
-          <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
-          <td class="py-1.5 px-2 text-center ${d.perdus12_24>0?'c-caution font-bold':'t-disabled'}">${d.perdus12_24||'—'}</td>
-          <td class="py-1.5 px-2 text-center ${d.inactifs>0?'t-secondary':'t-disabled'}">${d.inactifs||'—'}</td>
-          <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pctL}%</span></div></td>
-          <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pctC}%</span></div></td>
-        </tr>
-        <tr id="overviewL2-${idx}" class="${grpId}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
-        idx++;
-      });
-    });
-  } else {
-  dirsArr.forEach((d,idx)=>{
-    const base=d.total-d.prospects;
-    const pctC=base>0?Math.round(d.actifsPDV/base*100):0;
-    const pctL=base>0?Math.round(d.actifsLeg/base*100):0;
-    const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
-    const dirEnc=encodeURIComponent(d.dir);
-    html+=`<tr class="border-b text-[11px] hover:s-card-alt cursor-pointer font-semibold" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
-      <td class="py-1.5 px-2">${d.dir} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>
-      <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
-      <td class="py-1.5 px-2 text-center ${d.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${d.actifsLeg||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${d.actifsPDV>0?'c-ok font-bold':'t-disabled'}">${d.actifsPDV||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${d.perdus12_24>0?'c-caution font-bold':'t-disabled'}">${d.perdus12_24||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${d.inactifs>0?'t-secondary':'t-disabled'}">${d.inactifs||'—'}</td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pctL}%</span></div></td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pctC}%</span></div></td>
-    </tr>
-    <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
-  });
-  }
+  let html=renderOverviewL1Rows(dirsArr,{isSecteur:_isSec,colSpan});
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
   // Mettre à jour la vue Canal avec les filtres actifs
@@ -2287,34 +2219,8 @@ function _renderOverviewL2(el,direction){
   let metiersArr=aggregateOverviewMetiers(direction,_overviewCaptePDVSet);
   // Sort by % capté ascending (opportunities first)
   metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
-  if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun client pour ce filtre.</div>';return;}
-  const dirEnc=encodeURIComponent(direction);
   const _cl=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
-  const headCols=`<th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_cl}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${_cl}</th><th class="py-1.5 px-2 text-center">🔍</th>`;
-  let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="i-danger-bg c-danger font-bold"><tr>${headCols}</tr></thead><tbody>`;
-  metiersArr.forEach((m,mIdx)=>{
-    const base=m.total-m.prospects;
-    const pctC=base>0?Math.round(m.actifsPDV/base*100):0;
-    const pctL=base>0?Math.round(m.actifsLeg/base*100):0;
-    const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
-    const mEnc=encodeURIComponent(m.metier);
-    const rowId=`overviewL3-${dirEnc}-${mIdx}`;
-    html+=`<tr class="border-t b-light hover:i-danger-bg cursor-pointer font-semibold" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
-      <td class="py-1.5 px-2">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]" title="Métier stratégique Legallais">⭐</span>':''} <span id="${rowId}-arrow" class="t-disabled text-[9px]">▼</span></td>
-      <td class="py-1.5 px-2 text-center font-bold">${m.total}</td>
-      <td class="py-1.5 px-2 text-center ${m.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${m.actifsLeg||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${m.actifsPDV>0?'c-ok font-bold':'t-disabled'}">${m.actifsPDV||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${m.prospects>0?'c-action':'t-disabled'}">${m.prospects||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${m.perdus12_24>0?'c-caution font-bold':'t-disabled'}">${m.perdus12_24||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${m.inactifs>0?'t-secondary':'t-disabled'}">${m.inactifs||'—'}</td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] w-7 text-right c-action">${pctL}%</span></div></td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-7 text-right">${pctC}%</span></div></td>
-      <td class="py-1.5 px-2 text-center"><button class="diag-btn i-danger-bg c-danger" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
-    </tr>
-    <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 i-info-bg"><div id="${rowId}-inner" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
-  });
-  html+=`</tbody></table></div>`;
-  el.innerHTML=html;
+  el.innerHTML=renderOverviewL2Table(metiersArr,{direction,canalSuffix:_cl});
 }
 // Level 3: Secteurs for a Direction+Métier
 function _toggleOverviewL3(dirEnc,mEnc,rowId){
@@ -2334,34 +2240,8 @@ function _toggleOverviewL3(dirEnc,mEnc,rowId){
 function _renderOverviewL3(el,direction,metier){
   let sectsArr=aggregateOverviewSecteurs(direction,metier,_overviewCaptePDVSet);
   sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
-  if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun secteur identifié.</div>';return;}
-  const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
   const _cl3=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
-  const headCols=`<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${_cl3}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${_cl3}</th>`;
-  let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="s-hover t-primary font-bold"><tr>${headCols}</tr></thead><tbody>`;
-  sectsArr.forEach((s,sIdx)=>{
-    const base=s.total-s.prospects;
-    const pctC=base>0?Math.round(s.actifsPDV/base*100):0;
-    const pctL=base>0?Math.round(s.actifsLeg/base*100):0;
-    const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
-    const sEnc=encodeURIComponent(s.secteur);
-    const rowId=`overviewL4-${dirEnc}-${mEnc}-${sIdx}`;
-    html+=`<tr class="border-t border-violet-200 hover:i-info-bg cursor-pointer" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
-      <td class="py-1.5 px-2 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="t-disabled text-[9px]">▼</span></td>
-      <td class="py-1.5 px-2 t-secondary">${s.commercial}</td>
-      <td class="py-1.5 px-2 text-center font-bold">${s.total}</td>
-      <td class="py-1.5 px-2 text-center ${s.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${s.actifsLeg||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${s.actifsPDV>0?'c-ok font-bold':'t-disabled'}">${s.actifsPDV||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${s.prospects>0?'c-action':'t-disabled'}">${s.prospects||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${s.perdus12_24>0?'c-caution font-bold':'t-disabled'}">${s.perdus12_24||'—'}</td>
-      <td class="py-1.5 px-2 text-center ${s.inactifs>0?'t-secondary':'t-disabled'}">${s.inactifs||'—'}</td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] w-7 text-right c-action">${pctL}%</span></div></td>
-      <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-7 text-right">${pctC}%</span></div></td>
-    </tr>
-    <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 i-info-bg"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
-  });
-  html+=`</tbody></table></div>`;
-  el.innerHTML=html;
+  el.innerHTML=renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix:_cl3});
 }
 // Level 4: Clients for a Direction+Métier+Secteur
 function _toggleOverviewL4(dirEnc,mEnc,sEnc,rowId){
@@ -2394,32 +2274,9 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
   // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable).
   const clients=aggregateOverviewClients({direction,metier,secteur,range:_ymRange,capteSet:_overviewCaptePDVSet});
   clients.sort(_overviewClientSort);
-  if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
   const show=clients.slice(0,limit),more=clients.length-limit;
-  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
   const _l4Canal=_S._globalCanal||'';
-  for(const c of show){
-    const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
-    const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
-    // Badge contextuel : si canal filtré, distinguer "actif via ce canal" (vert) de "actif via autre canal" (gris)
-    let _badge;
-    if(_l4Canal&&c._pdvActifGlobal&&!c._pdvActif){
-      _badge='<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.35)">Actif PDV</span>';
-    }else{
-      _badge=_clientStatusBadge(c.code,c);
-    }
-    html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:i-info-bg" onclick="openClient360('${c.code}','reseau')">
-      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span><button onclick="event.stopPropagation();openClient360('${c.code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${_badge}</td>
-      <td class="py-1 px-2 text-[9px] t-tertiary">${c.commercial||'—'}</td>
-      <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.caLeg>0?'c-caution':'t-disabled'}">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
-      <td class="py-1 px-2 text-[9px] t-tertiary">${c.ville||'—'}</td>
-    </tr>`;
-  }
-  html+=`</tbody></table></div>`;
-  if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${limit+50})">▼ Voir plus (${more} restants)</button>`;
-  el.innerHTML=html;
+  el.innerHTML=renderOverviewL4Table({clients,show,more,direction,metier,secteur,canal:_l4Canal});
 }
 // Client article expand panel (used in L4 and cockpit)
 function _toggleClientArticles(row,clientCode){
