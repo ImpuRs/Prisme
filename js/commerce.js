@@ -12,7 +12,7 @@ import {
 import {
   _clientPassesFilters, _unikLink,
   _passesClientCrossFilter,
-  _isPDVActif, _isGlobalActif, _isPerdu,
+  _isGlobalActif, _isPerdu,
   _isPerdu24plus, _clientStatusText,
   getUniversFilteredCA
 } from './engine.js';
@@ -21,7 +21,7 @@ import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
-import { getClientCAMagasinInMonthRange, getClientCAByCanalInPeriod, getClientsActiveSetInPeriod } from './sales.js';
+import { getClientCAMagasinInMonthRange, getClientsActiveSetInPeriod } from './sales.js';
 import {
   aggregateOverviewGroups,
   aggregateOverviewClients,
@@ -43,6 +43,12 @@ import {
   renderTerrainFocusCoach
 } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
+import {
+  buildPochesTerrain,
+  computeCommercialScorecard,
+  renderCommercialScorecard,
+  renderPochesTerrain
+} from './commerce-terrain-widgets.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -1411,149 +1417,14 @@ function _renderCommercialScorecard(containerId) {
   const com = _S._selectedCommercial;
   const _hasForcage = !!_S.forcageCommercial?.size;
   if (!com || (!_S.chalandiseReady && !_hasForcage)) { el.innerHTML = ''; return; }
-
-  const ccs = _S.clientsByCommercial?.get(com);
-  if (!ccs || !ccs.size) { el.innerHTML = ''; return; }
-
-  // ── Agrégats portefeuille (respecte filtres chalandise actifs) ──
-  // Univers : le filtre ne cache pas les clients, il filtre les MONTANTS
-  const _hasUnivFilter = _S._selectedUnivers.size > 0;
-  // Canal-aware captation (même source que Conquête)
-  const _scCanal = _S._globalCanal || '';
-  const _scMagMode = _S._reseauMagasinMode || 'all';
-  const _scCaptePDVSet = getClientsActiveSetInPeriod(_scCanal, { magasinMode: _scMagMode });
-  let caPDVTotal = 0, ca2026 = 0, nbClients = 0, nbCaptes = 0;
-  let _caDegraded = false; // caches anciens : CA par canal indisponible au refilter depuis IDB
-
-  for (const cc of ccs) {
-    const info = _S.chalandiseData?.get(cc);
-    if (!_passesOverviewClient(info, cc)) continue;
-    nbClients++;
-    ca2026 += info.ca2026 || 0;
-
-    // CA canal-aware (period-aware même après restauration IDB)
-    let _caPDV = 0;
-    if (_hasUnivFilter) {
-      _caPDV = getUniversFilteredCA(cc);
-    } else if (_scCanal === 'MAGASIN') {
-      // MAGASIN = reconstruit par _refilterFromByMonth (mode prélèvement/enlèvement inclus)
-      _caPDV = _S.clientStore?.get(cc)?.caPDV || 0;
-    } else {
-      // Canal '' (tous) ou hors-MAGASIN : priorité à la source mensuelle byMonthClientCAByCanal
-      const _caBM = getClientCAByCanalInPeriod(cc, _scCanal, { magasinMode: _scMagMode });
-      if (typeof _caBM === 'number') {
-        _caPDV = _caBM;
-      } else {
-        // Fallback legacy (caches anciens) : ventesClientHorsMagasin est figé au refilter depuis IDB
-        if (!_scCanal) {
-          const rec = _S.clientStore?.get(cc);
-          _caPDV = (rec?.caPDV || 0) + (rec?.caHors || 0);
-          if (_S.periodFilterStart || _S.periodFilterEnd) _caDegraded = true;
-        } else {
-          const hm = _S.ventesClientHorsMagasin?.get(cc);
-          if (hm) for (const [, d] of hm) { if ((d.canal || '') === _scCanal) _caPDV += d.sumCA || 0; }
-          if (_S.periodFilterStart || _S.periodFilterEnd) _caDegraded = true;
-        }
-      }
-    }
-    caPDVTotal += _caPDV;
-    // Canal-aware : utiliser le set capté (comme Conquête) au lieu de caPDV seul
-    const _isCapte = _scCaptePDVSet ? _scCaptePDVSet.has(cc) : (_caPDV > 0 || _isPDVActif(cc));
-    if (_isCapte) nbCaptes++;
-  }
-
-  const _partDenom = Math.max(caPDVTotal, ca2026);
-  const txPartPDV = _partDenom > 0 ? Math.round(caPDVTotal / _partDenom * 100) : 0;
-  const potentiel = Math.max(0, ca2026 - caPDVTotal);
-
-  // ── Cible Comptoir : potentiel × % PDV-compatible (articles F/M rotatifs) ──
-  let caHorsTotal = 0, caHorsCompat = 0;
-  const _fdIndex = _getFinalDataIndex();
-  for (const cc of ccs) {
-    const info = _S.chalandiseData?.get(cc);
-    if (!_passesOverviewClient(info, cc)) continue;
-    const horArts = _S.ventesClientHorsMagasin?.get(cc);
-    if (!horArts) continue;
-    for (const [code, d] of horArts) {
-      const ca = d.sumCA || 0;
-      if (ca <= 0) continue;
-      caHorsTotal += ca;
-      const r = _fdIndex.get(code);
-      if (!r) continue;
-      const fmr = (r.fmrClass || '').toUpperCase();
-      if (fmr === 'F' || fmr === 'M') caHorsCompat += ca;
-    }
-  }
-  const pctCompat = caHorsTotal > 0 ? Math.round(caHorsCompat / caHorsTotal * 100) : 0;
-  const cibleComptoir = Math.round(potentiel * pctCompat / 100);
-
-  // ── Ruptures impactant les clients du commercial ──
-  const comClientSet = new Set();
-  for (const cc of ccs) {
-    const info = _S.chalandiseData?.get(cc);
-    if (!_passesOverviewClient(info, cc)) continue;
-    if (_S.ventesClientArticle?.has(cc)) comClientSet.add(cc);
-  }
-  let nbRupturesImpact = 0, nbClientsImpactes = 0;
-  _ruptureClientSet = new Set();
-  const clientsImpactesSet = _ruptureClientSet;
-  if (DataStore.finalData?.length && _S.articleClients && comClientSet.size) {
-    for (const r of DataStore.finalData) {
-      if (r.stockActuel !== 0 || r.W < 1 || r.isParent) continue;
-      if (r.V === 0 && r.enleveTotal > 0) continue; // parent ref
-      const buyers = _S.articleClients.get(r.code);
-      if (!buyers) continue;
-      let touches = false;
-      for (const cc of buyers) {
-        if (comClientSet.has(cc)) { clientsImpactesSet.add(cc); touches = true; }
-      }
-      if (touches) nbRupturesImpact++;
-    }
-    nbClientsImpactes = clientsImpactesSet.size;
-  }
-
-  const comSect = _getCommercialSecteurs();
-  const sect = comSect.get(com) || '';
-
-  const _kpi = (label, value, sub, color, title) =>
-    `<div class="flex flex-col items-center p-2.5 rounded-xl border s-card min-w-[100px]"${title ? ` title="${title}"` : ''}>
-      <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">${label}</span>
-      <span class="text-[15px] font-extrabold" style="color:${color}">${value}</span>
-      ${sub ? `<span class="text-[9px] t-disabled mt-0.5">${sub}</span>` : ''}
-    </div>`;
-
-  el.innerHTML = `<div class="flex flex-wrap items-stretch gap-2 mb-3 p-3 rounded-xl border" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.03));border-color:rgba(99,102,241,0.25)">
-    <div class="flex flex-col justify-center mr-2">
-      <span class="text-[11px] font-extrabold t-primary">${escapeHtml(com)}</span>
-      ${sect ? `<span class="text-[9px] t-disabled">Secteur ${escapeHtml(sect)}</span>` : ''}
-      <span class="text-[9px] t-disabled">${nbClients} clients zone</span>
-      <button onclick="window._comToggleMixCanal()" class="text-[9px] c-action hover:underline cursor-pointer mt-1 text-left font-semibold">📡 Mix canal</button>
-    </div>
-    ${_kpi('CA PDV', formatEuro(caPDVTotal),
-      nbCaptes + ' / ' + nbClients + ' captés'
-        + (_scCanal && _scCanal !== 'MAGASIN' ? ' · via ' + (_CANAL_LABELS_OV[_scCanal] || _scCanal) : '')
-        + (_caDegraded ? ' · CA figé (cache ancien)' : ''),
-      'var(--c-action)',
-      _scCanal && _scCanal !== 'MAGASIN' ? 'CA via ' + (_CANAL_LABELS_OV[_scCanal] || _scCanal) + ' par les clients du portefeuille sur la période filtrée' : 'CA réalisé en agence (canal MAGASIN) par les clients du portefeuille sur la période filtrée')}
-    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients · source Qlik', '#c4b5fd',
-      'CA total Legallais (source Chalandise/Qlik). Ne varie pas avec la période PRISME, seulement avec le fichier Chalandise et les filtres clients.')}
-    ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)',
-      'Part de marché PDV = CA PDV ÷ CA Zone. Objectif : capter le max du potentiel en agence')}
-    ${cibleComptoir > 0 ? _kpi('Cible Comptoir', formatEuro(cibleComptoir), pctCompat + '% compatible', '#22d3ee',
-      'Potentiel récupérable au comptoir = Potentiel × % PDV-compatible. Articles F/M (rotatifs, dépannage) dans le CA hors-agence des clients') : ''}
-    <div class="flex flex-col items-center p-2.5 rounded-xl border min-w-[100px] cursor-pointer transition-all hover:brightness-110 ${_pocheActive === 'E' ? 's-panel-inner' : 's-card'}" style="${_pocheActive === 'E' ? 'box-shadow:0 0 0 2px var(--c-danger)' : ''}" onclick="window._togglePoche('E')" title="${nbRupturesImpact} articles en rupture impactant ${nbClientsImpactes} clients">
-      <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">Ruptures / irritants</span>
-      <span class="text-[15px] font-extrabold" style="color:${nbRupturesImpact > 0 ? 'var(--c-danger)' : 'var(--c-ok)'}">${nbRupturesImpact}</span>
-      <span class="text-[9px] t-disabled mt-0.5">${nbClientsImpactes} client${nbClientsImpactes > 1 ? 's' : ''} impacté${nbClientsImpactes > 1 ? 's' : ''}</span>
-    </div>
-  </div>
-  <div id="comMixCanalInline" class="hidden" style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-    <div style="padding:10px 16px;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2);display:flex;align-items:center;justify-content:space-between">
-      <h3 style="font-weight:800;font-size:12px;color:#cbd5e1">📡 Répartition par canal</h3>
-      <button onclick="window._comToggleMixCanal()" class="text-[10px] t-disabled hover:text-white cursor-pointer font-bold">✕</button>
-    </div>
-    <div id="canalAgenceBlock" class="p-3"></div>
-  </div>`;
+  const score=computeCommercialScorecard({
+    commercial:com,
+    finalDataIndex:_getFinalDataIndex(),
+    setRuptureClientSet:set=>{_ruptureClientSet=set;}
+  });
+  if(!score){el.innerHTML='';return;}
+  const sect=_getCommercialSecteurs().get(com)||'';
+  el.innerHTML=renderCommercialScorecard(score,{secteur:sect,pocheActive:_pocheActive});
 }
 
 window._comToggleMixCanal = function() {
@@ -1834,110 +1705,10 @@ function _renderPochesTerrain(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
   if (!_S.chalandiseReady && !_S.forcageCommercial?.size) { el.innerHTML = ''; return; }
-
-  const store = _S.clientStore;
-  if (!store?.size) { el.innerHTML = ''; return; }
-
-  // ── Population cible (filtres chalandise actifs) ──
-  const com = _S._selectedCommercial;
-  const pool = [];
-  const comCcs = com ? _S.clientsByCommercial?.get(com) : null;
-  for (const [cc, rec] of store) {
-    if (comCcs && !comCcs.has(cc)) continue;
-    const info = _S.chalandiseData?.get(cc);
-    if (!_passesOverviewClient(info, cc)) continue;
-    pool.push({ cc, rec, info });
-  }
-
-  // ── Poche A — Écart Zone ──
-  const _hasUnivF = _S._selectedUnivers.size > 0;
-  const pocheA = [];
-  let potA = 0;
-  for (const { cc, rec, info } of pool) {
-    const caSoc = info.ca2026 || rec.caTotal || 0;
-    const caPDV = _hasUnivF ? getUniversFilteredCA(cc) : (rec.caPDV || 0);
-    const gap = caSoc - caPDV;
-    if (gap <= 0 || caSoc <= 0) continue;
-    potA += gap;
-    pocheA.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caSoc, caPDV, gap, dist: rec.distanceKm, silence: rec.silenceDaysPDV });
-  }
-  // Sort: gap desc, distance asc, silence asc
-  pocheA.sort((a, b) => b.gap - a.gap || (a.dist ?? 999) - (b.dist ?? 999) || (a.silence ?? 999) - (b.silence ?? 999));
-
-  // ── Poche B — Rapatriement inter-PDV ──
-  const pocheB = [];
-  let potB = 0;
-  for (const { cc, rec } of pool) {
-    const caAutres = rec.caAutresAgences || 0;
-    if (caAutres <= 0) continue;
-    potB += caAutres;
-    pocheB.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caAutres, caPDV: rec.caPDV || 0, nbBL: rec.nbBLPDV || 0 });
-  }
-  pocheB.sort((a, b) => b.caAutres - a.caAutres);
-
-  // ── Poche C — Livré → Proximité (clients < 5 km avec livraisons EXTÉRIEUR) ──
-  const pocheC = [];
-  let potC = 0;
-  for (const { cc, rec } of pool) {
-    const dist = rec.distanceKm;
-    if (dist == null || dist > 5) continue; // uniquement clients < 5 km
-    const hors = rec.artMapHors;
-    if (!hors) continue;
-    let caLivre = 0;
-    const canauxLivre = new Set();
-    for (const d of hors.values()) {
-      const c = (d.canal || '').toUpperCase();
-      if (c === 'DCS' || c === 'REPRESENTANT' || c === 'INTERNET') {
-        caLivre += d.sumCA || 0;
-        canauxLivre.add(c);
-      }
-    }
-    if (caLivre <= 0) continue;
-    potC += caLivre;
-    pocheC.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caLivre, canaux: [...canauxLivre].join('+'), caPDV: rec.caPDV || 0, dist });
-  }
-  pocheC.sort((a, b) => b.caLivre - a.caLivre);
-
-  // ── Poche D — Activation commerciale ──
-  const pocheD = [];
-  for (const { cc, rec } of pool) {
-    if ((rec.caPDV || 0) <= 0) continue;
-    const nbBL = rec.nbBLPDV || 1;
-    const panier = rec.caPDV / nbBL;
-    // Nb familles achetées
-    const arts = rec.artMapPDV;
-    const fams = new Set();
-    if (arts) for (const code of arts.keys()) { const f = _S.articleFamille?.[code]; if (f) fams.add(f); }
-    pocheD.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caPDV: rec.caPDV, nbBL, panier, nbFam: fams.size, silence: rec.silenceDaysPDV });
-  }
-  // Sort: low frequency first (most room to grow), then low panier
-  pocheD.sort((a, b) => a.nbBL - b.nbBL || a.panier - b.panier);
-
-  // ── Render tiles ──
-  const poches = [
-    { key: 'A', icon: '🎯', label: 'Écart Zone', value: formatEuro(potA), sub: `${pocheA.length} clients`, color: 'var(--c-danger)', tip: 'CA total société − CA PDV = livraisons EXTÉRIEUR + achats autres agences. Aucun centime passé en agence.' },
-    { key: 'B', icon: '🏪', label: 'Inter-agences', value: formatEuro(potB), sub: `${pocheB.length} clients`, color: '#f59e0b', tip: 'CA dans d\'autres agences Legallais — sous-partie de l\'Écart Zone' },
-    { key: 'C', icon: '🚚', label: 'Livré → Proximité', value: formatEuro(potC), sub: `${pocheC.length} clients`, color: '#8b5cf6', tip: 'Livraisons Web/DCS/Rep pour clients à < 5 km de l\'agence — absurdité logistique convertible en retrait comptoir' },
-    { key: 'D', icon: '📈', label: 'Activation', value: pocheD.length.toString(), sub: 'clients actifs PDV', color: 'var(--c-ok)', tip: 'Montée en panier / fréquence' },
-  ];
-
-  const tilesHtml = poches.map(p => {
-    const isActive = _pocheActive === p.key;
-    return `<div class="flex flex-col items-center p-3 rounded-xl border cursor-pointer transition-all ${isActive ? 's-panel-inner' : 's-card'} hover:brightness-95" style="${isActive ? 'box-shadow:0 0 0 2px ' + p.color : ''}" title="${p.tip}" onclick="window._togglePoche('${p.key}')">
-      <span class="text-lg leading-none mb-1">${p.icon}</span>
-      <span class="text-[15px] font-extrabold" style="color:${p.color}">${p.value}</span>
-      <span class="text-[9px] ${isActive ? 't-inverse' : 't-disabled'} font-semibold mt-0.5">${p.label}</span>
-      <span class="text-[8px] ${isActive ? 't-inverse-muted' : 't-disabled'} mt-0.5">${p.sub}</span>
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `<div class="s-card rounded-xl border p-4 mb-3">
-    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-3">4 leviers d'action Terrain</h3>
-    <div class="grid grid-cols-4 gap-2 mb-1">${tilesHtml}</div>
-  </div>`;
-
-  // Stocker les données des poches pour filtrage dans Top 20 clients
-  _pocheData = { A: pocheA, B: pocheB, C: pocheC, D: pocheD };
+  const poches=buildPochesTerrain({commercial:_S._selectedCommercial,finalDataIndex:_getFinalDataIndex()});
+  if(!poches){el.innerHTML='';return;}
+  _pocheData=poches.data;
+  el.innerHTML=renderPochesTerrain(poches,{activeKey:_pocheActive});
 }
 let _pocheData = { A: [], B: [], C: [], D: [] };
 
