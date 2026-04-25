@@ -104,7 +104,7 @@ function _mergeInit(msg) {
   var bom = !!opts.bom;
   var crlf = !!opts.crlf;
   var nl = crlf ? '\r\n' : '\n';
-  var dedup = opts.dedup || 'client'; // client | row | none
+  var dedup = opts.dedup || 'client'; // client | client-first | row | none
 
   _merge = {
     sep: sep,
@@ -116,7 +116,7 @@ function _mergeInit(msg) {
     h2i: Object.create(null), // normHeader -> index
     rowsArr: [],
     rowSeen: dedup === 'row' ? new Set() : null,
-    clientMap: dedup === 'client' ? new Map() : null,
+    clientMap: (dedup === 'client' || dedup === 'client-first') ? new Map() : null,
     keyIdx: -1,
     scoreIdx: -1,
     duplicates: 0,
@@ -160,8 +160,8 @@ function _mergeAdd(msg) {
       _merge.h2i[norm] = gi;
       _merge.headers.push(h);
       // Lazy discovery des colonnes utiles
-      if (_merge.keyIdx < 0 && _merge.dedup === 'client') _merge.keyIdx = _findKeyIdx(_merge.headers);
-      if (_merge.scoreIdx < 0 && _merge.dedup === 'client') _merge.scoreIdx = _findScoreIdx(_merge.headers);
+      if (_merge.keyIdx < 0 && (_merge.dedup === 'client' || _merge.dedup === 'client-first')) _merge.keyIdx = _findKeyIdx(_merge.headers);
+      if (_merge.scoreIdx < 0 && (_merge.dedup === 'client' || _merge.dedup === 'client-first')) _merge.scoreIdx = _findScoreIdx(_merge.headers);
     }
     localToGlobal[c] = gi;
   }
@@ -218,7 +218,9 @@ function _mergeAdd(msg) {
           added++;
         } else {
           _merge.duplicates++;
-          if (_merge.scoreIdx >= 0 && score > ex.score) {
+          if (_merge.dedup === 'client-first') {
+            // Premier fichier gagne — ne pas écraser
+          } else if (_merge.scoreIdx >= 0 && score > ex.score) {
             _merge.clientMap.set(key, { row: row, score: score });
           }
         }

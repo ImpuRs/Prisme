@@ -138,12 +138,16 @@
               </div>
               <div>
                 <label for="convDedup">Doublons</label>
-                <select id="convDedup">
-                  <option value="client">Par code client (garde 1 ligne/client) — recommandé Chalandise</option>
-                  <option value="row">Lignes identiques uniquement</option>
-                  <option value="none">Aucun (concatène tout)</option>
+                <select id=”convDedup”>
+                  <option value=”client-first”>Par code client — priorité 1er fichier (mon agence d'abord)</option>
+                  <option value=”client”>Par code client — priorité meilleur CA 2026</option>
+                  <option value=”row”>Lignes identiques uniquement</option>
+                  <option value=”none”>Aucun (concatène tout)</option>
                 </select>
-                <div class="muted" style="margin-top:6px">En cas de doublon client, on garde la ligne avec le plus grand “CA 2026” si la colonne existe, sinon la première.</div>
+                <div class=”muted” style=”margin-top:6px”>
+                  <strong>Priorité 1er fichier</strong> : mets ta chalandise agence en premier, les autres complètent sans écraser. Recommandé pour garder tes statuts PDV.<br>
+                  <strong>Priorité CA 2026</strong> : garde la ligne avec le plus gros CA 2026.
+                </div>
               </div>
             </div>
           </div>
@@ -167,6 +171,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425b"></script>
+  <script src="js/conv.js?v=20260425c"></script>
 </body>
 </html>
