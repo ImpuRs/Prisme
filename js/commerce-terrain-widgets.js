@@ -215,8 +215,8 @@ export function renderPochesTerrain(poches,{activeKey=''}) {
   if(!poches)return '';
   const cards=[
     {key:'A',icon:'🎯',label:'Écart Zone',value:formatEuro(poches.potA),sub:`${poches.data.A.length} clients`,color:'var(--c-danger)',tip:'CA total société − CA PDV = livraisons EXTÉRIEUR + achats autres agences. Aucun centime passé en agence.'},
-    {key:'B',icon:'🏪',label:'Inter-agences',value:formatEuro(poches.potB),sub:`${poches.data.B.length} clients`,color:'#f59e0b',tip:'CA dans d\\'autres agences Legallais — sous-partie de l\\'Écart Zone'},
-    {key:'C',icon:'🚚',label:'Livré → Proximité',value:formatEuro(poches.potC),sub:`${poches.data.C.length} clients`,color:'#8b5cf6',tip:'Livraisons Web/DCS/Rep pour clients à < 5 km de l\\'agence — absurdité logistique convertible en retrait comptoir'},
+    {key:'B',icon:'🏪',label:'Inter-agences',value:formatEuro(poches.potB),sub:`${poches.data.B.length} clients`,color:'#f59e0b',tip:"CA dans d'autres agences Legallais — sous-partie de l'Écart Zone"},
+    {key:'C',icon:'🚚',label:'Livré → Proximité',value:formatEuro(poches.potC),sub:`${poches.data.C.length} clients`,color:'#8b5cf6',tip:"Livraisons Web/DCS/Rep pour clients à < 5 km de l'agence — absurdité logistique convertible en retrait comptoir"},
     {key:'D',icon:'📈',label:'Activation',value:poches.data.D.length.toString(),sub:'clients actifs PDV',color:'var(--c-ok)',tip:'Montée en panier / fréquence'}
   ];
   const tiles=cards.map(p=>{
