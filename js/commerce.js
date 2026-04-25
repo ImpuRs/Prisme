@@ -39,7 +39,8 @@ import {
   renderOverviewL1Rows,
   renderOverviewL2Table,
   renderOverviewL3Table,
-  renderOverviewL4Table
+  renderOverviewL4Table,
+  renderTerrainFocusCoach
 } from './commerce-conquete-view.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
@@ -2181,6 +2182,16 @@ function _buildChalandiseOverviewInner(force){
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
+  const _focusEl=document.getElementById('terrainFocusCoach');
+  if(_focusEl){
+    const _candidates=dirsArr
+      .filter(d=>(d.total||0)>=5)
+      .map(d=>{const base=(d.total||0)-(d.prospects||0);return{...d,_base:base,_pct:base>0?(d.actifsPDV||0)/base:1,_gap:Math.max(0,(d.actifsLeg||0)-(d.actifsPDV||0))};})
+      .filter(d=>d._base>0&&((d._gap||0)>0||(d.perdus12_24||0)>0));
+    _candidates.sort((a,b)=>a._pct-b._pct||b._gap-a._gap||b.perdus12_24-a.perdus12_24||b.total-a.total);
+    _focusEl.innerHTML=renderTerrainFocusCoach({axisLabel:_axisLabel,worst:_candidates[0],totalActifsPDV,filteredClients,pctCapte,canalLabel:_oCanal&&_oCanal!=='MAGASIN'?_captLabel:''});
+    _focusEl.classList.toggle('hidden',!_candidates.length);
+  }
   let html=renderOverviewL1Rows(dirsArr,{isSecteur:_isSec,colSpan});
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
@@ -2958,6 +2969,7 @@ function renderCommerceTab() {
   // 1. Layout squelette — rapide
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
+    <div id="terrainFocusCoach" class="hidden"></div>
     <div id="comScorecard"></div>
     <div id="pochesTerrain"></div>
     <div id="comTopArticles"></div>
