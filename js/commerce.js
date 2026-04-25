@@ -6,15 +6,15 @@ import { DataStore } from './store.js';
 import {
   formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery,
   daysBetween, famLib, famLabel,
-  _normalizeClassif, _classifShort, _normalizeStatut,
+  _normalizeClassif, _normalizeStatut,
   _isMetierStrategique, getSecteurDirection, formatLocalYMD
 } from './utils.js';
 import {
   _clientPassesFilters, _unikLink,
   _passesClientCrossFilter,
-  _isPDVActif, _isGlobalActif, _isPerdu, _isProspect,
-  _isPerdu24plus, _clientStatusBadge, _clientStatusText,
-  _crossBadge, _enrichClientInfo, getUniversFilteredCA
+  _isPDVActif, _isGlobalActif, _isPerdu,
+  _isPerdu24plus, _clientStatusText,
+  getUniversFilteredCA
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
@@ -42,6 +42,7 @@ import {
   renderOverviewL4Table,
   renderTerrainFocusCoach
 } from './commerce-conquete-view.js';
+import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -2198,34 +2199,6 @@ function _buildChalandiseOverviewInner(force){
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
 }
-// Toggle direction group in Secteur mode
-function _toggleSecGrp(grpId){
-  const rows=document.querySelectorAll('.'+grpId);
-  const arrow=document.getElementById(grpId+'-arrow');
-  // Vérifier l'état sur la première row secteur (pas L2)
-  const firstSect=[...rows].find(r=>!r.id.startsWith('overviewL2-'));
-  const isOpen=firstSect&&firstSect.style.display!=='none';
-  rows.forEach(r=>{
-    if(isOpen){
-      // Tout fermer
-      r.style.display='none';
-    }else{
-      // Ouvrir seulement les rows secteur, pas les L2 (drill-down métier)
-      if(!r.id.startsWith('overviewL2-'))r.style.display='table-row';
-    }
-  });
-  if(arrow)arrow.textContent=isOpen?'▶':'▼';
-}
-window._toggleSecGrp=_toggleSecGrp;
-
-// Level 2: Métiers for a Direction
-function _toggleOverviewL2(dirEnc,idx){
-  const row=document.getElementById('overviewL2-'+idx);if(!row)return;
-  const arrow=document.getElementById('overviewL1Arrow-'+idx);
-  const isOpen=row.style.display!=='none';
-  row.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
-  if(!isOpen){const inner=document.getElementById('overviewL2Inner-'+idx);if(inner)_renderOverviewL2(inner,decodeURIComponent(dirEnc));}
-}
 function _renderOverviewL2(el,direction){
   let metiersArr=aggregateOverviewMetiers(direction,_overviewCaptePDVSet);
   // Sort by % capté ascending (opportunities first)
@@ -2233,34 +2206,11 @@ function _renderOverviewL2(el,direction){
   const _cl=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
   el.innerHTML=renderOverviewL2Table(metiersArr,{direction,canalSuffix:_cl});
 }
-// Level 3: Secteurs for a Direction+Métier
-function _toggleOverviewL3(dirEnc,mEnc,rowId){
-  const row=document.getElementById(rowId);if(!row)return;
-  const arrow=document.getElementById(rowId+'-arrow');
-  const isOpen=row.style.display!=='none';
-  row.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
-  if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner){
-    if(getOverviewMode()==='secteur'){
-      // En mode Secteur, le L1 est déjà le secteur → sauter L3 (Secteur×Commercial), aller directement aux clients
-      _renderOverviewL4(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc),decodeURIComponent(dirEnc));
-    }else{
-      _renderOverviewL3(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc));
-    }
-  }}
-}
 function _renderOverviewL3(el,direction,metier){
   let sectsArr=aggregateOverviewSecteurs(direction,metier,_overviewCaptePDVSet);
   sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
   const _cl3=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
   el.innerHTML=renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix:_cl3});
-}
-// Level 4: Clients for a Direction+Métier+Secteur
-function _toggleOverviewL4(dirEnc,mEnc,sEnc,rowId){
-  const row=document.getElementById(rowId);if(!row)return;
-  const arrow=document.getElementById(rowId+'-arrow');
-  const isOpen=row.style.display!=='none';
-  row.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
-  if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner)_renderOverviewL4(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc),decodeURIComponent(sEnc));}
 }
 function _overviewClientSort(a,b){
   // Actifs globaux Inactifs PDV first, then Perdus récents FID Pot+, then rest
@@ -2289,6 +2239,17 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
   const _l4Canal=_S._globalCanal||'';
   el.innerHTML=renderOverviewL4Table({clients,show,more,direction,metier,secteur,canal:_l4Canal});
 }
+const _conqueteOverviewController=createConqueteOverviewController({
+  getMode:getOverviewMode,
+  renderL2:_renderOverviewL2,
+  renderL3:_renderOverviewL3,
+  renderL4:_renderOverviewL4
+});
+const _toggleSecGrp=_conqueteOverviewController.toggleSecGrp;
+const _toggleOverviewL2=_conqueteOverviewController.toggleOverviewL2;
+const _toggleOverviewL3=_conqueteOverviewController.toggleOverviewL3;
+const _toggleOverviewL4=_conqueteOverviewController.toggleOverviewL4;
+installConqueteOverviewController(_conqueteOverviewController);
 // Client article expand panel (used in L4 and cockpit)
 function _toggleClientArticles(row,clientCode){
   const nextRow=row.nextElementSibling;
