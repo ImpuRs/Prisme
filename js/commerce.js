@@ -13,15 +13,14 @@ import {
   _clientPassesFilters, _unikLink,
   _passesClientCrossFilter,
   _isGlobalActif, _isPerdu,
-  _isPerdu24plus, _clientStatusText,
-  getUniversFilteredCA
+  _isPerdu24plus, _clientStatusText
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
-import { getClientCAMagasinInMonthRange, getClientsActiveSetInPeriod } from './sales.js';
+import { getClientsActiveSetInPeriod } from './sales.js';
 import {
   aggregateOverviewGroups,
   aggregateOverviewClients,
@@ -49,6 +48,7 @@ import {
   renderCommercialScorecard,
   renderPochesTerrain
 } from './commerce-terrain-widgets.js';
+import { renderCommercialTopActions } from './commerce-top-actions.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -1434,168 +1434,23 @@ window._comToggleMixCanal = function() {
   if (!el.classList.contains('hidden') && window.renderCanalAgence) window.renderCanalAgence();
 };
 
-// ── Top articles du commercial — contextuel 3 modes ─────────────────
+// ── Top clients/articles du commercial — rendu extrait ────────────────
 let _comTopArtLimit = 20;
-let _comTopArtMode = 'ici'; // 'ici' | 'ailleurs' | 'manquants'
-
-function _comTopHasContext() {
-  return !!(_S._selectedCommercial && (_S.chalandiseReady || _S.forcageCommercial?.size) &&
-    (_selectedTopClient || _pocheActive || _S._selectedMetier || (_S._distanceMaxKm > 0 && _S._agenceCoords)));
-}
+let _comTopArtMode = 'ici'; // 'ici' | 'ailleurs' | 'manquants' | 'subies'
 
 function _renderComTopArticles(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  const com = _S._selectedCommercial;
-  const _hasForcage = !!_S.forcageCommercial?.size;
-  if (!com || (!_S.chalandiseReady && !_hasForcage)) { el.innerHTML = ''; return; }
-
-  // Top 20 clients toujours visible
-  let html = '';
-  const clientsDiv = document.createElement('div');
-  _renderComTopClients(clientsDiv);
-  html += clientsDiv.innerHTML;
-
-  // Top 20 articles : placeholder si aucun client sélectionné
-  if (!_selectedTopClient) {
-    el.innerHTML = html + `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.04));border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:24px;text-align:center;margin-bottom:12px">
-      <span style="font-size:24px;opacity:0.3">📦</span>
-      <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:8px">Sélectionnez un client pour voir ses opportunités articles</p>
-    </div>`;
-    return;
-  }
-  if (!_comTopHasContext()) { el.innerHTML = html; return; }
-
-  // ── Agrégation pour le client sélectionné uniquement ──
-  const targetCcs = _selectedTopClient ? [_selectedTopClient] : [...(_S.clientsByCommercial?.get(com) || [])];
-  const iciMap = new Map();
-  const ailMap = new Map();
-  for (const cc of targetCcs) {
-    const pdv = _S.ventesClientArticle?.get(cc);
-    if (pdv) for (const [code, d] of pdv) {
-      if (!iciMap.has(code)) iciMap.set(code, { ca: 0, nbClients: 0, nbBL: 0 });
-      const a = iciMap.get(code); a.ca += d.sumCA || 0; a.nbClients++; a.nbBL += d.countBL || 0;
-    }
-    const hors = _S.ventesClientHorsMagasin?.get(cc);
-    if (hors) for (const [code, d] of hors) {
-      if (!ailMap.has(code)) ailMap.set(code, { ca: 0, nbClients: 0, nbBL: 0 });
-      const a = ailMap.get(code); a.ca += d.sumCA || 0; a.nbClients++; a.nbBL += d.countBL || 0;
-    }
-  }
-
-  // ── Build mode-specific list ──
-  let entries = []; // [[code, {ca, caIci, caAil, nbClients, nbBL}]]
-  // Auto-fallback : si le mode demandé est vide, basculer sur le premier mode non-vide
-  let mode = _comTopArtMode;
-  if (mode === 'ici' && !iciMap.size && ailMap.size) mode = 'ailleurs';
-  else if (mode === 'ailleurs' && !ailMap.size && iciMap.size) mode = 'ici';
-  if (mode === 'subies') {
-    // Articles en rupture que ce client achète (PDV ou hors)
-    const allCodes = new Set([...iciMap.keys(), ...ailMap.keys()]);
-    for (const code of allCodes) {
-      const r = DataStore.finalData?.find(f => f.code === code);
-      if (!r || r.stockActuel > 0) continue; // pas en rupture
-      if (r.W < 1 || r.isParent) continue;
-      const caIci = iciMap.get(code)?.ca || 0;
-      const caAil = ailMap.get(code)?.ca || 0;
-      const totalCA = caIci + caAil;
-      if (totalCA <= 0) continue;
-      entries.push([code, { ca: totalCA, caIci, caAil, nbClients: 1, nbBL: (iciMap.get(code)?.nbBL || 0) + (ailMap.get(code)?.nbBL || 0) }]);
-    }
-  } else if (mode === 'ici') {
-    entries = [...iciMap.entries()].map(([c,d]) => [c, { ...d, caIci: d.ca, caAil: ailMap.get(c)?.ca || 0 }]);
-  } else if (mode === 'ailleurs') {
-    entries = [...ailMap.entries()].map(([c,d]) => [c, { ...d, caIci: iciMap.get(c)?.ca || 0, caAil: d.ca }]);
-  } else { // manquants = ailleurs minus ici
-    for (const [code, ail] of ailMap) {
-      const ici = iciMap.get(code);
-      const caIci = ici?.ca || 0;
-      const gap = ail.ca - caIci;
-      if (gap > 0) entries.push([code, { ca: gap, caIci, caAil: ail.ca, nbClients: ail.nbClients, nbBL: ail.nbBL }]);
-    }
-  }
-  entries.sort((a, b) => b[1].ca - a[1].ca);
-
-  if (!entries.length) {
-    const _emptyMsg = { ici: 'acheté ici', ailleurs: 'acheté ailleurs', manquants: 'manquant', subies: 'en rupture pour ce client' };
-    el.innerHTML = html + `<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun article ${_emptyMsg[mode] || ''} pour ce client.</div>`;
-    return;
-  }
-
-  const allSorted = entries;
-  const sorted = allSorted.slice(0, _comTopArtLimit);
-
-  const _sqBadge = (code) => {
-    const sq = window._getArticleSqInfo?.(code);
-    if (!sq) return '<span class="t-disabled">—</span>';
-    const _cColors = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
-    const _cLabels = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
-    const cBadge = `<span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:${_cColors[sq.classif]}20;color:${_cColors[sq.classif]}">${_cLabels[sq.classif]}</span>`;
-    const vBadge = sq.verdict?.name && sq.verdict.name !== '—' ? `<br><span class="text-[8px] t-inverse-muted" title="${escapeHtml(sq.verdict.tip||'')}">${sq.verdict.icon} ${escapeHtml(sq.verdict.name)}</span>` : '';
-    return cBadge + vBadge;
-  };
-
-  const _mkRow = ([code, d]) => {
-    const lib = (_S.libelleLookup?.[code] || code).replace(/^\d{6} - /, '');
-    const r = DataStore.finalData?.find(f => f.code === code);
-    const stock = r ? (r.stockActuel > 0 ? `<span class="c-ok">${r.stockActuel}</span>` : '<span class="c-danger">0</span>') : '<span class="t-disabled">—</span>';
-    const caCol = mode === 'subies' ? 'c-danger' : mode === 'manquants' ? 'c-danger' : mode === 'ailleurs' ? 'c-caution' : 'c-action';
-    const caLabel = formatEuro(d.ca);
-    // Colonne comparaison
-    const vsCol = mode === 'subies' ? `<span class="c-ok">${formatEuro(d.caIci)}</span> / <span class="c-caution">${formatEuro(d.caAil)}</span>`
-                : mode === 'ici' ? (d.caAil > 0 ? `<span class="c-caution">${formatEuro(d.caAil)}</span>` : '<span class="t-disabled">—</span>')
-                : mode === 'ailleurs' ? (d.caIci > 0 ? `<span class="c-ok">${formatEuro(d.caIci)}</span>` : '<span class="t-disabled">—</span>')
-                : `<span class="t-disabled">${formatEuro(d.caIci)}</span> → <span class="c-caution">${formatEuro(d.caAil)}</span>`;
-    return `<tr class="border-b b-light hover:s-hover">
-      <td class="py-1.5 px-2 font-mono text-[10px] t-tertiary">${code}</td>
-      <td class="py-1.5 px-2 text-[11px] font-semibold t-primary truncate max-w-[180px]">${escapeHtml(lib)}</td>
-      <td class="py-1.5 px-2 text-right font-bold ${caCol}">${caLabel}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] whitespace-nowrap">${vsCol}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] t-secondary">${d.nbClients}</td>
-      <td class="py-1.5 px-2 text-center">${stock}</td>
-      <td class="py-1.5 px-2 text-center text-[10px]">${_sqBadge(code)}</td>
-    </tr>`;
-  };
-
-  const rows = sorted.map(_mkRow).join('');
-  const canExpand = allSorted.length > 20 && _comTopArtLimit <= 20;
-  const canCollapse = _comTopArtLimit > 20;
-  const toggleBtn = canExpand
-    ? `<button onclick="window._comTopArtToggle()" class="text-[10px] c-action hover:underline cursor-pointer font-semibold px-3 py-2 border-t b-default block w-full text-left">Voir le top 100 → (${Math.min(allSorted.length, 100) - 20} de plus)</button>`
-    : canCollapse
-    ? `<button onclick="window._comTopArtToggle()" class="text-[10px] c-action hover:underline cursor-pointer font-semibold px-3 py-2 border-t b-default block w-full text-left">← Revenir au top 20</button>`
-    : '';
-
-  const _modeLabels = { ici: '🏪 Ici', ailleurs: '📡 Ailleurs', manquants: '🎯 Manquants', subies: '💔 Subies' };
-  const _caHeaders = { ici: 'CA PDV', ailleurs: 'CA Ailleurs', manquants: 'Écart', subies: 'CA Total' };
-  const _vsHeaders = { ici: 'Ailleurs', ailleurs: 'PDV', manquants: 'PDV → Ailleurs', subies: 'PDV / Ailleurs' };
-  const _hasSubies = _ruptureClientSet.has(_selectedTopClient);
-  const tabModes = _hasSubies ? ['ici','ailleurs','manquants','subies'] : ['ici','ailleurs','manquants'];
-  const modeTabs = tabModes.map(m => {
-    const active = m === mode;
-    return `<button onclick="window._comTopArtMode('${m}')" class="text-[10px] px-2 py-1 rounded-full font-semibold cursor-pointer transition-colors ${active ? 'bg-indigo-500/30 text-indigo-300' : 't-disabled hover:text-white'}">${_modeLabels[m]}</button>`;
-  }).join('');
-
-  el.innerHTML = html + `<details open style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(79,70,229,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:14px;margin-bottom:12px">
-    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(79,70,229,0.10));border-bottom:1px solid rgba(99,102,241,0.2);list-style:none;position:sticky;top:0;z-index:2" class="select-none">
-      <h3 style="font-weight:800;font-size:13px;color:#a5b4fc;display:flex;align-items:center;gap:6px">📦 ${_selectedTopClient ? escapeHtml(_S.clientStore?.get(_selectedTopClient)?.nom || _selectedTopClient) + ' — ' : ''}Top ${_comTopArtLimit > 20 ? _comTopArtLimit : 20} articles <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${allSorted.length} réf.</span></h3>
-      <span class="acc-arrow" style="color:#a5b4fc">▶</span>
-    </summary>
-    <div class="flex gap-1 px-4 py-2 border-b b-default">${modeTabs}</div>
-    <div class="overflow-x-auto"><table class="min-w-full text-xs">
-      <thead class="s-panel-inner t-inverse font-bold"><tr>
-        <th class="py-2 px-2 text-left">Code</th>
-        <th class="py-2 px-2 text-left">Article</th>
-        <th class="py-2 px-2 text-right">${_caHeaders[mode]}</th>
-        <th class="py-2 px-2 text-center">${_vsHeaders[mode]}</th>
-        <th class="py-2 px-2 text-center">Clients</th>
-        <th class="py-2 px-2 text-center">Stock</th>
-        <th class="py-2 px-2 text-center">Statut Sq.</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-    ${toggleBtn}
-  </details>`;
+  el.innerHTML = renderCommercialTopActions({
+    selectedTopClient:_selectedTopClient,
+    pocheActive:_pocheActive,
+    pocheData:_pocheData,
+    ruptureClientSet:_ruptureClientSet,
+    topArtMode:_comTopArtMode,
+    topArtLimit:_comTopArtLimit,
+    finalDataIndex:_getFinalDataIndex(),
+    passesClient:_passesOverviewClient
+  });
 }
 window._comTopArtMode = function(m) {
   _comTopArtMode = m;
@@ -1606,96 +1461,6 @@ window._comTopArtToggle = function() {
   _comTopArtLimit = _comTopArtLimit <= 20 ? 100 : 20;
   _renderComTopArticles('comTopArticles');
 };
-
-// ── Top 20 clients à actionner — clic = sélection pour detail articles ──
-function _renderComTopClients(el) {
-  const com = _S._selectedCommercial;
-  const ccs = _S.clientsByCommercial?.get(com);
-  if (!ccs?.size) { el.innerHTML = ''; return; }
-
-  // Set de clients filtrés par poche active (E = ruptures, stocké dans _ruptureClientSet)
-  const pocheCcs = _pocheActive
-    ? (_pocheActive === 'E' ? (_ruptureClientSet.size ? _ruptureClientSet : null) : new Set((_pocheData[_pocheActive] || []).map(c => c.cc)))
-    : null;
-
-  // ── CA PDV année en cours depuis _byMonth (MAGASIN/myStore) ──
-  // Optimisation : calcul à la demande (uniquement pour les clients affichés),
-  // au lieu de parcourir tous les clients du byMonth à chaque render.
-  const _curYear = new Date().getFullYear();
-  const _ymRange = { min: _curYear * 12, max: _curYear * 12 + 11 };
-
-  const clients = [];
-  for (const cc of ccs) {
-    if (pocheCcs && !pocheCcs.has(cc)) continue; // filtre poche
-    const info = _S.chalandiseData?.get(cc);
-    if (!_passesOverviewClient(info, cc)) continue;
-    const rec = _S.clientStore?.get(cc);
-    const caPDV = _S._selectedUnivers.size ? getUniversFilteredCA(cc) : (rec?.caPDV || 0); // CA PDV filtré par univers si actif
-    const caPDV26 = getClientCAMagasinInMonthRange(cc, _ymRange) ?? caPDV; // CA PDV année (pour calcul écart)
-    // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même base année)
-    const caZone = info.ca2026 || rec?.caTotal || caPDV26 || 0;
-    const gap = Math.max(0, caZone - caPDV26);
-    const silence = rec?.silenceDaysPDV ?? 999;
-    const caAutres = rec?.caAutresAgences || 0;
-    let score = gap;
-    if (silence >= 30 && caPDV26 > 0) score += caPDV26 * 0.5;
-    if (caAutres > 0) score += caAutres * 0.3;
-    if (score <= 0 && caPDV26 <= 0) continue;
-    clients.push({ cc, nom: rec?.nom || info.nom || cc, metier: rec?.metier || info.metier || '', classification: info.classification || '', caPDV, caZone, gap, silence, caAutres, score });
-  }
-  clients.sort((a, b) => b.score - a.score);
-  const top = clients.slice(0, 20);
-  if (!top.length) { el.innerHTML = '<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun client avec signal pour ce filtre.</div>'; return; }
-
-  const pocheLabels = { A: 'Écart Zone', B: 'Inter-agences', C: 'Livré → Proximité', D: 'Activation', E: 'Ruptures / Irritants' };
-  const pocheColors = { A: 'var(--c-danger)', B: '#f59e0b', C: '#8b5cf6', D: 'var(--c-ok)', E: '#f87171' };
-  const titleColor = _pocheActive ? pocheColors[_pocheActive] : '#fde047';
-  const titleLabel = _pocheActive ? pocheLabels[_pocheActive] + ' — ' : '';
-
-  const _mkRow = (c) => {
-    const isSelected = c.cc === _selectedTopClient;
-    const _clCls = c.classification?.startsWith('FID') ? 'c-ok' : c.classification?.startsWith('OCC') ? 'c-caution' : 't-disabled';
-    const silTxt = c.silence < 999 ? `${c.silence}j` : '—';
-    const silCls = c.silence >= 60 ? 'c-danger' : c.silence >= 30 ? 'c-caution' : 'c-ok';
-    const gapTxt = c.gap > 0 ? `<span class="c-danger">${formatEuro(c.gap)}</span>` : '<span class="t-disabled">—</span>';
-    let tag = '';
-    const isRuptureImpacted = _ruptureClientSet.has(c.cc);
-    if (c.silence >= 60 && c.caPDV > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-red-900/40 text-red-300 font-bold">Silence</span>';
-    else if (c.gap > c.caPDV && c.caZone > 500) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-blue-900/40 text-blue-300 font-bold">Potentiel</span>';
-    else if (c.caAutres > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-amber-900/40 text-amber-300 font-bold">Multi-PDV</span>';
-    else if (c.silence >= 30 && c.caPDV > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-orange-900/40 text-orange-300 font-bold">À relancer</span>';
-    if (isRuptureImpacted) tag += ' <span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:rgba(239,68,68,0.25);color:#fca5a5" title="Client impacté par des ruptures">⚠️ Subies</span>';
-    const selStyle = isSelected ? 'background:rgba(234,179,8,0.15);box-shadow:inset 3px 0 0 #fde047' : '';
-    return `<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" style="${selStyle}" onclick="window._selectTopClient('${escapeHtml(c.cc)}')">
-      <td class="py-1.5 px-2 text-[11px] font-semibold t-primary">
-        <span class="inline-flex items-center gap-1">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','terrain')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity" title="Ouvrir la fiche 360°">🔍</button>${tag}</span>
-      </td>
-      <td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier || '—')}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(c.classification || '—')}</td>
-      <td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(c.caPDV)}</td>
-      <td class="py-1.5 px-2 text-right text-[11px]">${gapTxt}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td>
-    </tr>`;
-  };
-
-  el.innerHTML = `<details open style="background:linear-gradient(135deg,rgba(234,179,8,0.10),rgba(202,138,4,0.05));border:1px solid rgba(234,179,8,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.15),rgba(202,138,4,0.08));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none">
-      <h3 style="font-weight:800;font-size:13px;color:${titleColor};display:flex;align-items:center;gap:6px">⚡ ${titleLabel}Top 20 clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${clients.length} clients avec signal</span></h3>
-      <span class="acc-arrow" style="color:${titleColor}">▶</span>
-    </summary>
-    <div style="max-height:280px;overflow-y:auto"><table class="min-w-full text-xs">
-      <thead class="s-panel-inner t-inverse font-bold sticky top-0" style="z-index:1"><tr>
-        <th class="py-2 px-2 text-left">Client</th>
-        <th class="py-2 px-2 text-left">Métier</th>
-        <th class="py-2 px-2 text-center">Classif</th>
-        <th class="py-2 px-2 text-right">CA PDV</th>
-        <th class="py-2 px-2 text-right">Écart zone</th>
-        <th class="py-2 px-2 text-center">Silence</th>
-      </tr></thead>
-      <tbody>${top.map(_mkRow).join('')}</tbody>
-    </table></div>
-  </details>`;
-}
 
 // ── 4 Poches Terrain — leviers d'action portefeuille ─────────────────
 let _pocheActive = '';
