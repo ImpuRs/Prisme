@@ -22,8 +22,9 @@
   const elMergeOptions = $('mergeOptions');
   const elMergeName = $('convMergeName');
   const elDedup = $('convDedup');
-  const elPriorityFile = $('convPriorityFile');
-  const elPriorityZone = $('priorityFileZone');
+  const elSecondaryFiles = $('convSecondaryFiles');
+  const elSecondaryZone = $('secondaryFileZone');
+  const elSecondaryList = $('convSecondaryList');
   const elDedupHint = $('dedupHint');
 
   let outDirHandle = null;
@@ -226,12 +227,23 @@
     const files = elFiles.files ? [...elFiles.files] : [];
     const dedup = elDedup ? elDedup.value : '';
     const isClientFirst = dedup === 'client-first';
-    // Show/hide priority file zone
-    if (elPriorityZone) elPriorityZone.style.display = isClientFirst ? '' : 'none';
+    // Show/hide secondary files zone
+    if (elSecondaryZone) elSecondaryZone.style.display = isClientFirst ? '' : 'none';
+    // Update secondary file list
+    if (elSecondaryList) {
+      const sFiles = elSecondaryFiles?.files ? [...elSecondaryFiles.files] : [];
+      if (sFiles.length) {
+        elSecondaryList.style.display = '';
+        elSecondaryList.innerHTML = sFiles.map(f => `<div class="it"><div class="name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div><div class="meta">${fmtBytes(f.size)}</div></div>`).join('');
+      } else {
+        elSecondaryList.style.display = 'none';
+        elSecondaryList.innerHTML = '';
+      }
+    }
     // Update hint text
     if (elDedupHint) {
       if (isClientFirst) {
-        elDedupHint.innerHTML = '<strong>Priorité mon agence</strong> : sélectionne ta chalandise ci-dessous, les autres fichiers (au-dessus) complètent sans écraser tes statuts PDV.';
+        elDedupHint.innerHTML = '<strong>Priorité mon agence</strong> : le fichier principal (au-dessus) est prioritaire. Les complémentaires ajoutent les clients manquants sans écraser.';
       } else if (dedup === 'client') {
         elDedupHint.innerHTML = '<strong>Priorité CA 2026</strong> : garde la ligne avec le plus gros CA 2026.';
       } else if (dedup === 'row') {
@@ -241,15 +253,14 @@
       }
     }
     // Update button label
-    const prioFile = elPriorityFile?.files?.[0];
-    const totalFiles = files.length + (isClientFirst && prioFile ? 1 : 0);
+    const secFiles = isClientFirst && elSecondaryFiles?.files ? elSecondaryFiles.files.length : 0;
+    const totalFiles = files.length + secFiles;
     if (elMerge.checked) {
       btnConvert.textContent = totalFiles > 1 ? `Fusionner (${totalFiles})` : 'Fusionner';
     } else {
       btnConvert.textContent = 'Convertir';
     }
-    // Enable convert if we have files (priority file alone counts too)
-    btnConvert.disabled = totalFiles === 0;
+    btnConvert.disabled = files.length === 0;
   }
 
   async function convertMerged(files) {
@@ -259,9 +270,9 @@
     const crlf = elCrlf.value === '1';
     const dedup = (elDedup && elDedup.value) ? elDedup.value : 'client';
 
-    // Priority file first if client-first mode
-    if (dedup === 'client-first' && elPriorityFile?.files?.[0]) {
-      files = [elPriorityFile.files[0], ...files];
+    // client-first : primary files first, then secondary files
+    if (dedup === 'client-first' && elSecondaryFiles?.files?.length) {
+      files = [...files, ...elSecondaryFiles.files];
     }
 
     const outName = sanitizeOutCsvName(elMergeName ? elMergeName.value : 'fusion.csv', files[0] ? files[0].name : 'fusion.xlsx');
@@ -426,7 +437,7 @@
   btnConvert.addEventListener('click', () => { run(); });
   if (elMerge) elMerge.addEventListener('change', updateMergeUI);
   if (elDedup) elDedup.addEventListener('change', updateMergeUI);
-  if (elPriorityFile) elPriorityFile.addEventListener('change', updateMergeUI);
+  if (elSecondaryFiles) elSecondaryFiles.addEventListener('change', updateMergeUI);
 
   btnPickDir.addEventListener('click', async () => {
     if (!supportsDirPicker()) return;
