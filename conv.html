@@ -20,41 +20,60 @@
       --warn:#fbbf24;
       --err:#f87171;
     }
-    body{font-family:-apple-system,system-ui,sans-serif;background:radial-gradient(1000px 600px at 30% -100px, rgba(96,165,250,0.25), transparent 60%), var(--bg);color:var(--t1);min-height:100dvh}
-    a{color:var(--act);text-decoration:underline}
-    .wrap{max-width:900px;margin:0 auto;padding:22px 16px 50px}
-    .hdr{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:14px}
-    .title{font-size:18px;font-weight:900;letter-spacing:.2px}
-    .sub{font-size:12px;color:var(--t2);line-height:1.5;margin-top:6px}
-    .pill{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(96,165,250,0.12);color:var(--act);font-weight:800}
-    .card{background:linear-gradient(180deg, rgba(17,27,47,0.96), rgba(15,23,42,0.90));border:1px solid var(--border);border-radius:16px;overflow:hidden}
-    .card-h{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(180deg,#0b1220 0%,#0f172a 44%,#0b1220 100%);color:var(--t1);min-height:100dvh}
+    a{color:var(--act);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 44px}
+    .hdr{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;margin-bottom:14px}
+    .title{font-size:22px;font-weight:950;letter-spacing:.2px}
+    .sub{font-size:12px;color:var(--t2);line-height:1.45;margin-top:4px;max-width:720px}
+    .pill{font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(96,165,250,0.12);color:var(--act);font-weight:800;white-space:nowrap}
+    .card{background:rgba(17,27,47,0.86);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.16)}
+    .card-h{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:space-between}
     .card-h h2{font-size:13px;font-weight:900}
     .card-b{padding:16px}
+    .stack{display:grid;gap:12px}
+    .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.48fr);gap:12px;align-items:start}
+    @media(max-width:880px){.split{grid-template-columns:1fr}.hdr{flex-direction:column}}
     label{display:block;font-size:11px;color:var(--t2);font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
-    input[type="file"]{width:100%;border:2px dashed rgba(148,163,184,0.35);background:rgba(15,23,42,0.45);padding:14px;border-radius:14px;color:var(--t2)}
+    input[type="file"]{width:100%;border:2px dashed rgba(148,163,184,0.35);background:rgba(15,23,42,0.45);padding:14px;border-radius:8px;color:var(--t2)}
     input[type="file"]:hover{border-color:rgba(96,165,250,0.6)}
-    select,input[type="number"],input[type="text"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,0.6);color:var(--t1);outline:none}
+    select,input[type="number"],input[type="text"]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(15,23,42,0.6);color:var(--t1);outline:none}
+    select:focus,input:focus{border-color:rgba(96,165,250,.9);box-shadow:0 0 0 3px rgba(96,165,250,.14)}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media(max-width:700px){.grid{grid-template-columns:1fr}}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .btn{cursor:pointer;border:none;border-radius:12px;padding:11px 14px;font-weight:900;font-size:12px;letter-spacing:.2px}
+    .btn{cursor:pointer;border:none;border-radius:8px;padding:11px 14px;font-weight:900;font-size:12px;letter-spacing:.2px}
     .btn-primary{background:var(--act);color:#081426}
     .btn-secondary{background:rgba(148,163,184,0.16);color:var(--t1);border:1px solid var(--border)}
     .btn-danger{background:rgba(248,113,113,0.15);color:var(--err);border:1px solid rgba(248,113,113,0.35)}
     .btn:disabled{opacity:.45;cursor:not-allowed}
     .muted{color:var(--t3);font-size:12px}
-    .filelist{margin-top:10px;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+    .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+    @media(max-width:760px){.status-grid{grid-template-columns:1fr 1fr}}
+    .stat{border:1px solid rgba(96,165,250,.18);background:rgba(15,23,42,.54);border-radius:8px;padding:10px}
+    .stat .k{font-size:10px;text-transform:uppercase;color:var(--t3);font-weight:900;letter-spacing:.5px}
+    .stat .v{font-size:14px;font-weight:950;margin-top:3px;color:var(--t1);font-variant-numeric:tabular-nums}
+    .dropzone{display:block;cursor:pointer;border:1px dashed rgba(96,165,250,.56);background:linear-gradient(180deg,rgba(96,165,250,.10),rgba(15,23,42,.42));border-radius:10px;padding:16px;transition:border-color .16s,background .16s,transform .16s}
+    .dropzone:hover,.dropzone.drag{border-color:rgba(74,222,128,.95);background:rgba(74,222,128,.08);transform:translateY(-1px)}
+    .dropzone input{display:none}
+    .drop-title{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:950;color:var(--t1)}
+    .drop-sub{font-size:11px;color:var(--t3);margin-top:5px}
+    .tag{font-size:10px;font-weight:900;color:var(--ok);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1);padding:3px 7px;border-radius:999px;white-space:nowrap}
+    .filelist{margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
     .filelist .it{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid rgba(43,59,90,0.6);background:rgba(15,23,42,0.35)}
     .filelist .it:first-child{border-top:none}
     .filelist .name{font-size:12px;font-weight:800;color:var(--t1);max-width:65%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .filelist .meta{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
     .prog{margin-top:12px;border:1px solid var(--border);border-radius:999px;overflow:hidden;height:12px;background:rgba(15,23,42,0.55)}
     .prog>div{height:100%;width:0;background:linear-gradient(90deg, rgba(96,165,250,0.95), rgba(74,222,128,0.8));transition:width .15s ease}
-    .log{margin-top:12px;background:rgba(15,23,42,0.45);border:1px solid var(--border);border-radius:14px;padding:12px;font-size:11px;color:var(--t2);white-space:pre-wrap;max-height:220px;overflow:auto}
-    .hint{padding:10px 12px;border-radius:14px;border:1px solid rgba(96,165,250,0.25);background:rgba(96,165,250,0.10);color:var(--t2);font-size:12px;line-height:1.45}
+    .log{margin-top:12px;background:rgba(15,23,42,0.45);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--t2);white-space:pre-wrap;max-height:220px;overflow:auto}
+    .hint{padding:10px 12px;border-radius:8px;border:1px solid rgba(96,165,250,0.25);background:rgba(96,165,250,0.10);color:var(--t2);font-size:12px;line-height:1.45}
     .hint strong{color:var(--t1)}
-    .foot{margin-top:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+    .merge-box{border:1px solid rgba(96,165,250,.25);background:rgba(96,165,250,.08);border-radius:10px;padding:12px}
+    .switchline{display:flex;align-items:center;gap:10px}
+    .switchline input{width:18px;height:18px;accent-color:var(--act)}
+    .foot{position:sticky;bottom:0;margin-top:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;background:rgba(11,18,32,.86);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:10px;padding:10px}
   </style>
 </head>
 <body>
@@ -73,6 +92,13 @@
       </div>
     </div>
 
+    <div class="status-grid" aria-live="polite">
+      <div class="stat"><div class="k">Principal</div><div class="v" id="sumPrimary">0 fichier</div></div>
+      <div class="stat"><div class="k">Compléments</div><div class="v" id="sumSecondary">0 fichier</div></div>
+      <div class="stat"><div class="k">Sortie</div><div class="v" id="sumMode">CSV séparés</div></div>
+      <div class="stat"><div class="k">Encodage</div><div class="v" id="sumEncoding">UTF-8 BOM</div></div>
+    </div>
+
     <div class="card">
       <div class="card-h">
         <h2>1) Sélection des fichiers</h2>
@@ -80,7 +106,14 @@
       </div>
       <div class="card-b">
         <label for="convFiles" id="convFilesLabel">Fichiers XLSX / XLS</label>
-        <input id="convFiles" type="file" multiple accept=".xlsx,.xls">
+        <label class="dropzone" id="primaryDrop" for="convFiles">
+          <input id="convFiles" type="file" multiple accept=".xlsx,.xls">
+          <span class="drop-title">
+            <span>Déposer ou sélectionner les fichiers Excel</span>
+            <span class="tag">XLSX / XLS</span>
+          </span>
+          <span class="drop-sub" id="primaryDropSub">En mode fusion prioritaire : mets le fichier de ton agence ici.</span>
+        </label>
         <div class="filelist" id="convFileList" style="display:none"></div>
         <div class="hint" style="margin-top:12px">
           Conseil : si tu dois alimenter <strong>iPhone/Safari</strong>, fais la conversion ici sur PC, puis utilise les CSV dans PRISME.
@@ -124,8 +157,8 @@
         </div>
 
         <div style="height:12px"></div>
-        <div class="hint">
-          <div class="row">
+        <div class="merge-box">
+          <div class="switchline">
             <input id="convMerge" type="checkbox">
             <div><strong>Fusionner tous les fichiers en un seul CSV</strong> (utile si tu as 4 exports “Chalandise” à réunir).</div>
           </div>
@@ -151,9 +184,15 @@
             </div>
             <div id="secondaryFileZone" style="display:none;margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:rgba(139,92,246,0.08)">
               <label for="convSecondaryFiles" style="color:#a78bfa;font-weight:600;font-size:12px">📎 Fichiers complémentaires (autres agences)</label>
-              <input id="convSecondaryFiles" type="file" multiple accept=".xlsx,.xls" style="margin-top:6px;border-color:rgba(139,92,246,0.4)">
+              <label class="dropzone" id="secondaryDrop" for="convSecondaryFiles" style="margin-top:6px;border-color:rgba(139,92,246,0.45)">
+                <input id="convSecondaryFiles" type="file" multiple accept=".xlsx,.xls">
+                <span class="drop-title">
+                  <span>Ajouter les fichiers complémentaires</span>
+                  <span class="tag">Complète seulement</span>
+                </span>
+                <span class="drop-sub">Les doublons client gardent la ligne du fichier principal.</span>
+              </label>
               <div class="filelist" id="convSecondaryList" style="display:none"></div>
-              <div class="muted" style="margin-top:4px">En cas de doublon client, c'est le fichier principal (au-dessus) qui gagne.</div>
             </div>
           </div>
         </div>
@@ -176,6 +215,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425i"></script>
+  <script src="js/conv.js?v=20260425j"></script>
 </body>
 </html>

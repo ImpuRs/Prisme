@@ -7,6 +7,8 @@
   const elFiles = $('convFiles');
   const elFilesLabel = $('convFilesLabel');
   const elList = $('convFileList');
+  const elPrimaryDrop = $('primaryDrop');
+  const elPrimaryDropSub = $('primaryDropSub');
   const elSep = $('convSep');
   const elSheet = $('convSheet');
   const elBom = $('convBom');
@@ -26,7 +28,12 @@
   const elSecondaryFiles = $('convSecondaryFiles');
   const elSecondaryZone = $('secondaryFileZone');
   const elSecondaryList = $('convSecondaryList');
+  const elSecondaryDrop = $('secondaryDrop');
   const elDedupHint = $('dedupHint');
+  const sumPrimary = $('sumPrimary');
+  const sumSecondary = $('sumSecondary');
+  const sumMode = $('sumMode');
+  const sumEncoding = $('sumEncoding');
 
   let outDirHandle = null;
 
@@ -48,6 +55,58 @@
     const p = Math.max(0, Math.min(100, pct || 0));
     bar.style.width = p.toFixed(1) + '%';
     elProgText.textContent = text || '';
+  }
+
+  function filesOf(input) {
+    return input?.files ? [...input.files] : [];
+  }
+
+  function countLabel(n) {
+    return n + ' fichier' + (n > 1 ? 's' : '');
+  }
+
+  function isExcelFile(file) {
+    return /\.(xlsx?|xls)$/i.test(file?.name || '');
+  }
+
+  function setInputFiles(input, files) {
+    if (!input || typeof DataTransfer === 'undefined') return false;
+    const dt = new DataTransfer();
+    files.filter(isExcelFile).forEach(file => dt.items.add(file));
+    input.files = dt.files;
+    return true;
+  }
+
+  function bindDropZone(zone, input, onChange) {
+    if (!zone || !input) return;
+    ['dragenter', 'dragover'].forEach(evtName => {
+      zone.addEventListener(evtName, evt => {
+        evt.preventDefault();
+        zone.classList.add('drag');
+      });
+    });
+    ['dragleave', 'drop'].forEach(evtName => {
+      zone.addEventListener(evtName, evt => {
+        evt.preventDefault();
+        zone.classList.remove('drag');
+      });
+    });
+    zone.addEventListener('drop', evt => {
+      const files = [...(evt.dataTransfer?.files || [])];
+      if (!files.length) return;
+      if (setInputFiles(input, files)) onChange();
+    });
+  }
+
+  function updateSummary() {
+    const primary = filesOf(elFiles);
+    const secondary = filesOf(elSecondaryFiles);
+    const mergeOn = !!elMerge?.checked;
+    const dedup = elDedup?.value || 'client-first';
+    if (sumPrimary) sumPrimary.textContent = countLabel(primary.length);
+    if (sumSecondary) sumSecondary.textContent = mergeOn && dedup === 'client-first' ? countLabel(secondary.length) : '0 fichier';
+    if (sumMode) sumMode.textContent = mergeOn ? 'CSV fusionné' : 'CSV séparés';
+    if (sumEncoding) sumEncoding.textContent = (elBom?.checked ? 'UTF-8 BOM' : 'UTF-8') + (elCrlf?.value === '1' ? ' CRLF' : ' LF');
   }
 
   function sanitizeCsvName(name) {
@@ -94,7 +153,7 @@
   }
 
   function updateFileListUI() {
-    const files = elFiles.files ? [...elFiles.files] : [];
+    const files = filesOf(elFiles);
     btnConvert.disabled = files.length === 0;
 
     if (!files.length) {
@@ -219,17 +278,22 @@
     if (!elMerge || !elMergeOptions) return;
     const isMerge = elMerge.checked;
     elMergeOptions.style.display = isMerge ? '' : 'none';
-    const files = elFiles.files ? [...elFiles.files] : [];
+    const files = filesOf(elFiles);
     const dedup = elDedup ? elDedup.value : '';
     const isClientFirst = dedup === 'client-first';
     if (elFilesLabel) {
       elFilesLabel.textContent = (isMerge && isClientFirst) ? 'Fichier principal XLSX / XLS' : 'Fichiers XLSX / XLS';
     }
+    if (elPrimaryDropSub) {
+      elPrimaryDropSub.textContent = (isMerge && isClientFirst)
+        ? "Ce fichier gagne en cas de doublon client. Ajoute les autres agences dans la zone complémentaire."
+        : 'Sélection multiple ou dépôt direct, conversion en CSV séparés par défaut.';
+    }
     // Show/hide secondary files zone (only when merge + client-first)
     if (elSecondaryZone) elSecondaryZone.style.display = (isMerge && isClientFirst) ? '' : 'none';
     // Update secondary file list
     if (elSecondaryList) {
-      const sFiles = elSecondaryFiles?.files ? [...elSecondaryFiles.files] : [];
+      const sFiles = filesOf(elSecondaryFiles);
       if (sFiles.length) {
         elSecondaryList.style.display = '';
         elSecondaryList.innerHTML = sFiles.map(f => `<div class="it"><div class="name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div><div class="meta">${fmtBytes(f.size)}</div></div>`).join('');
@@ -259,6 +323,7 @@
       btnConvert.textContent = 'Convertir';
     }
     btnConvert.disabled = files.length === 0;
+    updateSummary();
   }
 
   async function convertMerged(files) {
@@ -442,6 +507,9 @@
   if (elMerge) elMerge.addEventListener('change', updateMergeUI);
   if (elDedup) elDedup.addEventListener('change', updateMergeUI);
   if (elSecondaryFiles) elSecondaryFiles.addEventListener('change', updateMergeUI);
+  [elSep, elBom, elCrlf].forEach(el => el?.addEventListener('change', updateSummary));
+  bindDropZone(elPrimaryDrop, elFiles, updateFileListUI);
+  bindDropZone(elSecondaryDrop, elSecondaryFiles, updateMergeUI);
 
   btnPickDir.addEventListener('click', async () => {
     if (!supportsDirPicker()) return;
@@ -465,5 +533,6 @@
   updateDirUI();
   updateFileListUI();
   updateMergeUI();
+  updateSummary();
   setProg(0, 'En attente…');
 })();

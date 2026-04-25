@@ -1373,10 +1373,7 @@ function _populateCommercialSelect(inputId, kpiId) {
         if (ccs) {
           for (const cc of ccs) {
             const info = _S.chalandiseData?.get(cc);
-            if (!info) continue;
-            if (!_clientPassesFilters(info, cc)) continue;
-            if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-            if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+            if (!_passesOverviewClient(info, cc)) continue;
             nb++;
           }
         }
@@ -1409,10 +1406,7 @@ function _renderCommercialScorecard(containerId) {
 
   for (const cc of ccs) {
     const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
-    if (!_clientPassesFilters(info, cc)) continue;
-    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (!_passesOverviewClient(info, cc)) continue;
     nbClients++;
     ca2026 += info.ca2026 || 0;
 
@@ -1456,10 +1450,7 @@ function _renderCommercialScorecard(containerId) {
   const _fdIndex = _getFinalDataIndex();
   for (const cc of ccs) {
     const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
-    if (!_clientPassesFilters(info, cc)) continue;
-    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (!_passesOverviewClient(info, cc)) continue;
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
     if (!horArts) continue;
     for (const [code, d] of horArts) {
@@ -1479,10 +1470,7 @@ function _renderCommercialScorecard(containerId) {
   const comClientSet = new Set();
   for (const cc of ccs) {
     const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
-    if (!_clientPassesFilters(info, cc)) continue;
-    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (!_passesOverviewClient(info, cc)) continue;
     if (_S.ventesClientArticle?.has(cc)) comClientSet.add(cc);
   }
   let nbRupturesImpact = 0, nbClientsImpactes = 0;
@@ -1748,10 +1736,7 @@ function _renderComTopClients(el) {
   for (const cc of ccs) {
     if (pocheCcs && !pocheCcs.has(cc)) continue; // filtre poche
     const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
-    if (!_clientPassesFilters(info, cc)) continue;
-    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (!_passesOverviewClient(info, cc)) continue;
     const rec = _S.clientStore?.get(cc);
     const caPDV = _S._selectedUnivers.size ? getUniversFilteredCA(cc) : (rec?.caPDV || 0); // CA PDV filtré par univers si actif
     const caPDV26 = getClientCAMagasinInMonthRange(cc, _ymRange) ?? caPDV; // CA PDV année (pour calcul écart)
@@ -1839,10 +1824,7 @@ function _renderPochesTerrain(containerId) {
   for (const [cc, rec] of store) {
     if (comCcs && !comCcs.has(cc)) continue;
     const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
-    if (!_clientPassesFilters(info, cc)) continue;
-    if (_S._excludeActifsConsomme && _overviewCaptePDVSet?.has(cc)) continue;
-    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (!_passesOverviewClient(info, cc)) continue;
     pool.push({ cc, rec, info });
   }
 
@@ -2051,14 +2033,74 @@ function _buildChalandiseOverview(){
 }
 // _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner
 let _bcoiCacheKey='';
+let _overviewFilteredKey='';
+let _overviewFilteredEntries=null;
+let _overviewFilteredStats=null;
 let _overviewDirMode='direction'; // 'direction' | 'secteur'
 const _CANAL_LABELS_OV={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
 let _overviewCaptePDVSet=null; // shared with L2 renderer
 window._overviewToggleMode=function(mode){_overviewDirMode=mode;_bcoiCacheKey='';_buildChalandiseOverviewInner(true);const _det=document.querySelector('#terrChalandiseOverview details');if(_det)_det.open=true;};
+function _stableSetValues(setLike){
+  return [...(setLike||[])].sort();
+}
+function _buildOverviewCacheKey(){
+  return JSON.stringify({
+    mode:_overviewDirMode,
+    depts:_stableSetValues(_S._selectedDepts),
+    classifs:_stableSetValues(_S._selectedClassifs),
+    activitesPDV:_stableSetValues(_S._selectedActivitesPDV),
+    statuts:_stableSetValues(_S._selectedStatuts),
+    directions:_stableSetValues(_S._selectedDirections),
+    univers:_stableSetValues(_S._selectedUnivers),
+    strategique:!!_S._filterStrategiqueOnly,
+    metier:_S._selectedMetier||'',
+    commercial:_S._selectedCommercial||'',
+    statutDetaille:_S._selectedStatutDetaille||'',
+    distanceMaxKm:_S._distanceMaxKm||0,
+    includePerdu24m:!!_S._includePerdu24m,
+    excludeActifsConsomme:!!_S._excludeActifsConsomme,
+    periodStart:_S.periodFilterStart?.getTime()||0,
+    periodEnd:_S.periodFilterEnd?.getTime()||0,
+    reseauMagasinMode:_S._reseauMagasinMode||'all',
+    chalandiseSize:_S.chalandiseData?.size||0,
+    clientsMagasinSize:_S.clientsMagasin?.size||0,
+    ventesHorsMagasinSize:_S.ventesClientHorsMagasin?.size||0,
+    globalCanal:_S._globalCanal||''
+  });
+}
+function _passesOverviewClient(info,cc,capteSet=_overviewCaptePDVSet,opts={}){
+  if(!info)return !!opts.allowMissing;
+  if(!_clientPassesFilters(info,cc))return false;
+  if(_S._excludeActifsConsomme&&capteSet?.has(cc))return false;
+  if(!_S._includePerdu24m&&_isPerdu24plus(info)){
+    if(opts.countExcluded)opts.countExcluded.value++;
+    return false;
+  }
+  return true;
+}
+function _getFilteredChalandiseEntries(capteSet=_overviewCaptePDVSet){
+  const key=_buildOverviewCacheKey();
+  if(_overviewFilteredEntries&&_overviewFilteredKey===key){
+    return{entries:_overviewFilteredEntries,stats:_overviewFilteredStats};
+  }
+  const entries=[];
+  const excluded24m={value:0};
+  let totalClients=0;
+  for(const[cc,info] of (_S.chalandiseData||new Map()).entries()){
+    totalClients++;
+    if(!_passesOverviewClient(info,cc,capteSet,{countExcluded:excluded24m}))continue;
+    entries.push([cc,info]);
+  }
+  _overviewFilteredKey=key;
+  _overviewFilteredEntries=entries;
+  _overviewFilteredStats={totalClients,filteredClients:entries.length,totalExcluded24m:excluded24m.value};
+  return{entries,stats:_overviewFilteredStats};
+}
 function _buildChalandiseOverviewInner(force){
   // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
-  const _key=`${_overviewDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${_S._reseauMagasinMode||'all'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
+  const _key=_buildOverviewCacheKey();
   if(!force&&_bcoiCacheKey===_key)return;
+  if(force)_overviewFilteredKey='';
   _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
   // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
@@ -2083,16 +2125,9 @@ function _buildChalandiseOverviewInner(force){
   }
   _overviewCaptePDVSet=_captePDVSet; // share with L2 renderer
   const _captLabel=_oCanal?(_CANAL_LABELS_OV[_oCanal]||_oCanal):'PDV';
-  const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    totalClients++;
-    if(!_clientPassesFilters(info,cc))continue;
-    // Superfiltre "vrais inactifs" : exclure les clients actifs dans le consommé
-    if(_S._excludeActifsConsomme&&_captePDVSet.has(cc))continue;
-    // Exclude perdus >24m when toggle is OFF
-    const is24plus=_isPerdu24plus(info);
-    if(is24plus&&!_S._includePerdu24m){totalExcluded24m++;continue;}
-    filteredClients++;
+  const {entries:_filteredChalandise,stats:_filteredStats}=_getFilteredChalandiseEntries(_captePDVSet);
+  const dirMap={};let totalClients=_filteredStats.totalClients,filteredClients=_filteredStats.filteredClients,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=_filteredStats.totalExcluded24m;
+  for(const[cc,info] of _filteredChalandise){
     const _parentDir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):_parentDir;
     const dirKey=dir||'Autre';
@@ -2305,10 +2340,7 @@ function _toggleOverviewL2(dirEnc,idx){
 }
 function _renderOverviewL2(el,direction){
   const metierMap={};
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    if(!_clientPassesFilters(info,cc))continue;
-    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
-    if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     const m=info.metier||'Autre';
@@ -2370,10 +2402,7 @@ function _toggleOverviewL3(dirEnc,mEnc,rowId){
 }
 function _renderOverviewL3(el,direction,metier){
   const sectMap={};
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    if(!_clientPassesFilters(info,cc))continue;
-    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
-    if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
@@ -2448,10 +2477,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     : {min:_curYear*12, max:_curYear*12+11};
   const _periodLabel=(_pStart&&_pEnd)?'période':'année';
   const clients=[];
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    if(!_clientPassesFilters(info,cc))continue;
-    if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(cc))continue;
-    if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
     const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
@@ -2706,9 +2732,7 @@ function _buildCockpitClient(force){
       if(!rec.inChalandise&&!_hasActivity)continue;
       if(rec.inChalandise){
         const info=_S.chalandiseData.get(rec.cc);
-        if(info&&!_clientPassesFilters(info,rec.cc))continue;
-        if(_S._excludeActifsConsomme&&_overviewCaptePDVSet?.has(rec.cc))continue;
-        if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
+        if(!_passesOverviewClient(info,rec.cc,_overviewCaptePDVSet,{allowMissing:true}))continue;
         if(!_passesClientCrossFilter(rec.cc))continue;
       }
     }else{
