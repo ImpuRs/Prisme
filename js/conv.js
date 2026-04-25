@@ -18,6 +18,10 @@
   const elProgText = $('convProgText');
   const elLog = $('convLog');
   const elSupportBadge = $('convSupportBadge');
+  const elMerge = $('convMerge');
+  const elMergeOptions = $('mergeOptions');
+  const elMergeName = $('convMergeName');
+  const elDedup = $('convDedup');
 
   let outDirHandle = null;
 
@@ -43,6 +47,14 @@
 
   function sanitizeCsvName(name) {
     const base = (name || 'export').replace(/\.(xlsx?|xls)$/i, '');
+    const safe = base.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120);
+    return safe + '.csv';
+  }
+
+  function sanitizeOutCsvName(name, fallback) {
+    const raw = (name || '').trim();
+    if (!raw) return sanitizeCsvName(fallback || 'fusion.xlsx');
+    const base = raw.replace(/\.csv$/i, '');
     const safe = base.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120);
     return safe + '.csv';
   }
@@ -93,6 +105,8 @@
         <div class="meta">${fmtBytes(f.size)}</div>
       </div>`;
     }).join('');
+
+    updateMergeUI();
   }
 
   function escapeHtml(s) {
@@ -203,6 +217,150 @@
     }
   }
 
+  function updateMergeUI() {
+    if (!elMerge || !elMergeOptions) return;
+    elMergeOptions.style.display = elMerge.checked ? '' : 'none';
+    const files = elFiles.files ? [...elFiles.files] : [];
+    if (elMerge.checked) {
+      btnConvert.textContent = files.length > 1 ? `Fusionner (${files.length})` : 'Fusionner';
+    } else {
+      btnConvert.textContent = 'Convertir';
+    }
+  }
+
+  async function convertMerged(files) {
+    const sep = elSep.value || ';';
+    const sheetIndex = Math.max(0, parseInt(elSheet.value || '0', 10) || 0);
+    const bom = !!elBom.checked;
+    const crlf = elCrlf.value === '1';
+    const dedup = (elDedup && elDedup.value) ? elDedup.value : 'client';
+
+    const outName = sanitizeOutCsvName(elMergeName ? elMergeName.value : 'fusion.csv', files[0] ? files[0].name : 'fusion.xlsx');
+
+    log(`🧩 Fusion activée — sortie: ${outName} · doublons: ${dedup}`);
+    setProg(0, `Fusion (${files.length} fichier(s))…`);
+
+    const worker = new Worker('js/conv-worker.js');
+    let chunks = null;
+    let writable = null;
+    let writeChain = Promise.resolve();
+
+    if (outDirHandle) {
+      try {
+        const handle = await outDirHandle.getFileHandle(outName, { create: true });
+        writable = await handle.createWritable();
+      } catch (e) {
+        log(`⚠️ Écriture directe impossible (${e.message || e}). Fallback téléchargement.`);
+        outDirHandle = null;
+        updateDirUI();
+      }
+    }
+    if (!writable) chunks = [];
+
+    const waiters = new Map(); // type -> [resolve, reject]
+    const once = (type) => new Promise((resolve, reject) => { waiters.set(type, [resolve, reject]); });
+
+    let activeFileIdx = 0;
+    const stageParseMax = 70; // % pour ingestion des fichiers
+    const stageEmitMax = 30;  // % pour écriture CSV
+
+    worker.onerror = (e) => {
+      const err = new Error('Worker: ' + (e.message || 'erreur'));
+      // Rejette tout ce qui attend (sinon on peut rester bloqué sur await once(...))
+      for (const [, w] of waiters) { try { w[1](err); } catch (_) {} }
+      waiters.clear();
+    };
+
+    worker.onmessage = (evt) => {
+      const m = evt.data || {};
+
+      if (m.type === 'progress') {
+        const pct = Math.min(100, Math.max(0, m.pct || 0));
+        // m.scope = 'ingest' | 'emit' (merge), sinon fallback
+        let globalPct = pct;
+        if (m.scope === 'ingest') {
+          globalPct = (activeFileIdx / Math.max(files.length, 1)) * stageParseMax + (pct / 100) * (stageParseMax / Math.max(files.length, 1));
+        } else if (m.scope === 'emit') {
+          globalPct = stageParseMax + (pct / 100) * stageEmitMax;
+        }
+        setProg(globalPct, m.msg || '…');
+        return;
+      }
+
+      if (m.type === 'chunk') {
+        const text = m.text || '';
+        if (!text) return;
+        if (writable) writeChain = writeChain.then(() => writable.write(text));
+        else chunks.push(text);
+        return;
+      }
+
+      if (m.type === 'meta') {
+        // Affichage utile, sans être verbeux
+        if (m.merge) {
+          log(`🧾 Fusion: ${m.rows || 0} lignes · ${m.cols || 0} colonnes · doublons=${m.duplicates || 0}`);
+        } else {
+          log(`🧾 Feuille: ${m.sheet || '—'} · ${m.rows || 0} lignes · ${m.cols || 0} colonnes`);
+        }
+        return;
+      }
+
+      if (m.type === 'done') {
+        (async () => {
+          try {
+            if (writable) {
+              await writeChain;
+              await writable.close();
+              log('✅ Écrit dans le dossier.');
+            } else {
+              const blob = new Blob(chunks, { type: 'text/csv;charset=utf-8' });
+              downloadBlob(blob, outName);
+              log('✅ Téléchargé.');
+            }
+            const w = waiters.get('done');
+            if (w) { waiters.delete('done'); w[0](m); }
+          } catch (e) {
+            const w = waiters.get('done');
+            if (w) { waiters.delete('done'); w[1](e); }
+          }
+        })();
+        return;
+      }
+
+      if (m.type === 'error') {
+        const err = new Error(m.msg || 'Erreur conversion');
+        for (const [, w] of waiters) { try { w[1](err); } catch (_) {} }
+        waiters.clear();
+        return;
+      }
+
+      const w = waiters.get(m.type);
+      if (w) { waiters.delete(m.type); w[0](m); }
+    };
+
+    // 1) init
+    worker.postMessage({ type: 'merge_init', opts: { sep, sheetIndex, bom, crlf, dedup } });
+    await once('merge_ready');
+
+    // 2) feed files (séquentiel)
+    for (let i = 0; i < files.length; i++) {
+      activeFileIdx = i;
+      const f = files[i];
+      setProg((i / Math.max(files.length, 1)) * stageParseMax, `Lecture ${f.name}…`);
+      log(`📥 + ${f.name} (${fmtBytes(f.size)})`);
+      const buf = await f.arrayBuffer();
+      worker.postMessage({ type: 'merge_add', buf, filename: f.name }, [buf]);
+      const res = await once('merge_added');
+      if (res && res.added != null) log(`➕ ${res.added} lignes ingérées (total unique: ${res.total || '—'})`);
+    }
+
+    // 3) emit CSV
+    worker.postMessage({ type: 'merge_done' });
+    await once('done');
+
+    try { worker.terminate(); } catch (_) {}
+  }
+
   async function run() {
     const files = elFiles.files ? [...elFiles.files] : [];
     if (!files.length) return;
@@ -214,8 +372,12 @@
 
     log('— Début conversion —');
     try {
-      for (let i = 0; i < files.length; i++) {
-        await convertOneFile(files[i], i, files.length);
+      if (elMerge && elMerge.checked) {
+        await convertMerged(files);
+      } else {
+        for (let i = 0; i < files.length; i++) {
+          await convertOneFile(files[i], i, files.length);
+        }
       }
       setProg(100, `Terminé: ${files.length} fichier(s).`);
       log('— Terminé —');
@@ -233,6 +395,7 @@
   // ── UI wiring ──
   elFiles.addEventListener('change', updateFileListUI);
   btnConvert.addEventListener('click', () => { run(); });
+  if (elMerge) elMerge.addEventListener('change', updateMergeUI);
 
   btnPickDir.addEventListener('click', async () => {
     if (!supportsDirPicker()) return;
@@ -255,6 +418,6 @@
   elSupportBadge.textContent = supportsDirPicker() ? 'Chrome/Edge: mode dossier disponible' : 'Mode dossier indisponible';
   updateDirUI();
   updateFileListUI();
+  updateMergeUI();
   setProg(0, 'En attente…');
 })();
-

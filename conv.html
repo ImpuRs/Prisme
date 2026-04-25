@@ -123,6 +123,32 @@
           </div>
         </div>
 
+        <div style="height:12px"></div>
+        <div class="hint">
+          <div class="row">
+            <input id="convMerge" type="checkbox">
+            <div><strong>Fusionner tous les fichiers en un seul CSV</strong> (utile si tu as 4 exports “Chalandise” à réunir).</div>
+          </div>
+          <div id="mergeOptions" style="display:none;margin-top:10px">
+            <div class="grid">
+              <div>
+                <label for="convMergeName">Nom du fichier fusionné</label>
+                <input id="convMergeName" type="text" value="fusion.csv" placeholder="fusion.csv">
+                <div class="muted" style="margin-top:6px">Astuce : tu peux mettre <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace">chalandise.csv</span>.</div>
+              </div>
+              <div>
+                <label for="convDedup">Doublons</label>
+                <select id="convDedup">
+                  <option value="client">Par code client (garde 1 ligne/client) — recommandé Chalandise</option>
+                  <option value="row">Lignes identiques uniquement</option>
+                  <option value="none">Aucun (concatène tout)</option>
+                </select>
+                <div class="muted" style="margin-top:6px">En cas de doublon client, on garde la ligne avec le plus grand “CA 2026” si la colonne existe, sinon la première.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="foot">
           <div class="row">
             <button class="btn btn-secondary" id="btnPickDir" type="button">Choisir dossier de sortie (Chrome)</button>
@@ -141,7 +167,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425a"></script>
+  <script src="js/conv.js?v=20260425b"></script>
 </body>
 </html>
-
