@@ -173,51 +173,66 @@ export function buildPochesTerrain({commercial,finalDataIndex}) {
 
   const hasUnivFilter=_S._selectedUnivers.size>0;
   const pocheA=[],pocheB=[],pocheC=[],pocheD=[];
-  let potA=0,potB=0,potC=0;
+  let potA=0,potB=0,potC=0,potD=0;
   for(const{cc,rec,info}of pool){
     const caSoc=info.ca2026||rec.caTotal||0;
     const caPDV=hasUnivFilter?getUniversFilteredCA(cc):(rec.caPDV||0);
     const gap=caSoc-caPDV;
-    if(gap>0&&caSoc>0){potA+=gap;pocheA.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caSoc,caPDV,gap,dist:rec.distanceKm,silence:rec.silenceDaysPDV});}
 
-    const caAutres=rec.caAutresAgences||0;
-    if(caAutres>0){potB+=caAutres;pocheB.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caAutres,caPDV:rec.caPDV||0,nbBL:rec.nbBLPDV||0});}
+    // Vision chef d'agence : capter des clients Legallais qui n'utilisent pas le canal PDV.
+    // Les 4 poches ne sont pas additives : ce sont 4 angles d'attaque du même vivier.
+    if(caSoc<=0||caPDV>0)continue;
 
+    // A — VIVIER : clients société actifs, zéro usage PDV.
+    potA+=caSoc;
+    pocheA.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caSoc,caPDV,gap:caSoc,dist:rec.distanceKm,silence:rec.silenceDaysPDV});
+
+    // B — PROXIMITÉ : les plus simples à faire venir physiquement au comptoir.
     const dist=rec.distanceKm;
+    if(dist!=null&&dist<=10){
+      potB+=caSoc;
+      pocheB.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caSoc,dist,gap:caSoc,silence:rec.silenceDaysPDV});
+    }
+
+    // C — FLUX HORS COMPTOIR : ils achètent déjà via Web/DCS/Rep, donc l'argument est service/retrait.
     const hors=rec.artMapHors;
-    if(dist!=null&&dist<=5&&hors){
+    if(hors){
       let caLivre=0;
       const canauxLivre=new Set();
       for(const d of hors.values()){
         const c=(d.canal||'').toUpperCase();
-        if(c==='DCS'||c==='REPRESENTANT'||c==='INTERNET'){caLivre+=d.sumCA||0;canauxLivre.add(c);}
+        if(c==='DCS'||c==='REPRESENTANT'||c==='INTERNET'||c==='AUTRE'){
+          caLivre+=d.sumCA||0;
+          canauxLivre.add(c);
+        }
       }
-      if(caLivre>0){potC+=caLivre;pocheC.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caLivre,canaux:[...canauxLivre].join('+'),caPDV:rec.caPDV||0,dist});}
+      if(caLivre>0){
+        potC+=caLivre;
+        pocheC.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caLivre,caSoc,canaux:[...canauxLivre].join('+'),dist});
+      }
     }
 
-    if((rec.caPDV||0)>0){
-      const nbBL=rec.nbBLPDV||1;
-      const panier=rec.caPDV/nbBL;
-      const arts=rec.artMapPDV;
-      const fams=new Set();
-      if(arts)for(const code of arts.keys()){const f=_S.articleFamille?.[code]||finalDataIndex?.get(code)?.famille;if(f)fams.add(f);}
-      pocheD.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caPDV:rec.caPDV,nbBL,panier,nbFam:fams.size,silence:rec.silenceDaysPDV});
+    // D — AUTRES AGENCES : le client connaît le réseau, mais pas ce PDV.
+    const caAutres=rec.caAutresAgences||0;
+    if(caAutres>0){
+      potD+=caAutres;
+      pocheD.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caAutres,caSoc,dist,nbBL:rec.nbBLPDV||0});
     }
   }
   pocheA.sort((a,b)=>b.gap-a.gap||(a.dist??999)-(b.dist??999)||(a.silence??999)-(b.silence??999));
-  pocheB.sort((a,b)=>b.caAutres-a.caAutres);
+  pocheB.sort((a,b)=>(a.dist??999)-(b.dist??999)||b.caSoc-a.caSoc);
   pocheC.sort((a,b)=>b.caLivre-a.caLivre);
-  pocheD.sort((a,b)=>a.nbBL-b.nbBL||a.panier-b.panier);
-  return{data:{A:pocheA,B:pocheB,C:pocheC,D:pocheD},potA,potB,potC};
+  pocheD.sort((a,b)=>b.caAutres-a.caAutres);
+  return{data:{A:pocheA,B:pocheB,C:pocheC,D:pocheD},potA,potB,potC,potD};
 }
 
 export function renderPochesTerrain(poches,{activeKey=''}) {
   if(!poches)return '';
   const cards=[
-    {key:'A',icon:'🎯',label:'Écart Zone',value:formatEuro(poches.potA),sub:`${poches.data.A.length} clients`,color:'var(--c-danger)',tip:'CA total société − CA PDV = livraisons EXTÉRIEUR + achats autres agences. Aucun centime passé en agence.'},
-    {key:'B',icon:'🏪',label:'Inter-agences',value:formatEuro(poches.potB),sub:`${poches.data.B.length} clients`,color:'#f59e0b',tip:"CA dans d'autres agences Legallais — sous-partie de l'Écart Zone"},
-    {key:'C',icon:'🚚',label:'Livré → Proximité',value:formatEuro(poches.potC),sub:`${poches.data.C.length} clients`,color:'#8b5cf6',tip:"Livraisons Web/DCS/Rep pour clients à < 5 km de l'agence — absurdité logistique convertible en retrait comptoir"},
-    {key:'D',icon:'📈',label:'Activation',value:poches.data.D.length.toString(),sub:'clients actifs PDV',color:'var(--c-ok)',tip:'Montée en panier / fréquence'}
+    {key:'A',icon:'🎯',label:'Vivier non PDV',value:formatEuro(poches.potA),sub:`${poches.data.A.length} clients société`,color:'var(--c-danger)',tip:'Clients Legallais actifs qui n’utilisent pas le canal PDV de l’agence.'},
+    {key:'B',icon:'📍',label:'Proches agence',value:formatEuro(poches.potB),sub:`${poches.data.B.length} à ≤ 10 km`,color:'#f59e0b',tip:'Sous-ensemble du vivier non PDV proche de l’agence : action comptoir, retrait, dépannage.'},
+    {key:'C',icon:'🚚',label:'Flux hors PDV',value:formatEuro(poches.potC),sub:`${poches.data.C.length} via web/rep/DCS`,color:'#8b5cf6',tip:'Clients non PDV qui achètent déjà via d’autres canaux : basculer une partie du flux vers retrait/comptoir.'},
+    {key:'D',icon:'🏪',label:'Vu ailleurs',value:formatEuro(poches.potD),sub:`${poches.data.D.length} autres agences`,color:'var(--c-ok)',tip:'Clients non PDV chez vous mais déjà consommateurs dans une autre agence : le réseau est acquis, il faut localiser.'}
   ];
   const tiles=cards.map(p=>{
     const isActive=activeKey===p.key;
@@ -229,7 +244,7 @@ export function renderPochesTerrain(poches,{activeKey=''}) {
     </div>`;
   }).join('');
   return `<div class="s-card rounded-xl border p-4 mb-3">
-    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-3">4 leviers d'action Terrain</h3>
+    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-3">4 angles de captation du canal agence</h3>
     <div class="grid grid-cols-4 gap-2 mb-1">${tiles}</div>
   </div>`;
 }
