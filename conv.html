@@ -129,26 +129,30 @@
             <input id="convMerge" type="checkbox">
             <div><strong>Fusionner tous les fichiers en un seul CSV</strong> (utile si tu as 4 exports “Chalandise” à réunir).</div>
           </div>
-          <div id="mergeOptions" style="display:none;margin-top:10px">
-            <div class="grid">
+          <div id=”mergeOptions” style=”display:none;margin-top:10px”>
+            <div class=”grid”>
               <div>
-                <label for="convMergeName">Nom du fichier fusionné</label>
-                <input id="convMergeName" type="text" value="fusion.csv" placeholder="fusion.csv">
-                <div class="muted" style="margin-top:6px">Astuce : tu peux mettre <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace">chalandise.csv</span>.</div>
+                <label for=”convMergeName”>Nom du fichier fusionné</label>
+                <input id=”convMergeName” type=”text” value=”fusion.csv” placeholder=”fusion.csv”>
+                <div class=”muted” style=”margin-top:6px”>Astuce : tu peux mettre <span style=”font-family:ui-monospace, SFMono-Regular, Menlo, monospace”>chalandise.csv</span>.</div>
               </div>
               <div>
-                <label for="convDedup">Doublons</label>
+                <label for=”convDedup”>Doublons</label>
                 <select id=”convDedup”>
-                  <option value=”client-first”>Par code client — priorité 1er fichier (mon agence d'abord)</option>
+                  <option value=”client-first”>Par code client — priorité mon agence</option>
                   <option value=”client”>Par code client — priorité meilleur CA 2026</option>
                   <option value=”row”>Lignes identiques uniquement</option>
                   <option value=”none”>Aucun (concatène tout)</option>
                 </select>
-                <div class=”muted” style=”margin-top:6px”>
-                  <strong>Priorité 1er fichier</strong> : mets ta chalandise agence en premier, les autres complètent sans écraser. Recommandé pour garder tes statuts PDV.<br>
-                  <strong>Priorité CA 2026</strong> : garde la ligne avec le plus gros CA 2026.
+                <div class=”muted” style=”margin-top:6px” id=”dedupHint”>
+                  <strong>Priorité mon agence</strong> : la chalandise de ton agence est prioritaire, les autres complètent sans écraser tes statuts PDV.
                 </div>
               </div>
+            </div>
+            <div id=”priorityFileZone” style=”margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:rgba(139,92,246,0.08)”>
+              <label for=”convPriorityFile” style=”color:#a78bfa;font-weight:600;font-size:12px”>📌 Chalandise de mon agence (prioritaire)</label>
+              <input id=”convPriorityFile” type=”file” accept=”.xlsx,.xls,.csv” style=”margin-top:6px”>
+              <div class=”muted” style=”margin-top:4px”>Ce fichier est traité en premier. En cas de doublon client, c'est sa ligne qui gagne.</div>
             </div>
           </div>
         </div>
@@ -171,6 +175,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425c"></script>
+  <script src="js/conv.js?v=20260425d"></script>
 </body>
 </html>

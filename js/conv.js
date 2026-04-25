@@ -22,6 +22,9 @@
   const elMergeOptions = $('mergeOptions');
   const elMergeName = $('convMergeName');
   const elDedup = $('convDedup');
+  const elPriorityFile = $('convPriorityFile');
+  const elPriorityZone = $('priorityFileZone');
+  const elDedupHint = $('dedupHint');
 
   let outDirHandle = null;
 
@@ -221,11 +224,32 @@
     if (!elMerge || !elMergeOptions) return;
     elMergeOptions.style.display = elMerge.checked ? '' : 'none';
     const files = elFiles.files ? [...elFiles.files] : [];
+    const dedup = elDedup ? elDedup.value : '';
+    const isClientFirst = dedup === 'client-first';
+    // Show/hide priority file zone
+    if (elPriorityZone) elPriorityZone.style.display = isClientFirst ? '' : 'none';
+    // Update hint text
+    if (elDedupHint) {
+      if (isClientFirst) {
+        elDedupHint.innerHTML = '<strong>Priorité mon agence</strong> : sélectionne ta chalandise ci-dessous, les autres fichiers (au-dessus) complètent sans écraser tes statuts PDV.';
+      } else if (dedup === 'client') {
+        elDedupHint.innerHTML = '<strong>Priorité CA 2026</strong> : garde la ligne avec le plus gros CA 2026.';
+      } else if (dedup === 'row') {
+        elDedupHint.innerHTML = 'Supprime les lignes 100% identiques (safe pour doublons copier/coller).';
+      } else {
+        elDedupHint.innerHTML = 'Concatène tout sans dédoublonnage (peut surcompter).';
+      }
+    }
+    // Update button label
+    const prioFile = elPriorityFile?.files?.[0];
+    const totalFiles = files.length + (isClientFirst && prioFile ? 1 : 0);
     if (elMerge.checked) {
-      btnConvert.textContent = files.length > 1 ? `Fusionner (${files.length})` : 'Fusionner';
+      btnConvert.textContent = totalFiles > 1 ? `Fusionner (${totalFiles})` : 'Fusionner';
     } else {
       btnConvert.textContent = 'Convertir';
     }
+    // Enable convert if we have files (priority file alone counts too)
+    btnConvert.disabled = totalFiles === 0;
   }
 
   async function convertMerged(files) {
@@ -234,6 +258,11 @@
     const bom = !!elBom.checked;
     const crlf = elCrlf.value === '1';
     const dedup = (elDedup && elDedup.value) ? elDedup.value : 'client';
+
+    // Priority file first if client-first mode
+    if (dedup === 'client-first' && elPriorityFile?.files?.[0]) {
+      files = [elPriorityFile.files[0], ...files];
+    }
 
     const outName = sanitizeOutCsvName(elMergeName ? elMergeName.value : 'fusion.csv', files[0] ? files[0].name : 'fusion.xlsx');
 
@@ -396,6 +425,8 @@
   elFiles.addEventListener('change', updateFileListUI);
   btnConvert.addEventListener('click', () => { run(); });
   if (elMerge) elMerge.addEventListener('change', updateMergeUI);
+  if (elDedup) elDedup.addEventListener('change', updateMergeUI);
+  if (elPriorityFile) elPriorityFile.addEventListener('change', updateMergeUI);
 
   btnPickDir.addEventListener('click', async () => {
     if (!supportsDirPicker()) return;
