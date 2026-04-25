@@ -29,7 +29,7 @@ export function renderOverviewHead(axisLabel,captSub=''){
 
 export function renderTerrainFocusCoach({axisLabel,worst,totalActifsPDV,totalActifsLeg,filteredClients,pctCapte,pctCapteLeg,canalLabel}) {
   if(!worst)return '';
-  const base=worst.total||0;
+  const base=(worst.total||0)-(worst.prospects||0);
   const pctLeg=base>0?Math.round((worst.actifsLeg||0)/base*100):0;
   const pctPDV=base>0?Math.round((worst.actifsPDV||0)/base*100):0;
   const gap=Math.max(0,(worst.actifsLeg||0)-(worst.actifsPDV||0));
