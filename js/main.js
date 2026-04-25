@@ -2504,6 +2504,7 @@ _S.canalAgence=newCanalAgence;
       pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3)"><span style="color:#fbbf24">📋 Chalandise</span> <span class="t-disabled">${total.toLocaleString('fr')} clients · ${nbMetiers} métiers</span> <span style="color:${matchColor}" title="${matchCount} clients PDV retrouvés dans la chalandise sur ${_S.ventesClientArticle?.size||0}">· couverture ${pctMatch}%</span></span>`);
     }
     if(!pills.length){el.innerHTML='';return;}
+    pills.push(`<a href="conv.html" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded no-underline" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);cursor:pointer"><span style="color:#a78bfa">🔄 Convertisseur XLSX → CSV</span></a>`);
     el.innerHTML=`<div class="flex flex-wrap gap-2 px-4 py-2 text-[10px]">${pills.join('')}</div>`;
   }
 
