@@ -223,12 +223,13 @@
 
   function updateMergeUI() {
     if (!elMerge || !elMergeOptions) return;
-    elMergeOptions.style.display = elMerge.checked ? '' : 'none';
+    const isMerge = elMerge.checked;
+    elMergeOptions.style.display = isMerge ? '' : 'none';
     const files = elFiles.files ? [...elFiles.files] : [];
     const dedup = elDedup ? elDedup.value : '';
     const isClientFirst = dedup === 'client-first';
-    // Show/hide secondary files zone
-    if (elSecondaryZone) elSecondaryZone.style.display = isClientFirst ? '' : 'none';
+    // Show/hide secondary files zone (only when merge + client-first)
+    if (elSecondaryZone) elSecondaryZone.style.display = (isMerge && isClientFirst) ? '' : 'none';
     // Update secondary file list
     if (elSecondaryList) {
       const sFiles = elSecondaryFiles?.files ? [...elSecondaryFiles.files] : [];
