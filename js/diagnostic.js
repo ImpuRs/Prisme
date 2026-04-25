@@ -175,7 +175,6 @@ function openClient360(clientCode, source) {
   panel.style.maxWidth = '780px';
   try {
     const html = _renderClient360(clientCode, source);
-    console.log('[openClient360] HTML length:', html?.length, 'clientCode:', clientCode);
     panel.innerHTML = html || '<p style="color:red">_renderClient360 a retourné vide</p>';
   } catch(e) {
     console.error('[openClient360] erreur dans _renderClient360:', e);

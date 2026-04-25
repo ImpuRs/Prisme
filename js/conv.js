@@ -5,6 +5,7 @@
   const $ = (id) => document.getElementById(id);
 
   const elFiles = $('convFiles');
+  const elFilesLabel = $('convFilesLabel');
   const elList = $('convFileList');
   const elSep = $('convSep');
   const elSheet = $('convSheet');
@@ -99,6 +100,7 @@
     if (!files.length) {
       elList.style.display = 'none';
       elList.innerHTML = '';
+      updateMergeUI();
       return;
     }
 
@@ -155,11 +157,6 @@
 
     if (!writable) chunks = [];
 
-    const finish = (ok, errMsg) => {
-      try { worker.terminate(); } catch (_) {}
-      if (!ok) throw new Error(errMsg || 'Erreur conversion');
-    };
-
     const p = new Promise((resolve, reject) => {
       worker.onerror = (e) => reject(new Error('Worker: ' + (e.message || 'erreur')));
       worker.onmessage = (evt) => {
@@ -213,9 +210,6 @@
     try {
       await p;
       if (!gotMeta) log('ℹ️ Conversion terminée.');
-    } catch (e) {
-      finish(false, e.message || String(e));
-      throw e;
     } finally {
       try { worker.terminate(); } catch (_) {}
     }
@@ -228,6 +222,9 @@
     const files = elFiles.files ? [...elFiles.files] : [];
     const dedup = elDedup ? elDedup.value : '';
     const isClientFirst = dedup === 'client-first';
+    if (elFilesLabel) {
+      elFilesLabel.textContent = (isMerge && isClientFirst) ? 'Fichier principal XLSX / XLS' : 'Fichiers XLSX / XLS';
+    }
     // Show/hide secondary files zone (only when merge + client-first)
     if (elSecondaryZone) elSecondaryZone.style.display = (isMerge && isClientFirst) ? '' : 'none';
     // Update secondary file list
@@ -379,27 +376,30 @@
       if (w) { waiters.delete(m.type); w[0](m); }
     };
 
-    // 1) init
-    worker.postMessage({ type: 'merge_init', opts: { sep, sheetIndex, bom, crlf, dedup } });
-    await once('merge_ready');
+    try {
+      // 1) init
+      worker.postMessage({ type: 'merge_init', opts: { sep, sheetIndex, bom, crlf, dedup } });
+      await once('merge_ready');
 
-    // 2) feed files (séquentiel)
-    for (let i = 0; i < files.length; i++) {
-      activeFileIdx = i;
-      const f = files[i];
-      setProg((i / Math.max(files.length, 1)) * stageParseMax, `Lecture ${f.name}…`);
-      log(`📥 + ${f.name} (${fmtBytes(f.size)})`);
-      const buf = await f.arrayBuffer();
-      worker.postMessage({ type: 'merge_add', buf, filename: f.name }, [buf]);
-      const res = await once('merge_added');
-      if (res && res.added != null) log(`➕ ${res.added} lignes ingérées (total unique: ${res.total || '—'})`);
+      // 2) feed files (séquentiel)
+      for (let i = 0; i < files.length; i++) {
+        activeFileIdx = i;
+        const f = files[i];
+        setProg((i / Math.max(files.length, 1)) * stageParseMax, `Lecture ${f.name}…`);
+        log(`📥 + ${f.name} (${fmtBytes(f.size)})`);
+        const buf = await f.arrayBuffer();
+        worker.postMessage({ type: 'merge_add', buf, filename: f.name }, [buf]);
+        const res = await once('merge_added');
+        if (res && res.added != null) log(`➕ ${res.added} lignes ingérées (total unique: ${res.total || '—'})`);
+      }
+
+      // 3) emit CSV
+      worker.postMessage({ type: 'merge_done' });
+      await once('done');
+      return files.length;
+    } finally {
+      try { worker.terminate(); } catch (_) {}
     }
-
-    // 3) emit CSV
-    worker.postMessage({ type: 'merge_done' });
-    await once('done');
-
-    try { worker.terminate(); } catch (_) {}
   }
 
   async function run() {
@@ -410,17 +410,19 @@
     btnPickDir.disabled = true;
     btnClearDir.disabled = true;
     elFiles.disabled = true;
+    if (elSecondaryFiles) elSecondaryFiles.disabled = true;
 
     log('— Début conversion —');
+    let doneCount = files.length;
     try {
       if (elMerge && elMerge.checked) {
-        await convertMerged(files);
+        doneCount = await convertMerged(files);
       } else {
         for (let i = 0; i < files.length; i++) {
           await convertOneFile(files[i], i, files.length);
         }
       }
-      setProg(100, `Terminé: ${files.length} fichier(s).`);
+      setProg(100, `Terminé: ${doneCount} fichier(s).`);
       log('— Terminé —');
     } catch (e) {
       log(`❌ ${e.message || e}`);
@@ -430,6 +432,7 @@
       btnPickDir.disabled = false;
       btnClearDir.disabled = false;
       elFiles.disabled = false;
+      if (elSecondaryFiles) elSecondaryFiles.disabled = false;
     }
   }
 
