@@ -21,7 +21,19 @@ import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
-import { getClientCAMagasinInMonthRange, getClientCAFullInMonthRange, getClientCAByCanalInPeriod, getClientsActiveSetInPeriod } from './sales.js';
+import { getClientCAMagasinInMonthRange, getClientCAByCanalInPeriod, getClientsActiveSetInPeriod } from './sales.js';
+import {
+  aggregateOverviewGroups,
+  aggregateOverviewClients,
+  aggregateOverviewMetiers,
+  aggregateOverviewSecteurs,
+  buildOverviewCacheKey as _buildOverviewCacheKey,
+  getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw,
+  getOverviewMode,
+  invalidateFilteredChalandise,
+  passesOverviewClient as _passesOverviewClientRaw,
+  setOverviewMode
+} from './commerce-conquete.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -2033,78 +2045,24 @@ function _buildChalandiseOverview(){
 }
 // _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner
 let _bcoiCacheKey='';
-let _overviewFilteredKey='';
-let _overviewFilteredEntries=null;
-let _overviewFilteredStats=null;
-let _overviewDirMode='direction'; // 'direction' | 'secteur'
 const _CANAL_LABELS_OV={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
 let _overviewCaptePDVSet=null; // shared with L2 renderer
-window._overviewToggleMode=function(mode){_overviewDirMode=mode;_bcoiCacheKey='';_buildChalandiseOverviewInner(true);const _det=document.querySelector('#terrChalandiseOverview details');if(_det)_det.open=true;};
-function _stableSetValues(setLike){
-  return [...(setLike||[])].sort();
-}
-function _buildOverviewCacheKey(){
-  return JSON.stringify({
-    mode:_overviewDirMode,
-    depts:_stableSetValues(_S._selectedDepts),
-    classifs:_stableSetValues(_S._selectedClassifs),
-    activitesPDV:_stableSetValues(_S._selectedActivitesPDV),
-    statuts:_stableSetValues(_S._selectedStatuts),
-    directions:_stableSetValues(_S._selectedDirections),
-    univers:_stableSetValues(_S._selectedUnivers),
-    strategique:!!_S._filterStrategiqueOnly,
-    metier:_S._selectedMetier||'',
-    commercial:_S._selectedCommercial||'',
-    statutDetaille:_S._selectedStatutDetaille||'',
-    distanceMaxKm:_S._distanceMaxKm||0,
-    includePerdu24m:!!_S._includePerdu24m,
-    excludeActifsConsomme:!!_S._excludeActifsConsomme,
-    periodStart:_S.periodFilterStart?.getTime()||0,
-    periodEnd:_S.periodFilterEnd?.getTime()||0,
-    reseauMagasinMode:_S._reseauMagasinMode||'all',
-    chalandiseSize:_S.chalandiseData?.size||0,
-    clientsMagasinSize:_S.clientsMagasin?.size||0,
-    ventesHorsMagasinSize:_S.ventesClientHorsMagasin?.size||0,
-    globalCanal:_S._globalCanal||''
-  });
-}
+window._overviewToggleMode=function(mode){setOverviewMode(mode);_bcoiCacheKey='';_buildChalandiseOverviewInner(true);const _det=document.querySelector('#terrChalandiseOverview details');if(_det)_det.open=true;};
 function _passesOverviewClient(info,cc,capteSet=_overviewCaptePDVSet,opts={}){
-  if(!info)return !!opts.allowMissing;
-  if(!_clientPassesFilters(info,cc))return false;
-  if(_S._excludeActifsConsomme&&capteSet?.has(cc))return false;
-  if(!_S._includePerdu24m&&_isPerdu24plus(info)){
-    if(opts.countExcluded)opts.countExcluded.value++;
-    return false;
-  }
-  return true;
+  return _passesOverviewClientRaw(info,cc,capteSet,opts);
 }
 function _getFilteredChalandiseEntries(capteSet=_overviewCaptePDVSet){
-  const key=_buildOverviewCacheKey();
-  if(_overviewFilteredEntries&&_overviewFilteredKey===key){
-    return{entries:_overviewFilteredEntries,stats:_overviewFilteredStats};
-  }
-  const entries=[];
-  const excluded24m={value:0};
-  let totalClients=0;
-  for(const[cc,info] of (_S.chalandiseData||new Map()).entries()){
-    totalClients++;
-    if(!_passesOverviewClient(info,cc,capteSet,{countExcluded:excluded24m}))continue;
-    entries.push([cc,info]);
-  }
-  _overviewFilteredKey=key;
-  _overviewFilteredEntries=entries;
-  _overviewFilteredStats={totalClients,filteredClients:entries.length,totalExcluded24m:excluded24m.value};
-  return{entries,stats:_overviewFilteredStats};
+  return _getFilteredChalandiseEntriesRaw(capteSet);
 }
 function _buildChalandiseOverviewInner(force){
   // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
   const _key=_buildOverviewCacheKey();
   if(!force&&_bcoiCacheKey===_key)return;
-  if(force)_overviewFilteredKey='';
+  if(force)invalidateFilteredChalandise();
   _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
   // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
-  const _isSec=_overviewDirMode==='secteur';
+  const _isSec=getOverviewMode()==='secteur';
   // Set de clients captés PDV — canal-aware (consommé = toujours à l'agence)
   const _oCanal=_S._globalCanal||'';
   let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
@@ -2125,22 +2083,9 @@ function _buildChalandiseOverviewInner(force){
   }
   _overviewCaptePDVSet=_captePDVSet; // share with L2 renderer
   const _captLabel=_oCanal?(_CANAL_LABELS_OV[_oCanal]||_oCanal):'PDV';
-  const {entries:_filteredChalandise,stats:_filteredStats}=_getFilteredChalandiseEntries(_captePDVSet);
-  const dirMap={};let totalClients=_filteredStats.totalClients,filteredClients=_filteredStats.filteredClients,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=_filteredStats.totalExcluded24m;
-  for(const[cc,info] of _filteredChalandise){
-    const _parentDir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
-    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):_parentDir;
-    const dirKey=dir||'Autre';
-    if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,parentDir:_parentDir,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0,_comCounts:{}};
-    const d=dirMap[dirKey];d.total++;
-    if(_isSec&&info.commercial){d._comCounts[info.commercial]=(d._comCounts[info.commercial]||0)+1;}
-    const pdvActif=_captePDVSet.has(cc);
-    if(_isProspect(info)){d.prospects++;}
-    else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
-    else{d.actifsLeg++;totalActifsLeg++;}
-    if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
-    d.caPDVZone+=(info.caPDVN||0);
-  }
+  const _overviewAgg=aggregateOverviewGroups(_captePDVSet);
+  const dirMap=_overviewAgg.groups;
+  const totalClients=_overviewAgg.stats.totalClients,filteredClients=_overviewAgg.stats.filteredClients,totalActifsPDV=_overviewAgg.totalActifsPDV,totalActifsLeg=_overviewAgg.totalActifsLeg,totalExcluded24m=_overviewAgg.stats.totalExcluded24m;
   const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
   // Clients hors zone : acheteurs PDV absents de la chalandise
@@ -2339,21 +2284,7 @@ function _toggleOverviewL2(dirEnc,idx){
   if(!isOpen){const inner=document.getElementById('overviewL2Inner-'+idx);if(inner)_renderOverviewL2(inner,decodeURIComponent(dirEnc));}
 }
 function _renderOverviewL2(el,direction){
-  const metierMap={};
-  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
-    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
-    if(dir!==direction)continue;
-    const m=info.metier||'Autre';
-    if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
-    const md=metierMap[m];md.total++;
-    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
-    if(_isProspect(info)){md.prospects++;}
-    else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
-    else{md.actifsLeg++;}
-    if(pdvActif)md.actifsPDV++;
-    md.caPDVZone+=(info.caPDVN||0);
-  }
-  let metiersArr=Object.values(metierMap).filter(m=>m.total>0);
+  let metiersArr=aggregateOverviewMetiers(direction,_overviewCaptePDVSet);
   // Sort by % capté ascending (opportunities first)
   metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
   if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun client pour ce filtre.</div>';return;}
@@ -2392,7 +2323,7 @@ function _toggleOverviewL3(dirEnc,mEnc,rowId){
   const isOpen=row.style.display!=='none';
   row.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
   if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner){
-    if(_overviewDirMode==='secteur'){
+    if(getOverviewMode()==='secteur'){
       // En mode Secteur, le L1 est déjà le secteur → sauter L3 (Secteur×Commercial), aller directement aux clients
       _renderOverviewL4(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc),decodeURIComponent(dirEnc));
     }else{
@@ -2401,24 +2332,7 @@ function _toggleOverviewL3(dirEnc,mEnc,rowId){
   }}
 }
 function _renderOverviewL3(el,direction,metier){
-  const sectMap={};
-  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
-    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
-    if(dir!==direction)continue;
-    if((info.metier||'Autre')!==metier)continue;
-    const sect=info.secteur||'—';
-    const comm=info.commercial||'—';
-    const key=sect+'||'+comm;
-    if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
-    const sd=sectMap[key];sd.total++;
-    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
-    if(_isProspect(info)){sd.prospects++;}
-    else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
-    else{sd.actifsLeg++;}
-    if(pdvActif)sd.actifsPDV++;
-    sd.caPDVZone+=(info.caPDVN||0);
-  }
-  let sectsArr=Object.values(sectMap);
+  let sectsArr=aggregateOverviewSecteurs(direction,metier,_overviewCaptePDVSet);
   sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
   if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun secteur identifié.</div>';return;}
   const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
@@ -2476,21 +2390,9 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     ? {min:_pStart.getFullYear()*12+_pStart.getMonth(), max:_pEnd.getFullYear()*12+_pEnd.getMonth()}
     : {min:_curYear*12, max:_curYear*12+11};
   const _periodLabel=(_pStart&&_pEnd)?'période':'année';
-  const clients=[];
-  for(const[cc,info] of _getFilteredChalandiseEntries().entries){
-    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
-    if(dir!==direction)continue;
-    if((info.metier||'Autre')!==metier)continue;
-    if((info.secteur||'—')!==secteur)continue;
-    const pdvActif=_overviewCaptePDVSet?_overviewCaptePDVSet.has(cc):_isPDVActif(cc);
-    if(!_passesClientCrossFilter(cc))continue;
-    // CA PDV = CA tous canaux myStore, sur la période sélectionnée (ou année civile)
-    // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable)
-    const _caPDV=getClientCAFullInMonthRange(cc,_ymRange)||0;
-    const _caLeg=info.ca2026||0;
-    const _pdvActifGlobal=_isPDVActif(cc);
-    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:_caLeg,caMag:_caPDV,ville:info.ville||'',_pdvActif:pdvActif,_pdvActifGlobal:_pdvActifGlobal});
-  }
+  // CA PDV = CA tous canaux myStore sur la période sélectionnée (ou année civile).
+  // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable).
+  const clients=aggregateOverviewClients({direction,metier,secteur,range:_ymRange,capteSet:_overviewCaptePDVSet});
   clients.sort(_overviewClientSort);
   if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
   const show=clients.slice(0,limit),more=clients.length-limit;
