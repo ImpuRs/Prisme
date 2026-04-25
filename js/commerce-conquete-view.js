@@ -27,6 +27,42 @@ export function renderOverviewHead(axisLabel,captSub=''){
   return `<tr><th class="py-1.5 px-2 text-left">${axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${captSub}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV${captSub}</th></tr>`;
 }
 
+export function renderTerrainFocusCoach({axisLabel,worst,totalActifsPDV,filteredClients,pctCapte,canalLabel}) {
+  if(!worst)return '';
+  const base=(worst.total||0)-(worst.prospects||0);
+  const pct=base>0?Math.round((worst.actifsPDV||0)/base*100):0;
+  const gap=Math.max(0,(worst.actifsLeg||0)-(worst.actifsPDV||0));
+  const accent=pct<10?'#f87171':pct<25?'#f59e0b':'#22d3ee';
+  const lever=gap>0
+    ? `${gap} client${gap>1?'s':''} déjà actif${gap>1?'s':''} Leg. à ramener au PDV`
+    : `${worst.perdus12_24||0} perdu${(worst.perdus12_24||0)>1?'s':''} récent${(worst.perdus12_24||0)>1?'s':''} à travailler`;
+  return `<div style="position:relative;overflow:hidden;border:1px solid rgba(96,165,250,0.28);background:linear-gradient(135deg,rgba(14,165,233,0.16),rgba(15,23,42,0.72) 52%,rgba(34,197,94,0.10));border-radius:16px;margin-bottom:12px;padding:14px 16px;box-shadow:0 16px 40px rgba(2,6,23,0.22)">
+    <div style="position:absolute;right:-40px;top:-60px;width:180px;height:180px;border-radius:999px;background:${accent};opacity:.10;filter:blur(6px)"></div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:relative">
+      <div style="min-width:220px;flex:1">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.45);font-weight:900">🎯 Priorité terrain</div>
+        <div style="font-size:16px;font-weight:950;color:#e2e8f0;margin-top:3px">${escapeHtml(axisLabel)} : <span style="color:${accent}">${escapeHtml(worst.dir||worst.secteur||'—')}</span></div>
+        <div style="font-size:11px;color:rgba(226,232,240,.62);margin-top:3px">${escapeHtml(lever)}${canalLabel?' · '+escapeHtml(canalLabel):''}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
+        <div style="min-width:90px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
+          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">Capté PDV</div>
+          <div style="font-size:22px;font-weight:950;color:${accent};line-height:1">${pct}%</div>
+        </div>
+        <div style="min-width:90px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
+          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">Clients</div>
+          <div style="font-size:22px;font-weight:950;color:#e2e8f0;line-height:1">${worst.total||0}</div>
+        </div>
+        <div style="min-width:110px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
+          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">Global</div>
+          <div style="font-size:22px;font-weight:950;color:#4ade80;line-height:1">${pctCapte}%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.32)">${totalActifsPDV}/${filteredClients}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderOverviewDataRow(d,idx,{grpId='',colSpan=9,hidden=false}={}){
   const pct=pctPair(d);
   const dirEnc=encodeURIComponent(d.dir);
