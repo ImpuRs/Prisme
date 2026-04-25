@@ -1726,7 +1726,7 @@ function _buildChalandiseOverviewInner(force){
       .map(d=>{const base=(d.total||0)-(d.prospects||0);return{...d,_base:base,_pct:base>0?(d.actifsPDV||0)/base:1,_gap:Math.max(0,(d.actifsLeg||0)-(d.actifsPDV||0))};})
       .filter(d=>d._base>0&&((d._gap||0)>0||(d.perdus12_24||0)>0));
     _candidates.sort((a,b)=>a._pct-b._pct||b._gap-a._gap||b.perdus12_24-a.perdus12_24||b.total-a.total);
-    _focusEl.innerHTML=renderTerrainFocusCoach({axisLabel:_axisLabel,worst:_candidates[0],totalActifsPDV,filteredClients,pctCapte,canalLabel:_oCanal&&_oCanal!=='MAGASIN'?_captLabel:''});
+    _focusEl.innerHTML=renderTerrainFocusCoach({axisLabel:_axisLabel,worst:_candidates[0],totalActifsPDV,totalActifsLeg,filteredClients,pctCapte,pctCapteLeg,canalLabel:_oCanal&&_oCanal!=='MAGASIN'?_captLabel:''});
     _focusEl.classList.toggle('hidden',!_candidates.length);
   }
   let html=renderOverviewL1Rows(dirsArr,{isSecteur:_isSec,colSpan});
