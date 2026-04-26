@@ -13,7 +13,7 @@ import { computeSquelette } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { getClientCAMagasinInMonthRange } from './sales.js';
+import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange } from './sales.js';
 import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
@@ -48,6 +48,44 @@ function closeDiagnostic(){
 function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn)_S._diagActions[idx].fn();}
 
 function closeArticlePanel(){const o=document.getElementById('articlePanelOverlay');if(o){o._cleanupFocusTrap?.();o.classList.remove('active');}}
+
+function _getDuelArticlePeriodStats(store,code){
+  const canalMap=_S._byMonthStoreArtCanal?.[store];
+  if(!canalMap)return null;
+  const pStart=_S.periodFilterStart;
+  const pEnd=_S.periodFilterEnd;
+  const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
+  const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+  const out={ca:0,vmb:0,bl:0,qteP:0};
+  for(const canal in canalMap){
+    const months=canalMap?.[canal]?.[code];
+    if(!months)continue;
+    for(const midxStr in months){
+      const midx=+midxStr;
+      if(midx<startIdx||midx>endIdx)continue;
+      const d=months[midxStr];
+      if(!d)continue;
+      out.ca+=d.sumCA||0;
+      out.vmb+=d.sumVMB||0;
+      out.bl+=d.countBL||0;
+      out.qteP+=d.sumQteP||d.sumPrelevee||0;
+    }
+  }
+  return out.ca||out.vmb||out.bl||out.qteP?out:null;
+}
+
+function _getArticlePeriodStats(code){
+  const pStart=_S.periodFilterStart;
+  const pEnd=_S.periodFilterEnd;
+  const curYear=new Date().getFullYear();
+  const range=(pStart||pEnd)
+    ? {min:pStart?(pStart.getFullYear()*12+pStart.getMonth()):0,max:pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999}
+    : {min:curYear*12,max:curYear*12+11};
+  const agg=buildArticleAggFromByMonth(range,{onlySixDigit:false,preleveePositiveOnly:false});
+  const d=agg?.get(code);
+  if(!d)return null;
+  return{ca:d.sumCA||0,vmb:0,bl:d.countBL||0,qteP:d.sumPrelevee||0,hasMonthly:true};
+}
 
 // ── Smart Co-achats — filtre anti-bruit (5 gestes Coach) ──────────
 // Geste 1 : Exclure les top 50 articles les + fréquents (CF/chewing-gums)
@@ -1000,17 +1038,22 @@ function openArticlePanel(code,source){
   const _seasonR = _seasonRibbon(r.famille);
   // Marge
   const vpm = _S.ventesParMagasin?.[_S.selectedMyStore]?.[code];
-  const artCA = vpm?.sumCA || r.caAnnuel || 0;
-  const artVMB = vpm?.sumVMB || 0;
+  const duelStats = _isDuelScope ? _getDuelArticlePeriodStats(_S.selectedMyStore,code) : null;
+  const periodStats = duelStats || _getArticlePeriodStats(code);
+  const artCA = periodStats ? periodStats.ca : (vpm?.sumCA || r.caAnnuel || 0);
+  const artVMB = periodStats ? periodStats.vmb : (vpm?.sumVMB || 0);
   const txMarge = artCA > 0 ? (artVMB / artCA * 100).toFixed(1) : '—';
+  const perfCALabel = duelStats ? 'CA duel période' : 'CA PDV période';
+  const perfV = periodStats ? periodStats.qteP : (r.V || 0);
+  const perfW = periodStats ? periodStats.bl : (r.W || 0);
   // Performance HTML (colonne gauche du split)
   const perfHtml = `<div class="diag-level" style="overflow:hidden;min-width:0"><div class="diag-level-hdr"><span class="font-bold text-sm">📊 Performance</span>${_sqBadge}</div>
     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-      <span class="t-disabled">CA PDV période</span><span class="font-bold c-ok">${artCA > 0 ? formatEuro(artCA) : '—'}</span>
+      <span class="t-disabled">${perfCALabel}</span><span class="font-bold c-ok">${artCA > 0 ? formatEuro(artCA) : '—'}</span>
       <span class="t-disabled">VMB</span><span class="font-bold">${artVMB > 0 ? formatEuro(artVMB) : '—'}</span>
       <span class="t-disabled">Tx marge</span><span class="font-bold ${typeof txMarge === 'string' && txMarge !== '—' && parseFloat(txMarge) < 25 ? 'c-danger' : ''}">${txMarge}${txMarge !== '—' ? '%' : ''}</span>
-      <span class="t-disabled">Prélevé (V)</span><span>${r.V || 0}</span>
-      <span class="t-disabled">Fréquence (W)</span><span>${r.W || 0} BL</span>
+      <span class="t-disabled">Prélevé (V)</span><span>${perfV || 0}</span>
+      <span class="t-disabled">Fréquence (W)</span><span>${perfW || 0} BL</span>
       <span class="t-disabled">PU</span><span>${r.prixUnitaire > 0 ? formatEuro(r.prixUnitaire) : '—'}</span>
     </div>
     ${_artSpk ? `<div class="mt-2"><span class="text-[10px] t-disabled">Historique ventes</span>${_artSpk}</div>` : ''}

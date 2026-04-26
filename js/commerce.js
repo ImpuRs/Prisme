@@ -13,7 +13,8 @@ import {
   _clientPassesFilters, _unikLink,
   _passesClientCrossFilter,
   _isGlobalActif, _isPerdu,
-  _isPerdu24plus, _clientStatusText
+  _isPerdu24plus, _clientStatusText,
+  getUniversFilteredCA
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
@@ -1599,6 +1600,23 @@ function _passesOverviewClient(info,cc,capteSet=_overviewCaptePDVSet,opts={}){
 function _getFilteredChalandiseEntries(capteSet=_overviewCaptePDVSet){
   return _getFilteredChalandiseEntriesRaw(capteSet);
 }
+function _computeOverviewUniversKpi(capteSet){
+  const selected=[...(_S._selectedUnivers||new Set())];
+  if(!selected.length)return null;
+  const {entries}=_getFilteredChalandiseEntries(capteSet);
+  let caUnivers=0,captes=0,acheteurs=0;
+  for(const[cc]of entries){
+    if(!capteSet?.has(cc))continue;
+    captes++;
+    const ca=getUniversFilteredCA(cc)||0;
+    caUnivers+=ca;
+    if(ca>0)acheteurs++;
+  }
+  const avg=captes>0?caUnivers/captes:0;
+  const avgBuyer=acheteurs>0?caUnivers/acheteurs:0;
+  const label=selected.length===1?selected[0]:'univers';
+  return{label,caUnivers,captes,acheteurs,avg,avgBuyer};
+}
 function _buildChalandiseOverviewInner(force){
   // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
   const _key=_buildOverviewCacheKey();
@@ -1631,6 +1649,7 @@ function _buildChalandiseOverviewInner(force){
   const _overviewAgg=aggregateOverviewGroups(_captePDVSet);
   const dirMap=_overviewAgg.groups;
   const totalClients=_overviewAgg.stats.totalClients,filteredClients=_overviewAgg.stats.filteredClients,totalActifsPDV=_overviewAgg.totalActifsPDV,totalActifsLeg=_overviewAgg.totalActifsLeg,totalExcluded24m=_overviewAgg.stats.totalExcluded24m;
+  const _universKpi=_computeOverviewUniversKpi(_captePDVSet);
   const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
   // Clients hors zone : acheteurs PDV absents de la chalandise
@@ -1682,12 +1701,14 @@ function _buildChalandiseOverviewInner(force){
       </div>`;
     const _exclusBadge=(!_S._includePerdu24m&&totalExcluded24m>0)
       ?`<div style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;min-width:80px"><span style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;text-transform:uppercase">🚫 Exclus</span><span style="font-size:18px;font-weight:800;color:rgba(251,191,36,0.7)">${totalExcluded24m}</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:1px">&gt;24 mois</span></div>`:'' ;
+    const _universTile=_universKpi?`${_tile('🧾',formatEuro(_universKpi.avg),`CA ${escapeHtml(_universKpi.label)} / capté`,`${formatEuro(_universKpi.caUnivers)} · ${_universKpi.acheteurs}/${_universKpi.captes} acheteurs · ${formatEuro(_universKpi.avgBuyer)}/acheteur`,'#22d3ee')}`:'';
     const _filterBadge=filterActive?`<div style="position:absolute;top:8px;right:12px;font-size:9px;background:rgba(234,179,8,0.2);color:#fde047;padding:2px 8px;border-radius:99px;font-weight:700;letter-spacing:.05em">FILTRÉ</div>`:'';
     bar.innerHTML=`<div style="position:relative;display:flex;align-items:stretch;overflow:hidden">
       ${_filterBadge}
       ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
       ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
       ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}${_oCanal&&_oCanal!=='MAGASIN'?' · via '+_canalLabel:''}`,'#4ade80')}
+      ${_universTile}
       ${_tile('⚠️',_horsZoneCount.toLocaleString('fr-FR'),'Hors zone',_horsZoneCA>0?formatEuro(_horsZoneCA)+' CA PDV':'','#fcd34d')}
       ${_exclusBadge}
     </div>`;

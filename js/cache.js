@@ -492,6 +492,9 @@ async function _saveSessionToIDBNow() {
       clientNomLookup:       _S.clientNomLookup,
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
       caClientParStore: _serializeMapsObj(_S.caClientParStore),
+      clientsByStoreUnivers: Object.fromEntries(Object.entries(_S.clientsByStoreUnivers || {}).map(([sk, univers]) =>
+        [sk, Object.fromEntries(Object.entries(univers || {}).map(([u, set]) => [u, [...(set || [])]]))]
+      )),
       commandesPerStoreCanal: _serializeCmdPerStoreCanal(_S.commandesPerStoreCanal),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
       articleClientsFull:    [..._S.articleClientsFull].map(([k, v]) => [k, [...v]]),
@@ -654,6 +657,9 @@ export async function _restoreSessionFromIDB() {
     _S.clientNomLookup       = data.clientNomLookup       || {};
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
     _S.caClientParStore = _deserializeMapsObj(data.caClientParStore || {});
+    _S.clientsByStoreUnivers = Object.fromEntries(Object.entries(data.clientsByStoreUnivers || {}).map(([sk, univers]) =>
+      [sk, Object.fromEntries(Object.entries(univers || {}).map(([u, arr]) => [u, new Set(arr || [])]))]
+    ));
     _S.commandesPerStoreCanal = _deserializeCmdPerStoreCanal(data.commandesPerStoreCanal || {});
     _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
     _S.articleClientsFull    = new Map((data.articleClientsFull || []).map(([k, v]) => [k, new Set(v)]));

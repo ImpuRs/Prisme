@@ -362,12 +362,29 @@ function _walletPct(myCA, tgtCA) {
   return Math.round((myCA || 0) / total * 100);
 }
 
+function _getUniverseBuyerMetrics(universeName, myStore, tgtStore, universeRow) {
+  const idx = _S.clientsByStoreUnivers || {};
+  const myStoreIdx = idx[myStore];
+  const tgtStoreIdx = idx[tgtStore];
+  const available = !!(myStoreIdx && tgtStoreIdx && universeName);
+  const myBuyers = available ? (myStoreIdx[universeName]?.size || 0) : null;
+  const tgtBuyers = available ? (tgtStoreIdx[universeName]?.size || 0) : null;
+  const myCA = universeRow?.myCA || 0;
+  const tgtCA = universeRow?.tgtCA || 0;
+  return {
+    available,
+    myBuyers,
+    tgtBuyers,
+    myAvg: available && myBuyers > 0 ? myCA / myBuyers : 0,
+    tgtAvg: available && tgtBuyers > 0 ? tgtCA / tgtBuyers : 0,
+  };
+}
+
 function _decisionModel(duel, myStore, tgtStore) {
   const positiveUnivers = [...(duel.univers || [])]
     .filter(u => u.ecart > 0)
     .sort((a, b) => b.ecart - a.ecart);
   const focusUniverse = (_duelUniversFilter && positiveUnivers.find(u => u.nom === _duelUniversFilter)) || positiveUnivers[0] || null;
-  const clientsData = null; // Opportunités clients supprimées — poches Conquête Terrain
 
   const focusFams = focusUniverse
     ? duel.familles
@@ -385,58 +402,40 @@ function _decisionModel(duel, myStore, tgtStore) {
     .sort((a, b) => (b.tgtCA - b.myCA) - (a.tgtCA - a.myCA))
     .slice(0, 5);
 
-  const chal = _S.chalandiseData;
-  let focusClients = [];
-  if (chal?.size && clientsData && focusUniverse) {
-    focusClients = [...clientsData.recover, ...clientsData.conquest]
-      .filter(c => _metierMatchesUniverse(chal.get(c.cc)?.metier || '', focusUniverse.nom))
-      .sort((a, b) => Math.max(b.gap || b.hisCA || 0, 0) - Math.max(a.gap || a.hisCA || 0, 0))
-      .slice(0, 6);
-  }
-  if (!focusClients.length && clientsData) {
-    focusClients = [...clientsData.recover, ...clientsData.conquest]
-      .sort((a, b) => Math.max(b.gap || b.hisCA || 0, 0) - Math.max(a.gap || a.hisCA || 0, 0))
-      .slice(0, 6);
-  }
-
-  const topRecover = clientsData?.recover?.slice(0, 5) || [];
-  const topConquest = clientsData?.conquest?.slice(0, 5) || [];
-  const recoverPot = clientsData?.sums?.recoverGap || 0;
-  const conquestPot = clientsData?.sums?.conquestCA || 0;
   const universeGap = focusUniverse?.ecart || 0;
   const familyGap = focusFams.reduce((s, f) => s + Math.max(f.ecart || 0, 0), 0);
   const missingRefs = focusFams.reduce((s, f) => s + (f.missing?.count || 0), 0);
+  const metierGap = focusMetiers.reduce((s, m) => s + Math.max((m.tgtCA || 0) - (m.myCA || 0), 0), 0);
+  const topFam = focusFams[0] || null;
+  const topMetier = focusMetiers[0] || null;
+  const mixGapPts = focusUniverse ? focusUniverse.tgtPct - focusUniverse.myPct : 0;
+  const buyerMetrics = focusUniverse ? _getUniverseBuyerMetrics(focusUniverse.nom, myStore, tgtStore, focusUniverse) : null;
 
-  let headline = 'Comparer sans action prioritaire';
-  let decision = 'Aucun retard exploitable net';
+  let headline = 'Pas de chantier magasin évident';
+  let decision = 'Le duel ne prouve pas encore un besoin de développement magasin';
   let confidence = 'faible';
-  if (focusUniverse && universeGap >= Math.max(5000, recoverPot * 0.6, conquestPot * 0.35)) {
+  if (focusUniverse && universeGap >= 5000 && (focusFams.length >= 2 || focusMetiers.length >= 2 || mixGapPts >= 3)) {
     headline = `Développer ${focusUniverse.nom}`;
-    decision = `Ouvrir le chantier ${focusUniverse.nom} avant de descendre aux références`;
-    confidence = focusFams.length >= 3 || focusMetiers.length >= 2 || focusClients.length >= 3 ? 'forte' : 'moyenne';
-  } else if (recoverPot >= conquestPot && recoverPot > 0) {
-    headline = 'Récupérer du wallet';
-    decision = 'Appeler les clients partagés où l’agence cible prend plus de CA';
-    confidence = topRecover.length >= 3 ? 'forte' : 'moyenne';
-  } else if (conquestPot > 0) {
-    headline = 'Conquérir des clients zone';
-    decision = 'Cibler les clients de ta zone qui achètent déjà chez l’agence comparée';
-    confidence = topConquest.length >= 3 ? 'moyenne' : 'faible';
+    decision = `Le duel justifie un plan magasin : kit familles + relais Conquête pour les clients`;
+    confidence = focusFams.length >= 3 && focusMetiers.length >= 2 && mixGapPts >= 3 ? 'forte' : 'moyenne';
+  } else if (focusUniverse && universeGap > 0) {
+    headline = `Surveiller ${focusUniverse.nom}`;
+    decision = `Écart visible, mais à confirmer avant d'ouvrir un kit magasin`;
+    confidence = 'moyenne';
   }
 
   return {
     focusUniverse,
     focusFams,
     focusMetiers,
-    focusClients,
-    clientsData,
-    topRecover,
-    topConquest,
-    recoverPot,
-    conquestPot,
     universeGap,
     familyGap,
+    metierGap,
     missingRefs,
+    topFam,
+    topMetier,
+    mixGapPts,
+    buyerMetrics,
     headline,
     decision,
     confidence,
@@ -457,14 +456,11 @@ function _miniBar(myVal, tgtVal) {
 function _buildDecisionCockpit(m, myStore, tgtStore) {
   const u = m.focusUniverse;
   const confColor = m.confidence === 'forte' ? '#22c55e' : m.confidence === 'moyenne' ? '#f59e0b' : '#94a3b8';
-  const mixDelta = u ? u.tgtPct - u.myPct : 0;
   const wallet = u ? _walletPct(u.myCA, u.tgtCA) : null;
-  const topFam = m.focusFams[0];
-  const topMetier = m.focusMetiers[0];
-  const topClient = m.focusClients[0];
-  const clientName = topClient
-    ? (_S.chalandiseData?.get(topClient.cc)?.nom || _S.clientNomLookup?.[topClient.cc] || topClient.cc)
-    : '';
+  const bm = m.buyerMetrics;
+  const buyerHint = bm?.available
+    ? `${bm.myBuyers} acheteurs moi · ${bm.tgtBuyers} lui`
+    : 'Recharge les fichiers pour activer les acheteurs par agence';
 
   const kpiCards = [
     {
@@ -474,22 +470,28 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
       color: u?.ecart > 0 ? '#ef4444' : '#94a3b8',
     },
     {
-      label: 'Familles à ouvrir',
+      label: 'Acheteurs',
+      value: bm?.available ? `${bm.myBuyers} → ${bm.tgtBuyers}` : '—',
+      hint: buyerHint,
+      color: '#22c55e',
+    },
+    {
+      label: 'CA / acheteur',
+      value: bm?.available ? `${formatEuro(bm.myAvg)} → ${formatEuro(bm.tgtAvg)}` : '—',
+      hint: bm?.available ? `écart ${_signedEuro(bm.tgtAvg - bm.myAvg)} par acheteur` : 'Index acheteurs non disponible',
+      color: '#06b6d4',
+    },
+    {
+      label: 'Familles à soutenir',
       value: m.focusFams.length ? String(m.focusFams.length) : '—',
-      hint: m.missingRefs ? `${m.missingRefs} refs absentes chez moi` : 'Pas de trou assortiment majeur',
+      hint: m.topFam ? `${escapeHtml(m.topFam.label || m.topFam.fam)} · ${_signedEuro(m.topFam.ecart)}` : 'Pas de famille porteuse',
       color: '#3b82f6',
     },
     {
-      label: 'Clients à travailler',
-      value: m.focusClients.length ? String(m.focusClients.length) : '—',
-      hint: m.focusClients.length ? `top visible ${formatEuro(m.focusClients.reduce((s, c) => s + Math.max(c.gap || c.hisCA || 0, 0), 0))}` : 'Aucun client zone prioritaire',
+      label: 'Métiers concernés',
+      value: m.focusMetiers.length ? String(m.focusMetiers.length) : '—',
+      hint: m.topMetier ? `${escapeHtml(m.topMetier.metier)} · ${_signedEuro(m.topMetier.tgtCA - m.topMetier.myCA)}` : 'Pas de métier explicatif',
       color: '#f59e0b',
-    },
-    {
-      label: 'Action commerciale',
-      value: topMetier ? String(topMetier.tgtClients - topMetier.myClients) : '—',
-      hint: topMetier ? `${escapeHtml(topMetier.metier)} · écart clients` : 'Métier non discriminant',
-      color: '#8b5cf6',
     },
   ].map(c => `<div class="rounded-lg border p-3" style="border-color:var(--b-light);background:rgba(255,255,255,.02)">
     <div class="text-[10px] uppercase font-bold t-disabled mb-1">${c.label}</div>
@@ -511,7 +513,7 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
           <div class="text-[10px] t-disabled">${escapeHtml(myStore)} vs ${escapeHtml(tgtStore)}</div>
         </div>
       </div>
-      <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mt-4">${kpiCards}</div>
+      <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-4">${kpiCards}</div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
@@ -521,30 +523,30 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
           <div class="flex items-center gap-2 text-[12px]">
             <span class="t-secondary">Mix</span>
             <span class="ml-auto font-mono t-primary">${u.myPct.toFixed(1)}% → ${u.tgtPct.toFixed(1)}%</span>
-            <span class="font-bold text-red-400">${mixDelta > 0 ? '+' : ''}${mixDelta.toFixed(1)} pts</span>
+            <span class="font-bold text-red-400">${m.mixGapPts > 0 ? '+' : ''}${m.mixGapPts.toFixed(1)} pts</span>
           </div>
           ${_miniBar(u.myCA, u.tgtCA)}
-          <div class="text-[11px] t-secondary">Portefeuille capté : <strong class="t-primary">${wallet == null ? '—' : wallet + '%'}</strong></div>
-          ${topFam ? `<div class="text-[11px] t-secondary">Première famille : <button class="font-bold t-primary hover:underline" onclick="window._duelOpenPlanFam('${_jsArg(u.nom)}','${_jsArg(topFam.fam)}')">${escapeHtml(topFam.label || topFam.fam)}</button> <span class="text-red-400">${_signedEuro(topFam.ecart)}</span></div>` : ''}
+          <div class="text-[11px] t-secondary">Part captée dans le duel : <strong class="t-primary">${wallet == null ? '—' : wallet + '%'}</strong></div>
+          ${m.topFam ? `<div class="text-[11px] t-secondary">Première famille : <button class="font-bold t-primary hover:underline" onclick="window._duelOpenPlanFam('${_jsArg(u.nom)}','${_jsArg(m.topFam.fam)}')">${escapeHtml(m.topFam.label || m.topFam.fam)}</button> <span class="text-red-400">${_signedEuro(m.topFam.ecart)}</span></div>` : ''}
         </div>` : '<div class="text-[11px] t-disabled">Pas d’univers prioritaire détecté.</div>'}
       </div>
 
       <div class="p-4 lg:border-r" style="border-color:var(--b-light)">
-        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Qui travailler</div>
-        ${topClient ? `<button class="w-full text-left rounded-lg border p-3 hover:border-blue-400" style="border-color:var(--b-light)" onclick="if(window.openClient360)window.openClient360('${_jsArg(topClient.cc)}','duel')">
-          <div class="text-[12px] font-bold t-primary truncate">${escapeHtml(clientName)}</div>
-          <div class="text-[10px] t-disabled mt-1">${escapeHtml(_S.chalandiseData?.get(topClient.cc)?.metier || '')}</div>
-          <div class="text-sm font-mono font-bold text-red-400 mt-2">${_signedEuro(Math.max(topClient.gap || topClient.hisCA || 0, 0))}</div>
-        </button>` : '<div class="text-[11px] t-disabled">Aucun client prioritaire nommé.</div>'}
-        ${m.focusClients.length > 1 ? `<div class="text-[10px] t-disabled mt-2">${m.focusClients.length - 1} autres clients dans le plan</div>` : ''}
+        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Ce que ça prouve</div>
+        <div class="space-y-2 text-[11px]">
+          <div class="rounded-md p-2" style="background:rgba(239,68,68,.08);color:#fca5a5">Retard CA : <strong>${_signedEuro(m.universeGap)}</strong> sur l'univers.</div>
+          ${bm?.available ? `<div class="rounded-md p-2" style="background:rgba(6,182,212,.08);color:#67e8f9">Transformation : <strong>${bm.myBuyers}</strong> acheteurs moi vs <strong>${bm.tgtBuyers}</strong> lui · <strong>${formatEuro(bm.myAvg)}</strong> vs <strong>${formatEuro(bm.tgtAvg)}</strong>/acheteur.</div>` : ''}
+          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac">Mix : <strong>${m.mixGapPts > 0 ? '+' : ''}${m.mixGapPts.toFixed(1)} pts</strong> vs agence cible.</div>
+          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd">Assortiment : <strong>${m.focusFams.length}</strong> familles à travailler.</div>
+        </div>
       </div>
 
       <div class="p-4">
         <div class="text-[10px] uppercase font-bold t-disabled mb-2">Plan court</div>
         <div class="space-y-2 text-[11px]">
-          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac"><strong>J+7</strong> : valider ${Math.min(3, m.focusFams.length) || 0} familles et appeler ${Math.min(5, m.focusClients.length) || 0} clients.</div>
-          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd"><strong>J+30</strong> : construire un kit métier, pas une liste de références isolées.</div>
-          <div class="rounded-md p-2" style="background:rgba(245,158,11,.08);color:#fcd34d"><strong>Mesure</strong> : suivre CA clients ciblés, mix univers et familles ouvertes.</div>
+          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac"><strong>Décider</strong> : oui/non sur un chantier magasin ${u ? escapeHtml(u.nom) : ''}.</div>
+          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd"><strong>Construire</strong> : kit court par familles, pas liste de refs isolées.</div>
+          <div class="rounded-md p-2" style="background:rgba(245,158,11,.08);color:#fcd34d"><strong>Exécuter</strong> : détail clients/commerciaux dans Conquête.</div>
         </div>
       </div>
     </div>
@@ -552,8 +554,6 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
 }
 
 function _buildDecisionEvidence(m) {
-  const chal = _S.chalandiseData;
-
   const famRows = m.focusFams.slice(0, 5).map(f => {
     const miss = f.missing || { count: 0, top: [] };
     const codes = miss.top.map(a => a.code).join(', ');
@@ -578,20 +578,7 @@ function _buildDecisionEvidence(m) {
     </div>`;
   }).join('');
 
-  const clientRows = m.focusClients.slice(0, 6).map(c => {
-    const info = chal?.get(c.cc) || {};
-    const nom = info.nom || _S.clientNomLookup?.[c.cc] || c.cc;
-    const amount = Math.max(c.gap || c.hisCA || 0, 0);
-    return `<button class="w-full text-left py-2 px-2 rounded-md hover:bg-gray-800 transition-colors" onclick="if(window.openClient360)window.openClient360('${_jsArg(c.cc)}','duel')">
-      <div class="flex gap-2 items-center">
-        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(nom)}</span>
-        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${formatEuro(amount)}</span>
-      </div>
-      <div class="text-[10px] t-disabled truncate">${escapeHtml([info.metier, info.distanceKm != null ? Math.round(+info.distanceKm) + 'km' : ''].filter(Boolean).join(' · '))}</div>
-    </button>`;
-  }).join('');
-
-  return `<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+  return `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
     <div class="s-card rounded-xl border p-4">
       <div class="flex items-center gap-2 mb-3">
         <h3 class="text-sm font-bold t-primary">Familles à ouvrir</h3>
@@ -604,12 +591,6 @@ function _buildDecisionEvidence(m) {
         <h3 class="text-sm font-bold t-primary">Métiers qui expliquent l’écart</h3>
       </div>
       <div class="space-y-2">${metierRows || '<div class="text-[11px] t-disabled py-4">Aucun métier discriminant.</div>'}</div>
-    </div>
-    <div class="s-card rounded-xl border p-4">
-      <div class="flex items-center gap-2 mb-3">
-        <h3 class="text-sm font-bold t-primary">Clients à traiter</h3>
-      </div>
-      ${clientRows || '<div class="text-[11px] t-disabled py-4">Aucun client prioritaire nommé.</div>'}
     </div>
   </div>`;
 }

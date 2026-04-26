@@ -167,6 +167,7 @@ _S.clientLastOrderByCanal = new Map(); // Map<clientCode, Map<canal, Date>> — 
 _S.clientNomLookup = {};
 _S.ventesClientsPerStore = {};
 _S.caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
+_S.clientsByStoreUnivers = {}; // {store → {univers → Set<cc>}} — période active, tous canaux
 _S.commandesPerStoreCanal = {};
 _S.articleClients = new Map();
 _S.clientArticles = new Map();
@@ -371,7 +372,7 @@ export function resetAppState() {
 
   // Clients
   _S.ventesClientArticle = new Map(); _S.ventesClientMagFull = new Map(); _S.ventesClientArticleReseau = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
-  _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
+  _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.clientsByStoreUnivers = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
