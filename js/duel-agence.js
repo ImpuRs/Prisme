@@ -470,7 +470,7 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
       color: u?.ecart > 0 ? '#ef4444' : '#94a3b8',
     },
     {
-      label: 'Acheteurs',
+      label: 'Acheteurs 12MG',
       value: bm?.available ? `${bm.myBuyers} → ${bm.tgtBuyers}` : '—',
       hint: buyerHint,
       color: '#22c55e',

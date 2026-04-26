@@ -1792,8 +1792,8 @@ _S.canalAgence=newCanalAgence;
       } // end !isRefilter for period-independent blocks
       // Parse date une seule fois — réutilisé par sumCAAll, filtre hors-MAGASIN, et filtre MAGASIN plus bas
       const dateV=parseExcelDate(_rj);
-      // Acheteurs par agence × univers — on collecte ici, puis on résout l'univers après le stock.
-      {const _ccBU=extractClientCode(_rc);const _codeBU=cleanCode(_ra);if(_ccBU&&_codeBU&&!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)){
+      // Acheteurs par agence × univers — pleine période, on résout l'univers après le stock.
+      if(!isRefilter){const _ccBU=extractClientCode(_rc);const _codeBU=cleanCode(_ra);if(_ccBU&&_codeBU){
         const _storeBU=_rs==='INCONNU'?(_S.selectedMyStore||_rs):_rs;
         const _caBU=_rcp+_rce;const _qBU=_rqp+_rqe;
         const _uvBU=(CI.univers!==null?(row[CI.univers]??''):'').toString().trim();
@@ -2026,10 +2026,8 @@ _S.canalAgence=newCanalAgence;
       _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
-      // Acheteurs par agence × univers : résolution après stock, car certains consommés n'ont pas l'univers/famille.
-      // Placé hors bloc stock pour rester correct lors d'un refiltrage période.
-      // clientsByStoreUnivers — now built in parse-worker and hydrated via _hydrateStateFromParseResult
-      // Legacy fallback for processDataFromRaw (refilter from IDB cache)
+      // Acheteurs par agence × univers : résolution après stock (certains consommés n'ont pas l'univers/famille).
+      // clientsByStoreUnivers = pleine période 12MG (structurel, pas filtré par période).
       if (!Object.keys(_S.clientsByStoreUnivers || {}).length) {
         _S.clientsByStoreUnivers={};
         for(const row of _storeUniverseBuyerRows){
