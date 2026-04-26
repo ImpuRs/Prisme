@@ -617,6 +617,7 @@ async function _handleParseMessage(data) {
     var commandesPDV = new Set();
     var ventesClientAutresAgences = new Map();
     var clientsByStoreUnivers = {}; // {store → {univers → Set<cc>}}
+    var _cbuDeferred = []; // rows where univers couldn't be resolved inline — second pass after articleFamille complete
     var minDateVente = Infinity, maxDateVente = 0;
     var _tempCAAll = new Map();
     var _tempCAAllFull = new Map();
@@ -902,6 +903,8 @@ async function _handleParseMessage(data) {
               if (!clientsByStoreUnivers[_skCli_h]) clientsByStoreUnivers[_skCli_h] = {};
               if (!clientsByStoreUnivers[_skCli_h][_uvH]) clientsByStoreUnivers[_skCli_h][_uvH] = new Set();
               clientsByStoreUnivers[_skCli_h][_uvH].add(_cc_bm_h);
+            } else if (codeArt_h) {
+              _cbuDeferred.push({ store: _skCli_h, cc: _cc_bm_h, code: codeArt_h });
             }
           }
           // ventesParMagasinByCanal
@@ -961,11 +964,15 @@ async function _handleParseMessage(data) {
       // articleRaw (W/V/MIN/MAX — hoisted, no period filter)
       var cc2 = extractClientCode(_rc);
       // clientsByStoreUnivers — store × client × univers (tous canaux, period-filtered)
-      if (univConso && cc2 && sk && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
+      var _univBU = univConso;
+      if (!_univBU && code) { var _fBU = articleFamille[code] || ''; if (_fBU) _univBU = FAM_LETTER_UNIVERS[_fBU[0].toUpperCase()] || ''; }
+      if (_univBU && cc2 && sk && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
         var _skBU = sk === 'INCONNU' ? (selectedStore || sk) : sk;
         if (!clientsByStoreUnivers[_skBU]) clientsByStoreUnivers[_skBU] = {};
-        if (!clientsByStoreUnivers[_skBU][univConso]) clientsByStoreUnivers[_skBU][univConso] = new Set();
-        clientsByStoreUnivers[_skBU][univConso].add(cc2);
+        if (!clientsByStoreUnivers[_skBU][_univBU]) clientsByStoreUnivers[_skBU][_univBU] = new Set();
+        clientsByStoreUnivers[_skBU][_univBU].add(cc2);
+      } else if (!_univBU && cc2 && sk && code && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
+        _cbuDeferred.push({ store: sk === 'INCONNU' ? (selectedStore || sk) : sk, cc: cc2, code: code });
       }
       var nc = (_hasCommandeCol ? (_rncb || '') : ('__r' + i)).toString().trim() || ('__r' + i);
       if (dateV && code && (!selectedStore || sk === selectedStore) && qteP > 0) {
@@ -1491,6 +1498,17 @@ async function _handleParseMessage(data) {
     // ── globalJoursOuvres ─────────────────────────────────────────────────
     var consommeMoisCouverts = (minDateVente < Infinity && maxDateVente > 0)
       ? Math.round(daysBetween(new Date(minDateVente), new Date(maxDateVente)) / 30.5) : 0;
+
+    // ── clientsByStoreUnivers — second pass pour résolutions différées ────
+    for (var di = 0; di < _cbuDeferred.length; di++) {
+      var dr = _cbuDeferred[di];
+      var _fDef = articleFamille[dr.code] || '';
+      var _uDef = _fDef ? (FAM_LETTER_UNIVERS[_fDef[0].toUpperCase()] || '') : (articleUnivers[dr.code] || '');
+      if (!_uDef) continue;
+      if (!clientsByStoreUnivers[dr.store]) clientsByStoreUnivers[dr.store] = {};
+      if (!clientsByStoreUnivers[dr.store][_uDef]) clientsByStoreUnivers[dr.store][_uDef] = new Set();
+      clientsByStoreUnivers[dr.store][_uDef].add(dr.cc);
+    }
 
     // ── Retourner les résultats ───────────────────────────────────────────
     self.postMessage({ type: 'progress', pct: 95, msg: 'Sérialisation…' });
