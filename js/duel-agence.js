@@ -23,11 +23,10 @@ let _duelDrillTab = 'manquant';
 let _duelShowAllMetiers = false;
 let _duelOpenMetier = '';
 let _duelMetierTab = 'partages'; // partages | conquete | fideles
-let _duelClientsTab = 'conquete'; // conquete | partages | fideles
+// _duelClientsTab supprimé — Opportunités clients déplacées vers poches Conquête Terrain
+let _duelAuditOpen = false;
 
 // Cache local (évite de re-parcourir 40k clients à chaque re-render sur un simple toggle UI)
-let _duelClientsCacheKey = '';
-let _duelClientsCache = null;
 
 // Cache duel (évite de recalculer toute l'agrégation sur de simples toggles UI)
 let _duelCacheKey = '';
@@ -82,7 +81,7 @@ function _buildDataHealthNotice(myStore, tgtStore) {
   const notes = [];
   if (hasPeriod && !_S._byMonthStoreArtCanal) notes.push('agrégats mensuels agence absents : KPI/familles en fallback pleine période');
   if (hasPeriod && (!_S._byMonthStoreClientCA?.[myStore] || !_S._byMonthStoreClientCA?.[tgtStore])) notes.push('CA client mensuel incomplet : diagnostic métier moins précis');
-  if (!_S.chalandiseData?.size) notes.push('zone chalandise absente : opportunités clients et métiers désactivés');
+  if (!_S.chalandiseData?.size) notes.push('zone chalandise absente : diagnostic métiers désactivé');
   if (!notes.length) return '';
   return `<div class="mb-4 rounded-lg border px-3 py-2 text-[11px] text-amber-300" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35)">
     ${notes.map(escapeHtml).join(' · ')}
@@ -272,24 +271,8 @@ function _computeMetierMix(myStore, tgtStore) {
     }
   }
 
-  for (const cc of myClients) {
-    if (chal.has(cc)) continue;
-    const k = 'Hors zone';
-    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0, tgtClientCCs: [] };
-    metierMap[k].myClients++;
-    if (myCAMap?.has(cc)) metierMap[k].myCA += myCAMap.get(cc);
-  }
-  for (const cc of tgtClients) {
-    if (chal.has(cc)) continue;
-    const k = 'Hors zone';
-    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0, tgtClientCCs: [] };
-    metierMap[k].tgtClients++;
-    if (tgtCAMap?.has(cc)) metierMap[k].tgtCA += tgtCAMap.get(cc);
-    metierMap[k].tgtClientCCs.push(cc);
-  }
-
   return Object.entries(metierMap)
-    .filter(([, d]) => d.zoneTotal > 0 || d.myClients > 0 || d.tgtClients > 0)
+    .filter(([, d]) => d.zoneTotal > 0)
     .map(([metier, d]) => ({
       metier,
       zoneTotal: d.zoneTotal,
@@ -353,22 +336,296 @@ export function renderDuelTab() {
 
   html.push(_buildDataHealthNotice(myStore, _duelTarget));
 
-  // ── Section 1 : KPI Scorecard ──
-  html.push(_buildKPIScorecard(duel, myStore, _duelTarget));
-
-  // ── Section 1.5 : Opportunités clients (zone chalandise) ──
-  html.push(_buildClientsSection(myStore, _duelTarget));
-
-  // ── Section 2 : Mix Métier ──
-  html.push(_buildMetierSection(duel, myStore, _duelTarget));
-
-  // ── Section 3 : Univers ──
-  html.push(_buildUniversSection(duel, myStore, _duelTarget));
-
-  // ── Section 4 : Familles ──
-  html.push(_buildFamillesSection(duel, myStore, _duelTarget));
+  // ── Cockpit décision : un diagnostic, des preuves, un plan ──
+  const decision = _decisionModel(duel, myStore, _duelTarget);
+  html.push(_buildDecisionCockpit(decision, myStore, _duelTarget));
+  html.push(_buildDecisionEvidence(decision));
+  html.push(_buildAuditDetails(duel, myStore, _duelTarget));
 
   el.innerHTML = html.join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Cockpit décision — un duel doit produire une décision, pas un rapport
+// ═══════════════════════════════════════════════════════════════
+function _jsArg(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function _signedEuro(v) {
+  return `${v > 0 ? '+' : ''}${formatEuro(v || 0)}`;
+}
+
+function _walletPct(myCA, tgtCA) {
+  const total = (myCA || 0) + (tgtCA || 0);
+  if (total <= 0) return null;
+  return Math.round((myCA || 0) / total * 100);
+}
+
+function _decisionModel(duel, myStore, tgtStore) {
+  const positiveUnivers = [...(duel.univers || [])]
+    .filter(u => u.ecart > 0)
+    .sort((a, b) => b.ecart - a.ecart);
+  const focusUniverse = (_duelUniversFilter && positiveUnivers.find(u => u.nom === _duelUniversFilter)) || positiveUnivers[0] || null;
+  const clientsData = _computeDuelClients(myStore, tgtStore);
+
+  const focusFams = focusUniverse
+    ? duel.familles
+      .filter(f => f.univers === focusUniverse.nom && f.ecart > 0)
+      .sort((a, b) => b.ecart - a.ecart)
+      .slice(0, 6)
+      .map(f => ({ ...f, missing: _missingArticlesForFam(f.fam, myStore, tgtStore) }))
+    : [];
+
+  const metiersRaw = (duel.metiers || [])
+    .filter(m => m.metier !== 'Hors zone' && m.metier !== 'Non renseigné' && (m.tgtCA - m.myCA) > 0);
+  let focusMetiers = focusUniverse ? metiersRaw.filter(m => _metierMatchesUniverse(m.metier, focusUniverse.nom)) : metiersRaw;
+  if (!focusMetiers.length) focusMetiers = metiersRaw;
+  focusMetiers = focusMetiers
+    .sort((a, b) => (b.tgtCA - b.myCA) - (a.tgtCA - a.myCA))
+    .slice(0, 5);
+
+  const chal = _S.chalandiseData;
+  let focusClients = [];
+  if (chal?.size && clientsData && focusUniverse) {
+    focusClients = [...clientsData.recover, ...clientsData.conquest]
+      .filter(c => _metierMatchesUniverse(chal.get(c.cc)?.metier || '', focusUniverse.nom))
+      .sort((a, b) => Math.max(b.gap || b.hisCA || 0, 0) - Math.max(a.gap || a.hisCA || 0, 0))
+      .slice(0, 6);
+  }
+  if (!focusClients.length && clientsData) {
+    focusClients = [...clientsData.recover, ...clientsData.conquest]
+      .sort((a, b) => Math.max(b.gap || b.hisCA || 0, 0) - Math.max(a.gap || a.hisCA || 0, 0))
+      .slice(0, 6);
+  }
+
+  const topRecover = clientsData?.recover?.slice(0, 5) || [];
+  const topConquest = clientsData?.conquest?.slice(0, 5) || [];
+  const recoverPot = clientsData?.sums?.recoverGap || 0;
+  const conquestPot = clientsData?.sums?.conquestCA || 0;
+  const universeGap = focusUniverse?.ecart || 0;
+  const familyGap = focusFams.reduce((s, f) => s + Math.max(f.ecart || 0, 0), 0);
+  const missingRefs = focusFams.reduce((s, f) => s + (f.missing?.count || 0), 0);
+
+  let headline = 'Comparer sans action prioritaire';
+  let decision = 'Aucun retard exploitable net';
+  let confidence = 'faible';
+  if (focusUniverse && universeGap >= Math.max(5000, recoverPot * 0.6, conquestPot * 0.35)) {
+    headline = `Développer ${focusUniverse.nom}`;
+    decision = `Ouvrir le chantier ${focusUniverse.nom} avant de descendre aux références`;
+    confidence = focusFams.length >= 3 || focusMetiers.length >= 2 || focusClients.length >= 3 ? 'forte' : 'moyenne';
+  } else if (recoverPot >= conquestPot && recoverPot > 0) {
+    headline = 'Récupérer du wallet';
+    decision = 'Appeler les clients partagés où l’agence cible prend plus de CA';
+    confidence = topRecover.length >= 3 ? 'forte' : 'moyenne';
+  } else if (conquestPot > 0) {
+    headline = 'Conquérir des clients zone';
+    decision = 'Cibler les clients de ta zone qui achètent déjà chez l’agence comparée';
+    confidence = topConquest.length >= 3 ? 'moyenne' : 'faible';
+  }
+
+  return {
+    focusUniverse,
+    focusFams,
+    focusMetiers,
+    focusClients,
+    clientsData,
+    topRecover,
+    topConquest,
+    recoverPot,
+    conquestPot,
+    universeGap,
+    familyGap,
+    missingRefs,
+    headline,
+    decision,
+    confidence,
+  };
+}
+
+function _miniBar(myVal, tgtVal) {
+  const max = Math.max(Math.abs(myVal || 0), Math.abs(tgtVal || 0), 1);
+  const myW = Math.round(Math.abs(myVal || 0) / max * 100);
+  const tgtW = Math.round(Math.abs(tgtVal || 0) / max * 100);
+  return `<div class="flex items-center gap-0.5 h-3">
+    <div class="flex-1 flex justify-end"><div class="h-2 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:.75;min-width:${myW ? '2px' : '0'}"></div></div>
+    <div class="w-px h-3" style="background:var(--b-dark)"></div>
+    <div class="flex-1"><div class="h-2 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:.55;min-width:${tgtW ? '2px' : '0'}"></div></div>
+  </div>`;
+}
+
+function _buildDecisionCockpit(m, myStore, tgtStore) {
+  const u = m.focusUniverse;
+  const confColor = m.confidence === 'forte' ? '#22c55e' : m.confidence === 'moyenne' ? '#f59e0b' : '#94a3b8';
+  const mixDelta = u ? u.tgtPct - u.myPct : 0;
+  const wallet = u ? _walletPct(u.myCA, u.tgtCA) : null;
+  const topFam = m.focusFams[0];
+  const topMetier = m.focusMetiers[0];
+  const topClient = m.focusClients[0];
+  const clientName = topClient
+    ? (_S.chalandiseData?.get(topClient.cc)?.nom || _S.clientNomLookup?.[topClient.cc] || topClient.cc)
+    : '';
+
+  const kpiCards = [
+    {
+      label: 'Retard univers',
+      value: u ? _signedEuro(u.ecart) : '—',
+      hint: u ? `${u.myPct.toFixed(0)}% mix moi · ${u.tgtPct.toFixed(0)}% lui` : 'Pas de retard positif',
+      color: u?.ecart > 0 ? '#ef4444' : '#94a3b8',
+    },
+    {
+      label: 'Familles à ouvrir',
+      value: m.focusFams.length ? String(m.focusFams.length) : '—',
+      hint: m.missingRefs ? `${m.missingRefs} refs absentes chez moi` : 'Pas de trou assortiment majeur',
+      color: '#3b82f6',
+    },
+    {
+      label: 'Clients à travailler',
+      value: m.focusClients.length ? String(m.focusClients.length) : '—',
+      hint: m.focusClients.length ? `top visible ${formatEuro(m.focusClients.reduce((s, c) => s + Math.max(c.gap || c.hisCA || 0, 0), 0))}` : 'Aucun client zone prioritaire',
+      color: '#f59e0b',
+    },
+    {
+      label: 'Action commerciale',
+      value: topMetier ? String(topMetier.tgtClients - topMetier.myClients) : '—',
+      hint: topMetier ? `${escapeHtml(topMetier.metier)} · écart clients` : 'Métier non discriminant',
+      color: '#8b5cf6',
+    },
+  ].map(c => `<div class="rounded-lg border p-3" style="border-color:var(--b-light);background:rgba(255,255,255,.02)">
+    <div class="text-[10px] uppercase font-bold t-disabled mb-1">${c.label}</div>
+    <div class="text-lg font-extrabold" style="color:${c.color}">${c.value}</div>
+    <div class="text-[10px] t-secondary mt-1 truncate" title="${escapeHtml(c.hint)}">${c.hint}</div>
+  </div>`).join('');
+
+  return `<div class="rounded-xl border mb-5 overflow-hidden" style="background:linear-gradient(135deg,rgba(59,130,246,.10),rgba(15,23,42,.55));border-color:rgba(96,165,250,.28)">
+    <div class="p-5 border-b" style="border-color:var(--b-light)">
+      <div class="flex items-start gap-4 flex-wrap">
+        <div class="flex-1 min-w-[260px]">
+          <div class="text-[10px] uppercase tracking-wide font-bold t-disabled mb-1">Décision recommandée</div>
+          <h2 class="text-xl font-extrabold t-primary leading-tight">${escapeHtml(m.headline)}</h2>
+          <p class="text-[12px] t-secondary mt-1">${escapeHtml(m.decision)}</p>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] uppercase font-bold t-disabled mb-1">Confiance</div>
+          <div class="text-sm font-extrabold" style="color:${confColor}">${escapeHtml(m.confidence)}</div>
+          <div class="text-[10px] t-disabled">${escapeHtml(myStore)} vs ${escapeHtml(tgtStore)}</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mt-4">${kpiCards}</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
+      <div class="p-4 lg:border-r" style="border-color:var(--b-light)">
+        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Pourquoi agir</div>
+        ${u ? `<div class="space-y-2">
+          <div class="flex items-center gap-2 text-[12px]">
+            <span class="t-secondary">Mix</span>
+            <span class="ml-auto font-mono t-primary">${u.myPct.toFixed(1)}% → ${u.tgtPct.toFixed(1)}%</span>
+            <span class="font-bold text-red-400">${mixDelta > 0 ? '+' : ''}${mixDelta.toFixed(1)} pts</span>
+          </div>
+          ${_miniBar(u.myCA, u.tgtCA)}
+          <div class="text-[11px] t-secondary">Portefeuille capté : <strong class="t-primary">${wallet == null ? '—' : wallet + '%'}</strong></div>
+          ${topFam ? `<div class="text-[11px] t-secondary">Première famille : <button class="font-bold t-primary hover:underline" onclick="window._duelOpenPlanFam('${_jsArg(u.nom)}','${_jsArg(topFam.fam)}')">${escapeHtml(topFam.label || topFam.fam)}</button> <span class="text-red-400">${_signedEuro(topFam.ecart)}</span></div>` : ''}
+        </div>` : '<div class="text-[11px] t-disabled">Pas d’univers prioritaire détecté.</div>'}
+      </div>
+
+      <div class="p-4 lg:border-r" style="border-color:var(--b-light)">
+        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Qui travailler</div>
+        ${topClient ? `<button class="w-full text-left rounded-lg border p-3 hover:border-blue-400" style="border-color:var(--b-light)" onclick="if(window.openClient360)window.openClient360('${_jsArg(topClient.cc)}','duel')">
+          <div class="text-[12px] font-bold t-primary truncate">${escapeHtml(clientName)}</div>
+          <div class="text-[10px] t-disabled mt-1">${escapeHtml(_S.chalandiseData?.get(topClient.cc)?.metier || '')}</div>
+          <div class="text-sm font-mono font-bold text-red-400 mt-2">${_signedEuro(Math.max(topClient.gap || topClient.hisCA || 0, 0))}</div>
+        </button>` : '<div class="text-[11px] t-disabled">Aucun client prioritaire nommé.</div>'}
+        ${m.focusClients.length > 1 ? `<div class="text-[10px] t-disabled mt-2">${m.focusClients.length - 1} autres clients dans le plan</div>` : ''}
+      </div>
+
+      <div class="p-4">
+        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Plan court</div>
+        <div class="space-y-2 text-[11px]">
+          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac"><strong>J+7</strong> : valider ${Math.min(3, m.focusFams.length) || 0} familles et appeler ${Math.min(5, m.focusClients.length) || 0} clients.</div>
+          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd"><strong>J+30</strong> : construire un kit métier, pas une liste de références isolées.</div>
+          <div class="rounded-md p-2" style="background:rgba(245,158,11,.08);color:#fcd34d"><strong>Mesure</strong> : suivre CA clients ciblés, mix univers et familles ouvertes.</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _buildDecisionEvidence(m) {
+  const chal = _S.chalandiseData;
+
+  const famRows = m.focusFams.slice(0, 5).map(f => {
+    const miss = f.missing || { count: 0, top: [] };
+    const codes = miss.top.map(a => a.code).join(', ');
+    return `<button class="w-full text-left py-2 px-2 rounded-md hover:bg-gray-800 transition-colors" onclick="window._duelOpenPlanFam('${_jsArg(m.focusUniverse?.nom || '')}','${_jsArg(f.fam)}')">
+      <div class="flex gap-2 items-center">
+        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(f.label || f.fam)}</span>
+        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${_signedEuro(f.ecart)}</span>
+      </div>
+      <div class="text-[10px] t-disabled truncate">${miss.count} refs absentes${codes ? ` · ${escapeHtml(codes)}` : ''}</div>
+    </button>`;
+  }).join('');
+
+  const metierRows = m.focusMetiers.slice(0, 5).map(mt => {
+    const gap = mt.tgtCA - mt.myCA;
+    const cGap = mt.tgtClients - mt.myClients;
+    return `<div class="py-2 px-2 rounded-md" style="background:rgba(255,255,255,.02)">
+      <div class="flex gap-2 items-center">
+        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(mt.metier)}</span>
+        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${_signedEuro(gap)}</span>
+      </div>
+      <div class="text-[10px] t-disabled">${mt.myClients} clients moi · ${mt.tgtClients} lui${cGap > 0 ? ` · +${cGap} clients` : ''}</div>
+    </div>`;
+  }).join('');
+
+  const clientRows = m.focusClients.slice(0, 6).map(c => {
+    const info = chal?.get(c.cc) || {};
+    const nom = info.nom || _S.clientNomLookup?.[c.cc] || c.cc;
+    const amount = Math.max(c.gap || c.hisCA || 0, 0);
+    return `<button class="w-full text-left py-2 px-2 rounded-md hover:bg-gray-800 transition-colors" onclick="if(window.openClient360)window.openClient360('${_jsArg(c.cc)}','duel')">
+      <div class="flex gap-2 items-center">
+        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(nom)}</span>
+        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${formatEuro(amount)}</span>
+      </div>
+      <div class="text-[10px] t-disabled truncate">${escapeHtml([info.metier, info.distanceKm != null ? Math.round(+info.distanceKm) + 'km' : ''].filter(Boolean).join(' · '))}</div>
+    </button>`;
+  }).join('');
+
+  return `<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+    <div class="s-card rounded-xl border p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="text-sm font-bold t-primary">Familles à ouvrir</h3>
+        <span class="ml-auto text-[10px] t-disabled">${m.focusUniverse ? escapeHtml(m.focusUniverse.nom) : ''}</span>
+      </div>
+      ${famRows || '<div class="text-[11px] t-disabled py-4">Aucune famille prioritaire.</div>'}
+    </div>
+    <div class="s-card rounded-xl border p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="text-sm font-bold t-primary">Métiers qui expliquent l’écart</h3>
+      </div>
+      <div class="space-y-2">${metierRows || '<div class="text-[11px] t-disabled py-4">Aucun métier discriminant.</div>'}</div>
+    </div>
+    <div class="s-card rounded-xl border p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <h3 class="text-sm font-bold t-primary">Clients à traiter</h3>
+      </div>
+      ${clientRows || '<div class="text-[11px] t-disabled py-4">Aucun client prioritaire nommé.</div>'}
+    </div>
+  </div>`;
+}
+
+function _buildAuditDetails(duel, myStore, tgtStore) {
+  return `<details class="s-card rounded-xl border mb-5 overflow-hidden"${_duelAuditOpen ? ' open' : ''} ontoggle="window._duelAuditOpenSet(this.open)">
+    <summary class="cursor-pointer select-none p-4 text-sm font-bold t-primary">
+      Audit complet du duel <span class="text-xs font-normal t-disabled">KPIs, clients, métiers, univers, familles</span>
+    </summary>
+    <div class="px-4 pb-4">
+      ${_buildKPIScorecard(duel, myStore, tgtStore)}
+      ${_buildMetierSection(duel, myStore, tgtStore)}
+      ${_buildUniversSection(duel, myStore, tgtStore)}
+      ${_buildFamillesSection(duel, myStore, tgtStore)}
+    </div>
+  </details>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -511,148 +768,64 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Opportunités Clients (zone chalandise) — duel 1v1
+// Plan d'action — transforme le duel en levier terrain par univers
 // ═══════════════════════════════════════════════════════════════
-function _computeDuelClients(myStore, tgtStore) {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return null;
+function _normTxt(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
-  const { startIdx, endIdx } = _periodMonthIdxBounds();
-  const stamp = [
-    myStore,
-    tgtStore,
-    startIdx,
-    endIdx,
-    chal.size,
-    _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : 0,
-  ].join('|');
-  if (_duelClientsCache && _duelClientsCacheKey === stamp) return _duelClientsCache;
-
-  const myClients = _getPeriodClientSetForStore(myStore);
-  const tgtClients = _getPeriodClientSetForStore(tgtStore);
-  const myCAMap = _buildPeriodCAMapForStore(myStore);
-  const tgtCAMap = _buildPeriodCAMapForStore(tgtStore);
-
-  const conquest = [];
-  const shared = [];
-  const fideles = [];
-  let dormant = 0;
-
-  for (const [cc, info] of chal) {
-    const buysMine = myClients.has(cc);
-    const buysHis = tgtClients.has(cc);
-    if (!buysMine && !buysHis) { dormant++; continue; }
-
-    const myCA = myCAMap?.get(cc) || 0;
-    const hisCA = tgtCAMap?.get(cc) || 0;
-    const rec = { cc, myCA, hisCA, gap: hisCA - myCA };
-
-    if (buysHis && !buysMine) conquest.push(rec);
-    else if (buysMine && buysHis) shared.push(rec);
-    else if (buysMine && !buysHis) fideles.push(rec);
+function _metierMatchesUniverse(metier, univers) {
+  const m = _normTxt(metier);
+  const u = _normTxt(univers);
+  if (!m || !u) return false;
+  const rules = {
+    plomberie: /plomb|chauff|sanit|therm|fluide|clim|genie climatique|maintenance/,
+    batiment: /batiment|macon|couverture|couvreur|menuis|charpent|plaqu|peint|sol|carrel/,
+    electricite: /electric|alarme|courant|cable|domot|automat/,
+    outillage: /maintenance|indus|mecan|atelier|serrur|metal|usin/,
+    quincaillerie: /serrur|menuis|agencement|batiment|maintenance|metall/,
+    consommables: /maintenance|indus|atelier|nettoy|service|collectiv/,
+    epi: /securite|collectiv|industrie|batiment|maintenance/,
+    "genie climatique": /clim|chauff|ventil|frigor|therm|genie climatique/,
+  };
+  for (const key in rules) {
+    if (u.includes(key)) return rules[key].test(m);
   }
-
-  const recover = shared.filter(r => r.gap > 0);
-
-  conquest.sort((a, b) => b.hisCA - a.hisCA);
-  recover.sort((a, b) => b.gap - a.gap);
-  fideles.sort((a, b) => b.myCA - a.myCA);
-
-  const out = {
-    zoneCount: chal.size,
-    dormant,
-    conquest,
-    recover,
-    fideles,
-    sums: {
-      conquestCA: conquest.reduce((s, r) => s + (r.hisCA || 0), 0),
-      recoverGap: recover.reduce((s, r) => s + (r.gap || 0), 0),
-      fidelesCA: fideles.reduce((s, r) => s + (r.myCA || 0), 0),
-    },
-  };
-
-  _duelClientsCacheKey = stamp;
-  _duelClientsCache = out;
-  return out;
+  return false;
 }
 
-function _buildClientsSection(myStore, tgtStore) {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return '';
-  const nomLookup = _S.clientNomLookup || {};
-
-  const data = _computeDuelClients(myStore, tgtStore);
-  if (!data) return '';
-
-  const tab = _duelClientsTab;
-  const list = tab === 'conquete' ? data.conquest : tab === 'partages' ? data.recover : data.fideles;
-
-  const LIMIT = 15;
-  const show = list.slice(0, LIMIT);
-  const more = Math.max(0, list.length - show.length);
-
-  const tabBtn = (id, label, count, kpi, color) => {
-    const active = tab === id;
-    return `<button onclick="window._duelClientsSetTab('${id}')" class="px-3 py-2 text-[11px] font-semibold rounded-lg border transition-all ${active ? 'text-white shadow-lg' : 't-primary hover:border-blue-400'}" style="${active ? `background:${color};border-color:${color}` : 'background:var(--s-card);border-color:var(--b-default)'}">
-      ${label} <span class="font-normal opacity-80">${count}</span>${kpi ? ` <span class="text-[10px] font-normal opacity-80">${kpi}</span>` : ''}
-    </button>`;
-  };
-
-  const rows = show.map(c => {
-    const info = chal.get(c.cc) || {};
-    const nom = info.nom || nomLookup[c.cc] || c.cc;
-    const metier = info.metier || '';
-    const classif = info.classification || '';
-    const distanceKm = (info.distanceKm == null ? null : info.distanceKm);
-    const open360 = `if(window.openClient360)window.openClient360('${c.cc}','duel')`;
-    const gap = c.gap || 0;
-    const gapColor = gap > 0 ? 'text-red-500' : gap < 0 ? 'text-emerald-500' : 't-disabled';
-    const dkm = (distanceKm != null && !isNaN(+distanceKm)) ? `${Math.round(+distanceKm)}km` : '';
-    const meta = [metier, dkm].filter(Boolean).join(' · ');
-    return `<tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" style="border-color:var(--b-light)" onclick="${open360}">
-      <td class="py-2 px-2 text-xs">
-        <div class="font-semibold">${escapeHtml(c.cc)} <span class="t-primary">${escapeHtml(nom)}</span></div>
-        ${meta ? `<div class="text-[10px] t-disabled mt-0.5 truncate">${escapeHtml(meta)}</div>` : ''}
-      </td>
-      <td class="py-2 px-2 text-[11px] t-secondary max-w-[160px] truncate" title="${escapeHtml(classif || '')}">${escapeHtml(classif || '—')}</td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(c.myCA) ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(c.hisCA) ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>
-      <td class="py-2 px-2 text-xs text-right font-bold font-mono ${gapColor}">${gap ? (gap > 0 ? '+' : '') + formatEuro(gap) : '—'}</td>
-    </tr>`;
-  }).join('');
-
-  return `<div class="s-card rounded-xl border mb-5 overflow-hidden">
-    <div class="p-4 pb-2">
-      <h3 class="text-sm font-bold t-primary mb-0.5">Opportunités clients <span class="text-xs font-normal t-disabled">— zone chalandise</span></h3>
-      <p class="text-[10px] t-disabled">Basé sur tes clients zone (Chalandise) croisés avec le consommé ${escapeHtml(myStore)} et ${escapeHtml(tgtStore)} sur la période active.</p>
-    </div>
-
-    <div class="flex gap-2 px-4 pb-3 flex-wrap">
-      ${tabBtn('conquete', 'À conquérir', data.conquest.length, data.sums.conquestCA > 0 ? formatEuro(data.sums.conquestCA) : '', '#ef4444')}
-      ${tabBtn('partages', 'À récupérer', data.recover.length, data.sums.recoverGap > 0 ? formatEuro(data.sums.recoverGap) : '', '#3b82f6')}
-      ${tabBtn('fideles', 'Mes fidèles', data.fideles.length, data.sums.fidelesCA > 0 ? formatEuro(data.sums.fidelesCA) : '', '#10b981')}
-      <div class="flex-1"></div>
-      <div class="text-[10px] t-disabled self-center">${data.dormant} dormants</div>
-    </div>
-
-    ${show.length === 0
-      ? `<div class="text-[11px] t-disabled text-center py-6">Aucun client dans ce groupe.</div>`
-      : `<div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead><tr class="text-[10px] t-disabled border-b" style="border-color:var(--b-dark);background:var(--s-page)">
-            <th class="py-1.5 px-2 font-medium">Client</th>
-            <th class="py-1.5 px-2 font-medium">Classif</th>
-            <th class="py-1.5 px-2 text-right font-medium">${escapeHtml(myStore)}</th>
-            <th class="py-1.5 px-2 text-right font-medium">${escapeHtml(tgtStore)}</th>
-            <th class="py-1.5 px-2 text-right font-medium">Gap</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-          ${more > 0 ? `<tfoot><tr><td colspan="5" class="text-[10px] t-disabled text-center py-2">… et ${more} autres</td></tr></tfoot>` : ''}
-        </table>
-      </div>`
+function _missingArticlesForFam(famCode, myStore, tgtStore) {
+  _ensureDuelAgenceStore();
+  const myRec = _S.agenceStore?.get(myStore);
+  const tgtRec = _S.agenceStore?.get(tgtStore);
+  if (!myRec || !tgtRec) return { count: 0, ca: 0, top: [] };
+  const artFam = _S.articleFamille || {};
+  const libLookup = _S.libelleLookup || {};
+  const spm = _S.stockParMagasin || {};
+  const myStock = spm[myStore] || {};
+  const fdByCode = _getFinalDataIndex();
+  const out = [];
+  for (const code in (tgtRec.artMap || {})) {
+    if (!_isSixDigit(code) || artFam[code] !== famCode) continue;
+    const tgtD = tgtRec.artMap[code];
+    const myD = myRec.artMap?.[code];
+    const tgtCA = tgtD?.sumCA || 0;
+    const myCA = myD?.sumCA || 0;
+    const myStk = myStock[code] || {};
+    const fdRef = fdByCode[code];
+    const myHasStock = (myStk.qteMin || 0) > 0 || (myStk.qteMax || 0) > 0 || (fdRef?.stockActuel > 0) || (fdRef?.nouveauMin > 0);
+    if (tgtCA > 0 && !myHasStock && !_hasAmount(myCA)) {
+      out.push({ code, lib: libLookup[code] || '', ca: tgtCA, bl: tgtD?.countBL || 0 });
     }
-  </div>`;
+  }
+  out.sort((a, b) => b.ca - a.ca || b.bl - a.bl);
+  return {
+    count: out.length,
+    ca: out.reduce((s, a) => s + a.ca, 0),
+    top: out.slice(0, 3),
+  };
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 // Gap Métier — pourquoi il me bat ? diagnostic par métier client
@@ -1328,11 +1501,7 @@ window._duelSelectTarget = function(val) {
   _duelTarget = val;
   _duelOpenFam = '';
   _duelShowAllMetiers = false;
-  renderDuelTab();
-};
-
-window._duelClientsSetTab = function(tab) {
-  _duelClientsTab = tab;
+  _duelAuditOpen = false;
   renderDuelTab();
 };
 
@@ -1348,10 +1517,30 @@ window._duelFilterUnivers = function(u) {
   renderDuelTab();
 };
 
+window._duelSetUnivers = function(u) {
+  _duelUniversFilter = u || '';
+  _duelOpenFam = '';
+  renderDuelTab();
+};
+
+window._duelOpenPlanFam = function(univers, fam) {
+  _duelUniversFilter = univers || '';
+  _duelOpenFam = fam || '';
+  _duelAuditOpen = true;
+  _duelDrillTab = 'manquant';
+  _duelDrillSort = 'tgtCA';
+  _duelDrillDir = 'desc';
+  renderDuelTab();
+};
+
 window._duelToggleFam = function(fam) {
   if (_duelOpenFam === fam) { _duelOpenFam = ''; }
-  else { _duelOpenFam = fam; _duelDrillTab = 'manquant'; _duelDrillSort = 'tgtCA'; _duelDrillDir = 'desc'; }
+  else { _duelOpenFam = fam; _duelAuditOpen = true; _duelDrillTab = 'manquant'; _duelDrillSort = 'tgtCA'; _duelDrillDir = 'desc'; }
   renderDuelTab();
+};
+
+window._duelAuditOpenSet = function(isOpen) {
+  _duelAuditOpen = !!isOpen;
 };
 
 window._duelDrillSetTab = function(tab) {
