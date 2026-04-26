@@ -616,6 +616,7 @@ async function _handleParseMessage(data) {
     var passagesUniques = new Set();
     var commandesPDV = new Set();
     var ventesClientAutresAgences = new Map();
+    var clientsByStoreUnivers = {}; // {store → {univers → Set<cc>}}
     var minDateVente = Infinity, maxDateVente = 0;
     var _tempCAAll = new Map();
     var _tempCAAllFull = new Map();
@@ -894,6 +895,14 @@ async function _handleParseMessage(data) {
             var _skCli_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
             if (!ventesClientsPerStore[_skCli_h]) ventesClientsPerStore[_skCli_h] = new Set();
             ventesClientsPerStore[_skCli_h].add(_cc_bm_h);
+            // clientsByStoreUnivers — hors-MAGASIN
+            var _uvH = articleUnivers[codeArt_h] || '';
+            if (!_uvH) { var _fH = articleFamille[codeArt_h] || ''; if (_fH) _uvH = FAM_LETTER_UNIVERS[_fH[0].toUpperCase()] || ''; }
+            if (_uvH) {
+              if (!clientsByStoreUnivers[_skCli_h]) clientsByStoreUnivers[_skCli_h] = {};
+              if (!clientsByStoreUnivers[_skCli_h][_uvH]) clientsByStoreUnivers[_skCli_h][_uvH] = new Set();
+              clientsByStoreUnivers[_skCli_h][_uvH].add(_cc_bm_h);
+            }
           }
           // ventesParMagasinByCanal
           if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
@@ -951,6 +960,13 @@ async function _handleParseMessage(data) {
 
       // articleRaw (W/V/MIN/MAX — hoisted, no period filter)
       var cc2 = extractClientCode(_rc);
+      // clientsByStoreUnivers — store × client × univers (tous canaux, period-filtered)
+      if (univConso && cc2 && sk && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
+        var _skBU = sk === 'INCONNU' ? (selectedStore || sk) : sk;
+        if (!clientsByStoreUnivers[_skBU]) clientsByStoreUnivers[_skBU] = {};
+        if (!clientsByStoreUnivers[_skBU][univConso]) clientsByStoreUnivers[_skBU][univConso] = new Set();
+        clientsByStoreUnivers[_skBU][univConso].add(cc2);
+      }
       var nc = (_hasCommandeCol ? (_rncb || '') : ('__r' + i)).toString().trim() || ('__r' + i);
       if (dateV && code && (!selectedStore || sk === selectedStore) && qteP > 0) {
         if (!monthlySales[code]) monthlySales[code] = new Array(12).fill(0);
@@ -1541,6 +1557,15 @@ async function _handleParseMessage(data) {
       payload.seasonalIndexReseau = seasonalIndexReseau;
       payload.ventesParMagasinByCanal = ventesParMagasinByCanal;
       payload.ventesClientsPerStore = ventesClientsPerStoreSer;
+      // clientsByStoreUnivers — sérialiser Sets → Arrays
+      var _cbuSer = {};
+      for (var _skBU2 in clientsByStoreUnivers) {
+        _cbuSer[_skBU2] = {};
+        for (var _uvBU2 in clientsByStoreUnivers[_skBU2]) {
+          _cbuSer[_skBU2][_uvBU2] = Array.from(clientsByStoreUnivers[_skBU2][_uvBU2]);
+        }
+      }
+      payload.clientsByStoreUnivers = _cbuSer;
       payload.caClientParStore = caClientParStoreSer;
       payload.commandesPerStoreCanal = commandesPerStoreCanalSer;
       payload.clientNomLookup = clientNomLookup;

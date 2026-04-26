@@ -1283,6 +1283,14 @@ _S.canalAgence=newCanalAgence;
     const vcps = r.ventesClientsPerStore || {};
     _S.ventesClientsPerStore = {};
     for (const sk in vcps) { _S.ventesClientsPerStore[sk] = new Set(vcps[sk]); }
+    // Reconstruire clientsByStoreUnivers (Sets)
+    _S.clientsByStoreUnivers = {};
+    for (const sk in (r.clientsByStoreUnivers || {})) {
+      _S.clientsByStoreUnivers[sk] = {};
+      for (const u in r.clientsByStoreUnivers[sk]) {
+        _S.clientsByStoreUnivers[sk][u] = new Set(r.clientsByStoreUnivers[sk][u]);
+      }
+    }
 
     // Reconstruire caClientParStore (Maps)
     const ccps = r.caClientParStore || {};
@@ -2020,14 +2028,18 @@ _S.canalAgence=newCanalAgence;
 
       // Acheteurs par agence × univers : résolution après stock, car certains consommés n'ont pas l'univers/famille.
       // Placé hors bloc stock pour rester correct lors d'un refiltrage période.
-      _S.clientsByStoreUnivers={};
-      for(const row of _storeUniverseBuyerRows){
-        const fam=row.fam||_S.articleFamille?.[row.code]||'';
-        const univ=(fam&&fam!=='Non Classé')?(FAM_LETTER_UNIVERS[fam[0].toUpperCase()]||row.univ||'Inconnu'):(row.univ||_S.articleUnivers?.[row.code]||'');
-        if(!univ)continue;
-        if(!_S.clientsByStoreUnivers[row.store])_S.clientsByStoreUnivers[row.store]={};
-        if(!_S.clientsByStoreUnivers[row.store][univ])_S.clientsByStoreUnivers[row.store][univ]=new Set();
-        _S.clientsByStoreUnivers[row.store][univ].add(row.cc);
+      // clientsByStoreUnivers — now built in parse-worker and hydrated via _hydrateStateFromParseResult
+      // Legacy fallback for processDataFromRaw (refilter from IDB cache)
+      if (!Object.keys(_S.clientsByStoreUnivers || {}).length) {
+        _S.clientsByStoreUnivers={};
+        for(const row of _storeUniverseBuyerRows){
+          const fam=row.fam||_S.articleFamille?.[row.code]||'';
+          const univ=(fam&&fam!=='Non Classé')?(FAM_LETTER_UNIVERS[fam[0].toUpperCase()]||row.univ||'Inconnu'):(row.univ||_S.articleUnivers?.[row.code]||'');
+          if(!univ)continue;
+          if(!_S.clientsByStoreUnivers[row.store])_S.clientsByStoreUnivers[row.store]={};
+          if(!_S.clientsByStoreUnivers[row.store][univ])_S.clientsByStoreUnivers[row.store][univ]=new Set();
+          _S.clientsByStoreUnivers[row.store][univ].add(row.cc);
+        }
       }
 
       // Re-parse livraisons + benchmark — skipped for isRefilter (period-independent)
