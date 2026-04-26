@@ -619,7 +619,7 @@ async function _handleParseMessage(data) {
     var passagesUniques = new Set();
     var commandesPDV = new Set();
     var ventesClientAutresAgences = new Map();
-    var clientsByStoreUnivers = {}; // {store → {univers → Set<cc>}}
+    var clientsByStoreUnivers = {}; // {store → {univers → Set<cc>}} — pleine période 12MG
     var _cbuDeferred = []; // rows where univers couldn't be resolved inline — second pass after articleFamille complete
     var minDateVente = Infinity, maxDateVente = 0;
     var _tempCAAll = new Map();
@@ -971,15 +971,15 @@ async function _handleParseMessage(data) {
 
       // articleRaw (W/V/MIN/MAX — hoisted, no period filter)
       var cc2 = extractClientCode(_rc);
-      // clientsByStoreUnivers — store × client × univers (tous canaux, period-filtered)
+      // clientsByStoreUnivers — store × client × univers (tous canaux, pleine période 12MG)
       var _univBU = univConso;
       if (!_univBU && code) { var _fBU = articleFamille[code] || ''; if (_fBU) _univBU = FAM_LETTER_UNIVERS[_fBU[0].toUpperCase()] || ''; }
-      if (_univBU && cc2 && sk && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
+      if (_univBU && cc2 && sk && (caP > 0 || caE > 0)) {
         var _skBU = sk === 'INCONNU' ? (selectedStore || sk) : sk;
         if (!clientsByStoreUnivers[_skBU]) clientsByStoreUnivers[_skBU] = {};
         if (!clientsByStoreUnivers[_skBU][_univBU]) clientsByStoreUnivers[_skBU][_univBU] = new Set();
         clientsByStoreUnivers[_skBU][_univBU].add(cc2);
-      } else if (!_univBU && cc2 && sk && code && (caP > 0 || caE > 0) && (!periodStart || !dateV || dateV >= periodStart) && (!periodEnd || !dateV || dateV <= periodEnd)) {
+      } else if (!_univBU && cc2 && sk && code && (caP > 0 || caE > 0)) {
         _cbuDeferred.push({ store: sk === 'INCONNU' ? (selectedStore || sk) : sk, cc: cc2, code: code });
       }
       var nc = (_hasCommandeCol ? (_rncb || '') : ('__r' + i)).toString().trim() || ('__r' + i);
