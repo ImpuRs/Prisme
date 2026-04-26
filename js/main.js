@@ -382,6 +382,10 @@ _S.canalAgence=newCanalAgence;
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-5,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
   };
+  window._applyPeriode12MG=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-11,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
+  };
   window._applyPeriodeAnneeEnCours=()=>{
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
@@ -413,6 +417,9 @@ _S.canalAgence=newCanalAgence;
     // 6 derniers mois
     const t6start=mois.length>=6?new Date(mois[Math.max(0,mois.length-6)].getFullYear(),mois[Math.max(0,mois.length-6)].getMonth(),1).getTime():null;
     const t6end=t3end;
+    // 12MG (12 mois glissants) — utile quand le consommé couvre >12 mois
+    const t12start=mois.length>12?new Date(mois[mois.length-12].getFullYear(),mois[mois.length-12].getMonth(),1).getTime():null;
+    const t12end=t3end;
     // Année en cours
     const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
     const yCur=maxD?maxD.getFullYear():null;
@@ -450,6 +457,7 @@ _S.canalAgence=newCanalAgence;
   <div class="periode-label">Périodes prédéfinies</div>
   <div style="display:flex;flex-direction:column;gap:4px;">
     ${predBtn('Toute la période','','window._applyPeriodeTout()',isTout)}
+    ${t12start?predBtn('12 mois glissants',`${_fmtM(mois[mois.length-12])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode12MG()',ps===t12start&&pe===t12end):''}
     ${aeStart?predBtn('Année en cours',yCur,`window._applyPeriodeAnneeEnCours()`,ps===aeStart&&pe===aeEnd):''}
     ${t6start&&mois.length>=6?predBtn('6 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-6)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode6Mois()',ps===t6start&&pe===t6end):''}
     ${mois.length>=3?predBtn('3 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-3)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode3Mois()',ps===t3start&&pe===t3end):''}
