@@ -367,7 +367,7 @@ function _decisionModel(duel, myStore, tgtStore) {
     .filter(u => u.ecart > 0)
     .sort((a, b) => b.ecart - a.ecart);
   const focusUniverse = (_duelUniversFilter && positiveUnivers.find(u => u.nom === _duelUniversFilter)) || positiveUnivers[0] || null;
-  const clientsData = _computeDuelClients(myStore, tgtStore);
+  const clientsData = null; // Opportunités clients supprimées — poches Conquête Terrain
 
   const focusFams = focusUniverse
     ? duel.familles
