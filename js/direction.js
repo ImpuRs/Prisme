@@ -106,12 +106,12 @@ function _buildDirectionSidebar(activeTab) {
     }
   }
 
-  // Loi d'Airain toggle — visible pour Conformité (Tronc Commun)
+  // Loi d'Airain toggle — visible pour Physigamme
   const loiAirainHtml = (activeTab === 'conformite') ? `<div class="mt-3 pt-2" style="border-top:1px solid var(--border)">
     <button onclick="window._troncToggleLoiAirain()" class="text-[10px] px-2.5 py-1.5 rounded font-bold cursor-pointer transition-all w-full text-left ${window._troncLoiAirainState?.() ? 'text-white' : 't-disabled'}" style="background:${window._troncLoiAirainState?.() ? '#8B5CF6' : 'var(--bg-surface)'}">
       🛡️ Loi d'Airain ${window._troncLoiAirainState?.() ? 'ON' : 'OFF'}
     </button>
-    <div class="text-[8px] t-disabled mt-1 px-1">Double validation : Tronc Commun ∩ ≥60% agences</div>
+    <div class="text-[8px] t-disabled mt-1 px-1">Double validation : Socle PDV ∩ ≥60% agences</div>
   </div>` : '';
 
   const el = document.getElementById('dirSidebarContent');
@@ -220,7 +220,7 @@ export function renderConformiteTab() {
   if (typeof window._renderTroncCommun === 'function') {
     el.innerHTML = `<div class="container mx-auto">${window._renderTroncCommun()}</div>`;
   } else {
-    el.innerHTML = '<div class="text-center t-disabled py-12">Chargez un consommé et une chalandise pour activer le Tronc Commun.</div>';
+    el.innerHTML = '<div class="text-center t-disabled py-12">Chargez un consommé et une chalandise pour activer la Physigamme.</div>';
   }
   return;
 
@@ -236,7 +236,7 @@ export function renderConformiteTab() {
   if (!_confUniversFilter) {
     el.innerHTML = `<div class="space-y-4">
       <h2 class="text-lg font-bold t-primary">🚨 Radar de Conformité</h2>
-      <p class="text-[11px] t-disabled">Sélectionnez un univers pour vérifier l'implantation du Tronc Commun dans chaque agence.</p>
+      <p class="text-[11px] t-disabled">Sélectionnez un univers pour vérifier le déploiement de la Physigamme dans chaque agence.</p>
       <div class="flex flex-wrap gap-1.5">${univBtns}</div>
     </div>`;
     return;
@@ -249,7 +249,7 @@ export function renderConformiteTab() {
     el.innerHTML = `<div class="space-y-4">
       <h2 class="text-lg font-bold t-primary">🚨 Radar de Conformité</h2>
       <div class="flex flex-wrap gap-1.5">${univBtns}</div>
-      <p class="text-center t-disabled py-8">Aucun article Tronc Commun trouvé pour cet univers. ${troncResult.source === 'none' ? 'Chargez un consommé.' : 'Vérifiez le seuil de transversalité.'}</p>
+      <p class="text-center t-disabled py-8">Aucun article Physigamme trouvé pour cet univers. ${troncResult.source === 'none' ? 'Chargez un consommé.' : 'Vérifiez le seuil de transversalité.'}</p>
     </div>`;
     return;
   }
@@ -343,7 +343,7 @@ export function renderConformiteTab() {
     <div class="grid grid-cols-4 gap-3">
       <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
         <div class="text-2xl font-black" style="color:#8B5CF6">${troncCodes.length}</div>
-        <div class="text-[10px] t-primary font-bold">Tronc Commun Imposé${familleLabel}</div>
+        <div class="text-[10px] t-primary font-bold">Socle PDV imposé${familleLabel}</div>
         <div class="text-[9px] t-disabled">${troncResult.source === 'intersection' ? `${troncResult.totalMetiers} métiers × ${troncResult.totalStores} agences` : `≥ ${_confThreshold}% des agences`}</div>
       </div>
       <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
@@ -422,7 +422,7 @@ window._confShowMissing = function(store) {
   const sd = vpm[store] || {};
   const missing = troncCodes.filter(code => !sd[code] || (sd[code].sumCA <= 0 && sd[code].sumPrelevee <= 0));
   if (!missing.length) {
-    panel.innerHTML = `<div class="rounded-lg p-3 text-[11px]" style="background:var(--bg-card);border-left:3px solid #22c55e"><strong class="text-green-400">${store}</strong> — ✅ 100% conforme, tous les articles du Tronc Commun sont implantés.</div>`;
+    panel.innerHTML = `<div class="rounded-lg p-3 text-[11px]" style="background:var(--bg-card);border-left:3px solid #22c55e"><strong class="text-green-400">${store}</strong> — ✅ 100% conforme, tous les articles du Socle PDV sont implantés.</div>`;
     return;
   }
   const stores = Object.keys(vpm);
@@ -506,4 +506,3 @@ window._confExport = function() {
 
 // Expose render functions for main.js switchTab
 window.renderConformiteTab = renderConformiteTab;
-

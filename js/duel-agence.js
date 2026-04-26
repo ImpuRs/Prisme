@@ -8,7 +8,7 @@
 import { _S } from './state.js';
 import { formatEuro, famLib, escapeHtml } from './utils.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
-import { buildAgenceStore } from './agence-store.js';
+import { buildAgenceStore, getAgenceStoreKey } from './agence-store.js';
 import { getCaClientParStoreMap } from './sales.js';
 
 // ── État local ──
@@ -54,8 +54,39 @@ function _periodMonthIdxBounds() {
   return { startIdx, endIdx, hasPeriod: !!(pStart || pEnd) };
 }
 
+function _periodLabel() {
+  const pStart = _S.periodFilterStart;
+  const pEnd = _S.periodFilterEnd;
+  if (!pStart && !pEnd) return 'Toute la période';
+  const fmt = d => d ? d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : 'début';
+  if (pStart && pEnd && pStart.getFullYear() === pEnd.getFullYear() && pStart.getMonth() === pEnd.getMonth()) return fmt(pStart);
+  return `${fmt(pStart)} → ${fmt(pEnd)}`;
+}
+
 function _isSixDigit(code) {
   return typeof code === 'string' ? /^\d{6}$/.test(code) : false;
+}
+
+function _hasAmount(v) {
+  return Number.isFinite(+v) && Math.abs(+v) >= 0.5;
+}
+
+function _ensureDuelAgenceStore() {
+  const opts = { canaux: new Set(), magasinMode: 'all', univers: '', stores: _S.storesIntersection };
+  const key = getAgenceStoreKey(opts);
+  if (!_S.agenceStore?.size || _S._agenceStoreKey !== key) buildAgenceStore(opts);
+}
+
+function _buildDataHealthNotice(myStore, tgtStore) {
+  const hasPeriod = !!(_S.periodFilterStart || _S.periodFilterEnd);
+  const notes = [];
+  if (hasPeriod && !_S._byMonthStoreArtCanal) notes.push('agrégats mensuels agence absents : KPI/familles en fallback pleine période');
+  if (hasPeriod && (!_S._byMonthStoreClientCA?.[myStore] || !_S._byMonthStoreClientCA?.[tgtStore])) notes.push('CA client mensuel incomplet : diagnostic métier moins précis');
+  if (!_S.chalandiseData?.size) notes.push('zone chalandise absente : opportunités clients et métiers désactivés');
+  if (!notes.length) return '';
+  return `<div class="mb-4 rounded-lg border px-3 py-2 text-[11px] text-amber-300" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35)">
+    ${notes.map(escapeHtml).join(' · ')}
+  </div>`;
 }
 
 function _getPeriodClientSetForStore(store) {
@@ -82,7 +113,7 @@ function _getPeriodClientSetForStore(store) {
 // computeDuel — calcule le comparatif entre deux agences
 // ═══════════════════════════════════════════════════════════════
 function _computeDuel(myStore, targetStore) {
-  if (!_S.agenceStore?.size) buildAgenceStore();
+  _ensureDuelAgenceStore();
   const myRec = _S.agenceStore.get(myStore);
   const tgtRec = _S.agenceStore.get(targetStore);
   if (!myRec || !tgtRec) return null;
@@ -134,7 +165,7 @@ function _computeDuel(myStore, targetStore) {
   // ── Familles en tableau ──
   const familles = [];
   for (const [fam, d] of Object.entries(famMap)) {
-    if (d.myCA <= 0 && d.tgtCA <= 0) continue;
+    if (!_hasAmount(d.myCA) && !_hasAmount(d.tgtCA) && !d.myBL && !d.tgtBL) continue;
     const letter = fam.charAt(0).toUpperCase();
     const univers = FAM_LETTER_UNIVERS[letter] || 'Autre';
     familles.push({
@@ -170,6 +201,7 @@ function _computeDuel(myStore, targetStore) {
 
 function _getCachedDuel(myStore, targetStore) {
   if (!myStore || !targetStore) return null;
+  _ensureDuelAgenceStore();
   const { startIdx, endIdx } = _periodMonthIdxBounds();
   const stamp = [
     myStore,
@@ -179,6 +211,7 @@ function _getCachedDuel(myStore, targetStore) {
     _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : 0,
     _S.finalData?.length || 0,
     _S.storeCountConsomme || (_S.storesIntersection?.size || 0),
+    _S._agenceStoreKey || '',
   ].join('|');
   if (_duelCache && _duelCacheKey === stamp) return _duelCache;
   const duel = _computeDuel(myStore, targetStore);
@@ -242,20 +275,21 @@ function _computeMetierMix(myStore, tgtStore) {
   for (const cc of myClients) {
     if (chal.has(cc)) continue;
     const k = 'Hors zone';
-    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0 };
+    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0, tgtClientCCs: [] };
     metierMap[k].myClients++;
     if (myCAMap?.has(cc)) metierMap[k].myCA += myCAMap.get(cc);
   }
   for (const cc of tgtClients) {
     if (chal.has(cc)) continue;
     const k = 'Hors zone';
-    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0 };
+    if (!metierMap[k]) metierMap[k] = { myClients: 0, tgtClients: 0, zoneTotal: 0, zoneNonCaptes: 0, myCA: 0, tgtCA: 0, tgtClientCCs: [] };
     metierMap[k].tgtClients++;
     if (tgtCAMap?.has(cc)) metierMap[k].tgtCA += tgtCAMap.get(cc);
+    metierMap[k].tgtClientCCs.push(cc);
   }
 
   return Object.entries(metierMap)
-    .filter(([, d]) => d.zoneTotal > 0 || d.myClients > 0)
+    .filter(([, d]) => d.zoneTotal > 0 || d.myClients > 0 || d.tgtClients > 0)
     .map(([metier, d]) => ({
       metier,
       zoneTotal: d.zoneTotal,
@@ -314,8 +348,10 @@ export function renderDuelTab() {
       </select>
     </div>
     <div class="flex-1"></div>
-    <span class="text-xs t-disabled">Période : ${_S._globalPeriodePreset || '12M'}</span>
+    <span class="text-xs t-disabled">Période : ${escapeHtml(_periodLabel())}</span>
   </div>`);
+
+  html.push(_buildDataHealthNotice(myStore, _duelTarget));
 
   // ── Section 1 : KPI Scorecard ──
   html.push(_buildKPIScorecard(duel, myStore, _duelTarget));
@@ -342,68 +378,80 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
   const { my, tgt } = duel;
 
   // Helper pour une barre de comparaison horizontale
-  function _kpiRow(label, myVal, tgtVal, myFmt, tgtFmt, diffFmt, reverse) {
-    const max = Math.max(Math.abs(myVal), Math.abs(tgtVal)) || 1;
-    const myW = Math.round(Math.abs(myVal) / max * 100);
-    const tgtW = Math.round(Math.abs(tgtVal) / max * 100);
-    const iWin = reverse ? myVal < tgtVal : myVal > tgtVal;
-    const theyWin = reverse ? myVal > tgtVal : myVal < tgtVal;
-    const diff = tgtVal - myVal;
+  function _kpiRow(label, myVal, tgtVal, fmt, diffFmt, reverse = false) {
+    const hasMy = Number.isFinite(myVal);
+    const hasTgt = Number.isFinite(tgtVal);
+    const comparable = hasMy && hasTgt;
+    const max = Math.max(hasMy ? Math.abs(myVal) : 0, hasTgt ? Math.abs(tgtVal) : 0) || 1;
+    const myW = hasMy ? Math.round(Math.abs(myVal) / max * 100) : 0;
+    const tgtW = hasTgt ? Math.round(Math.abs(tgtVal) / max * 100) : 0;
+    const iWin = comparable && (reverse ? myVal < tgtVal : myVal > tgtVal);
+    const theyWin = comparable && (reverse ? myVal > tgtVal : myVal < tgtVal);
     const diffColor = theyWin ? 'text-red-500' : iWin ? 'text-emerald-500' : 't-disabled';
+    const myFmt = hasMy ? fmt(myVal) : '<span class="t-disabled">—</span>';
+    const tgtFmt = hasTgt ? fmt(tgtVal) : '<span class="t-disabled">—</span>';
+    const diff = comparable ? diffFmt(tgtVal - myVal, myVal, tgtVal) : '<span class="t-disabled">—</span>';
 
     return `<div class="flex items-center gap-2 py-1.5">
       <div class="w-28 text-[11px] t-secondary font-medium shrink-0">${label}</div>
       <div class="flex-1 flex items-center gap-1.5">
         <div class="w-20 text-right text-xs font-bold shrink-0 ${iWin ? '' : 'font-normal'}" style="color:var(--c-action)">${myFmt}</div>
         <div class="flex-1 flex items-center gap-0.5 h-4">
-          <div class="flex-1 flex justify-end"><div class="h-3 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:${iWin ? '.85' : '.35'};min-width:2px"></div></div>
+          <div class="flex-1 flex justify-end"><div class="h-3 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:${iWin ? '.85' : '.35'};min-width:${myW > 0 ? '2px' : '0'}"></div></div>
           <div class="w-px h-4" style="background:var(--b-dark)"></div>
-          <div class="flex-1"><div class="h-3 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:${theyWin ? '.85' : '.35'};min-width:2px"></div></div>
+          <div class="flex-1"><div class="h-3 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:${theyWin ? '.85' : '.35'};min-width:${tgtW > 0 ? '2px' : '0'}"></div></div>
         </div>
         <div class="w-20 text-xs shrink-0 ${theyWin ? 'font-bold' : 'font-normal'} t-primary">${tgtFmt}</div>
       </div>
-      <div class="w-20 text-right text-[11px] font-semibold ${diffColor} shrink-0">${diffFmt}</div>
+      <div class="w-20 text-right text-[11px] font-semibold ${diffColor} shrink-0">${diff}</div>
     </div>`;
   }
 
+  const fmtInt = v => Math.round(v).toLocaleString('fr-FR');
+  const fmtOne = v => v.toFixed(1);
+  const fmtPct = v => v.toFixed(1) + '%';
+  const fmtEuroDiff = d => (d > 0 ? '+' : '') + formatEuro(d);
+  const fmtIntDiff = d => (d > 0 ? '+' : '') + Math.round(d).toLocaleString('fr-FR');
+  const fmtPtsDiff = d => (d > 0 ? '+' : '') + d.toFixed(1) + ' pts';
+  const fmtOneDiff = d => (d > 0 ? '+' : '') + d.toFixed(1);
+  const caClientMy = my.nbClients > 0 ? (my.caClient || 0) : null;
+  const caClientTgt = tgt.nbClients > 0 ? (tgt.caClient || 0) : null;
+  const freqClientMy = my.nbClients > 0 ? (my.freqClient || 0) : null;
+  const freqClientTgt = tgt.nbClients > 0 ? (tgt.freqClient || 0) : null;
+
   const rows = [
-    _kpiRow('CA Total', my.ca, tgt.ca, formatEuro(my.ca), formatEuro(tgt.ca),
-      (tgt.ca - my.ca > 0 ? '+' : '') + formatEuro(tgt.ca - my.ca)),
-    _kpiRow('Marge Brute', my.vmb, tgt.vmb, formatEuro(my.vmb), formatEuro(tgt.vmb),
-      (tgt.vmb - my.vmb > 0 ? '+' : '') + formatEuro(tgt.vmb - my.vmb)),
-    _kpiRow('Tx Marge', my.txMarge ?? 0, tgt.txMarge ?? 0,
-      (my.txMarge ?? 0).toFixed(1) + '%', (tgt.txMarge ?? 0).toFixed(1) + '%',
-      ((tgt.txMarge ?? 0) - (my.txMarge ?? 0) > 0 ? '+' : '') + ((tgt.txMarge ?? 0) - (my.txMarge ?? 0)).toFixed(1) + ' pts'),
-    _kpiRow('Refs actives', my.refs, tgt.refs, my.refs.toLocaleString(), tgt.refs.toLocaleString(),
-      (tgt.refs - my.refs > 0 ? '+' : '') + (tgt.refs - my.refs).toLocaleString()),
-    _kpiRow('Clients', my.nbClients, tgt.nbClients, my.nbClients.toLocaleString(), tgt.nbClients.toLocaleString(),
-      (tgt.nbClients - my.nbClients > 0 ? '+' : '') + (tgt.nbClients - my.nbClients).toLocaleString()),
-    _kpiRow('Fréquence BL', my.freq, tgt.freq, my.freq.toLocaleString(), tgt.freq.toLocaleString(),
-      (tgt.freq - my.freq > 0 ? '+' : '') + (tgt.freq - my.freq).toLocaleString()),
-    _kpiRow('CA / Client', my.caClient || 0, tgt.caClient || 0, formatEuro(my.caClient || 0), formatEuro(tgt.caClient || 0),
-      ((tgt.caClient || 0) - (my.caClient || 0) > 0 ? '+' : '') + formatEuro((tgt.caClient || 0) - (my.caClient || 0))),
-    _kpiRow('BL / Client', my.freqClient || 0, tgt.freqClient || 0, (my.freqClient || 0).toFixed(1), (tgt.freqClient || 0).toFixed(1),
-      ((tgt.freqClient || 0) - (my.freqClient || 0) > 0 ? '+' : '') + ((tgt.freqClient || 0) - (my.freqClient || 0)).toFixed(1)),
+    _kpiRow('CA Total', my.ca, tgt.ca, formatEuro, fmtEuroDiff),
+    _kpiRow('Marge Brute', my.vmb, tgt.vmb, formatEuro, fmtEuroDiff),
+    _kpiRow('Tx Marge', my.txMarge, tgt.txMarge, fmtPct, fmtPtsDiff),
+    _kpiRow('Refs actives', my.refs, tgt.refs, fmtInt, fmtIntDiff),
+    _kpiRow('Clients', my.nbClients, tgt.nbClients, fmtInt, fmtIntDiff),
+    _kpiRow('Fréquence BL', my.freq, tgt.freq, fmtInt, fmtIntDiff),
+    _kpiRow('CA / Client', caClientMy, caClientTgt, formatEuro, fmtEuroDiff),
+    _kpiRow('BL / Client', freqClientMy, freqClientTgt, fmtOne, fmtOneDiff),
   ];
 
-  // Score global : combien de KPIs je gagne
-  const myWins = [
-    my.ca > tgt.ca, my.vmb > tgt.vmb, (my.txMarge??0) > (tgt.txMarge??0),
-    my.refs > tgt.refs, my.nbClients > tgt.nbClients, my.freq > tgt.freq,
-    (my.caClient??0) > (tgt.caClient??0), (my.freqClient??0) > (tgt.freqClient??0)
-  ].filter(Boolean).length;
-  const tgtWins = 8 - myWins;
-  const scoreColor = myWins >= 5 ? 'text-emerald-500' : myWins >= 3 ? 'text-amber-500' : 'text-red-500';
+  // Score global : uniquement sur les KPIs réellement comparables.
+  const scoreMetrics = [
+    [my.ca, tgt.ca], [my.vmb, tgt.vmb], [my.txMarge, tgt.txMarge],
+    [my.refs, tgt.refs], [my.nbClients, tgt.nbClients], [my.freq, tgt.freq],
+    [caClientMy, caClientTgt], [freqClientMy, freqClientTgt],
+  ].filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+  const myWins = scoreMetrics.filter(([a, b]) => a > b).length;
+  const tgtWins = scoreMetrics.filter(([a, b]) => b > a).length;
+  const comparableCount = scoreMetrics.length || 0;
+  const scoreColor = comparableCount && myWins > tgtWins ? 'text-emerald-500' : comparableCount && myWins === tgtWins ? 'text-amber-500' : 'text-red-500';
 
   // ── Sparklines mensuelles CA face-à-face ──
   let monthlyHtml = '';
   const bmsac = _S._byMonthStoreArtCanal;
   if (bmsac?.[myStore] && bmsac?.[tgtStore]) {
+    const { startIdx, endIdx, hasPeriod } = _periodMonthIdxBounds();
     // Agréger CA par mois pour chaque store (tous canaux, tous articles)
     const myMonths = {}, tgtMonths = {};
     for (const canal in bmsac[myStore]) {
       for (const code in bmsac[myStore][canal]) {
         for (const midx in bmsac[myStore][canal][code]) {
+          if (hasPeriod && (+midx < startIdx || +midx > endIdx)) continue;
           myMonths[midx] = (myMonths[midx] || 0) + (bmsac[myStore][canal][code][midx].sumCA || 0);
         }
       }
@@ -411,6 +459,7 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
     for (const canal in bmsac[tgtStore]) {
       for (const code in bmsac[tgtStore][canal]) {
         for (const midx in bmsac[tgtStore][canal][code]) {
+          if (hasPeriod && (+midx < startIdx || +midx > endIdx)) continue;
           tgtMonths[midx] = (tgtMonths[midx] || 0) + (bmsac[tgtStore][canal][code][midx].sumCA || 0);
         }
       }
@@ -447,9 +496,9 @@ function _buildKPIScorecard(duel, myStore, tgtStore) {
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-3">
         <span class="font-bold text-sm" style="color:var(--c-action)">${escapeHtml(myStore)}</span>
-        <span class="text-xs font-bold ${scoreColor}">${myWins}/8</span>
+        <span class="text-xs font-bold ${scoreColor}">${myWins}/${comparableCount || '—'}</span>
         <span class="t-disabled text-xs">—</span>
-        <span class="text-xs font-bold t-primary">${tgtWins}/8</span>
+        <span class="text-xs font-bold t-primary">${tgtWins}/${comparableCount || '—'}</span>
         <span class="font-bold text-sm t-primary">${escapeHtml(tgtStore)}</span>
       </div>
       <span class="text-[10px] t-disabled">Écart</span>
@@ -566,8 +615,8 @@ function _buildClientsSection(myStore, tgtStore) {
         ${meta ? `<div class="text-[10px] t-disabled mt-0.5 truncate">${escapeHtml(meta)}</div>` : ''}
       </td>
       <td class="py-2 px-2 text-[11px] t-secondary max-w-[160px] truncate" title="${escapeHtml(classif || '')}">${escapeHtml(classif || '—')}</td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${c.myCA > 0 ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${c.hisCA > 0 ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(c.myCA) ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(c.hisCA) ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>
       <td class="py-2 px-2 text-xs text-right font-bold font-mono ${gapColor}">${gap ? (gap > 0 ? '+' : '') + formatEuro(gap) : '—'}</td>
     </tr>`;
   }).join('');
@@ -662,15 +711,15 @@ function _buildMetierSection(duel, myStore, tgtStore) {
         <div class="flex items-center gap-1">
           <div class="w-8 text-right text-[11px] font-semibold" style="color:var(--c-action)">${m.myClients}</div>
           <div class="flex-1 flex items-center gap-px h-3">
-            <div class="flex-1 flex justify-end"><div class="h-2.5 rounded-sm" style="width:${myBarW}%;background:var(--c-action);opacity:.7;min-width:1px"></div></div>
+            <div class="flex-1 flex justify-end"><div class="h-2.5 rounded-sm" style="width:${myBarW}%;background:var(--c-action);opacity:.7;min-width:${myBarW > 0 ? '1px' : '0'}"></div></div>
             <div class="w-px h-3" style="background:var(--b-dark)"></div>
-            <div class="flex-1"><div class="h-2.5 rounded-sm bg-gray-400" style="width:${tgtBarW}%;opacity:.6;min-width:1px"></div></div>
+            <div class="flex-1"><div class="h-2.5 rounded-sm bg-gray-400" style="width:${tgtBarW}%;opacity:.6;min-width:${tgtBarW > 0 ? '1px' : '0'}"></div></div>
           </div>
           <div class="w-8 text-[11px] font-semibold t-primary">${m.tgtClients}</div>
         </div>
       </td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${m.myCA > 0 ? formatEuro(m.myCA) : '<span class="t-disabled">—</span>'}</td>
-      <td class="py-2 px-2 text-xs text-right font-mono">${m.tgtCA > 0 ? formatEuro(m.tgtCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(m.myCA) ? formatEuro(m.myCA) : '<span class="t-disabled">—</span>'}</td>
+      <td class="py-2 px-2 text-xs text-right font-mono">${_hasAmount(m.tgtCA) ? formatEuro(m.tgtCA) : '<span class="t-disabled">—</span>'}</td>
       <td class="py-2 px-2 text-xs text-right font-bold font-mono ${gapColor}">${gapCA !== 0 ? (gapCA > 0 ? '+' : '') + formatEuro(gapCA) : '—'}</td>
     </tr>`;
 
@@ -880,8 +929,8 @@ function _buildMetierDrillDown(metierData, myStore, tgtStore) {
       <div class="text-[9px] t-disabled mt-0.5">${escapeHtml(c.commercial || '—')} · ${escapeHtml(c.cp || '')} ${escapeHtml(c.ville || '')}</div>
     </td>`;
 
-    if (showMyCA) cols += `<td class="py-2 px-2 text-[11px] text-right font-mono font-semibold" style="color:var(--c-action)">${c.myCA > 0 ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>`;
-    if (showHisCA) cols += `<td class="py-2 px-2 text-[11px] text-right font-mono t-primary">${c.hisCA > 0 ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>`;
+    if (showMyCA) cols += `<td class="py-2 px-2 text-[11px] text-right font-mono font-semibold" style="color:var(--c-action)">${_hasAmount(c.myCA) ? formatEuro(c.myCA) : '<span class="t-disabled">—</span>'}</td>`;
+    if (showHisCA) cols += `<td class="py-2 px-2 text-[11px] text-right font-mono t-primary">${_hasAmount(c.hisCA) ? formatEuro(c.hisCA) : '<span class="t-disabled">—</span>'}</td>`;
     if (showGap) {
       const gColor = c.gap > 0 ? 'text-red-400' : c.gap < 0 ? 'text-emerald-400' : 't-disabled';
       cols += `<td class="py-2 px-2 text-[11px] text-right font-mono font-bold ${gColor}">${c.gap !== 0 ? (c.gap > 0 ? '+' : '') + formatEuro(c.gap) : '—'}</td>`;
@@ -1008,8 +1057,8 @@ function _buildUniversSection(duel, myStore, tgtStore) {
       <td class="py-2 px-2 text-xs text-right font-semibold ${ecartColor}">${u.ecart > 0 ? '+' : ''}${formatEuro(u.ecart)}</td>
       <td class="py-2 px-2 w-40">
         <div class="flex items-center gap-0.5 h-4">
-          <div class="flex-1 flex justify-end"><div class="h-3 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:.7;min-width:2px"></div></div>
-          <div class="flex-1"><div class="h-3 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:.5;min-width:2px"></div></div>
+          <div class="flex-1 flex justify-end"><div class="h-3 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:.7;min-width:${myW > 0 ? '2px' : '0'}"></div></div>
+          <div class="flex-1"><div class="h-3 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:.5;min-width:${tgtW > 0 ? '2px' : '0'}"></div></div>
         </div>
       </td>
       <td class="py-2 px-2 text-xs text-right">${u.myPct.toFixed(0)}%</td>
@@ -1119,6 +1168,7 @@ function _buildFamillesSection(duel, myStore, tgtStore) {
 function _buildDrillDown(famCode) {
   const myStore = _S.selectedMyStore;
   const tgtStore = _duelTarget;
+  _ensureDuelAgenceStore();
   if (!_S.agenceStore?.size) return '';
   const myRec = _S.agenceStore.get(myStore);
   const tgtRec = _S.agenceStore.get(tgtStore);

@@ -194,10 +194,12 @@ export function buildPochesTerrain({commercial,finalDataIndex}) {
       pocheB.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caSoc,dist,gap:caSoc,silence:rec.silenceDaysPDV});
     }
 
-    // C — FLUX HORS COMPTOIR : ils achètent déjà via Web/DCS/Rep, donc l'argument est service/retrait.
+    // C — À QUALIFIER : CA société connu, mais aucun détail canal exploitable dans le consommé.
+    // Pour un chef d'agence, c'est une liste à qualifier avec le commerce / au téléphone.
     const hors=rec.artMapHors;
+    let caLivre=0;
+    let hasFluxDetail=false;
     if(hors){
-      let caLivre=0;
       const canauxLivre=new Set();
       for(const d of hors.values()){
         const c=(d.canal||'').toUpperCase();
@@ -206,14 +208,15 @@ export function buildPochesTerrain({commercial,finalDataIndex}) {
           canauxLivre.add(c);
         }
       }
-      if(caLivre>0){
-        potC+=caLivre;
-        pocheC.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caLivre,caSoc,canaux:[...canauxLivre].join('+'),dist});
-      }
+      hasFluxDetail=caLivre>0||canauxLivre.size>0;
     }
 
     // D — AUTRES AGENCES : le client connaît le réseau, mais pas ce PDV.
     const caAutres=rec.caAutresAgences||0;
+    if(!hasFluxDetail&&caAutres<=0){
+      potC+=caSoc;
+      pocheC.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caSoc,dist,gap:caSoc,silence:rec.silenceDaysPDV});
+    }
     if(caAutres>0){
       potD+=caAutres;
       pocheD.push({cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caAutres,caSoc,dist,nbBL:rec.nbBLPDV||0});
@@ -221,7 +224,7 @@ export function buildPochesTerrain({commercial,finalDataIndex}) {
   }
   pocheA.sort((a,b)=>b.gap-a.gap||(a.dist??999)-(b.dist??999)||(a.silence??999)-(b.silence??999));
   pocheB.sort((a,b)=>(a.dist??999)-(b.dist??999)||b.caSoc-a.caSoc);
-  pocheC.sort((a,b)=>b.caLivre-a.caLivre);
+  pocheC.sort((a,b)=>b.caSoc-a.caSoc||(a.dist??999)-(b.dist??999));
   pocheD.sort((a,b)=>b.caAutres-a.caAutres);
   return{data:{A:pocheA,B:pocheB,C:pocheC,D:pocheD},potA,potB,potC,potD};
 }
@@ -231,7 +234,7 @@ export function renderPochesTerrain(poches,{activeKey=''}) {
   const cards=[
     {key:'A',icon:'🎯',label:'Vivier non PDV',value:formatEuro(poches.potA),sub:`${poches.data.A.length} clients société`,color:'var(--c-danger)',tip:'Clients Legallais actifs qui n’utilisent pas le canal PDV de l’agence.'},
     {key:'B',icon:'📍',label:'Proches agence',value:formatEuro(poches.potB),sub:`${poches.data.B.length} à ≤ 10 km`,color:'#f59e0b',tip:'Sous-ensemble du vivier non PDV proche de l’agence : action comptoir, retrait, dépannage.'},
-    {key:'C',icon:'🚚',label:'Flux hors PDV',value:formatEuro(poches.potC),sub:`${poches.data.C.length} via web/rep/DCS`,color:'#8b5cf6',tip:'Clients non PDV qui achètent déjà via d’autres canaux : basculer une partie du flux vers retrait/comptoir.'},
+    {key:'C',icon:'🚚',label:'Livrés hors PDV',value:formatEuro(poches.potC),sub:`${poches.data.C.length} hors comptoir`,color:'#8b5cf6',tip:'Clients société non PDV dont le flux semble passer en livraison, chantier, web ou commercial : à convertir partiellement en retrait/dépannage agence.'},
     {key:'D',icon:'🏪',label:'Vu ailleurs',value:formatEuro(poches.potD),sub:`${poches.data.D.length} autres agences`,color:'var(--c-ok)',tip:'Clients non PDV chez vous mais déjà consommateurs dans une autre agence : le réseau est acquis, il faut localiser.'}
   ];
   const tiles=cards.map(p=>{

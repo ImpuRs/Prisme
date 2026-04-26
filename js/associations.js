@@ -9,6 +9,13 @@ import { formatEuro, escapeHtml, _isMetierStrategique } from './utils.js';
 import { FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP } from './constants.js';
 import { computeSquelette } from './engine.js';
 import { _saveSessionToIDB } from './cache.js';
+import { DataStore } from './store.js';
+import { PHYSIGAMME_COPY, getPhysigammeDecision } from './physigamme.js?v=20260425a';
+import { computePhysigamme } from './physigamme-engine.js?v=20260425b';
+import { renderPhysigammeHero, renderPhysigammeKpis, renderPhysigammePerimeterBar, renderPhysigammeOutOfScope } from './physigamme-view.js?v=20260425b';
+import { renderPhysigammeArticleTable } from './physigamme-table.js?v=20260425b';
+import { buildPhysigammeDeployment, renderPhysigammeDeployment } from './physigamme-deployment.js?v=20260425c';
+import { renderMissingPanel, exportMissingOrder, exportStartupKit } from './physigamme-actions.js?v=20260425b';
 
 // ═══════════════════════════════════════════════════════════════
 // Données persistées : _S._associations = [{id, famA, famB, famC?, label, dateCreated}]
@@ -91,6 +98,12 @@ function _vpmForStore(store) {
     return merged;
   }
   return _S.ventesParMagasin?.[store] || {};
+}
+
+function _troncStoreKeys() {
+  const vbc = _S.ventesParMagasinByCanal;
+  if (vbc && Object.keys(vbc).length) return Object.keys(vbc).sort();
+  return Object.keys(_S.ventesParMagasin || {}).sort();
 }
 
 /**
@@ -284,7 +297,7 @@ function _findMissingRefs(famB, bestStore) {
     const myCa = myData[code]?.sumCA || 0;
     const bestCa = data.sumCA || 0;
     if (bestCa > myCa * 1.5) { // l'autre vend au moins 50% de plus
-      const fd = _S.finalData?.find(r => r.code === code);
+      const fd = DataStore.finalData?.find(r => r.code === code);
       refs.push({
         code,
         libelle: _S.libelleLookup?.[code] || code,
@@ -969,147 +982,67 @@ function _exportTrous(assocId) {
 window._assocExportTrous = _exportTrous;
 
 // ═══════════════════════════════════════════════════════════════
-// Tronc Commun — Indice de Transversalité
+// Physigamme — couverture métiers
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Calcule l'Indice de Transversalité pour chaque article d'un univers.
+ * Calcule la couverture métiers pour chaque article d'un univers.
  * @param {string} universLetter — lettre univers ('E','O',...) ou '' pour tout
  * @param {Set<string>|null} metiersSet — métiers à analyser, null = tous stratégiques
- * @param {boolean} isCustomSelection — true si l'utilisateur a choisi des métiers à la carte
  * @returns {{ articles: Array, totalMetiers: number, troncCount: number, interCount: number, specCount: number }}
  */
-function _computeTroncCommun(universLetter, metiersSet, isCustomSelection = false) {
-  const catFam = _S.catalogueFamille;
+function _computeTroncCommun(universLetter, metiersSet) {
+  return computePhysigamme({
+    universLetter,
+    metiersSet,
+    includeAll: _troncIncludeAll,
+    perimetre: _troncPerimetre
+  });
+}
+
+function _troncEffectiveMetiers() {
   const chal = _S.chalandiseData;
-  if (!chal?.size) return { articles: [], totalMetiers: 0, troncCount: 0, interCount: 0, specCount: 0 };
-
-  // Build set of valid métiers
-  if (!metiersSet) {
-    metiersSet = new Set();
-    for (const info of chal.values()) {
-      if (info.metier && _isMetierStrategique(info.metier)) metiersSet.add(info.metier);
+  const allStrat = new Set();
+  const allMetiers = new Set();
+  if (!chal?.size) return { effectiveMetiers: allStrat, allStrat, allMetiers, isCustom: false };
+  for (const info of chal.values()) {
+    if (info.metier && info.metier.length > 2) {
+      allMetiers.add(info.metier);
+      if (_isMetierStrategique(info.metier)) allStrat.add(info.metier);
     }
   }
-  const totalMetiers = metiersSet.size;
-  if (totalMetiers === 0) return { articles: [], totalMetiers: 0, troncCount: 0, interCount: 0, specCount: 0 };
+  const isCustom = _troncCustomMetiers !== null;
+  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allMetiers : allStrat);
+  return { effectiveMetiers, allStrat, allMetiers, isCustom };
+}
 
-  // Map<code, Map<metier, {ca, clients}>>
-  const artMetierMap = new Map();
+function _troncActionContext(store, { excludeStore = false } = {}) {
+  const storesAll = _troncStoreKeys();
+  const stores = excludeStore ? storesAll.filter(s => s !== store) : storesAll;
+  const storeSnapshots = new Map(storesAll.map(s => [s, _vpmForStore(s)]));
+  const { effectiveMetiers } = _troncEffectiveMetiers();
+  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers);
+  let troncArts = data.articles.filter(a => a.indice >= 60);
 
-  // Track clients sans métier stratégique (hors périmètre)
-  let caHorsMetier = 0;
-  let clientsHorsMetier = 0;
-  const _horsMetierSeen = new Set();
-
-  // includeAll = 100% du fichier : inclut les clients hors cluster avec leur métier brut
-  const includeAll = _troncIncludeAll;
-
-  /** Injecte une ligne {cc, code, ca} dans le moteur */
-  const _ingest = (cc, code, ca) => {
-    if (!/^\d{6}$/.test(code)) return; // exclure refs spéciales (non stockables)
-    if (universLetter) {
-      const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (!cf || cf.charAt(0) !== universLetter) return;
-    }
-    const rawMetier = chal.get(cc)?.metier;
-    let metier = rawMetier && metiersSet.has(rawMetier) ? rawMetier : null;
-    if (!metier && includeAll) {
-      // Inclure tout le monde : métier brut ou "(Non renseigné)"
-      metier = rawMetier && rawMetier.length > 2 ? rawMetier : '(Non renseigné)';
-    }
-    if (!metier) {
-      caHorsMetier += ca;
-      if (!_horsMetierSeen.has(cc)) { clientsHorsMetier++; _horsMetierSeen.add(cc); }
-      return;
-    }
-    if (!artMetierMap.has(code)) artMetierMap.set(code, new Map());
-    const mm = artMetierMap.get(code);
-    if (!mm.has(metier)) mm.set(metier, { ca: 0, clients: new Set() });
-    const entry = mm.get(metier);
-    entry.ca += ca;
-    entry.clients.add(cc);
-  };
-
-  const _processMap = (src) => {
-    if (!src?.size) return;
-    for (const [cc, artMap] of src) {
-      for (const [code, v] of artMap) _ingest(cc, code, v.sumCA || 0);
-    }
-  };
-
-  const hasTerrain = _S.territoireReady && _S.territoireLines?.length > 0;
-  const perim = _troncPerimetre;
-
-  // ── 🏢 PDV : Consommé myStore (Prélevé + Enlevé, mon agence) ──
-  if (perim === 'agence') {
-    _processMap(_S.ventesClientArticle);
-    _processMap(_S.ventesClientHorsMagasin);
-  }
-  // ── 🏪 Réseau : Consommé TOUTES agences (client × article multi-stores) ──
-  else if (perim === 'reseau') {
-    _processMap(_S.ventesClientArticleReseau);
-  }
-  // ── 🌍 Territoire : fichier Qlik SEUL (source de vérité, pas de doublon) ──
-  else if (perim === 'territoire') {
-    if (hasTerrain) {
-      for (const l of _S.territoireLines) {
-        if (l.clientCode) _ingest(l.clientCode, l.code, l.ca || 0);
+  if (_troncLoiAirain && stores.length > 1) {
+    const storeThreshold = Math.ceil(stores.length * 60 / 100);
+    troncArts = troncArts.filter(a => {
+      let sc = 0;
+      for (const s of stores) {
+        const d = storeSnapshots.get(s)?.[a.code];
+        if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
       }
-    }
-  }
-
-  // En mode includeAll, recalculer totalMetiers depuis les métiers réellement trouvés
-  const allFoundMetiers = new Set();
-  if (includeAll) {
-    for (const metierMap of artMetierMap.values()) {
-      for (const m of metierMap.keys()) allFoundMetiers.add(m);
-    }
-  }
-  const effectiveTotalMetiers = includeAll ? Math.max(allFoundMetiers.size, totalMetiers) : totalMetiers;
-
-  // Build result array
-  const articles = [];
-  for (const [code, metierMap] of artMetierMap) {
-    const nbMetiers = metierMap.size;
-    const indice = Math.round(nbMetiers / effectiveTotalMetiers * 100);
-    let caTotal = 0;
-    let nbClients = 0;
-    const clientsAll = new Set();
-    for (const m of metierMap.values()) {
-      caTotal += m.ca;
-      for (const c of m.clients) clientsAll.add(c);
-    }
-    nbClients = clientsAll.size;
-    const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    articles.push({
-      code,
-      libelle: _S.libelleLookup?.[code] || code,
-      famille: cf,
-      famLib: _famLabel(cf),
-      univers: cf ? (FAM_LETTER_UNIVERS[cf.charAt(0)] || '?') : '?',
-      nbMetiers,
-      indice,
-      caTotal,
-      nbClients,
-      metierDetail: metierMap
+      return sc >= storeThreshold;
     });
   }
 
-  // Sort by indice desc, then CA desc
-  articles.sort((a, b) => b.indice - a.indice || b.caTotal - a.caTotal);
-
-  const troncCount = articles.filter(a => a.indice >= 60).length;
-  const interCount = articles.filter(a => a.indice >= 30 && a.indice < 60).length;
-  const specCount = articles.filter(a => a.indice < 30).length;
-
-  return { articles, totalMetiers: effectiveTotalMetiers, troncCount, interCount, specCount, caHorsMetier, clientsHorsMetier };
+  return { storesAll, stores, storeSnapshots, troncArts };
 }
 
 function _renderTroncCommun() {
   const chal = _S.chalandiseData;
   if (!chal?.size) {
-    return `<div class="text-center t-disabled py-8">Chargez la zone de chalandise pour activer le Tronc Commun.</div>`;
+    return `<div class="text-center t-disabled py-8">Chargez la zone de chalandise pour activer la Physigamme.</div>`;
   }
 
   // ── All métiers available ──
@@ -1126,10 +1059,10 @@ function _renderTroncCommun() {
 
   // Univers buttons supprimés — pilotés par le sidebar Direction
 
-  // ── Périmètre : 2 boutons ──
+  // ── Périmètre : PDV omnicanal agence, réseau consommé, territoire Qlik ──
   const hasTerrain = _S.territoireReady && _S.territoireLines?.length > 0;
   const _perimTooltips = {
-    agence: 'Ventes de mon agence (Prélevé + Enlevé)',
+    agence: 'Consommé de mon agence, tous canaux PDV (MAGASIN/Web/Rep/DCS)',
     reseau: 'Ventes de toutes les agences du fichier consommé',
     territoire: 'Tous canaux du fichier Qlik (PDV + Réseau + Livraisons DCS/Web)'
   };
@@ -1160,13 +1093,16 @@ function _renderTroncCommun() {
   let _airainApplied = false;
   let _airainTotal = data.articles.length;
   if (_troncLoiAirain) {
-    const vpm = _S.ventesParMagasin || {};
-    const stores = Object.keys(vpm);
+    const stores = _troncStoreKeys();
+    const storeData = new Map(stores.map(s => [s, _vpmForStore(s)]));
     if (stores.length > 1) {
       const storeThreshold = Math.ceil(stores.length * 60 / 100);
       data.articles = data.articles.filter(a => {
         let sc = 0;
-        for (const s of stores) { if (vpm[s]?.[a.code]?.sumCA > 0 || vpm[s]?.[a.code]?.sumPrelevee > 0) sc++; }
+        for (const s of stores) {
+          const d = storeData.get(s)?.[a.code];
+          if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
+        }
         return sc >= storeThreshold;
       });
       _airainApplied = true;
@@ -1271,7 +1207,10 @@ function _renderTroncCommun() {
     </div>`;
   }
 
+  const perimLabels = PHYSIGAMME_COPY.perimeters;
+
   let html = `<div class="space-y-3">
+    ${renderPhysigammeHero({ articleCount: data.articles.length, perimLabel: perimLabels[_troncPerimetre] })}
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex gap-1">
         <button onclick="window._troncToggleMetierPicker()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncMetierPickerOpen ? 'text-white' : 'text-white hover:brightness-110'}" style="background:${_troncMetierPickerOpen ? 'var(--c-action)' : '#6366f1'};${_troncMetierPickerOpen ? 'outline:2px solid var(--c-action);outline-offset:1px' : ''}" title="Cliquer pour choisir les métiers du cluster">👥 ${isCustom ? _troncCustomMetiers.size + ' métiers' : clusterLabel} ▾</button>
@@ -1281,24 +1220,11 @@ function _renderTroncCommun() {
       </div>
     </div>
     ${metierPickerHtml}
-    <div class="grid grid-cols-4 gap-2">
-      ${_kpiBtn('', 'Métiers', data.totalMetiers, 'var(--c-action)', _troncIncludeAll ? '100% fichier' : isCustom ? 'cluster' : 'stratégiques')}
-      ${_kpiBtn('tronc', 'Tronc Commun', data.troncCount, '#22c55e', '≥ 60%')}
-      ${_kpiBtn('inter', 'Intermédiaires', data.interCount, '#f59e0b', '30-59%')}
-      ${_kpiBtn('spec', 'Spécialistes', data.specCount, '#ef4444', '< 30%')}
-    </div>`;
+    ${renderPhysigammeKpis({ data, includeAll: _troncIncludeAll, isCustom, renderKpi: _kpiBtn })}`;
 
   // ── Bandeau périmètre actif + "Hors radar" ──
-  const perimLabels = { agence: '🏢 PDV (Prélevé + Enlevé, mon agence)', reseau: '🏪 Réseau (toutes agences du consommé)', territoire: '🌍 Territoire (fichier Qlik, tous clients)' };
-  html += `<div class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px]" style="background:var(--bg-card);border-left:3px solid var(--c-action)">
-    <span class="t-primary font-bold">${perimLabels[_troncPerimetre]}</span>
-    <span class="t-disabled">· ${data.articles.length} articles · ${data.totalMetiers} métiers</span>
-  </div>`;
-  if (data.clientsHorsMetier > 0) {
-    html += `<div class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px]" style="background:var(--bg-card);border-left:3px solid #a855f7">
-      <span class="t-disabled">👤 <strong class="t-primary">${data.clientsHorsMetier}</strong> clients hors cluster (${formatEuro(data.caHorsMetier)} CA) — non inclus dans la transversalité</span>
-    </div>`;
-  }
+  html += renderPhysigammePerimeterBar({ perimLabel: perimLabels[_troncPerimetre], articleCount: data.articles.length, totalMetiers: data.totalMetiers });
+  html += renderPhysigammeOutOfScope({ clients: data.clientsHorsMetier, ca: data.caHorsMetier });
 
   if (!data.articles.length) {
     html += `<div class="text-center t-disabled py-4">Aucun article trouvé pour cet univers.</div></div>`;
@@ -1311,7 +1237,7 @@ function _renderTroncCommun() {
     return `<button onclick="window._troncSetVue('${id}')" class="text-[10px] px-3 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}">${icon} ${label}</button>`;
   };
   const hasVpm = _S.ventesParMagasin && Object.keys(_S.ventesParMagasin).length > 1;
-  html += `<div class="flex gap-1">${_vueBtn('articles', '📋', 'Articles')}${_vueBtn('carto', '🗺️', 'Cartographie Métiers')}${hasVpm ? _vueBtn('conformite', '🚨', 'Conformité Agences') : ''}</div>`;
+  html += `<div class="flex gap-1">${_vueBtn('articles', '📋', 'Décisions articles')}${_vueBtn('carto', '🗺️', 'Cartographie Métiers')}${hasVpm ? _vueBtn('conformite', '🚨', 'Déploiement agences') : ''}</div>`;
 
   // ══════════════ VUE CARTOGRAPHIE (Heatmap Famille × Métier) ══════════════
   if (_troncVue === 'carto') {
@@ -1396,264 +1322,38 @@ function _renderTroncCommun() {
     return html;
   }
 
-  // ══════════════ VUE CONFORMITÉ AGENCES ══════════════
+  // ══════════════ VUE DÉPLOIEMENT AGENCES ══════════════
   if (_troncVue === 'conformite') {
-    const vpm = _S.ventesParMagasin || {};
-    const stores = Object.keys(vpm).sort();
-    // Articles Tronc Commun (indice ≥60%) du Labo courant
-    const troncArticlesAll = data.articles.filter(a => a.indice >= 60);
-    const nbTroncTotal = troncArticlesAll.length;
-
-    if (!nbTroncTotal) {
-      html += `<div class="text-center t-disabled py-4">Aucun article Tronc Commun (≥60%) pour vérifier la conformité.</div></div>`;
-      return html;
-    }
-
-    // Loi d'Airain déjà appliquée en amont (filtre global)
-    const troncCodes = troncArticlesAll.map(a => a.code);
-
-    if (!troncCodes.length) {
-      html += `<div class="text-center t-disabled py-4">Aucun article Tronc Commun (≥60%) trouvé${_airainApplied ? '. Désactivez la Loi d\'Airain dans le panneau de gauche pour auditer le TC brut' : ''}.</div></div>`;
-      return html;
-    }
-
-    // Agences actives (exclure amorçage des calculs médiane)
-    const activeStores = stores.filter(s => !_troncAmorcageStores.has(s));
-    const amorcageStores = stores.filter(s => _troncAmorcageStores.has(s));
-
-    // Pour chaque agence : compter implantation (médiane CA basée sur agences actives uniquement)
-    const storeData = [];
-    for (const store of stores) {
-      const sd = vpm[store];
-      let implanted = 0, caTotal = 0, caMissed = 0;
-      const missing = [];
-      for (const code of troncCodes) {
-        if (sd[code] && (sd[code].sumCA > 0 || sd[code].sumPrelevee > 0)) {
-          implanted++;
-          caTotal += sd[code].sumCA || 0;
-        } else {
-          const cas = activeStores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0);
-          const median = cas.length ? cas.sort((a, b) => a - b)[Math.floor(cas.length / 2)] : 0;
-          caMissed += median;
-          missing.push(code);
-        }
-      }
-      const pct = Math.round(implanted / troncCodes.length * 100);
-      const isAmorcage = _troncAmorcageStores.has(store);
-      storeData.push({ store, implanted, total: troncCodes.length, pct, caTotal, caMissed, missing, isAmorcage });
-    }
-    // Actives triées par %, amorçage en bas
-    const activeData = storeData.filter(d => !d.isAmorcage).sort((a, b) => b.pct - a.pct);
-    const amorcageData = storeData.filter(d => d.isAmorcage).sort((a, b) => a.store.localeCompare(b.store));
-    const sortedStoreData = [...activeData, ...amorcageData];
-
-    const myStore = _S.selectedMyStore;
-    const avgPct = activeData.length ? Math.round(activeData.reduce((s, d) => s + d.pct, 0) / activeData.length) : 0;
-    const below50 = activeData.filter(d => d.pct < 50).length;
-    const totalMissedCA = activeData.reduce((s, d) => s + d.caMissed, 0);
-
-    // Bandeau info Loi d'Airain (toggle dans la sidebar)
-    if (_troncLoiAirain && _airainApplied) {
-      html += `<div class="text-[9px] t-disabled mb-2 px-2">🛡️ Loi d'Airain active — <strong class="t-primary">${troncCodes.length} Incontournables</strong> sur ${_airainTotal} Tronc Commun (≥60% agences)</div>`;
-    }
-    if (amorcageData.length) {
-      html += `<div class="text-[9px] mb-2 px-2 py-1 rounded" style="background:rgba(34,197,94,0.1);color:#22c55e">🚀 <strong>${amorcageData.length}</strong> agence${amorcageData.length > 1 ? 's' : ''} en amorçage — exclue${amorcageData.length > 1 ? 's' : ''} des statistiques (${amorcageData.map(d => d.store).join(', ')})</div>`;
-    }
-
-    html += `<div class="grid grid-cols-4 gap-2 mb-3">
-      <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
-        <div class="text-2xl font-black" style="color:#8B5CF6">${troncCodes.length}</div>
-        <div class="text-[10px] t-primary font-bold">${_airainApplied ? 'Incontournables' : 'Tronc Commun'}</div>
-        <div class="text-[9px] t-disabled">${_airainApplied ? `Loi d'Airain · ≥60% agences` : `${data.totalMetiers} métiers · ≥60%`}</div>
-      </div>
-      <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
-        <div class="text-2xl font-black" style="color:${avgPct >= 70 ? '#22c55e' : '#f59e0b'}">${avgPct}%</div>
-        <div class="text-[10px] t-primary font-bold">Implantation moy.</div>
-      </div>
-      <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
-        <div class="text-2xl font-black" style="color:#ef4444">${below50}</div>
-        <div class="text-[10px] t-primary font-bold">Agences < 50%</div>
-        <div class="text-[9px] t-disabled">à recadrer</div>
-      </div>
-      <div class="rounded-lg p-3 text-center" style="background:var(--bg-card)">
-        <div class="text-2xl font-black" style="color:#ef4444">${formatEuro(totalMissedCA)}</div>
-        <div class="text-[10px] t-primary font-bold">CA perdu estimé</div>
-      </div>
-    </div>`;
-
-    html += `<div id="troncConfMissingPanel"></div>`;
-
-    const rows = sortedStoreData.map(d => {
-      const isMine = d.store === myStore;
-      const ring = isMine ? 'outline:2px solid #8B5CF6;outline-offset:-2px;' : '';
-
-      if (d.isAmorcage) {
-        // Ligne amorçage — pas de barre conformité, bouton Kit de Démarrage
-        return `<tr style="${ring}background:rgba(34,197,94,0.05)">
-          <td class="px-3 py-2 text-[11px] font-bold" style="color:#22c55e">${d.store}</td>
-          <td class="px-3 py-2"><span class="text-[9px] px-2 py-0.5 rounded-full font-bold text-white" style="background:#22c55e">🚀 Amorçage</span></td>
-          <td class="px-3 py-2 text-[11px] t-disabled text-center" colspan="2">Exclue des statistiques</td>
-          <td class="px-3 py-2 text-right">
-            <button onclick="event.stopPropagation();window._troncKitDemarrage('${d.store}')" class="text-[9px] px-2 py-1 rounded font-bold cursor-pointer text-white" style="background:#22c55e">🚀 Kit de Démarrage</button>
-          </td>
-          <td class="px-3 py-2 text-right">
-            <button onclick="event.stopPropagation();window._troncToggleAmorcage('${d.store}')" class="text-[9px] px-1.5 py-0.5 rounded cursor-pointer t-disabled" style="background:var(--bg-surface)" title="Retirer du mode amorçage">✕</button>
-          </td>
-        </tr>`;
-      }
-
-      const color = d.pct >= 80 ? '#22c55e' : d.pct >= 50 ? '#f59e0b' : '#ef4444';
-      const barW = Math.max(d.pct, 2);
-      return `<tr class="hover:s-hover cursor-pointer" onclick="window._troncConfShowMissing('${d.store}')" style="${ring}">
-        <td class="px-3 py-2 text-[11px] font-bold ${isMine ? 'text-violet-400' : 't-primary'}">
-          ${d.store}
-          <button onclick="event.stopPropagation();window._troncToggleAmorcage('${d.store}')" class="text-[8px] ml-1 px-1 py-0.5 rounded cursor-pointer t-disabled opacity-40 hover:opacity-100" style="background:var(--bg-surface)" title="Marquer en amorçage (nouvelle agence)">🚀</button>
-        </td>
-        <td class="px-3 py-2">
-          <div class="flex items-center gap-2">
-            <div class="w-32 h-2 rounded-full" style="background:var(--bg-surface)">
-              <div class="h-full rounded-full" style="width:${barW}%;background:${color}"></div>
-            </div>
-            <span class="text-[11px] font-bold" style="color:${color}">${d.pct}%</span>
-          </div>
-        </td>
-        <td class="px-3 py-2 text-[11px] t-primary text-right">${d.implanted}/${d.total}</td>
-        <td class="px-3 py-2 text-[11px] t-disabled text-right">${formatEuro(d.caTotal)}</td>
-        <td class="px-3 py-2 text-[11px] font-bold text-right" style="color:${d.caMissed > 1000 ? '#ef4444' : '#f59e0b'}">${d.caMissed > 0 ? formatEuro(d.caMissed) : '-'}</td>
-        <td class="px-3 py-2 text-[11px] t-disabled text-right">${d.missing.length > 0 ? d.missing.length + ' réf.' : '✓'}</td>
-      </tr>`;
-    }).join('');
-
-    html += `<div class="overflow-x-auto rounded-lg" style="background:var(--bg-card)">
-      <table class="w-full"><thead><tr class="text-[9px] t-disabled uppercase tracking-wider">
-        <th class="px-3 py-2 text-left">Agence</th>
-        <th class="px-3 py-2 text-left">Implantation</th>
-        <th class="px-3 py-2 text-right">Couverture</th>
-        <th class="px-3 py-2 text-right">CA vendus</th>
-        <th class="px-3 py-2 text-right">CA perdu est.</th>
-        <th class="px-3 py-2 text-right">Manquants</th>
-      </tr></thead><tbody>${rows}</tbody></table>
-    </div></div>`;
+    const stores = _troncStoreKeys();
+    const storeSnapshots = new Map(stores.map(s => [s, _vpmForStore(s)]));
+    const deployment = buildPhysigammeDeployment({
+      articles: data.articles,
+      stores,
+      storeSnapshots,
+      amorcageStores: _troncAmorcageStores,
+      airainApplied: _airainApplied,
+      airainTotal: _airainTotal,
+      totalMetiers: data.totalMetiers
+    });
+    html += renderPhysigammeDeployment({ deployment, myStore: _S.selectedMyStore });
     return html;
   }
 
-  // ══════════════ VUE ARTICLES (existante) ══════════════
-  // ── Geste 2 : Apply KPI filter ──
-  let filtered = data.articles;
-  if (_troncKpiFilter === 'tronc') filtered = filtered.filter(a => a.indice >= 60);
-  else if (_troncKpiFilter === 'inter') filtered = filtered.filter(a => a.indice >= 30 && a.indice < 60);
-  else if (_troncKpiFilter === 'spec') filtered = filtered.filter(a => a.indice < 30);
-
-  // ── Geste 4 : Build verdict lookup from finalData ──
+  // ══════════════ VUE ARTICLES / DÉCISIONS PHYSIGAMME ══════════════
   const verdictMap = new Map();
-  for (const r of (_S.finalData || [])) {
+  for (const r of (DataStore.finalData || [])) {
     if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
   }
 
-  // Group by family
-  const byFam = new Map();
-  for (const art of filtered) {
-    if (!byFam.has(art.famille)) byFam.set(art.famille, []);
-    byFam.get(art.famille).push(art);
-  }
-
-  // Sort families by best indice
-  const famOrder = [...byFam.entries()].sort((a, b) => {
-    const bestA = Math.max(...a[1].map(x => x.indice));
-    const bestB = Math.max(...b[1].map(x => x.indice));
-    return bestB - bestA;
+  html += renderPhysigammeArticleTable({
+    data,
+    kpiFilter: _troncKpiFilter,
+    effectiveMetiers,
+    verdictMap,
+    openFams: _troncOpenFams,
+    expandedCode: _troncExpandedCode,
+    famLabel: _famLabel
   });
-
-  // ── Geste 5 : Export button ──
-  html += `<div class="flex justify-end">
-    <button onclick="window._troncExport()" class="text-[11px] px-3 py-1.5 rounded-lg font-bold cursor-pointer transition-all text-white" style="background:var(--c-action)">📥 Exporter la Gamme</button>
-  </div>`;
-
-  // Table with Verdict column (Geste 4)
-  const cols = 7;
-  html += `<div class="overflow-x-auto" style="max-height:60vh;overflow-y:auto">
-    <table class="w-full text-[11px]">
-    <thead><tr class="t-disabled text-[9px] uppercase" style="border-bottom:1px solid var(--border)">
-      <th class="text-left py-1 px-1">Code</th>
-      <th class="text-left py-1 px-1">Article</th>
-      <th class="text-right py-1 px-1">Métiers</th>
-      <th class="py-1 px-1 w-28">Transversalité</th>
-      <th class="text-right py-1 px-1">CA</th>
-      <th class="text-right py-1 px-1">Clients</th>
-      <th class="text-center py-1 px-1">Verdict</th>
-    </tr></thead><tbody>`;
-
-  for (const [cf, arts] of famOrder) {
-    const famOpen = _troncOpenFams.has(cf);
-    const famCA = arts.reduce((s, a) => s + a.caTotal, 0);
-    const famBestIdx = Math.max(...arts.map(x => x.indice));
-    const famBestColor = famBestIdx >= 60 ? '#22c55e' : famBestIdx >= 30 ? '#f59e0b' : '#ef4444';
-    html += `<tr class="cursor-pointer hover:brightness-110" style="border-bottom:1px solid var(--border)" onclick="window._troncToggleFam('${escapeHtml(cf)}')">
-      <td colspan="2" class="text-[10px] font-bold t-primary pt-2 pb-1 px-1">${famOpen ? '▼' : '▶'} ${_famLabel(cf)}</td>
-      <td class="text-right text-[9px] t-disabled pt-2 pb-1 px-1">${arts.length} art.</td>
-      <td class="pt-2 pb-1 px-1"><span class="text-[9px] font-bold" style="color:${famBestColor}">max ${famBestIdx}%</span></td>
-      <td class="text-right text-[9px] t-disabled pt-2 pb-1 px-1">${formatEuro(famCA)}</td>
-      <td colspan="2" class="pt-2 pb-1 px-1"></td>
-    </tr>`;
-    if (!famOpen) continue;
-    const shown = arts.slice(0, 30);
-    for (const art of shown) {
-      const barColor = art.indice >= 60 ? '#22c55e' : art.indice >= 30 ? '#f59e0b' : '#ef4444';
-      const isExpanded = _troncExpandedCode === art.code;
-
-      // Geste 4 : Verdict badge
-      const vd = verdictMap.get(art.code);
-      let verdictHtml = '';
-      if (vd) {
-        const vc = { socle: '#22c55e', implanter: '#ef4444', challenger: '#f59e0b', surveiller: '#a855f7' }[vd.classif] || '#666';
-        const vl = { socle: 'Socle', implanter: '🔴 Trou', challenger: 'Challenger', surveiller: 'Surveiller' }[vd.classif] || vd.classif;
-        verdictHtml = `<span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background:${vc}20;color:${vc}">${vl}</span>`;
-      } else {
-        verdictHtml = `<span class="text-[9px] t-disabled">—</span>`;
-      }
-
-      html += `<tr class="hover:brightness-110 cursor-pointer" style="border-bottom:1px solid var(--border)" onclick="window._troncToggleRow('${art.code}')">
-        <td class="py-1 px-1 font-mono text-[10px] t-disabled">${art.code}</td>
-        <td class="py-1 px-1">${escapeHtml(art.libelle)}</td>
-        <td class="text-right py-1 px-1 font-bold">${art.nbMetiers}/${data.totalMetiers}</td>
-        <td class="py-1 px-1"><div class="flex items-center gap-1">
-          <div class="flex-1 h-2 rounded-full" style="background:var(--bg-surface)">
-            <div class="h-2 rounded-full" style="width:${art.indice}%;background:${barColor}"></div>
-          </div>
-          <span class="text-[9px] font-bold" style="color:${barColor}">${art.indice}%</span>
-        </div></td>
-        <td class="text-right py-1 px-1">${formatEuro(art.caTotal)}</td>
-        <td class="text-right py-1 px-1">${art.nbClients}</td>
-        <td class="text-center py-1 px-1">${verdictHtml}</td>
-      </tr>`;
-
-      // ── Geste 1 : Accordéon "Rayon X" — ✅ L'achètent / ❌ L'ignorent ──
-      if (isExpanded) {
-        const metiersQui = [...art.metierDetail.keys()].sort();
-        const metiersNon = [...effectiveMetiers].filter(m => !art.metierDetail.has(m)).sort();
-        html += `<tr><td colspan="${cols}" class="py-2 px-2" style="background:var(--bg-card)">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <div class="text-[10px] font-bold mb-1" style="color:#22c55e">✅ L'achètent (${metiersQui.length})</div>
-              ${metiersQui.map(m => {
-                const md = art.metierDetail.get(m);
-                return `<div class="text-[10px] py-0.5 flex justify-between"><span class="t-primary">${escapeHtml(m)}</span><span class="t-disabled">${md.clients.size} cl. · ${formatEuro(md.ca)}</span></div>`;
-              }).join('')}
-            </div>
-            <div>
-              <div class="text-[10px] font-bold mb-1" style="color:#ef4444">❌ L'ignorent (${metiersNon.length})</div>
-              ${metiersNon.length ? metiersNon.map(m => `<div class="text-[10px] py-0.5 t-disabled">${escapeHtml(m)}</div>`).join('') : '<div class="text-[10px] t-disabled italic">Aucun — transversal à 100%</div>'}
-            </div>
-          </div>
-        </td></tr>`;
-      }
-    }
-    if (arts.length > 30) {
-      html += `<tr><td colspan="${cols}" class="text-[9px] t-disabled px-1 py-0.5">… +${arts.length - 30} articles</td></tr>`;
-    }
-  }
-
-  html += `</tbody></table></div></div>`;
   return html;
 }
 
@@ -1664,7 +1364,7 @@ function _renderTroncCommun() {
 export function renderAssociationsTab() {
   _famStatsCache = null; // Invalider le cache stats à chaque rendu
 
-  // Si l'onglet Direction > Tronc Commun (conformite) est actif, rendre là-bas
+  // Si l'onglet Direction > Physigamme (conformite) est actif, rendre là-bas
   const confEl = document.getElementById('conformiteContent');
   const confTab = document.getElementById('tabConformite');
   if (confEl && confTab && !confTab.classList.contains('hidden')) {
@@ -1837,135 +1537,33 @@ window._troncSetVue = function(vue) {
   renderAssociationsTab();
 };
 
-// ── Conformité Agences (vue inline dans Tronc Commun) ──
+// ── Actions Déploiement Physigamme ─────────────────────────────
 window._troncConfShowMissing = function(store) {
   const panel = document.getElementById('troncConfMissingPanel');
   if (!panel) return;
-  const vpm = _S.ventesParMagasin || {};
-  const stores = Object.keys(vpm);
-  const sd = vpm[store] || {};
-
-  // Recalculer les articles tronc commun courants
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return;
-  const stratMetiers = new Set();
-  const allM = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allM.add(info.metier);
-      if (_isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allM : stratMetiers);
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-  let troncArts = data.articles.filter(a => a.indice >= 60);
-  if (_troncLoiAirain && stores.length > 1) {
-    const storeThreshold = Math.ceil(stores.length * 60 / 100);
-    troncArts = troncArts.filter(a => {
-      let sc = 0;
-      for (const s of stores) { if (vpm[s]?.[a.code]?.sumCA > 0 || vpm[s]?.[a.code]?.sumPrelevee > 0) sc++; }
-      return sc >= storeThreshold;
-    });
-  }
-  const troncCodes = troncArts.map(a => a.code);
-  const missing = troncCodes.filter(code => !sd[code] || (sd[code].sumCA <= 0 && sd[code].sumPrelevee <= 0));
-
-  if (!missing.length) {
-    panel.innerHTML = `<div class="rounded-lg p-3 text-[11px]" style="background:var(--bg-card);border-left:3px solid #22c55e"><strong class="text-green-400">${store}</strong> — ✅ 100% conforme</div>`;
-    return;
-  }
-
-  // Regrouper par famille
-  const groups = new Map();
-  for (const code of missing) {
-    const lib = _S.libelleLookup?.[code] || code;
-    const fam = _famLabel(_S.articleFamille?.[code] || '') || 'Autres';
-    const cas = stores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0);
-    const medianCA = cas.length ? cas.sort((a, b) => a - b)[Math.floor(cas.length / 2)] : 0;
-    if (!groups.has(fam)) groups.set(fam, []);
-    groups.get(fam).push({ code, lib, nbStores: cas.length, medianCA });
-  }
-  for (const arts of groups.values()) arts.sort((a, b) => b.medianCA - a.medianCA);
-  const sortedGroups = [...groups.entries()].sort((a, b) => {
-    return b[1].reduce((s, r) => s + r.medianCA, 0) - a[1].reduce((s, r) => s + r.medianCA, 0);
+  const ctx = _troncActionContext(store);
+  panel.innerHTML = renderMissingPanel({
+    store,
+    stores: ctx.stores,
+    storeSnapshots: ctx.storeSnapshots,
+    troncArts: ctx.troncArts,
+    famLabel: _famLabel,
+    libelleLookup: _S.libelleLookup,
+    articleFamille: _S.articleFamille
   });
-
-  let tableRows = '';
-  for (const [fam, arts] of sortedGroups) {
-    tableRows += `<tr><td colspan="4" class="px-2 pt-3 pb-1"><span class="text-[10px] font-black" style="color:#8B5CF6">📁 ${fam.toUpperCase()}</span> <span class="text-[9px] t-disabled">(${arts.length})</span></td></tr>`;
-    for (const r of arts) {
-      tableRows += `<tr class="text-[10px]"><td class="px-2 py-1 font-mono t-disabled pl-5">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','conformite')" title="Voir détail article">🔍</span></td><td class="px-2 py-1 t-primary">${r.lib}</td><td class="px-2 py-1 text-right t-disabled">${r.nbStores} ag.</td><td class="px-2 py-1 text-right font-bold" style="color:#f59e0b">${formatEuro(r.medianCA)}</td></tr>`;
-    }
-  }
-
-  panel.innerHTML = `<div class="rounded-lg p-3 space-y-2" style="background:var(--bg-card);border-left:3px solid #ef4444">
-    <div class="flex items-center justify-between">
-      <span class="text-[11px]"><strong class="text-red-400">${store}</strong> — <strong>${missing.length}</strong> articles manquants dans <strong>${sortedGroups.length}</strong> familles</span>
-      <div class="flex items-center gap-2">
-        <button onclick="window._troncConfExport('${store}')" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:#8B5CF6;color:white">📥 Ordre d'implantation</button>
-        <button onclick="document.getElementById('troncConfMissingPanel').innerHTML=''" class="text-[11px] t-disabled hover:text-white cursor-pointer font-bold px-1" title="Fermer">✕</button>
-      </div>
-    </div>
-    <table class="w-full"><thead><tr class="text-[8px] t-disabled uppercase">
-      <th class="px-2 py-1 text-left">Code</th><th class="px-2 py-1 text-left">Article</th><th class="px-2 py-1 text-right">Présent dans</th><th class="px-2 py-1 text-right">CA médian</th>
-    </tr></thead><tbody>${tableRows}</tbody></table>
-  </div>`;
 };
 
 window._troncConfExport = function(store) {
-  const vpm = _S.ventesParMagasin || {};
-  const stores = Object.keys(vpm);
-  const sd = vpm[store] || {};
-
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return;
-  const stratMetiers = new Set();
-  const allM = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allM.add(info.metier);
-      if (_isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allM : stratMetiers);
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-  let troncArts = data.articles.filter(a => a.indice >= 60);
-  if (_troncLoiAirain && stores.length > 1) {
-    const storeThreshold = Math.ceil(stores.length * 60 / 100);
-    troncArts = troncArts.filter(a => {
-      let sc = 0;
-      for (const s of stores) { if (vpm[s]?.[a.code]?.sumCA > 0 || vpm[s]?.[a.code]?.sumPrelevee > 0) sc++; }
-      return sc >= storeThreshold;
-    });
-  }
-  const troncCodes = troncArts.map(a => a.code);
-  const missing = troncCodes.filter(code => !sd[code] || (sd[code].sumCA <= 0 && sd[code].sumPrelevee <= 0));
-
-  // Group by famille for structured export
-  const groups = new Map();
-  for (const code of missing) {
-    const lib = (_S.libelleLookup?.[code] || '').replace(/;/g, ',');
-    const fam = _famLabel(_S.articleFamille?.[code] || '') || 'Autres';
-    const cas = stores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0);
-    const median = cas.length ? cas.sort((a, b) => a - b)[Math.floor(cas.length / 2)] : 0;
-    if (!groups.has(fam)) groups.set(fam, []);
-    groups.get(fam).push({ code, lib, nbStores: cas.length, median });
-  }
-  for (const arts of groups.values()) arts.sort((a, b) => b.median - a.median);
-  const sortedGroups = [...groups.entries()].sort((a, b) => {
-    return b[1].reduce((s, r) => s + r.median, 0) - a[1].reduce((s, r) => s + r.median, 0);
+  const ctx = _troncActionContext(store);
+  exportMissingOrder({
+    store,
+    stores: ctx.stores,
+    storeSnapshots: ctx.storeSnapshots,
+    troncArts: ctx.troncArts,
+    famLabel: _famLabel,
+    libelleLookup: _S.libelleLookup,
+    articleFamille: _S.articleFamille
   });
-
-  let csv = 'Famille;Code;Article;Agences présentes;CA médian réseau\n';
-  for (const [fam, arts] of sortedGroups) {
-    for (const r of arts) csv += `${fam};${r.code};${r.lib};${r.nbStores};${Math.round(r.median)}\n`;
-  }
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `PRISME_Ordre_Implantation_${store}.csv`;
-  a.click();
 };
 
 // Geste 2 : KPI filter cliquable
@@ -2078,113 +1676,20 @@ window._troncToggleAmorcage = function(store) {
 };
 
 window._troncKitDemarrage = function(store) {
-  const vpm = _S.ventesParMagasin || {};
-  const stores = Object.keys(vpm).filter(s => s !== store);
-  if (!stores.length) return;
-
-  // Recalculer les articles Tronc Commun courants
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return;
-  const stratMetiers = new Set();
-  const allM = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allM.add(info.metier);
-      if (_isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allM : stratMetiers);
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-  let troncArts = data.articles.filter(a => a.indice >= 60);
-
-  // Loi d'Airain
-  if (_troncLoiAirain && stores.length > 1) {
-    const storeThreshold = Math.ceil(stores.length * 60 / 100);
-    troncArts = troncArts.filter(a => {
-      let sc = 0;
-      for (const s of stores) { if (vpm[s]?.[a.code]?.sumCA > 0 || vpm[s]?.[a.code]?.sumPrelevee > 0) sc++; }
-      return sc >= storeThreshold;
-    });
-  }
-
-  if (!troncArts.length) {
-    if (window.showToast) window.showToast('Aucun article Tronc Commun à exporter', 'warning');
+  const ctx = _troncActionContext(store, { excludeStore: true });
+  if (!ctx.stores.length) return;
+  if (!ctx.troncArts.length) {
+    if (window.showToast) window.showToast('Aucun article Socle PDV à exporter', 'warning');
     return;
   }
-
-  // Calcul Vitesse Réseau pour chaque article
-  const fdMap = new Map();
-  for (const r of (DataStore.finalData || [])) fdMap.set(r.code, r);
-
-  let csv = 'Famille;Code;Article;MIN (Vitesse);MAX (Vitesse);Prix Unitaire;Valeur Stock MIN;Agences présentes;CA médian réseau;Source\n';
-
-  const groups = new Map();
-  for (const a of troncArts) {
-    const r = fdMap.get(a.code);
-    const pu = r?.prixUnitaire || 0;
-
-    // Vitesse Réseau : Top 3 agences par CA (même algo que main.js _applyVitesseReseau)
-    let t1ca = 0, t1bl = 0, t2ca = 0, t2bl = 0, t3ca = 0, t3bl = 0, any = false;
-    for (const s of stores) {
-      const v = vpm[s]?.[a.code];
-      if (!v || v.countBL <= 0) continue;
-      const ca = v.sumCA || 0;
-      const bl = v.countBL;
-      any = true;
-      if (ca > t1ca) { t3ca = t2ca; t3bl = t2bl; t2ca = t1ca; t2bl = t1bl; t1ca = ca; t1bl = bl; }
-      else if (ca > t2ca) { t3ca = t2ca; t3bl = t2bl; t2ca = ca; t2bl = bl; }
-      else if (ca > t3ca) { t3ca = ca; t3bl = bl; }
-    }
-
-    let minQty = 0, maxQty = 0, source = '';
-    if (any && pu > 0 && (t1bl + t2bl + t3bl) > 0) {
-      let vit = ((t1ca + t2ca + t3ca) / pu) / (t1bl + t2bl + t3bl);
-      const capMed = r?.medMinReseau > 0 ? r.medMinReseau * 2 : 20;
-      vit = Math.min(vit, capMed);
-      minQty = Math.max(Math.ceil(vit), 1);
-      maxQty = Math.max(Math.ceil(vit * 2), minQty + 1);
-      source = 'Vitesse Réseau';
-    } else if (r?.medMinReseau > 0 || r?.medMaxReseau > 0) {
-      minQty = Math.max(Math.round(r.medMinReseau || 0), 1);
-      maxQty = Math.max(Math.round(r.medMaxReseau || 0), minQty + 1);
-      source = 'Médiane ERP';
-    } else {
-      minQty = 1;
-      maxQty = 2;
-      source = 'Défaut';
-    }
-
-    const cas = stores.map(s => vpm[s]?.[a.code]?.sumCA || 0).filter(v => v > 0);
-    const median = cas.length ? cas.sort((x, y) => x - y)[Math.floor(cas.length / 2)] : 0;
-    const valStock = minQty * pu;
-    const fam = a.famLib || a.famille || '';
-    if (!groups.has(fam)) groups.set(fam, []);
-    groups.get(fam).push({ code: a.code, lib: (a.libelle || '').replace(/;/g, ','), minQty, maxQty, pu, valStock, nbStores: cas.length, median, source });
-  }
-
-  // Trier par famille puis CA médian desc
-  for (const arts of groups.values()) arts.sort((a, b) => b.median - a.median);
-  const sortedGroups = [...groups.entries()].sort((a, b) => {
-    return b[1].reduce((s, r) => s + r.valStock, 0) - a[1].reduce((s, r) => s + r.valStock, 0);
+  const result = exportStartupKit({
+    store,
+    stores: ctx.stores,
+    storeSnapshots: ctx.storeSnapshots,
+    troncArts: ctx.troncArts,
+    finalData: DataStore.finalData
   });
-
-  let totalVal = 0, totalRefs = 0;
-  for (const [fam, arts] of sortedGroups) {
-    for (const r of arts) {
-      csv += `${fam};${r.code};${r.lib};${r.minQty};${r.maxQty};${r.pu.toFixed(2)};${Math.round(r.valStock)};${r.nbStores};${Math.round(r.median)};${r.source}\n`;
-      totalVal += r.valStock;
-      totalRefs++;
-    }
-  }
-
-  csv += `\nTOTAL;${totalRefs} références;;;;"${Math.round(totalVal)} € BFR estimé";;;;\n`;
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `PRISME_Kit_Demarrage_${store}.csv`;
-  a.click();
-  if (window.showToast) window.showToast(`Kit de Démarrage ${store} : ${totalRefs} réf. · ${formatEuro(totalVal)} BFR`, 'success');
+  if (window.showToast) window.showToast(`Kit de Démarrage ${store} : ${result.totalRefs} réf. · ${formatEuro(result.totalVal)} BFR`, 'success');
 };
 
 // Geste 5 : Export CSV
@@ -2211,18 +1716,19 @@ window._troncExport = function() {
   else if (_troncKpiFilter === 'spec') filtered = filtered.filter(a => a.indice < 30);
 
   const verdictMap = new Map();
-  for (const r of (_S.finalData || [])) {
-    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '' });
+  for (const r of (DataStore.finalData || [])) {
+    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
   }
 
   const sep = ';';
-  const header = ['Code', 'Article', 'Famille', 'Métiers', 'Transversalité %', 'CA', 'Clients', 'Verdict', 'Métiers achètent', 'Métiers ignorent'].join(sep);
+  const header = ['Code', 'Article', 'Famille', 'Métiers', 'Couverture métiers %', 'CA', 'Clients', 'Décision Physigamme', 'Signal stock', 'Métiers achètent', 'Métiers ignorent'].join(sep);
   const rows = filtered.map(a => {
     const metiersQui = [...a.metierDetail.keys()].sort().join(', ');
     const metiersNon = [...effectiveMetiers].filter(m => !a.metierDetail.has(m)).sort().join(', ');
     const vd = verdictMap.get(a.code);
-    const verdict = vd ? vd.classif : '';
-    return [a.code, `"${(a.libelle||'').replace(/"/g,'""')}"`, `"${a.famLib}"`, `${a.nbMetiers}/${data.totalMetiers}`, a.indice, Math.round(a.caTotal), a.nbClients, verdict, `"${metiersQui}"`, `"${metiersNon}"`].join(sep);
+    const decision = getPhysigammeDecision(a, vd);
+    const signalStock = vd ? (vd.classif || '') : '';
+    return [a.code, `"${(a.libelle||'').replace(/"/g,'""')}"`, `"${a.famLib}"`, `${a.nbMetiers}/${data.totalMetiers}`, a.indice, Math.round(a.caTotal), a.nbClients, `"${decision.label}"`, signalStock, `"${metiersQui}"`, `"${metiersNon}"`].join(sep);
   });
   const csv = '\uFEFF' + header + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -2230,8 +1736,8 @@ window._troncExport = function() {
   const a = document.createElement('a');
   a.href = url;
   const univName = FAM_LETTER_UNIVERS[_troncUniversFilter] || _troncUniversFilter;
-  a.download = `tronc_commun_${univName.replace(/\s+/g, '_')}.csv`;
+  a.download = `physigamme_${univName.replace(/\s+/g, '_')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  if (window.showToast) window.showToast(`📥 ${filtered.length} articles exportés`, 'success');
+  if (window.showToast) window.showToast(`📥 ${filtered.length} articles Physigamme exportés`, 'success');
 };

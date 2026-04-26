@@ -40,15 +40,15 @@ import {
   renderOverviewL3Table,
   renderOverviewL4Table,
   renderTerrainFocusCoach
-} from './commerce-conquete-view.js';
+} from './commerce-conquete-view.js?v=20260425d';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 import {
   buildPochesTerrain,
   computeCommercialScorecard,
   renderCommercialScorecard,
   renderPochesTerrain
-} from './commerce-terrain-widgets.js';
-import { renderCommercialTopActions } from './commerce-top-actions.js';
+} from './commerce-terrain-widgets.js?v=20260425f';
+import { renderCommercialTopActions } from './commerce-top-actions.js?v=20260425f';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary

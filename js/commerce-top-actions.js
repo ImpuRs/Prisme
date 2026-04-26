@@ -180,7 +180,7 @@ function renderTopClients({selectedTopClient,pocheActive,pocheData,ruptureClient
   const top=clients.slice(0,20);
   if(!top.length)return '<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun client avec signal pour ce filtre.</div>';
 
-  const labels={A:'Écart Zone',B:'Inter-agences',C:'Livré → Proximité',D:'Activation',E:'Ruptures / Irritants'};
+  const labels={A:'Vivier non PDV',B:'Proches agence',C:'Livrés hors PDV',D:'Vu ailleurs',E:'Ruptures / Irritants'};
   const colors={A:'var(--c-danger)',B:'#f59e0b',C:'#8b5cf6',D:'var(--c-ok)',E:'#f87171'};
   const titleColor=pocheActive?colors[pocheActive]:'#fde047';
   const titleLabel=pocheActive?labels[pocheActive]+' — ':'';

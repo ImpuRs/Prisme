@@ -20,6 +20,31 @@ import { _S } from './state.js';
  * @param {Set<string>}  [opts.stores]       — sous-ensemble de stores (défaut: storesIntersection)
  * @returns {Map<string, Object>}
  */
+export function getAgenceStoreKey(opts = {}) {
+  const canaux = opts.canaux instanceof Set ? opts.canaux : new Set();
+  const magMode = opts.magasinMode || 'all';
+  const univFilter = opts.univers || '';
+  const storesSet = opts.stores || _S.storesIntersection;
+  const pStart = _S.periodFilterStart;
+  const pEnd = _S.periodFilterEnd;
+  const startIdx = pStart ? (pStart.getFullYear() * 12 + pStart.getMonth()) : 0;
+  const endIdx = pEnd ? (pEnd.getFullYear() * 12 + pEnd.getMonth()) : 999999;
+  const storesKey = storesSet?.size ? [...storesSet].sort().join(',') : '';
+  const canauxKey = canaux.size ? [...canaux].sort().join(',') : '*';
+  const sourceKey = _S._byMonthStoreArtCanal ? 'bmsac' : 'vpm';
+  return [
+    storesKey,
+    canauxKey,
+    magMode,
+    univFilter,
+    startIdx,
+    endIdx,
+    sourceKey,
+    _S.storeCountConsomme || Object.keys(_S.ventesParMagasin || {}).length || 0,
+    _S.finalData?.length || 0,
+  ].join('|');
+}
+
 export function buildAgenceStore(opts = {}) {
   const t0 = performance.now();
   const store = new Map();
@@ -28,8 +53,9 @@ export function buildAgenceStore(opts = {}) {
   const magMode     = opts.magasinMode || 'all';
   const univFilter  = opts.univers || '';
   const storesSet   = opts.stores || _S.storesIntersection;
+  const storeKey    = getAgenceStoreKey(opts);
 
-  if (!storesSet?.size) { _S.agenceStore = store; return store; }
+  if (!storesSet?.size) { _S.agenceStore = store; _S._agenceStoreKey = storeKey; return store; }
 
   // ── Bornes période ──
   const pStart  = _S.periodFilterStart;
@@ -224,6 +250,7 @@ export function buildAgenceStore(opts = {}) {
   }
 
   _S.agenceStore = store;
+  _S._agenceStoreKey = storeKey;
   _S._agenceStoreBassinArts = totalBassinArts;
   console.log(`[AgenceStore] ${store.size} agences, ${canaux.size ? [...canaux].join('+') : 'tous canaux'}, build in ${(performance.now() - t0).toFixed(1)}ms`);
   return store;
