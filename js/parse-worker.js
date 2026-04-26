@@ -949,10 +949,12 @@ async function _handleParseMessage(data) {
       var famConso = ((CI.famille !== null ? (row[CI.famille] != null ? row[CI.famille] : '') : '') || (CI.univers !== null ? (row[CI.univers] != null ? row[CI.univers] : '') : '') || '').toString().trim();
       var _codeFamConso = (CI.codeFam !== null ? (row[CI.codeFam] != null ? row[CI.codeFam] : '') : '').toString().trim();
       var _famCode = _codeFamConso || extractFamCode(famConso);
-      if (_famCode && code) articleFamille[code] = _famCode;
+      // Ne stocker dans articleFamille que les vrais codes (L01, 03, A12…) — pas les libellés univers
+      var _famCodeValid = _famCode && /^[A-Z]?\d{2,3}$/.test(_famCode);
+      if (_famCodeValid && code) articleFamille[code] = _famCode;
       var _uv2 = (CI.univers !== null ? (row[CI.univers] != null ? row[CI.univers] : '') : '').toString().trim();
-      var _cf2 = _codeFamConso || '';
-      var univConso = _uv2 || (_cf2 ? (FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()] || 'Inconnu') : '');
+      // Priorité : FAM_LETTER_UNIVERS via code famille (canonique) > colonne brute Univers
+      var univConso = (_famCodeValid ? (FAM_LETTER_UNIVERS[_famCode[0].toUpperCase()] || '') : '') || _uv2;
       if (univConso && code) articleUnivers[code] = univConso;
 
       if (dateV) {
