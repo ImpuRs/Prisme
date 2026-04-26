@@ -1755,13 +1755,14 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes consommé différentes du stock
       _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.clientsByStoreUnivers={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
       _S.ventesParMagasinByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();const _tempCAAll=new Map(); // accumulation sumCAAll tous canaux, filtré période, fusionné après la boucle
       const _tempCAAllFull=new Map(); // accumulation sumCAAll tous canaux, pleine période, pour ventesClientMagFull
+      const _storeUniverseBuyerRows=[]; // store × client × article, rebâti en univers après enrichissement familles
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2 / OPT3 : pré-mapper les colonnes UNE FOIS avant la boucle (évite findKey par row)
       let _hasCommandeCol=false;
@@ -1783,6 +1784,14 @@ _S.canalAgence=newCanalAgence;
       } // end !isRefilter for period-independent blocks
       // Parse date une seule fois — réutilisé par sumCAAll, filtre hors-MAGASIN, et filtre MAGASIN plus bas
       const dateV=parseExcelDate(_rj);
+      // Acheteurs par agence × univers — on collecte ici, puis on résout l'univers après le stock.
+      {const _ccBU=extractClientCode(_rc);const _codeBU=cleanCode(_ra);if(_ccBU&&_codeBU&&!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)){
+        const _storeBU=_rs==='INCONNU'?(_S.selectedMyStore||_rs):_rs;
+        const _caBU=_rcp+_rce;const _qBU=_rqp+_rqe;
+        const _uvBU=(CI.univers!==null?(row[CI.univers]??''):'').toString().trim();
+        const _cfBU=(CI.codeFam!==null?(row[CI.codeFam]??''):'').toString().trim()||extractFamCode(((CI.famille!==null?(row[CI.famille]??''):'')||'').toString().trim());
+        if((_caBU>0||_qBU>0))_storeUniverseBuyerRows.push({store:_storeBU,cc:_ccBU,code:_codeBU,univ:_uvBU,fam:_cfBU});
+      }}
       // clientLastOrderAll — tous canaux, period-independent, avant le split canal
       if(!isRefilter&&dateV){const _ccAll=extractClientCode(_rc);const _skAll=_rs;if(_ccAll&&(!_S.selectedMyStore||_skAll==='INCONNU'||_skAll===_S.selectedMyStore)){const prev=_S.clientLastOrderAll.get(_ccAll);if(!prev||dateV>prev.date)_S.clientLastOrderAll.set(_ccAll,{date:dateV,canal:canal||'MAGASIN'});
       // clientLastOrderByCanal — dernière commande par canal
@@ -2008,6 +2017,18 @@ _S.canalAgence=newCanalAgence;
       _computeSeasonalIndex(monthlySales);
       _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
+
+      // Acheteurs par agence × univers : résolution après stock, car certains consommés n'ont pas l'univers/famille.
+      // Placé hors bloc stock pour rester correct lors d'un refiltrage période.
+      _S.clientsByStoreUnivers={};
+      for(const row of _storeUniverseBuyerRows){
+        const fam=row.fam||_S.articleFamille?.[row.code]||'';
+        const univ=(fam&&fam!=='Non Classé')?(FAM_LETTER_UNIVERS[fam[0].toUpperCase()]||row.univ||'Inconnu'):(row.univ||_S.articleUnivers?.[row.code]||'');
+        if(!univ)continue;
+        if(!_S.clientsByStoreUnivers[row.store])_S.clientsByStoreUnivers[row.store]={};
+        if(!_S.clientsByStoreUnivers[row.store][univ])_S.clientsByStoreUnivers[row.store][univ]=new Set();
+        _S.clientsByStoreUnivers[row.store][univ].add(row.cc);
+      }
 
       // Re-parse livraisons + benchmark — skipped for isRefilter (period-independent)
       // Chalandise : géré dans _postParseMain (point d'entrée principal)
