@@ -1701,7 +1701,7 @@ function _buildChalandiseOverviewInner(force){
       </div>`;
     const _exclusBadge=(!_S._includePerdu24m&&totalExcluded24m>0)
       ?`<div style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;min-width:80px"><span style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;text-transform:uppercase">🚫 Exclus</span><span style="font-size:18px;font-weight:800;color:rgba(251,191,36,0.7)">${totalExcluded24m}</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:1px">&gt;24 mois</span></div>`:'' ;
-    const _universTile=_universKpi?`${_tile('🧾',formatEuro(_universKpi.avg),`CA ${escapeHtml(_universKpi.label)} / capté`,`${formatEuro(_universKpi.caUnivers)} · ${_universKpi.acheteurs}/${_universKpi.captes} acheteurs · ${formatEuro(_universKpi.avgBuyer)}/acheteur`,'#22d3ee')}`:'';
+    const _universTile=_universKpi?`${_tile('🧾',formatEuro(_universKpi.avg),`CA MAG ${escapeHtml(_universKpi.label)} / capté`,`${formatEuro(_universKpi.caUnivers)} · ${_universKpi.acheteurs}/${_universKpi.captes} acheteurs · ${formatEuro(_universKpi.avgBuyer)}/acheteur`,'#22d3ee')}`:'';
     const _filterBadge=filterActive?`<div style="position:absolute;top:8px;right:12px;font-size:9px;background:rgba(234,179,8,0.2);color:#fde047;padding:2px 8px;border-radius:99px;font-weight:700;letter-spacing:.05em">FILTRÉ</div>`:'';
     bar.innerHTML=`<div style="position:relative;display:flex;align-items:stretch;overflow:hidden">
       ${_filterBadge}
