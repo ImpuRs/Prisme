@@ -476,7 +476,7 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
       color: '#22c55e',
     },
     {
-      label: 'CA / acheteur',
+      label: 'CA / acheteur · tous canaux',
       value: bm?.available ? `${formatEuro(bm.myAvg)} → ${formatEuro(bm.tgtAvg)}` : '—',
       hint: bm?.available ? `écart ${_signedEuro(bm.tgtAvg - bm.myAvg)} par acheteur` : 'Index acheteurs non disponible',
       color: '#06b6d4',
