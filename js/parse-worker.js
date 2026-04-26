@@ -14,6 +14,9 @@ var FAM_LETTER_UNIVERS = {
   'R': 'Électricité', 'E': 'EPI', 'G': 'Génie climatique',
   'M': 'Maintenance et équipements', 'O': 'Outillage', 'L': 'Plomberie'
 };
+// Reverse lookup : libellé univers (lowercase) → nom canonique FAM_LETTER_UNIVERS
+var _UNIVERS_CANONICAL = {};
+for (var _ulk in FAM_LETTER_UNIVERS) { _UNIVERS_CANONICAL[FAM_LETTER_UNIVERS[_ulk].toLowerCase()] = FAM_LETTER_UNIVERS[_ulk]; }
 
 var AGE_BRACKETS = {
   fresh:    { min: 0,   max: 90 },
@@ -953,8 +956,11 @@ async function _handleParseMessage(data) {
       var _famCodeValid = _famCode && /^[A-Z]?\d{2,3}$/.test(_famCode);
       if (_famCodeValid && code) articleFamille[code] = _famCode;
       var _uv2 = (CI.univers !== null ? (row[CI.univers] != null ? row[CI.univers] : '') : '').toString().trim();
-      // Priorité : FAM_LETTER_UNIVERS via code famille (canonique) > colonne brute Univers
-      var univConso = (_famCodeValid ? (FAM_LETTER_UNIVERS[_famCode[0].toUpperCase()] || '') : '') || _uv2;
+      // Priorité : FAM_LETTER_UNIVERS via code famille (canonique) > colonne Univers normalisée > brut
+      var _uvCanon = _famCodeValid ? (FAM_LETTER_UNIVERS[_famCode[0].toUpperCase()] || '') : '';
+      if (!_uvCanon && _uv2) _uvCanon = _UNIVERS_CANONICAL[_uv2.toLowerCase()] || _uv2;
+      if (!_uvCanon && famConso && !_famCodeValid) _uvCanon = _UNIVERS_CANONICAL[famConso.toLowerCase()] || '';
+      var univConso = _uvCanon;
       if (univConso && code) articleUnivers[code] = univConso;
 
       if (dateV) {
