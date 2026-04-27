@@ -23,6 +23,19 @@ function _computeEfficience() {
   const detailRupture = [];
   const detailSurstock = [];
   const detailDormant = [];
+  const detailSousDim = [];
+
+  // Qté Chantier réseau : prélevé total / BL total par article
+  const vpm = _S.ventesParAgence || {};
+  const _qteChantier = {};
+  for (const store in vpm) {
+    for (const code in vpm[store]) {
+      const v = vpm[store][code];
+      if (!_qteChantier[code]) _qteChantier[code] = { prel: 0, bl: 0 };
+      _qteChantier[code].prel += v.sumPrelevee || 0;
+      _qteChantier[code].bl += v.countBL || 0;
+    }
+  }
 
   for (const r of fd) {
     if (r.isParent) continue;
@@ -72,6 +85,18 @@ function _computeEfficience() {
     }
 
     if (stock > 0) valeurStock += stock * pu;
+
+    // Sous-dimensionné : MAX < Qté Chantier réseau
+    if (max > 0) {
+      const qc = _qteChantier[r.code];
+      if (qc && qc.bl >= 3) { // au moins 3 BL réseau pour fiabilité
+        const qteCh = Math.round(qc.prel / qc.bl * 10) / 10;
+        if (qteCh > max) {
+          detailSousDim.push({ code: r.code, libelle: r.libelle, famille: r.famille,
+            max, qteCh, stock, pu, ecart: Math.ceil(qteCh) - max, blReseau: qc.bl });
+        }
+      }
+    }
   }
 
   // TGV : refs vendues / refs en stock
@@ -83,6 +108,7 @@ function _computeEfficience() {
   detailRupture.sort((a, b) => b.gain - a.gain);
   detailSurstock.sort((a, b) => b.coutMois - a.coutMois);
   detailDormant.sort((a, b) => b.valeur - a.valeur);
+  detailSousDim.sort((a, b) => b.ecart - a.ecart);
 
   return {
     nbEnStock, nbVendus, nbRupture, nbSurstock, nbDormant,
@@ -93,6 +119,8 @@ function _computeEfficience() {
     detailRupture: detailRupture.slice(0, 50),
     detailSurstock: detailSurstock.slice(0, 50),
     detailDormant: detailDormant.slice(0, 50),
+    detailSousDim: detailSousDim.slice(0, 50),
+    nbSousDim: detailSousDim.length,
   };
 }
 
@@ -138,7 +166,7 @@ export function renderEfficienceTab() {
   const { nbEnStock, nbVendus, nbRupture, nbSurstock, nbDormant,
     valeurStock, valeurSurstock, valeurDormant,
     tgv, tauxDispo, gainRuptureTotal, gainSurstockTotal, gainTotal,
-    detailRupture, detailSurstock, detailDormant } = data;
+    detailRupture, detailSurstock, detailDormant, detailSousDim, nbSousDim } = data;
 
   // Couleurs
   const tgvColor = tgv >= 85 ? '#22c55e' : tgv >= 70 ? '#f59e0b' : '#ef4444';
@@ -214,6 +242,22 @@ export function renderEfficienceTab() {
         ], 'effSurstockTable')}
       </div>
     </div>
+
+    <!-- Sous-dimensionnés : MAX < Qté Chantier -->
+    ${detailSousDim.length > 0 ? `<div class="s-card p-4 rounded-xl">
+      <h4 class="text-[12px] font-semibold t-primary mb-2 flex items-center gap-2">
+        <span class="text-cyan-400">📏</span> Sous-dimensionnés — MAX < Qté Chantier
+        <span class="text-[10px] t-disabled font-normal">(${nbSousDim} articles où le client ne trouve pas sa quantité)</span>
+      </h4>
+      ${_buildTable(detailSousDim, [
+        { label: 'Code', render: r => `<span class="font-mono">${r.code}</span><button onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-1" title="Fiche article">🔍</button>` },
+        { label: 'Libellé', render: r => `<span class="max-w-[180px] truncate inline-block" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</span>` },
+        { label: 'MAX', render: r => r.max, align: 'text-center' },
+        { label: 'Qté Chantier', render: r => `<span class="text-cyan-400 font-semibold">${r.qteCh}</span>`, align: 'text-center' },
+        { label: 'Écart', render: r => `<span class="text-red-400">+${r.ecart}</span>`, align: 'text-center' },
+        { label: 'BL réseau', render: r => r.blReseau, align: 'text-center' },
+      ], 'effSousDimTable')}
+    </div>` : ''}
 
     <!-- Top Dormants -->
     <div class="s-card p-4 rounded-xl">
