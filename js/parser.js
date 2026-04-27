@@ -170,6 +170,17 @@ export async function parseChalandise(file) {
       _S.clientsByCommercial.get(info.commercial).add(cc);
     }
   }
+  // ── Hors zone : clients du consommé absents de la chalandise ──
+  const horsZone = new Set();
+  const magFull = _S.ventesLocalMag12MG;
+  if (magFull?.size) {
+    for (const cc of magFull.keys()) {
+      if (!_S.chalandiseData.has(cc)) horsZone.add(cc);
+    }
+  }
+  if (horsZone.size > 0) {
+    _S.clientsByMetier.set('__HORS_ZONE__', horsZone);
+  }
   _S.chalandiseReady = true;
   let nbActifs = 0, nbPerdus = 0;
   for (const i of _S.chalandiseData.values()) {

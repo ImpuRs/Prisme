@@ -3012,11 +3012,12 @@ function _initPrMetierInput() {
   const metierOpts = [];
   for (const [metier, clients] of (_S.clientsByMetier || new Map())) {
     if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier });
+    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier === '__HORS_ZONE__' ? '📍 Hors chalandise' : metier });
   }
   metierOpts.sort((a, b) => {
-    if (a.metier === '__NON_RENSEIGNE__') return 1;
-    if (b.metier === '__NON_RENSEIGNE__') return -1;
+    const aSpecial = a.metier === '__HORS_ZONE__' ? 2 : a.metier === '__NON_RENSEIGNE__' ? 1 : 0;
+    const bSpecial = b.metier === '__HORS_ZONE__' ? 2 : b.metier === '__NON_RENSEIGNE__' ? 1 : 0;
+    if (aSpecial !== bSpecial) return aSpecial - bSpecial;
     return b.nb - a.nb;
   });
   let timer;
@@ -5053,15 +5054,27 @@ function _prComputeMetierFull(metier) {
   const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
 
-  // Enrichir articles existants avec données réseau (nb agences, CA réseau)
+  // Enrichir articles existants avec données réseau (nb agences + CA réseau filtré métier)
   for (const [code, e] of enriched) {
-    let nbAg = 0, caRes = 0;
+    // nbAgences = combien d'agences vendent cet article (tous clients)
+    let nbAg = 0;
     for (const store in vpm) {
       if (store === myStore) continue;
       const d = vpm[store]?.[code];
-      if (d && d.countBL > 0) { nbAg++; caRes += d.sumCA || 0; }
+      if (d && d.countBL > 0) nbAg++;
     }
     e.nbAgencesReseau = nbAg;
+    // caMetier = CA de cet article par les clients du MÊME MÉTIER (toutes distances)
+    let caMet = 0;
+    for (const c of e._contribs) caMet += c.ca;
+    e.caMetier = caMet;
+    // caReseau = CA toutes agences, tous clients, tous métiers
+    let caRes = 0;
+    for (const store in vpm) {
+      if (store === myStore) continue;
+      const d = vpm[store]?.[code];
+      if (d && d.countBL > 0) caRes += d.sumCA || 0;
+    }
     e.caReseau = caRes;
   }
 
@@ -5115,6 +5128,7 @@ function _prApplyMetierDist() {
       inStock: e.inStock, stockActuel: e.stockActuel,
       role: e.role, pdm,
       nbAgencesReseau: e.nbAgencesReseau || 0,
+      caMetier: e.caMetier || 0,
       caReseau: e.caReseau || 0,
     });
 
@@ -5218,12 +5232,12 @@ function _renderPilotageMetierContent() {
   const metierOpts = [];
   for (const [metier, clients] of _S.clientsByMetier) {
     if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier });
+    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier === '__HORS_ZONE__' ? '📍 Hors chalandise' : metier });
   }
   metierOpts.sort((a, b) => {
-    // "Non renseigné" always last
-    if (a.metier === '__NON_RENSEIGNE__') return 1;
-    if (b.metier === '__NON_RENSEIGNE__') return -1;
+    const aSpecial = a.metier === '__HORS_ZONE__' ? 2 : a.metier === '__NON_RENSEIGNE__' ? 1 : 0;
+    const bSpecial = b.metier === '__HORS_ZONE__' ? 2 : b.metier === '__NON_RENSEIGNE__' ? 1 : 0;
+    if (aSpecial !== bSpecial) return aSpecial - bSpecial;
     return b.nb - a.nb;
   });
 
@@ -5419,6 +5433,7 @@ function _renderMetierBody() {
   const sortFns = {
     code: (a, b) => String(a.code).localeCompare(String(b.code)),
     caZone: (a, b) => b.caZone - a.caZone,
+    caMetier: (a, b) => (b.caMetier || 0) - (a.caMetier || 0),
     caReseau: (a, b) => (b.caReseau || 0) - (a.caReseau || 0),
     monCA: (a, b) => b.monCA - a.monCA,
     pdm: (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
@@ -5446,8 +5461,9 @@ function _renderMetierBody() {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         ${th('stock', 'Stock')}
         ${!_prMFilterFam ? `<th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Famille</th>` : ''}
-        ${th('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone')}
-        ${th('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences hors la mienne')}
+        ${th('caZone', 'CA Zone', 'text-right', 'CA clients du métier dans la zone (filtre distance)')}
+        ${th('caMetier', 'CA Métier', 'text-right', 'CA de cet article par tous les clients du métier (toutes distances)')}
+        ${th('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences, tous clients, tous métiers')}
         ${th('reseau', 'Agences', 'text-right', 'Nb agences réseau vendant cet article')}
         ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
         <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Verdict Squelette">Verdict</th>
@@ -5473,6 +5489,7 @@ function _renderMetierBody() {
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
       ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
       <td class="py-1 px-2 text-right font-bold">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
+      <td class="py-1 px-2 text-right" style="color:#a78bfa">${a.caMetier ? formatEuro(a.caMetier) : '—'}</td>
       <td class="py-1 px-2 text-right" style="color:#3b82f6">${a.caReseau ? formatEuro(a.caReseau) : '—'}</td>
       <td class="py-1 px-2 text-right" style="color:${_agColor}">${_nbAg || '—'}</td>
       <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
@@ -5786,9 +5803,10 @@ window._prExportMetierCSV = function() {
   const articles = [..._prMetierIndex.values()].sort((a, b) => b.caZone - a.caZone);
   const rows = articles.map(a =>
     [a.code, a.libelle, a.libFam, a.sousFam, a.marque, a.caZone.toFixed(2),
+     (a.caMetier || 0).toFixed(2), (a.caReseau || 0).toFixed(2),
      a.nbClientsZone, a.monCA.toFixed(2), a.pdm != null ? a.pdm : '', a.inStock ? 'Oui' : 'Non', a.role].join(';')
   );
-  const csv = ['Code;Libellé;Famille;SF;Marque;CA Zone;Cli Zone;Mon CA;PdM%;En stock;Rôle', ...rows].join('\n');
+  const csv = ['Code;Libellé;Famille;SF;Marque;CA Zone;CA Métier;CA Réseau;Cli Zone;Mon CA;PdM%;En stock;Rôle', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

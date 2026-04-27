@@ -567,8 +567,8 @@ window._ccc = (di,mi,ci) => {
           }
         }
         // ── Hors zone (PDV sans chalandise) ──
-        if(_S.chalandiseReady&&!rec.inChalandise&&(rec.caPDV||0)>=200){
-          horsZone.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
+        if(_S.chalandiseReady&&!rec.inChalandise&&((rec.caPDV||0)>=200||(rec.caTotal||0)>=200)){
+          horsZone.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV||0,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
         }
         // ── Digitaux en fuite (acheteurs hors-magasin silencieux PDV) ──
         if((rec.caHors||0)>=200&&rec.isPDVActif&&(rec.silenceDaysPDV||0)>=90){
@@ -1654,7 +1654,7 @@ function _buildChalandiseOverviewInner(force){
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
   // Clients hors zone : acheteurs PDV absents de la chalandise
   let _horsZoneCount=0,_horsZoneCA=0;
-  if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.inChalandise||(rec.caPDV||0)<200)continue;_horsZoneCount++;_horsZoneCA+=rec.caPDV;}}
+  if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.inChalandise||((rec.caPDV||0)<200&&(rec.caTotal||0)<200))continue;_horsZoneCount++;_horsZoneCA+=rec.caTotal||rec.caPDV||0;}}
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   // ── Badges groupes sidebar Terrain ──
   {const _nGeo=(_S._selectedDepts.size||0)+((_S._distanceMaxKm>0)?1:0)+((_S._includePerdu24m)?1:0);
