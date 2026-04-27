@@ -836,22 +836,38 @@ function openArticlePanel(code,source){
     for(const l of (_S.territoireLines||[])) if(l.code===code) nbBL++;
     const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau ──
-    // Formule : (CA total Top 3 / PU) / nb BL Top 3 = vitesse (qté/BL)
+    // Formule : qté prélevée Top 3 / nb BL Top 3 = vitesse (pièces/BL)
+    // Écrêtage : qté/BL par agence capée à 3× la médiane réseau (même esprit que MIN/MAX standard)
     // MIN = vitesse arrondie, MAX = vitesse × 2
     let kitHtml='';
     if(kitRows.length){
       const top3=kitRows.slice(0,3);
-      let totCA=0,totBL=0;
+      // Calculer la médiane qté/BL sur tout le réseau pour l'écrêtage
+      const allQtePerBL=[];
+      for(const a of kitRows){
+        const v=_S.ventesParMagasin?.[a.ag]?.[code];
+        if(v&&v.countBL>0&&v.sumPrelevee>0) allQtePerBL.push((v.sumPrelevee)/v.countBL);
+      }
+      allQtePerBL.sort((a,b)=>a-b);
+      const medQBL=allQtePerBL.length?allQtePerBL[Math.floor(allQtePerBL.length/2)]:Infinity;
+      const capQBL=Math.max(medQBL*3,1); // cap à 3× la médiane
+      let totQte=0,totBL=0,totCA=0;
       for(const a of top3){
         const v=_S.ventesParMagasin?.[a.ag]?.[code];
-        if(v&&v.countBL>0){totCA+=v.sumCA||0;totBL+=v.countBL;}
+        if(v&&v.countBL>0){
+          const rawQBL=(v.sumPrelevee||0)/v.countBL;
+          const clippedQBL=Math.min(rawQBL,capQBL);
+          totQte+=clippedQBL*v.countBL;
+          totBL+=v.countBL;
+          totCA+=v.sumCA||0;
+        }
       }
-      // PU : chercher dans finalData ou déduire du CA/qté réseau
-      let pu=0;
-      const _fdPu=DataStore.finalData?.find(f=>f.code===code);
-      if(_fdPu?.prixUnitaire>0)pu=_fdPu.prixUnitaire;
-      else{let _tQ=0,_tC=0;for(const a of top3){const v=_S.ventesParMagasin?.[a.ag]?.[code];if(v&&v.sumPrelevee>0){_tQ+=v.sumPrelevee;_tC+=v.sumCA||0;}}if(_tQ>0)pu=_tC/_tQ;}
-      const vitesse=pu>0&&totBL>0?(totCA/pu)/totBL:0;
+      let vitesse=totBL>0?totQte/totBL:0;
+      // Plafond : ne pas dépasser 2× la médiane MIN réseau ERP (ou 20 max)
+      const _medMins=kitRows.map(a=>a.min).filter(v=>typeof v==='number'&&v>0);
+      const _medMinR=_medMins.length?_medMins.sort((a,b)=>a-b)[Math.floor(_medMins.length/2)]:0;
+      const capVit=_medMinR>0?_medMinR*2:20;
+      vitesse=Math.min(vitesse,capVit);
       const sugMin=Math.max(Math.ceil(vitesse),1);
       const sugMax=Math.max(Math.ceil(vitesse*2),sugMin+1);
       // Indice de confiance
