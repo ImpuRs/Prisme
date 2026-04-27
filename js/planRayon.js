@@ -5844,16 +5844,6 @@ function _populatePlanMetierSidebar() {
     container.innerHTML = '<span class="text-[10px] t-disabled">Chargez la Zone de Chalandise</span>';
     return;
   }
-  const metierOpts = [];
-  for (const [metier, clients] of _S.clientsByMetier) {
-    if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size });
-  }
-  metierOpts.sort((a, b) => b.nb - a.nb);
-  const options = metierOpts.map(m =>
-    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prFilterMetier ? 'selected' : ''}>${m.metier} (${m.nb})</option>`
-  ).join('');
-
   const hasDist = _prHasChalDist();
   const distBtns = (_prFilterMetier && hasDist) ? `<div class="flex flex-wrap items-center gap-1 mt-2">
     <span class="text-[9px] t-disabled">📍</span>
@@ -5868,16 +5858,47 @@ function _populatePlanMetierSidebar() {
   const nbClients = _prFilterMetierClients?.size || 0;
 
   container.innerHTML = `
-    <select onchange="window._prFamMetierChange(this.value)"
-      class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary" style="${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
-      <option value="">Tous les clients</option>
-      ${options}
-    </select>
-    ${_prFilterMetier ? `<div class="flex items-center gap-1.5 mt-1.5">
-      <span class="text-[9px] t-disabled">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</span>
-      <button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer">✕ Reset</button>
-    </div>` : ''}
+    <div class="flex items-center gap-1">
+      <input type="text" id="planMetierInput" list="planMetierDatalist"
+        placeholder="Tapez un métier…"
+        value="${_prFilterMetier ? escapeHtml(_prFilterMetier) : ''}"
+        class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary"
+        style="${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
+      <datalist id="planMetierDatalist"></datalist>
+      ${_prFilterMetier ? `<button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer flex-shrink-0">✕</button>` : ''}
+    </div>
+    ${_prFilterMetier ? `<div class="text-[9px] t-disabled mt-1.5">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div>` : ''}
     ${distBtns}`;
+  _initPlanMetierInput();
+}
+
+let _planMetInputTimer = null;
+function _initPlanMetierInput() {
+  const input = document.getElementById('planMetierInput');
+  const dl = document.getElementById('planMetierDatalist');
+  if (!input || !dl) return;
+  const metiers = [];
+  for (const [m] of (_S.clientsByMetier || new Map())) {
+    if (m && m !== '-' && m.trim()) metiers.push(m);
+  }
+  metiers.sort((a, b) => a.localeCompare(b, 'fr'));
+
+  const updateDl = (q) => {
+    if (!q || q.length < 2 || _prFilterMetier) { dl.innerHTML = ''; return; }
+    const matches = metiers.filter(m => m.toLowerCase().includes(q)).slice(0, 12);
+    dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m)}">`).join('');
+  };
+
+  const onInput = () => {
+    clearTimeout(_planMetInputTimer);
+    const v = input.value.trim();
+    if (!v) { updateDl(''); window._prFamMetierChange(''); return; }
+    const found = metiers.find(m => m === v);
+    if (found) { updateDl(''); window._prFamMetierChange(found); return; }
+    _planMetInputTimer = setTimeout(() => updateDl(v.toLowerCase()), 150);
+  };
+  input.addEventListener('input', onInput);
+  input.addEventListener('change', onInput);
 }
 
 function _buildPlanBenchCheckboxes() {
