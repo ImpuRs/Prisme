@@ -955,46 +955,6 @@ function _buildPrSearchIndex() {
 }
 
 // ── Liste compacte familles (panneau gauche split-screen) ─────────────
-function _prBuildMetierSidebar() {
-  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) return '';
-  const metierOpts = [];
-  for (const [metier, clients] of _S.clientsByMetier) {
-    if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size });
-  }
-  metierOpts.sort((a, b) => b.nb - a.nb);
-  const options = metierOpts.map(m =>
-    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prFilterMetier ? 'selected' : ''}>${m.metier} (${m.nb})</option>`
-  ).join('');
-
-  const hasDist = _prHasChalDist();
-  const distBtns = (_prFilterMetier && hasDist) ? `<div class="flex items-center gap-1 mt-1.5">
-    <span class="text-[9px] t-disabled">📍</span>
-    ${[{v:0,l:'Tous'},{v:2,l:'2km'},{v:5,l:'5km'},{v:10,l:'10km'},{v:15,l:'15km'},{v:30,l:'30km'}].map(d => {
-      const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
-      return `<button onclick="window._prFamMetierDist(${d.v})"
-        class="text-[8px] py-0.5 px-1.5 rounded-full border b-default cursor-pointer"
-        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'color:var(--t-secondary)'}">${d.l}</button>`;
-    }).join('')}
-  </div>` : '';
-
-  const nbClients = _prFilterMetierClients?.size || 0;
-
-  return `<div class="mb-3 pb-3 border-b b-light">
-    <div class="text-[10px] t-disabled font-bold mb-1">🎯 Filtre Métier</div>
-    <div class="flex items-center gap-1">
-      <select id="prFamMetierSelect" onchange="window._prFamMetierChange(this.value)"
-        class="text-[11px] px-2 py-1 rounded border b-default s-card t-primary" style="max-width:200px;${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
-        <option value="">Tous les clients</option>
-        ${options}
-      </select>
-      ${_prFilterMetier ? `<button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer">✕</button>` : ''}
-    </div>
-    ${_prFilterMetier ? `<div class="text-[9px] t-disabled mt-1">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div>` : ''}
-    ${distBtns}
-  </div>`;
-}
-
 function _prBuildCompactList(data) {
   let families = _prFilterClassif === 'inactive'
     ? (data.inactiveFamilies || [])
@@ -2975,7 +2935,6 @@ function _renderPlanRayonContent(data) {
       <div id="prSearchResults" class="hidden fixed s-card border rounded-xl shadow-xl max-h-[640px] overflow-y-auto z-[9999]"></div>
     </div>
     ${_prEmpFilter ? `<div class="flex items-center gap-2 mb-2"><span class="text-[11px] t-secondary">📍 ${escapeHtml(_prEmpFilter)}</span><button onclick="window._prSelectEmp('')" class="text-[10px] t-disabled hover:t-primary">✕</button></div>` : ''}
-    ${!_prOpenFam ? _prBuildMetierSidebar() : ''}
     <details class="mb-3" ${_prOpenFam ? 'style="display:none"' : ''}>
       <summary class="text-[10px] t-disabled cursor-pointer hover:t-primary select-none">📖 Glossaire — Matrice Physigamme × Squelette</summary>
       <div class="mt-2 s-card border rounded-xl p-4 text-[10px] t-secondary overflow-x-auto">
@@ -3034,7 +2993,6 @@ function _renderPlanRayonContent(data) {
   </div>
   ${_prOpenFam ? `<div class="grid grid-cols-[280px_1fr] gap-3" style="min-height:400px;overflow:hidden">
     <div style="max-height:calc(100vh - 200px);overflow-y:auto;min-width:0" class="border-r b-light pr-2">
-      ${_prBuildMetierSidebar()}
       ${_prBuildCompactList(data)}
     </div>
     <div style="min-width:0">${_prRenderDetail(_prOpenFam)}</div>
@@ -3250,11 +3208,13 @@ window._prFamMetierChange = function(metier) {
     _prFilterMetierClients = null;
     _prMetierDist = 0;
   }
+  _populatePlanMetierSidebar();
   _prRerender();
 };
 
 window._prFamMetierDist = function(km) {
   _prMetierDist = km || 0;
+  _populatePlanMetierSidebar();
   _prRerender();
 };
 
@@ -5862,6 +5822,8 @@ export function renderPlanRayon() {
   buildSqLookup();
   // Peupler les checkboxes "Comparer avec" dans la sidebar Plan
   _buildPlanBenchCheckboxes();
+  // Peupler le filtre métier dans la sidebar Plan
+  _populatePlanMetierSidebar();
 }
 
 function _updatePlanBenchStatus(nbChecked, nbTotal) {
@@ -5873,6 +5835,49 @@ function _updatePlanBenchStatus(nbChecked, nbTotal) {
   el.innerHTML = isFiltered
     ? `<span class="c-caution font-semibold">⚠ Médiane sur ${nbChecked}/${nbTotal} agences</span>`
     : `<span class="t-disabled">✓ Toutes les agences (${nbTotal})</span>`;
+}
+
+function _populatePlanMetierSidebar() {
+  const container = document.getElementById('planMetierContent');
+  if (!container) return;
+  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) {
+    container.innerHTML = '<span class="text-[10px] t-disabled">Chargez la Zone de Chalandise</span>';
+    return;
+  }
+  const metierOpts = [];
+  for (const [metier, clients] of _S.clientsByMetier) {
+    if (!metier || metier === '-' || metier.trim() === '') continue;
+    metierOpts.push({ metier, nb: clients.size });
+  }
+  metierOpts.sort((a, b) => b.nb - a.nb);
+  const options = metierOpts.map(m =>
+    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prFilterMetier ? 'selected' : ''}>${m.metier} (${m.nb})</option>`
+  ).join('');
+
+  const hasDist = _prHasChalDist();
+  const distBtns = (_prFilterMetier && hasDist) ? `<div class="flex flex-wrap items-center gap-1 mt-2">
+    <span class="text-[9px] t-disabled">📍</span>
+    ${[{v:0,l:'Tous'},{v:2,l:'2km'},{v:5,l:'5km'},{v:10,l:'10km'},{v:15,l:'15km'},{v:30,l:'30km'}].map(d => {
+      const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
+      return `<button onclick="window._prFamMetierDist(${d.v})"
+        class="text-[8px] py-0.5 px-1.5 rounded-full border b-default cursor-pointer"
+        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'color:var(--t-secondary)'}">${d.l}</button>`;
+    }).join('')}
+  </div>` : '';
+
+  const nbClients = _prFilterMetierClients?.size || 0;
+
+  container.innerHTML = `
+    <select onchange="window._prFamMetierChange(this.value)"
+      class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary" style="${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
+      <option value="">Tous les clients</option>
+      ${options}
+    </select>
+    ${_prFilterMetier ? `<div class="flex items-center gap-1.5 mt-1.5">
+      <span class="text-[9px] t-disabled">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</span>
+      <button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer">✕ Reset</button>
+    </div>` : ''}
+    ${distBtns}`;
 }
 
 function _buildPlanBenchCheckboxes() {
