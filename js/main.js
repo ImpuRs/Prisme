@@ -31,6 +31,7 @@ import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageRayonBlock } from './emplacement.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js?v=20260425m';
+import { renderEfficienceTab } from './efficience.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
@@ -2789,6 +2790,9 @@ _S.articleMonthlySales=monthlySales;
         break;
       case 'associations':
         renderAssociationsTab();
+        break;
+      case 'efficience':
+        renderEfficienceTab();
         break;
       case 'conformite':
         window.renderConformiteTab?.();
