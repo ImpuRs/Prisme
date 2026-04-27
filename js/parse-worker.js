@@ -590,7 +590,7 @@ async function _handleParseMessage(data) {
     var ventesParMagasinByCanal = {};
     var ventesClientArticle = new Map();
     var ventesClientMagFull = new Map();
-    var ventesClientArticleReseau = new Map();
+    var ventesReseauTousCanaux = new Map();
     var ventesClientHorsMagasin = new Map();
     var ventesClientsPerStore = {};
     var caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
@@ -867,10 +867,10 @@ async function _handleParseMessage(data) {
             if (!caClientParStore[_skCps_h]) caClientParStore[_skCps_h] = new Map();
             caClientParStore[_skCps_h].set(_cc_bm_h, (caClientParStore[_skCps_h].get(_cc_bm_h) || 0) + caLigne_h);
           }
-          // ventesClientArticleReseau — hors-MAGASIN (pleine période, toutes agences)
+          // ventesReseauTousCanaux — hors-MAGASIN (pleine période, toutes agences)
           if (_cc_bm_h && codeArt_h && /^\d{6}$/.test(codeArt_h)) {
-            if (!ventesClientArticleReseau.has(_cc_bm_h)) ventesClientArticleReseau.set(_cc_bm_h, new Map());
-            var _arR_h = ventesClientArticleReseau.get(_cc_bm_h);
+            if (!ventesReseauTousCanaux.has(_cc_bm_h)) ventesReseauTousCanaux.set(_cc_bm_h, new Map());
+            var _arR_h = ventesReseauTousCanaux.get(_cc_bm_h);
             if (!_arR_h.has(codeArt_h)) _arR_h.set(codeArt_h, { sumCA: 0, countBL: 0 });
             var _eR_h = _arR_h.get(codeArt_h);
             _eR_h.sumCA += caLigne_h;
@@ -1171,10 +1171,10 @@ async function _handleParseMessage(data) {
         if (qteP > 0 || qteE > 0) e_vca.countBL++;
       }
 
-      // ventesClientArticleReseau — TOUTES agences (pour Tronc Commun Réseau)
+      // ventesReseauTousCanaux — TOUTES agences (pour Tronc Commun Réseau)
       if (cc2 && code) {
-        if (!ventesClientArticleReseau.has(cc2)) ventesClientArticleReseau.set(cc2, new Map());
-        var artMapR = ventesClientArticleReseau.get(cc2);
+        if (!ventesReseauTousCanaux.has(cc2)) ventesReseauTousCanaux.set(cc2, new Map());
+        var artMapR = ventesReseauTousCanaux.get(cc2);
         if (!artMapR.has(code)) artMapR.set(code, { sumCA: 0, countBL: 0 });
         var eR = artMapR.get(code);
         eR.sumCA += caP + caE;
@@ -1624,7 +1624,7 @@ async function _handleParseMessage(data) {
       // Maps sérialisées
       payload.ventesClientArticle = serMap(ventesClientArticle);
       payload.ventesClientMagFull = serMap(ventesClientMagFull);
-      payload.ventesClientArticleReseau = serMap(ventesClientArticleReseau);
+      payload.ventesReseauTousCanaux = serMap(ventesReseauTousCanaux);
       payload.ventesClientHorsMagasin = serMap(ventesClientHorsMagasin);
       payload.clientLastOrder = Array.from(clientLastOrder).map(function(kv) { return [kv[0], kv[1] instanceof Date ? kv[1].getTime() : kv[1]]; });
       payload.clientLastOrderAll = Array.from(clientLastOrderAll).map(function(kv) { return [kv[0], { date: kv[1].date instanceof Date ? kv[1].date.getTime() : kv[1].date, canal: kv[1].canal }]; });

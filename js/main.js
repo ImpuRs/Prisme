@@ -1333,7 +1333,7 @@ _S.canalAgence=newCanalAgence;
     // Maps imbriquées
     _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientMagFull = new Map((r.ventesClientMagFull||[]).map(([k,v]) => [k, new Map(v)]));
-    _S.ventesClientArticleReseau = new Map((r.ventesClientArticleReseau||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesReseauTousCanaux = new Map((r.ventesReseauTousCanaux||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientHorsMagasin = new Map((r.ventesClientHorsMagasin||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
     _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
@@ -1771,7 +1771,7 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes consommé différentes du stock
       _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.clientsByStoreUnivers={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesReseauTousCanaux=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.clientsByStoreUnivers={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
       _S.ventesParMagasinByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
@@ -1863,8 +1863,8 @@ _S.canalAgence=newCanalAgence;
       // clientNomLookup already populated above (before canal split) for ALL canals
       // ventesClientArticle = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
-      // ventesClientArticle (myStore) + ventesClientArticleReseau (ALL stores)
-      if(cc2&&code){if(!_S.ventesClientArticleReseau.has(cc2))_S.ventesClientArticleReseau.set(cc2,new Map());const artMapR=_S.ventesClientArticleReseau.get(cc2);if(!artMapR.has(code))artMapR.set(code,{sumCA:0,countBL:0});const eR=artMapR.get(code);eR.sumCA+=caP+caE;if(qteP>0||qteE>0)eR.countBL++;if(!_S.selectedMyStore||sk===_S.selectedMyStore){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}}
+      // ventesClientArticle (myStore) + ventesReseauTousCanaux (ALL stores)
+      if(cc2&&code){if(!_S.ventesReseauTousCanaux.has(cc2))_S.ventesReseauTousCanaux.set(cc2,new Map());const artMapR=_S.ventesReseauTousCanaux.get(cc2);if(!artMapR.has(code))artMapR.set(code,{sumCA:0,countBL:0});const eR=artMapR.get(code);eR.sumCA+=caP+caE;if(qteP>0||qteE>0)eR.countBL++;if(!_S.selectedMyStore||sk===_S.selectedMyStore){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}}
       // CA MAGASIN dans d'autres agences (sk ≠ myStore)
       if(!isRefilter&&cc2&&code&&_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore){const _caAut=caP+caE;if(_caAut>0){_S.ventesClientAutresAgences.set(cc2,(_S.ventesClientAutresAgences.get(cc2)||0)+_caAut);}}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=_rnc;if(_nc3)commandesPDV.add(_nc3);}

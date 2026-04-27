@@ -97,7 +97,7 @@ export function computePhysigamme({
     processClientArticleMap(_S.ventesClientArticle);
     processClientArticleMap(_S.ventesClientHorsMagasin);
   } else if (perimetre === 'reseau') {
-    processClientArticleMap(_S.ventesClientArticleReseau);
+    processClientArticleMap(_S.ventesReseauTousCanaux);
   } else if (perimetre === 'territoire' && _S.territoireReady && _S.territoireLines?.length) {
     for (const line of _S.territoireLines) {
       if (line.clientCode) ingest(line.clientCode, line.code, line.ca || 0);

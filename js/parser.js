@@ -593,7 +593,7 @@ export function launchClientWorker(progressCb) {
       }
       // ventesReseau : toutes agences (pour metierFamBench national)
       const ventesReseau = [];
-      const _srcReseau = _S.ventesClientArticleReseau;
+      const _srcReseau = _S.ventesReseauTousCanaux;
       if (_srcReseau?.size) {
         for (const [cc, artMap] of _srcReseau.entries()) {
           const arts = [];

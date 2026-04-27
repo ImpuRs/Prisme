@@ -4956,13 +4956,13 @@ function _prComputeMetierFull(metier) {
         arts.set(code, a);
       }
     }
-    // Source 3: ventesClientArticleReseau (toutes agences, tous canaux → caZone)
-    const resArts = _S.ventesClientArticleReseau?.get(cc);
+    // Source 3: ventesReseauTousCanaux (toutes agences, tous canaux → caZone)
+    const resArts = _S.ventesReseauTousCanaux?.get(cc);
     if (resArts) {
       for (const [code, data] of resArts) {
         if (!/^\d{6}$/.test(code)) continue;
         const a = arts.get(code) || { ca: 0, mon: 0 };
-        // Ne pas double-compter : ventesClientArticleReseau inclut myStore MAGASIN
+        // Ne pas double-compter : ventesReseauTousCanaux inclut myStore MAGASIN
         // On ajoute uniquement le delta réseau (CA réseau - CA déjà compté)
         const caRes = +(data.sumCA || 0);
         if (caRes > a.ca) {
