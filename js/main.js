@@ -1619,14 +1619,7 @@ _S.canalAgence=newCanalAgence;
       }
     }
 
-    // Compléter avec le baseline 2025 pour les familles absentes
-    const _baseline = _S._seasonalBaseline;
-    if (_baseline) {
-      for (const [fam, coefs] of Object.entries(_baseline)) {
-        if (!_S.seasonalIndex[fam]) _S.seasonalIndex[fam] = coefs;
-      }
-    }
-    _S.articleMonthlySales=monthlySales;
+_S.articleMonthlySales=monthlySales;
   }
 
   function _buildSynthFromRaw(articleRaw) {
@@ -2831,17 +2824,6 @@ _S.canalAgence=newCanalAgence;
     loadCatalogueMarques().catch(e => console.warn('[PRISME] Catalogue non chargé:', e));
   }
 
-  // Baseline saisonnalité 2025 — embarquée dans le repo, aucune donnée client
-  fetch('./data/seasonal_index_2025.json')
-    .then(r => r.json())
-    .then(baseline => {
-      _S._seasonalBaseline = baseline;
-      // Appliquer immédiatement si pas encore de consommé chargé
-      if (!_S.seasonalIndex || !Object.keys(_S.seasonalIndex).length) {
-        _S.seasonalIndex = { ...baseline };
-      }
-    })
-    .catch(() => {}); // silencieux si fichier absent ou réseau indisponible
 
   (async function _initFromCache() {
     // Pré-remplir le sélecteur d'agence depuis localStorage si une valeur est sauvegardée
