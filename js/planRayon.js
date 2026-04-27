@@ -3012,24 +3012,28 @@ function _initPrMetierInput() {
   const metierOpts = [];
   for (const [metier, clients] of (_S.clientsByMetier || new Map())) {
     if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size });
+    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier });
   }
-  metierOpts.sort((a, b) => b.nb - a.nb);
+  metierOpts.sort((a, b) => {
+    if (a.metier === '__NON_RENSEIGNE__') return 1;
+    if (b.metier === '__NON_RENSEIGNE__') return -1;
+    return b.nb - a.nb;
+  });
   let timer;
   input.addEventListener('input', () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
       const q = (input.value || '').trim().toLowerCase();
       if (!q || q.length < 2) { dl.innerHTML = ''; return; }
-      const exact = metierOpts.find(m => m.metier.toLowerCase() === q);
+      const exact = metierOpts.find(m => m.metier.toLowerCase() === q || m.label.toLowerCase() === q);
       if (exact) { dl.innerHTML = ''; window._prSelectMetier(exact.metier); return; }
-      const matches = metierOpts.filter(m => m.metier.toLowerCase().includes(q)).slice(0, 12);
-      dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m.metier)}">`).join('');
+      const matches = metierOpts.filter(m => m.label.toLowerCase().includes(q) || m.metier.toLowerCase().includes(q)).slice(0, 12);
+      dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m.metier)}" label="${escapeHtml(m.label)} (${m.nb})">`).join('');
     }, 150);
   });
   input.addEventListener('change', () => {
     const v = (input.value || '').trim();
-    const match = metierOpts.find(m => m.metier === v);
+    const match = metierOpts.find(m => m.metier === v || m.label === v);
     if (match) window._prSelectMetier(match.metier);
     else if (!v) window._prSelectMetier('');
   });
@@ -4952,10 +4956,25 @@ function _prComputeMetierFull(metier) {
         arts.set(code, a);
       }
     }
+    // Source 3: ventesClientArticleReseau (toutes agences, tous canaux → caZone)
+    const resArts = _S.ventesClientArticleReseau?.get(cc);
+    if (resArts) {
+      for (const [code, data] of resArts) {
+        if (!/^\d{6}$/.test(code)) continue;
+        const a = arts.get(code) || { ca: 0, mon: 0 };
+        // Ne pas double-compter : ventesClientArticleReseau inclut myStore MAGASIN
+        // On ajoute uniquement le delta réseau (CA réseau - CA déjà compté)
+        const caRes = +(data.sumCA || 0);
+        if (caRes > a.ca) {
+          a.ca = caRes; // réseau est le total toutes agences
+          arts.set(code, a);
+        }
+      }
+    }
     if (arts.size) perClient.set(cc, arts);
   }
 
-  // Source 3: territoireLines — index by client once (avoid O(clients × lines))
+  // Source 4: territoireLines — index by client once (avoid O(clients × lines))
   if (_S.territoireLines?.length) {
     for (const l of _S.territoireLines) {
       if (!l.clientCode || !clientSetRaw.has(l.clientCode)) continue;
@@ -5034,75 +5053,16 @@ function _prComputeMetierFull(metier) {
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
 
-  // Filtrer les familles spécifiques au métier : ne garder que celles où les clients
-  // du métier représentent une part significative des acheteurs zone (≥10% ou ≥5 clients)
-  const _famMetierClients = new Map(); // codeFam → Set<cc> (clients métier)
-  for (const [, e] of enriched) {
-    if (!e.codeFam) continue;
-    if (!_famMetierClients.has(e.codeFam)) _famMetierClients.set(e.codeFam, new Set());
-    const s = _famMetierClients.get(e.codeFam);
-    for (const c of e._contribs) s.add(c.cc);
-  }
-  // Compter tous les clients zone par famille (via articleZoneIndex)
-  const _zoneIdx = computeArticleZoneIndex();
-  const _famAllClients = new Map(); // codeFam → Set<cc>
-  for (const [code, zi] of _zoneIdx) {
-    const fam = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    if (!fam || !_famMetierClients.has(fam)) continue;
-    if (!_famAllClients.has(fam)) _famAllClients.set(fam, new Set());
-    const s = _famAllClients.get(fam);
-    if (zi.contribs) for (const c of zi.contribs) s.add(c.cc);
-  }
-  const metierFams = new Set();
-  for (const [fam, metClients] of _famMetierClients) {
-    const allClients = _famAllClients.get(fam)?.size || 1;
-    const pct = metClients.size / allClients;
-    // Garder si ≥10% des acheteurs zone sont du métier, OU ≥5 clients du métier
-    if (pct >= 0.10 || metClients.size >= 5) metierFams.add(fam);
-  }
-
-  // Compter réseau par article (familles spécifiques au métier uniquement)
-  const _resByCode = new Map(); // code → {nbAg, ca}
-  for (const store in vpm) {
-    if (store === myStore) continue;
-    const arts = vpm[store];
-    for (const code in arts) {
-      const d = arts[code];
-      if (!d || d.countBL <= 0 || !/^\d{6}$/.test(code)) continue;
-      const _cf2 = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (!_cf2 || !metierFams.has(_cf2)) continue;
-      let r = _resByCode.get(code);
-      if (!r) { r = { nbAg: 0, ca: 0 }; _resByCode.set(code, r); }
-      r.nbAg++;
-      r.ca += d.sumCA || 0;
-    }
-  }
-  // Appliquer réseau aux articles existants
+  // Enrichir articles existants avec données réseau (nb agences, CA réseau)
   for (const [code, e] of enriched) {
-    const r = _resByCode.get(code);
-    e.nbAgencesReseau = r?.nbAg || 0;
-    e.caReseau = r?.ca || 0;
-  }
-  // Ajouter articles réseau-only (≥1 agence, familles qualifiées, pas déjà dans enriched)
-  for (const [code, r] of _resByCode) {
-    if (enriched.has(code)) continue;
-    const cf = catFam?.get(code);
-    const codeFam = cf?.codeFam || _S.articleFamille?.[code] || '';
-    if (!codeFam) continue;
-    const libFam = FAMILLE_LOOKUP[codeFam] || codeFam;
-    const fd = fdMap.get(code);
-    const inStock = fd && (fd.stockActuel || 0) > 0;
-    if (!rolesByFam.has(codeFam)) rolesByFam.set(codeFam, _prComputeRoles(codeFam));
-    const role = rolesByFam.get(codeFam)?.get(code) || 'standard';
-    enriched.set(code, {
-      code, libelle: articleLib(code),
-      marque: _S.catalogueMarques?.get(code) || '',
-      codeFam, libFam, sousFam: cf?.sousFam || '',
-      inStock, stockActuel: fd?.stockActuel || 0, role,
-      _contribs: [],
-      nbAgencesReseau: r.nbAg, caReseau: r.ca,
-      _reseauOnly: true,
-    });
+    let nbAg = 0, caRes = 0;
+    for (const store in vpm) {
+      if (store === myStore) continue;
+      const d = vpm[store]?.[code];
+      if (d && d.countBL > 0) { nbAg++; caRes += d.sumCA || 0; }
+    }
+    e.nbAgencesReseau = nbAg;
+    e.caReseau = caRes;
   }
 
   // ── Canal de Proximité: per-client canal split ──
@@ -5146,7 +5106,7 @@ function _prApplyMetierDist() {
       monCA += c.mon;
       nbClients++;
     }
-    if (nbClients === 0 && !e._reseauOnly) continue;
+    if (nbClients === 0) continue;
     const pdm = caZone > 0 ? Math.round(monCA / caZone * 100) : null;
     result.set(code, {
       code, libelle: e.libelle, marque: e.marque,
@@ -5156,7 +5116,6 @@ function _prApplyMetierDist() {
       role: e.role, pdm,
       nbAgencesReseau: e.nbAgencesReseau || 0,
       caReseau: e.caReseau || 0,
-      reseauOnly: !!e._reseauOnly,
     });
 
     if (!famAgg.has(e.codeFam)) famAgg.set(e.codeFam, { codeFam: e.codeFam, libFam: e.libFam, caZone: 0, monCA: 0, nbArts: 0, nbEnStock: 0 });
@@ -5259,12 +5218,17 @@ function _renderPilotageMetierContent() {
   const metierOpts = [];
   for (const [metier, clients] of _S.clientsByMetier) {
     if (!metier || metier === '-' || metier.trim() === '') continue;
-    metierOpts.push({ metier, nb: clients.size });
+    metierOpts.push({ metier, nb: clients.size, label: metier === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : metier });
   }
-  metierOpts.sort((a, b) => b.nb - a.nb);
+  metierOpts.sort((a, b) => {
+    // "Non renseigné" always last
+    if (a.metier === '__NON_RENSEIGNE__') return 1;
+    if (b.metier === '__NON_RENSEIGNE__') return -1;
+    return b.nb - a.nb;
+  });
 
   const options = metierOpts.map(m =>
-    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.metier} (${m.nb} clients)</option>`
+    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.label} (${m.nb} clients)</option>`
   ).join('');
 
   const hasDist = _S.chalandiseReady && _prHasChalDist();
@@ -5282,7 +5246,7 @@ function _renderPilotageMetierContent() {
     <h3 class="font-extrabold text-sm t-primary mb-3">🎯 Pilotage Métier — Vue cross-famille</h3>
     <div class="flex flex-wrap items-center gap-2">
       <input type="text" id="prMetierInput" list="prMetierDatalist" placeholder="Tapez un métier…"
-        value="${_prSelectedMetier2 ? escapeHtml(_prSelectedMetier2) : ''}"
+        value="${_prSelectedMetier2 ? escapeHtml(_prSelectedMetier2 === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : _prSelectedMetier2) : ''}"
         class="px-3 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none" style="width:260px;${_prSelectedMetier2 ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
       <datalist id="prMetierDatalist"></datalist>
       ${_prSelectedMetier2 ? `<button onclick="window._prSelectMetier('')" class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary cursor-pointer">✕ Reset</button>` : ''}
@@ -5501,13 +5465,11 @@ function _renderMetierBody() {
       verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
       if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.name)}</span>`;
     }
-    const _rOnly = a.reseauOnly;
-    const _rowStyle = _rOnly ? 'background:rgba(59,130,246,0.06)' : '';
     const _nbAg = a.nbAgencesReseau || 0;
     const _agColor = _nbAg >= 5 ? '#22c55e' : _nbAg >= 3 ? '#f59e0b' : 'var(--t-secondary)';
-    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" style="${_rowStyle}" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1 px-2 font-mono text-[10px]">${a.code} ${_copyCodeBtn(a.code)}</td>
-      <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}${_rOnly ? ' <span class="text-[8px] px-1 py-0.5 rounded" style="background:rgba(59,130,246,0.2);color:#3b82f6">réseau</span>' : ''}</td>
+      <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
       ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
       <td class="py-1 px-2 text-right font-bold">${a.caZone ? formatEuro(a.caZone) : '—'}</td>

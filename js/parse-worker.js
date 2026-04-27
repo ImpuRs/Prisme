@@ -867,6 +867,15 @@ async function _handleParseMessage(data) {
             if (!caClientParStore[_skCps_h]) caClientParStore[_skCps_h] = new Map();
             caClientParStore[_skCps_h].set(_cc_bm_h, (caClientParStore[_skCps_h].get(_cc_bm_h) || 0) + caLigne_h);
           }
+          // ventesClientArticleReseau — hors-MAGASIN (pleine période, toutes agences)
+          if (_cc_bm_h && codeArt_h && /^\d{6}$/.test(codeArt_h)) {
+            if (!ventesClientArticleReseau.has(_cc_bm_h)) ventesClientArticleReseau.set(_cc_bm_h, new Map());
+            var _arR_h = ventesClientArticleReseau.get(_cc_bm_h);
+            if (!_arR_h.has(codeArt_h)) _arR_h.set(codeArt_h, { sumCA: 0, countBL: 0 });
+            var _eR_h = _arR_h.get(codeArt_h);
+            _eR_h.sumCA += caLigne_h;
+            _eR_h.countBL++;
+          }
           // byMonthFull hors-MAGASIN — accumulation mensuelle TOUS canaux, myStore
           var _skBmf = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
           if (_cc_bm_h && codeArt_h && dateV && caLigne_h > 0 && (!selectedStore || _skBmf === selectedStore)) {

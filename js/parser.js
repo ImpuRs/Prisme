@@ -161,10 +161,10 @@ export async function parseChalandise(file) {
   if (!_S.clientsByCommercial) _S.clientsByCommercial = new Map();
   else _S.clientsByCommercial.clear();
   for (const [cc, info] of _S.chalandiseData.entries()) {
-    if (info.metier) {
-      if (!_S.clientsByMetier.has(info.metier)) _S.clientsByMetier.set(info.metier, new Set());
-      _S.clientsByMetier.get(info.metier).add(cc);
-    }
+    const m = info.metier && info.metier.trim().length > 2 && !/^[-.\s]+$/.test(info.metier) ? info.metier : null;
+    const metierKey = m || '__NON_RENSEIGNE__';
+    if (!_S.clientsByMetier.has(metierKey)) _S.clientsByMetier.set(metierKey, new Set());
+    _S.clientsByMetier.get(metierKey).add(cc);
     if (info.commercial) {
       if (!_S.clientsByCommercial.has(info.commercial)) _S.clientsByCommercial.set(info.commercial, new Set());
       _S.clientsByCommercial.get(info.commercial).add(cc);
@@ -540,7 +540,8 @@ export function onLivraisonsSelected(input) {
 // ── B1: Client aggregation Worker ────────────────────────────
 export function _clientWorker() {
   self.onmessage = function(e) {
-    const { ventesCA, chalandise, articleFamille } = e.data;
+    const { ventesCA, ventesReseau, chalandise, articleFamille } = e.data;
+    // clientFamCA : local only (commerce — mon agence)
     const clientFamCA = {};
     for (const [cc, articles] of ventesCA) {
       clientFamCA[cc] = {};
@@ -549,10 +550,20 @@ export function _clientWorker() {
         if (fam) clientFamCA[cc][fam] = (clientFamCA[cc][fam] || 0) + (data.sumCA || 0);
       }
     }
+    // clientFamCAReseau : toutes agences (pour metierFamBench national)
+    const clientFamCAReseau = {};
+    for (const [cc, articles] of ventesReseau) {
+      clientFamCAReseau[cc] = {};
+      for (const [code, data] of articles) {
+        const fam = articleFamille[code] || '';
+        if (fam) clientFamCAReseau[cc][fam] = (clientFamCAReseau[cc][fam] || 0) + (data.sumCA || 0);
+      }
+    }
+    // metierFamBench : national (toutes agences via ventesReseau)
     const metierFamBench = {};
     for (const [cc, info] of chalandise) {
       if (!info.metier) continue;
-      const fams = clientFamCA[cc];
+      const fams = clientFamCAReseau[cc];
       if (!fams) continue;
       if (!metierFamBench[info.metier]) metierFamBench[info.metier] = {};
       for (const [fam, ca] of Object.entries(fams)) {
@@ -580,6 +591,16 @@ export function launchClientWorker(progressCb) {
         for (const [code2, data] of artMap.entries()) arts.push([code2, data]);
         ventesCA.push([cc, arts]);
       }
+      // ventesReseau : toutes agences (pour metierFamBench national)
+      const ventesReseau = [];
+      const _srcReseau = _S.ventesClientArticleReseau;
+      if (_srcReseau?.size) {
+        for (const [cc, artMap] of _srcReseau.entries()) {
+          const arts = [];
+          for (const [code2, data] of artMap.entries()) arts.push([code2, data]);
+          ventesReseau.push([cc, arts]);
+        }
+      }
       const chalandise = [];
       for (const [cc, info] of _S.chalandiseData.entries()) {
         chalandise.push([cc, { metier: info.metier, statut: info.statut, classification: info.classification, ca2025: info.ca2025 }]);
@@ -593,7 +614,7 @@ export function launchClientWorker(progressCb) {
         resolve();
       };
       worker.onerror = (err) => { _S._activeClientWorker = null; worker.terminate(); URL.revokeObjectURL(url); reject(err); };
-      worker.postMessage({ ventesCA, chalandise, articleFamille: _S.articleFamille });
+      worker.postMessage({ ventesCA, ventesReseau, chalandise, articleFamille: _S.articleFamille });
       if (progressCb) progressCb(10);
     } catch (err) { reject(err); }
   });

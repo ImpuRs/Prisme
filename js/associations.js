@@ -37,7 +37,7 @@ let _laboMode = 'assoc';
 /** Filtre univers pour le Tronc Commun */
 let _troncUniversFilter = '';
 /** Filtre périmètre pour le Tronc Commun : 'agence' | 'territoire' | 'reseau' */
-let _troncPerimetre = 'agence';
+let _troncPerimetre = null; // null = auto-detect at render time
 /** Filtre KPI cliquable : '' | 'tronc' | 'inter' | 'spec' */
 let _troncKpiFilter = '';
 /** Code article ouvert en accordéon (drill-down Rayon X) */
@@ -991,12 +991,19 @@ window._assocExportTrous = _exportTrous;
  * @param {Set<string>|null} metiersSet — métiers à analyser, null = tous stratégiques
  * @returns {{ articles: Array, totalMetiers: number, troncCount: number, interCount: number, specCount: number }}
  */
+function _getEffectivePerimetre() {
+  if (_troncPerimetre) return _troncPerimetre;
+  // Auto-detect : réseau si consommé multi-agences, sinon agence
+  const si = _S.storesIntersection;
+  return (si?.size > 1 || Object.keys(_S.ventesParMagasin || {}).length > 1) ? 'reseau' : 'agence';
+}
+
 function _computeTroncCommun(universLetter, metiersSet) {
   return computePhysigamme({
     universLetter,
     metiersSet,
     includeAll: _troncIncludeAll,
-    perimetre: _troncPerimetre
+    perimetre: _getEffectivePerimetre()
   });
 }
 
@@ -1067,7 +1074,7 @@ function _renderTroncCommun() {
     territoire: 'Tous canaux du fichier Qlik (PDV + Réseau + Livraisons DCS/Web)'
   };
   const _perimBtn = (id, icon, label, needsTerrain) => {
-    const sel = _troncPerimetre === id;
+    const sel = _getEffectivePerimetre() === id;
     const disabled = needsTerrain && !hasTerrain;
     const tip = _perimTooltips[id] || '';
     if (disabled) {
@@ -1210,7 +1217,7 @@ function _renderTroncCommun() {
   const perimLabels = PHYSIGAMME_COPY.perimeters;
 
   let html = `<div class="space-y-3">
-    ${renderPhysigammeHero({ articleCount: data.articles.length, perimLabel: perimLabels[_troncPerimetre] })}
+    ${renderPhysigammeHero({ articleCount: data.articles.length, perimLabel: perimLabels[_getEffectivePerimetre()] })}
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex gap-1">
         <button onclick="window._troncToggleMetierPicker()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncMetierPickerOpen ? 'text-white' : 'text-white hover:brightness-110'}" style="background:${_troncMetierPickerOpen ? 'var(--c-action)' : '#6366f1'};${_troncMetierPickerOpen ? 'outline:2px solid var(--c-action);outline-offset:1px' : ''}" title="Cliquer pour choisir les métiers du cluster">👥 ${isCustom ? _troncCustomMetiers.size + ' métiers' : clusterLabel} ▾</button>
@@ -1223,7 +1230,7 @@ function _renderTroncCommun() {
     ${renderPhysigammeKpis({ data, includeAll: _troncIncludeAll, isCustom, renderKpi: _kpiBtn })}`;
 
   // ── Bandeau périmètre actif + "Hors radar" ──
-  html += renderPhysigammePerimeterBar({ perimLabel: perimLabels[_troncPerimetre], articleCount: data.articles.length, totalMetiers: data.totalMetiers });
+  html += renderPhysigammePerimeterBar({ perimLabel: perimLabels[_getEffectivePerimetre()], articleCount: data.articles.length, totalMetiers: data.totalMetiers });
   html += renderPhysigammeOutOfScope({ clients: data.clientsHorsMetier, ca: data.caHorsMetier });
 
   if (!data.articles.length) {

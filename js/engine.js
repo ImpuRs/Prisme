@@ -871,13 +871,16 @@ export function computeBenchMetier() {
     if (!metierCAs[m]) metierCAs[m] = [];
     metierCAs[m].push(ca);
   }
-  // 1b. Compter les clients actifs PDV par métier (dénominateur tronc commun)
+  // 1b. Compter les clients actifs réseau par métier (dénominateur tronc commun national)
+  // metierFamBench est maintenant national → le max nbClients parmi les familles = proxy total actifs
   const actifsPDVByMetier = {};
-  const cfa = _S.clientFamCA || {};
-  for (const [cc, info] of _S.chalandiseData) {
-    const m = (info.metier || '').trim();
-    if (!m || !cfa[cc]) continue;
-    actifsPDVByMetier[m] = (actifsPDVByMetier[m] || 0) + 1;
+  const mfbAll = _S.metierFamBench || {};
+  for (const m in mfbAll) {
+    let maxClients = 0;
+    for (const fam in mfbAll[m]) {
+      if (mfbAll[m][fam].nbClients > maxClients) maxClients = mfbAll[m][fam].nbClients;
+    }
+    actifsPDVByMetier[m] = maxClients;
   }
   // 2. Calculer médiane (Q1 exclu = bottom 25% ignoré) + tronc commun
   for (const m in metierCAs) {
