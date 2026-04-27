@@ -1388,10 +1388,9 @@ _S.canalAgence=newCanalAgence;
       if(r.isParent)continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-      // Filtre de la Mort : au moins 1 agence réseau doit avoir MIN/MAX > 0
+      // Filtre de la Mort : au moins 1 agence réseau a MIN/MAX > 0 ?
       let _anyStocked=false;
       for(const s of _allStoresFull){const stk=_spm[s]?.[r.code];if(stk&&(stk.qteMin>0||stk.qteMax>0)){_anyStocked=true;break;}}
-      if(!_anyStocked)continue;
       // Top 3 agences par CA — sélection en un passage (pas de sort/slice)
       let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false;
       for(const s of _allStoresFull){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
@@ -1405,8 +1404,11 @@ _S.canalAgence=newCanalAgence;
       // Sinon plafond absolu à 20 pour éviter les MIN/MAX délirants sur petits prix
       const _capMed=r.medMinReseau>0?r.medMinReseau*2:20;
       _vit=Math.min(_vit,_capMed);
+      // Si aucune agence ne stocke (Filtre de la Mort souple) : plafonner MIN=1/MAX=2
+      if(!_anyStocked){_vit=Math.min(_vit,1);}
       r.nouveauMin=Math.max(Math.ceil(_vit),1);
       r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
+      if(!_anyStocked){r.nouveauMax=Math.min(r.nouveauMax,2);}
       r._vitesseReseau=true;
       _applied++;
     }
