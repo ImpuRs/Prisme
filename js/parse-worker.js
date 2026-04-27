@@ -922,6 +922,14 @@ async function _handleParseMessage(data) {
             _vpmc_h.countBL++;
             _vpmc_h.sumVMB += _rvp + _rve;
             _vpmc_h.sumVMBPrel += _rvp;
+            // ventesParMagasin — accumuler hors-MAGASIN aussi (cohérence tous canaux)
+            if (!ventesParMagasin[_storeKey_h]) ventesParMagasin[_storeKey_h] = {};
+            if (!ventesParMagasin[_storeKey_h][codeArt_h]) ventesParMagasin[_storeKey_h][codeArt_h] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+            ventesParMagasin[_storeKey_h][codeArt_h].sumCA += caLigne_h;
+            if (_rqp > 0) ventesParMagasin[_storeKey_h][codeArt_h].sumPrelevee += _rqp;
+            if (_rqe > 0) ventesParMagasin[_storeKey_h][codeArt_h].sumEnleve += _rqe;
+            ventesParMagasin[_storeKey_h][codeArt_h].countBL++;
+            ventesParMagasin[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
           }
           // commandesPerStoreCanal — hors-MAGASIN
           if (_rncb) {

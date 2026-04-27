@@ -5083,11 +5083,9 @@ function _prComputeMetierFull(metier) {
     e.nbAgencesReseau = r?.nbAg || 0;
     e.caReseau = r?.ca || 0;
   }
-  // Ajouter articles réseau-only (≥3 agences, pas en stock local, pas déjà dans enriched)
-  const _nbStoresExclMy = Math.max(1, Object.keys(vpm).filter(s => s !== myStore).length);
-  const _minAgReseau = Math.max(2, Math.ceil(_nbStoresExclMy / 3));
+  // Ajouter articles réseau-only (≥1 agence, familles qualifiées, pas déjà dans enriched)
   for (const [code, r] of _resByCode) {
-    if (enriched.has(code) || r.nbAg < _minAgReseau) continue;
+    if (enriched.has(code)) continue;
     const cf = catFam?.get(code);
     const codeFam = cf?.codeFam || _S.articleFamille?.[code] || '';
     if (!codeFam) continue;
