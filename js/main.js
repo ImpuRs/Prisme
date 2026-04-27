@@ -1379,6 +1379,7 @@ _S.canalAgence=newCanalAgence;
     if(!DataStore.finalData.length)return;
     const _myS=_S.selectedMyStore;
     const _vpm=_S.ventesParAgence||{};
+    const _spm=_S.stockParMagasin||{};
     const _allStoresFull=Object.keys(_vpm).filter(s=>s!==_myS);
     if(_allStoresFull.length<2)return;
     let _applied=0;
@@ -1387,6 +1388,10 @@ _S.canalAgence=newCanalAgence;
       if(r.isParent)continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
+      // Filtre de la Mort : au moins 1 agence réseau doit avoir MIN/MAX > 0
+      let _anyStocked=false;
+      for(const s of _allStoresFull){const stk=_spm[s]?.[r.code];if(stk&&(stk.qteMin>0||stk.qteMax>0)){_anyStocked=true;break;}}
+      if(!_anyStocked)continue;
       // Top 3 agences par CA — sélection en un passage (pas de sort/slice)
       let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false;
       for(const s of _allStoresFull){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
