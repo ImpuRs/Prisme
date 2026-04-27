@@ -20,18 +20,11 @@ let _prSqPage        = 50;     // nb articles affichés dans le Squelette
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prSqSortAsc     = false;
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
-let _prFilterMetier  = '';   // '' = tous clients, sinon filtre métier chalandise
-let _prFilterMetierClients = null; // Set<cc> — cache clients du métier sélectionné
 const _prDistOk = (cc) => {
   if (!_prMetierDist) return true;
   const info = _S.chalandiseData?.get(cc);
   if (!info || info.distanceKm == null) return true;
   return info.distanceKm <= _prMetierDist;
-};
-// Filtre combiné métier + distance pour articleZoneFiltered
-const _prCombinedFilter = (cc) => {
-  if (_prFilterMetierClients && !_prFilterMetierClients.has(cc)) return false;
-  return _prDistOk(cc);
 };
 // Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
 const _prLivMonthRange = () => {
@@ -2049,11 +2042,11 @@ function _prRenderPilotage(fam) {
 
   const fdMap = _prGetFdMap();
 
-  // ── Filtre distance + métier : via articleZoneFiltered (article-store.js) ──
-  const _hasFilter = (_prMetierDist || _prFilterMetier) && _S.chalandiseReady && _S.chalandiseData?.size;
-  const _distFn = _hasFilter ? _prCombinedFilter : null;
+  // ── Filtre distance : via articleZoneFiltered (article-store.js) ──
+  const _hasDist = _prMetierDist && _S.chalandiseReady && _S.chalandiseData?.size;
+  const _distFn = _hasDist ? _prDistOk : null;
   // Pré-calcul index zone si nécessaire
-  if (_hasFilter) computeArticleZoneIndex();
+  if (_hasDist) computeArticleZoneIndex();
 
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
@@ -3198,24 +3191,6 @@ window._prSetFilter = function(key) {
       btn.style.boxShadow = active ? `0 0 0 2px ${b.color}` : '';
     }
   });
-};
-
-window._prFamMetierChange = function(metier) {
-  _prFilterMetier = metier || '';
-  if (_prFilterMetier) {
-    _prFilterMetierClients = _S.clientsByMetier?.get(_prFilterMetier) || new Set();
-  } else {
-    _prFilterMetierClients = null;
-    _prMetierDist = 0;
-  }
-  _populatePlanMetierSidebar();
-  _prRerender();
-};
-
-window._prFamMetierDist = function(km) {
-  _prMetierDist = km || 0;
-  _populatePlanMetierSidebar();
-  _prRerender();
 };
 
 window._prOpenDetail = function(codeFam) {
@@ -5822,8 +5797,6 @@ export function renderPlanRayon() {
   buildSqLookup();
   // Peupler les checkboxes "Comparer avec" dans la sidebar Plan
   _buildPlanBenchCheckboxes();
-  // Peupler le filtre métier dans la sidebar Plan
-  _populatePlanMetierSidebar();
 }
 
 function _updatePlanBenchStatus(nbChecked, nbTotal) {
@@ -5835,70 +5808,6 @@ function _updatePlanBenchStatus(nbChecked, nbTotal) {
   el.innerHTML = isFiltered
     ? `<span class="c-caution font-semibold">⚠ Médiane sur ${nbChecked}/${nbTotal} agences</span>`
     : `<span class="t-disabled">✓ Toutes les agences (${nbTotal})</span>`;
-}
-
-function _populatePlanMetierSidebar() {
-  const container = document.getElementById('planMetierContent');
-  if (!container) return;
-  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) {
-    container.innerHTML = '<span class="text-[10px] t-disabled">Chargez la Zone de Chalandise</span>';
-    return;
-  }
-  const hasDist = _prHasChalDist();
-  const distBtns = (_prFilterMetier && hasDist) ? `<div class="flex flex-wrap items-center gap-1 mt-2">
-    <span class="text-[9px] t-disabled">📍</span>
-    ${[{v:0,l:'Tous'},{v:2,l:'2km'},{v:5,l:'5km'},{v:10,l:'10km'},{v:15,l:'15km'},{v:30,l:'30km'}].map(d => {
-      const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
-      return `<button onclick="window._prFamMetierDist(${d.v})"
-        class="text-[8px] py-0.5 px-1.5 rounded-full border b-default cursor-pointer"
-        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'color:var(--t-secondary)'}">${d.l}</button>`;
-    }).join('')}
-  </div>` : '';
-
-  const nbClients = _prFilterMetierClients?.size || 0;
-
-  container.innerHTML = `
-    <div class="flex items-center gap-1">
-      <input type="text" id="planMetierInput" list="planMetierDatalist"
-        placeholder="Tapez un métier…"
-        value="${_prFilterMetier ? escapeHtml(_prFilterMetier) : ''}"
-        class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary"
-        style="${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
-      <datalist id="planMetierDatalist"></datalist>
-      ${_prFilterMetier ? `<button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer flex-shrink-0">✕</button>` : ''}
-    </div>
-    ${_prFilterMetier ? `<div class="text-[9px] t-disabled mt-1.5">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div>` : ''}
-    ${distBtns}`;
-  _initPlanMetierInput();
-}
-
-let _planMetInputTimer = null;
-function _initPlanMetierInput() {
-  const input = document.getElementById('planMetierInput');
-  const dl = document.getElementById('planMetierDatalist');
-  if (!input || !dl) return;
-  const metiers = [];
-  for (const [m] of (_S.clientsByMetier || new Map())) {
-    if (m && m !== '-' && m.trim()) metiers.push(m);
-  }
-  metiers.sort((a, b) => a.localeCompare(b, 'fr'));
-
-  const updateDl = (q) => {
-    if (!q || q.length < 2 || _prFilterMetier) { dl.innerHTML = ''; return; }
-    const matches = metiers.filter(m => m.toLowerCase().includes(q)).slice(0, 12);
-    dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m)}">`).join('');
-  };
-
-  const onInput = () => {
-    clearTimeout(_planMetInputTimer);
-    const v = input.value.trim();
-    if (!v) { updateDl(''); window._prFamMetierChange(''); return; }
-    const found = metiers.find(m => m === v);
-    if (found) { updateDl(''); window._prFamMetierChange(found); return; }
-    _planMetInputTimer = setTimeout(() => updateDl(v.toLowerCase()), 150);
-  };
-  input.addEventListener('input', onInput);
-  input.addEventListener('change', onInput);
 }
 
 function _buildPlanBenchCheckboxes() {
