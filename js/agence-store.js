@@ -11,7 +11,7 @@ import { _S } from './state.js';
 
 /**
  * Construit _S.agenceStore = Map<storeCode, AgenceRecord> à partir de
- * _byMonthStoreArtCanal (période-filtrée) ou ventesParMagasin (fallback).
+ * _byMonthStoreArtCanal (période-filtrée) ou ventesParAgence (fallback).
  *
  * @param {Object} [opts]
  * @param {Set<string>}  [opts.canaux]       — canaux à inclure (vide = tous)
@@ -40,7 +40,7 @@ export function getAgenceStoreKey(opts = {}) {
     startIdx,
     endIdx,
     sourceKey,
-    _S.storeCountConsomme || Object.keys(_S.ventesParMagasin || {}).length || 0,
+    _S.storeCountConsomme || Object.keys(_S.ventesParAgence || {}).length || 0,
     _S.finalData?.length || 0,
   ].join('|');
 }
@@ -160,8 +160,8 @@ export function buildAgenceStore(opts = {}) {
       }
       rec.artMap = artMap;
     } else {
-      // Fallback : ventesParMagasin (pleine période, tous canaux)
-      rec.artMap = _S.ventesParMagasin?.[agCode] || {};
+      // Fallback : ventesParAgence (pleine période, tous canaux)
+      rec.artMap = _S.ventesParAgence?.[agCode] || {};
     }
 
     // ── Agréger KPIs depuis artMap ──
@@ -313,7 +313,7 @@ export function agenceMedian(arr) {
 /** @returns {boolean} true si au moins une source agence est peuplée */
 function _hasAgenceSources() {
   return !!(_S.storesIntersection?.size && (
-    Object.keys(_S.ventesParMagasin || {}).length ||
+    Object.keys(_S.ventesParAgence || {}).length ||
     Object.keys(_S._byMonthStoreArtCanal || {}).length
   ));
 }

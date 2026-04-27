@@ -28,8 +28,8 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   // ── Univers de tous les codes client connus ──
   if (!pdvOnly) {
     const allCc = new Set();
-    if (_S.ventesClientArticle) for (const cc of _S.ventesClientArticle.keys()) allCc.add(cc);
-    if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) allCc.add(cc);
+    if (_S.ventesLocalMagPeriode) for (const cc of _S.ventesLocalMagPeriode.keys()) allCc.add(cc);
+    if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
     if (_S.chalandiseData) for (const cc of _S.chalandiseData.keys()) allCc.add(cc);
     if (_S.clientLastOrder) for (const cc of _S.clientLastOrder.keys()) allCc.add(cc);
     if (_S.clientLastOrderAll) for (const cc of _S.clientLastOrderAll.keys()) allCc.add(cc);
@@ -46,7 +46,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
       const omni = _S.clientOmniScore?.get(cc);
 
       // Hors-MAGASIN agrégats
-      const horArts = _S.ventesClientHorsMagasin?.get(cc);
+      const horArts = _S.ventesLocalHorsMag?.get(cc);
       let caHors = 0;
       const canaux = new Set();
       if (horArts) {
@@ -113,7 +113,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   // ── PDV agrégats (period-dependent, toujours recalculés) ──
   const _pdvActiveSet = getClientsActiveSetInPeriod(''); // tous canaux, période courante (si byMonthClients dispo)
   for (const [cc, rec] of store) {
-    const pdvArts = _S.ventesClientArticle?.get(cc) || null;
+    const pdvArts = _S.ventesLocalMagPeriode?.get(cc) || null;
     rec.artMapPDV = pdvArts; // référence directe, mise à jour au refilter
     let caPDV = 0, caPDVPrel = 0, nbArts = 0;
     if (pdvArts) {
@@ -167,8 +167,8 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   }
 
   // ── pdvOnly : ajouter les nouveaux clients absents du store ──
-  if (pdvOnly && _S.ventesClientArticle) {
-    for (const cc of _S.ventesClientArticle.keys()) {
+  if (pdvOnly && _S.ventesLocalMagPeriode) {
+    for (const cc of _S.ventesLocalMagPeriode.keys()) {
       if (!store.has(cc)) {
         // Nouveau client apparu après refilter — full build pour lui
         buildClientStore(); // rebuild complet, sort de la boucle
@@ -203,7 +203,7 @@ export function getClient(cc) {
 
 /** @returns {boolean} true si au moins une source client est peuplée */
 function _hasClientSources() {
-  return !!(_S.ventesClientArticle?.size || _S.ventesClientHorsMagasin?.size
+  return !!(_S.ventesLocalMagPeriode?.size || _S.ventesLocalHorsMag?.size
     || _S.chalandiseData?.size || _S.clientLastOrder?.size || _S.clientsMagasin?.size);
 }
 

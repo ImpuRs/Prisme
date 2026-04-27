@@ -76,16 +76,16 @@ function _clientPassesAssocFilter(cc) {
 function _assocId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // ═══════════════════════════════════════════════════════════════
-// Calcul du taux d'association par agence (via ventesParMagasin)
+// Calcul du taux d'association par agence (via ventesParAgence)
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Agrège ventesParMagasinByCanal pour un store (tous canaux confondus).
+ * Agrège ventesParAgenceByCanal pour un store (tous canaux confondus).
  * Retourne un objet {code → {sumCA, countBL}} — sensible au filtre période.
- * Fallback sur ventesParMagasin (pleine période) si byCanal absent.
+ * Fallback sur ventesParAgence (pleine période) si byCanal absent.
  */
 function _vpmForStore(store) {
-  const vbc = _S.ventesParMagasinByCanal;
+  const vbc = _S.ventesParAgenceByCanal;
   if (vbc && vbc[store]) {
     const merged = {};
     for (const canal in vbc[store]) {
@@ -97,19 +97,19 @@ function _vpmForStore(store) {
     }
     return merged;
   }
-  return _S.ventesParMagasin?.[store] || {};
+  return _S.ventesParAgence?.[store] || {};
 }
 
 function _troncStoreKeys() {
-  const vbc = _S.ventesParMagasinByCanal;
+  const vbc = _S.ventesParAgenceByCanal;
   if (vbc && Object.keys(vbc).length) return Object.keys(vbc).sort();
-  return Object.keys(_S.ventesParMagasin || {}).sort();
+  return Object.keys(_S.ventesParAgence || {}).sort();
 }
 
 /**
  * Pour une agence du réseau, calcule le mix A/B :
  * caA, caB, refsA, refsB, blA, blB + ratio brut caB/caA.
- * Utilise ventesParMagasinByCanal (sensible période) avec fallback ventesParMagasin.
+ * Utilise ventesParAgenceByCanal (sensible période) avec fallback ventesParAgence.
  */
 function _computeAssocForStore(store, famA, famB) {
   const sd = _vpmForStore(store);
@@ -134,7 +134,7 @@ function _computeAssocForStore(store, famA, famB) {
 }
 
 /**
- * Vue omnicanale unifiée par client : merge ventesClientArticle + ventesClientHorsMagasin.
+ * Vue omnicanale unifiée par client : merge ventesLocalMagPeriode + ventesLocalHorsMag.
  * Retourne un itérateur de [cc, Map<code, {sumCA}>] — tous canaux confondus.
  * Le BL du co-achat se mesure au niveau client (a-t-il acheté A ET B ?), pas au niveau BL,
  * donc on agrège le CA tous canaux pour chaque couple (client, article).
@@ -142,9 +142,9 @@ function _computeAssocForStore(store, famA, famB) {
 function _omniClientArticles() {
   const merged = new Map(); // cc → Map<code, {sumCA}>
   const hasFilter = !!_assocMetierFilter || !!_assocStratFilter;
-  // Source 1 : MAGASIN (ventesClientArticle)
-  if (_S.ventesClientArticle?.size) {
-    for (const [cc, artMap] of _S.ventesClientArticle) {
+  // Source 1 : MAGASIN (ventesLocalMagPeriode)
+  if (_S.ventesLocalMagPeriode?.size) {
+    for (const [cc, artMap] of _S.ventesLocalMagPeriode) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
       if (!merged.has(cc)) merged.set(cc, new Map());
       const m = merged.get(cc);
@@ -156,8 +156,8 @@ function _omniClientArticles() {
     }
   }
   // Source 2 : hors-MAGASIN (Web, Représentant, DCS)
-  if (_S.ventesClientHorsMagasin?.size) {
-    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+  if (_S.ventesLocalHorsMag?.size) {
+    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
       if (!merged.has(cc)) merged.set(cc, new Map());
       const m = merged.get(cc);
@@ -231,9 +231,9 @@ function _computeAssocMyStore(famA, famB) {
  * Trié par indice décroissant — qui cross-sell le mieux ?
  */
 function _benchmarkAssoc(famA, famB) {
-  // Lister les stores depuis ventesParMagasinByCanal (sensible période) ou ventesParMagasin
-  const vbc = _S.ventesParMagasinByCanal || {};
-  const vpm = _S.ventesParMagasin || {};
+  // Lister les stores depuis ventesParAgenceByCanal (sensible période) ou ventesParAgence
+  const vbc = _S.ventesParAgenceByCanal || {};
+  const vpm = _S.ventesParAgence || {};
   const allStores = new Set([...Object.keys(vbc), ...Object.keys(vpm)]);
   const myStore = _S.selectedMyStore;
   const raw = [];
@@ -335,7 +335,7 @@ function _findClientTargets(famA, famB) {
     }
     if (hasA && !hasB) {
       // Uniquement clients PDV (au moins 1 achat MAGASIN)
-      if (!_S.ventesClientMagFull?.has(cc) && !_S.ventesClientArticle?.has(cc)) continue;
+      if (!_S.ventesLocalMag12MG?.has(cc) && !_S.ventesLocalMagPeriode?.has(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       targets.push({
         cc,
@@ -411,7 +411,7 @@ function _renderAssociations() {
 function _famStats() {
   if (_famStatsCache) return _famStatsCache;
   const catFam = _S.catalogueFamille;
-  const vca = _S.ventesClientArticle;
+  const vca = _S.ventesLocalMagPeriode;
   const stats = new Map();
 
   const _ensure = (cf) => {
@@ -419,7 +419,7 @@ function _famStats() {
     return stats.get(cf);
   };
 
-  // Source 1 : ventesClientArticle (MAGASIN) + ventesClientHorsMagasin (Web, Rep, DCS)
+  // Source 1 : ventesLocalMagPeriode (MAGASIN) + ventesLocalHorsMag (Web, Rep, DCS)
   // Omnicanal : tous les canaux comptent pour les associations
   const hasFilter = !!_assocMetierFilter || !!_assocStratFilter;
   if (vca?.size) {
@@ -436,8 +436,8 @@ function _famStats() {
     }
   }
 
-  // Source 1b : ventesClientHorsMagasin (Web, Représentant, DCS) — même structure
-  const vhm = _S.ventesClientHorsMagasin;
+  // Source 1b : ventesLocalHorsMag (Web, Représentant, DCS) — même structure
+  const vhm = _S.ventesLocalHorsMag;
   if (vhm?.size) {
     for (const [cc, artMap] of vhm) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
@@ -467,9 +467,9 @@ function _famStats() {
     }
   }
 
-  // Source 2 : ventesParMagasin (tout le réseau) — familles absentes localement mais actives réseau
-  if (_S.ventesParMagasin) {
-    for (const [store, arts] of Object.entries(_S.ventesParMagasin)) {
+  // Source 2 : ventesParAgence (tout le réseau) — familles absentes localement mais actives réseau
+  if (_S.ventesParAgence) {
+    for (const [store, arts] of Object.entries(_S.ventesParAgence)) {
       for (const [code, data] of Object.entries(arts)) {
         if ((data.countBL || 0) <= 0) continue;
         const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
@@ -579,11 +579,11 @@ function _renderAssocEditor() {
     })
     .sort((a, b) => (b.ca || b.caReseau) - (a.ca || a.caReseau));
 
-  // CA réseau pour comparaison (via ventesParMagasin, non filtré métier)
+  // CA réseau pour comparaison (via ventesParAgence, non filtré métier)
   const _caReseau = {};
-  if (_S.ventesParMagasin) {
+  if (_S.ventesParAgence) {
     const myStore = _S.selectedMyStore;
-    for (const [store, arts] of Object.entries(_S.ventesParMagasin)) {
+    for (const [store, arts] of Object.entries(_S.ventesParAgence)) {
       if (store === myStore) continue;
       for (const [code, data] of Object.entries(arts)) {
         if ((data.countBL || 0) <= 0) continue;
@@ -995,7 +995,7 @@ function _getEffectivePerimetre() {
   if (_troncPerimetre) return _troncPerimetre;
   // Auto-detect : réseau si consommé multi-agences, sinon agence
   const si = _S.storesIntersection;
-  return (si?.size > 1 || Object.keys(_S.ventesParMagasin || {}).length > 1) ? 'reseau' : 'agence';
+  return (si?.size > 1 || Object.keys(_S.ventesParAgence || {}).length > 1) ? 'reseau' : 'agence';
 }
 
 function _computeTroncCommun(universLetter, metiersSet) {
@@ -1243,7 +1243,7 @@ function _renderTroncCommun() {
     const sel = _troncVue === id;
     return `<button onclick="window._troncSetVue('${id}')" class="text-[10px] px-3 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}">${icon} ${label}</button>`;
   };
-  const hasVpm = _S.ventesParMagasin && Object.keys(_S.ventesParMagasin).length > 1;
+  const hasVpm = _S.ventesParAgence && Object.keys(_S.ventesParAgence).length > 1;
   html += `<div class="flex gap-1">${_vueBtn('articles', '📋', 'Décisions articles')}${_vueBtn('carto', '🗺️', 'Cartographie Métiers')}${hasVpm ? _vueBtn('conformite', '🚨', 'Déploiement agences') : ''}</div>`;
 
   // ══════════════ VUE CARTOGRAPHIE (Heatmap Famille × Métier) ══════════════

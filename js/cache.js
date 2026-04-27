@@ -261,7 +261,7 @@ const IDB_TERR    = 'territoire';
 // d'articles compacts + EAN, et on pré-calcule 2-3 KPIs réseau par article.
 function _buildScanPayload() {
   const myStore = _S.selectedMyStore || '';
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const allStores = Object.keys(vpm);
   const eanObj = _S.catalogueEAN?.size ? Object.fromEntries(_S.catalogueEAN) : null;
   const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
@@ -447,8 +447,8 @@ async function _saveSessionToIDBNow() {
       _hasStock:             _S._hasStock,
       // ── Core ──
       finalData:             _S.finalData,
-      ventesParMagasin:      _S.ventesParMagasin,
-      ventesParMagasinByCanal: _S.ventesParMagasinByCanal,
+      ventesParAgence:      _S.ventesParAgence,
+      ventesParAgenceByCanal: _S.ventesParAgenceByCanal,
       stockParMagasin:       _S.stockParMagasin,
       storesIntersection:    [..._S.storesIntersection],
       libelleLookup:         _S.libelleLookup,
@@ -462,8 +462,8 @@ async function _saveSessionToIDBNow() {
       clientsMagasin:        [..._S.clientsMagasin],
       clientsMagasinFreq:    [..._S.clientsMagasinFreq],
       // ── Client data ──
-      ventesClientArticle:      _serializeNestedMap(_S.ventesClientArticle),
-      ventesClientMagFull:  _serializeNestedMap(_S.ventesClientMagFull),
+      ventesLocalMagPeriode:      _serializeNestedMap(_S.ventesLocalMagPeriode),
+      ventesLocalMag12MG:  _serializeNestedMap(_S.ventesLocalMag12MG),
       ventesReseauTousCanaux: _serializeNestedMap(_S.ventesReseauTousCanaux),
       byMonth:                  _S._byMonth || null,
       byMonthFull:              _S._byMonthFull || null,
@@ -483,7 +483,7 @@ async function _saveSessionToIDBNow() {
           }))
         : null,
       byMonthClientCAByCanal:   _S._byMonthClientCAByCanal || null,
-      ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
+      ventesLocalHorsMag:  _serializeNestedMap(_S.ventesLocalHorsMag),
       ventesClientAutresAgences: [...(_S.ventesClientAutresAgences || [])],
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
@@ -607,8 +607,8 @@ export async function _restoreSessionFromIDB() {
 
     _S._hasStock            = data._hasStock            || false;
     _S.finalData            = data.finalData            || [];
-    _S.ventesParMagasin         = data.ventesParMagasin         || {};
-    _S.ventesParMagasinByCanal  = data.ventesParMagasinByCanal  || {};
+    _S.ventesParAgence         = data.ventesParAgence         || {};
+    _S.ventesParAgenceByCanal  = data.ventesParAgenceByCanal  || {};
     _S.stockParMagasin          = data.stockParMagasin          || {};
     _S.storesIntersection   = new Set(data.storesIntersection || []);
     _S.libelleLookup        = data.libelleLookup        || {};
@@ -622,9 +622,9 @@ export async function _restoreSessionFromIDB() {
     _S.clientsMagasin       = new Set(data.clientsMagasin || []);
     _S.clientsMagasinFreq   = new Map(data.clientsMagasinFreq || []);
 
-    _S.ventesClientArticle      = _deserializeNestedMap(data.ventesClientArticle      || []);
-    _S.ventesClientMagFull  = _deserializeNestedMap(data.ventesClientMagFull  || []);
-    _S.ventesReseauTousCanaux = _deserializeNestedMap(data.ventesReseauTousCanaux || data.ventesClientArticleReseau || []);
+    _S.ventesLocalMagPeriode      = _deserializeNestedMap(data.ventesLocalMagPeriode      || []);
+    _S.ventesLocalMag12MG  = _deserializeNestedMap(data.ventesLocalMag12MG  || []);
+    _S.ventesReseauTousCanaux = _deserializeNestedMap(data.ventesReseauTousCanaux || []);
     if (data.byMonth)      _S._byMonth      = data.byMonth;
     if (data.byMonthFull)  _S._byMonthFull  = data.byMonthFull;
     if (data.byMonthCanal) _S._byMonthCanal = data.byMonthCanal;
@@ -648,7 +648,7 @@ export async function _restoreSessionFromIDB() {
       );
     }
     _S._byMonthClientCAByCanal = data.byMonthClientCAByCanal || null;
-    _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);
+    _S.ventesLocalHorsMag  = _deserializeNestedMap(data.ventesLocalHorsMag  || []);
     _S.ventesClientAutresAgences = new Map(data.ventesClientAutresAgences || []);
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));

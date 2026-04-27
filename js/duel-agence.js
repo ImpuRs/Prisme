@@ -953,14 +953,14 @@ function _buildMetierDrillDown(metierData, myStore, tgtStore) {
   const myCAMap = _buildPeriodCAMapForStore(myStore);
   const tgtCAMap = _buildPeriodCAMapForStore(tgtStore);
   const nomLookup = _S.clientNomLookup || {};
-  const vcaFull = _S.ventesClientMagFull;
+  const vcaFull = _S.ventesLocalMag12MG;
   const artFam = _S.articleFamille || {};
   const metier = metierData.metier;
 
   // ── Familles fortes chez l'adversaire (pour suggestions familles manquantes) ──
   const tgtFamCA = {};
   const tgtRec = _S.agenceStore?.get(tgtStore);
-  const tgtArtMap = tgtRec?.artMap || _S.ventesParMagasin?.[tgtStore] || {};
+  const tgtArtMap = tgtRec?.artMap || _S.ventesParAgence?.[tgtStore] || {};
   for (const code in tgtArtMap) {
     if (!/^\d{6}$/.test(code)) continue;
     const fam = artFam[code];
@@ -1348,7 +1348,7 @@ function _buildDrillDown(famCode) {
   const articles = [];
   for (const code of allCodes) {
     if (!/^\d{6}$/.test(code)) continue;
-    // Source : ventesParMagasin — même source que le diagnostic article (consommé brut)
+    // Source : ventesParAgence — même source que le diagnostic article (consommé brut)
     const myD = myVpm[code];
     const tgtD = tgtVpm[code];
     const myCA = myD?.sumCA || 0;

@@ -53,8 +53,8 @@ function _buildDirectionSidebar(activeTab) {
       if (!codeFam || codeFam.charAt(0) !== _dirUniversFilter) continue;
       if (!famSet.has(codeFam)) famSet.set(codeFam, _famLabel(codeFam));
     }
-    // Also check ventesParMagasin — only families that have a known label (catalogue)
-    const vpm = _S.ventesParMagasin || {};
+    // Also check ventesParAgence — only families that have a known label (catalogue)
+    const vpm = _S.ventesParAgence || {};
     for (const store of Object.keys(vpm)) {
       for (const code of Object.keys(vpm[store])) {
         const codeFam = _S.articleFamille?.[code] || '';
@@ -167,7 +167,7 @@ function _renderCurrentDirectionTab() {
  * Retourne { codes, totalMetiers, totalStores, laboCount, reseauCount, source }
  */
 function _getRadarTroncCodes(universLetter) {
-  const vpm = _S.ventesParMagasin;
+  const vpm = _S.ventesParAgence;
   if (!vpm || !Object.keys(vpm).length) return { codes: [], totalMetiers: 0, totalStores: 0, laboCount: 0, reseauCount: 0, source: 'none' };
 
   const stores = Object.keys(vpm);
@@ -413,7 +413,7 @@ function _groupMissingByFamille(missing, vpm, stores) {
 window._confShowMissing = function(store) {
   const panel = document.getElementById('confMissingPanel');
   if (!panel) return;
-  const vpm = _S.ventesParMagasin;
+  const vpm = _S.ventesParAgence;
   const troncCodesAll = _getRadarTroncCodes(_confUniversFilter).codes;
   // Apply famille filter
   const troncCodes = _confFamilleFilter
@@ -457,7 +457,7 @@ window._confShowMissing = function(store) {
 };
 
 window._confExportMissing = function(store) {
-  const vpm = _S.ventesParMagasin;
+  const vpm = _S.ventesParAgence;
   const troncCodesAll = _getRadarTroncCodes(_confUniversFilter).codes;
   const troncCodes = _confFamilleFilter
     ? troncCodesAll.filter(code => famLib(_S.articleFamille?.[code] || '') === _confFamilleFilter)
@@ -482,7 +482,7 @@ window._confExportMissing = function(store) {
 };
 
 window._confExport = function() {
-  const vpm = _S.ventesParMagasin;
+  const vpm = _S.ventesParAgence;
   const troncCodes = _getRadarTroncCodes(_confUniversFilter).codes;
   const stores = Object.keys(vpm).sort();
   let csv = 'Agence;Implantation %;Articles implantés;Total;CA vendus;CA perdu estimé;Manquants\n';

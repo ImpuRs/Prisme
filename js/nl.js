@@ -253,12 +253,12 @@ function _nlQ_DeriveMinMax() {
 }
 
 function _nlQ_RadarFamilles() {
-  if (!_S.ventesClientArticle?.size)
+  if (!_S.ventesLocalMagPeriode?.size)
     return { title:'Radar familles', html:'<p class="text-xs t-disabled p-2">Chargez les données PDV pour calculer le radar familles.</p>' };
 
   // ── 1. CA PDV par famille ──
   const famPDV = new Map();
-  for (const [cc, arts] of _S.ventesClientArticle) {
+  for (const [cc, arts] of _S.ventesLocalMagPeriode) {
     for (const [code, v] of arts) {
       const fam = _S.articleFamille?.[code];
       if (!fam) continue;
@@ -273,10 +273,10 @@ function _nlQ_RadarFamilles() {
   const famHors = new Map();
   if (_S.famillesHors?.length) {
     for (const f of _S.famillesHors) famHors.set(f.rawFam, f.caHors || 0);
-  } else if (_S.ventesClientHorsMagasin?.size) {
-    for (const [cc, arts] of _S.ventesClientHorsMagasin) {
+  } else if (_S.ventesLocalHorsMag?.size) {
+    for (const [cc, arts] of _S.ventesLocalHorsMag) {
       const pdvFams = new Set();
-      const pdvArts = _S.ventesClientArticle?.get(cc);
+      const pdvArts = _S.ventesLocalMagPeriode?.get(cc);
       if (pdvArts) for (const [code] of pdvArts) { const f = _S.articleFamille?.[code]; if (f) pdvFams.add(f); }
       for (const [code, v] of arts) {
         const fam = _S.articleFamille?.[code];
@@ -545,7 +545,7 @@ function _nlQ_PrevisionRupture() {
 function _nlQ_DormantsRecuperables() {
   if (!_S.finalData?.length)
     return { title:'Dormants récupérables', html:'<p class="text-xs t-disabled p-2">Chargez les données articles.</p>' };
-  if (!_S.ventesClientHorsMagasin?.size)
+  if (!_S.ventesLocalHorsMag?.size)
     return { title:'Dormants récupérables', html:'<p class="text-xs t-disabled p-2">Aucune donnée hors-MAGASIN disponible. Chargez un fichier multi-canal.</p>' };
 
   // Dormants : ageJours > DORMANT_DAYS (défini dans constants.js, ici on utilise 180 comme proxy)
@@ -555,10 +555,10 @@ function _nlQ_DormantsRecuperables() {
     .map(r => [r.code, r])
   );
 
-  // Croiser avec ventesClientHorsMagasin — trouver dormants achetés hors PDV
+  // Croiser avec ventesLocalHorsMag — trouver dormants achetés hors PDV
   const recup = [];
   const codeHors = new Map(); // code → {caHors, nbClients}
-  for (const [cc, arts] of _S.ventesClientHorsMagasin) {
+  for (const [cc, arts] of _S.ventesLocalHorsMag) {
     for (const [code, v] of arts) {
       if (!dormants.has(code)) continue;
       if (!codeHors.has(code)) codeHors.set(code, { caHors: 0, clients: new Set() });
@@ -714,7 +714,7 @@ function _nlQ_QualiteDonnees() {
   const pctOkArt   = Math.round(100 * (1 - (sansMinMax + minGtMax + sansPrix) / (n * 2)));
 
   // ── Clients ──
-  const nClients = _S.ventesClientArticle?.size || 0;
+  const nClients = _S.ventesLocalMagPeriode?.size || 0;
   const nChaland = _S.chalandiseData?.size || 0;
   const nSansInfo = nClients > 0 ? Math.max(0, nClients - nChaland) : 0;
   const pctChaland = nClients > 0 ? Math.round(100 * Math.min(nChaland, nClients) / nClients) : 0;
@@ -843,12 +843,12 @@ function _nlQ_SousMinERP() {
 
 // ── Sprint AR : Cross-sell familles ──────────────────────────
 function _nlQ_CrossSellFamilles() {
-  if (!_S.ventesClientArticle?.size)
+  if (!_S.ventesLocalMagPeriode?.size)
     return { title:'Cross-sell familles', html:'<p class="text-xs t-disabled p-2">Chargez les données clients (consommé requis).</p>' };
 
   // Pour chaque client, collecter les familles achetées
   const famPairs = new Map(); // "FAM1|FAM2" → count
-  for (const [, arts] of _S.ventesClientArticle) {
+  for (const [, arts] of _S.ventesLocalMagPeriode) {
     const fams = new Set();
     for (const [code] of arts) {
       const f = _S.articleFamille?.[code]; if (f) fams.add(f);
@@ -1062,9 +1062,9 @@ function _nlQ_FicheArticle(raw) {
   const fam = famLib(_S.articleFamille?.[art.code] || '') || '—';
   const caPDV = (() => {
     let ca = 0;
-    const arts = _S.articleClients?.has(art.code) ? _S.ventesClientArticle : null;
-    if (_S.ventesClientArticle) {
-      for (const [, clientArts] of _S.ventesClientArticle) {
+    const arts = _S.articleClients?.has(art.code) ? _S.ventesLocalMagPeriode : null;
+    if (_S.ventesLocalMagPeriode) {
+      for (const [, clientArts] of _S.ventesLocalMagPeriode) {
         const v = clientArts.get(art.code);
         if (v) ca += (v.sumCA || 0);
       }
@@ -1121,7 +1121,7 @@ function _nlQ_FicheArticle(raw) {
 
 // ── Sprint AW : Clients potentiels par famille ───────────────
 function _nlQ_PotentielFamille(raw) {
-  if (!_S.ventesClientArticle?.size || !_S.chalandiseData?.size)
+  if (!_S.ventesLocalMagPeriode?.size || !_S.chalandiseData?.size)
     return { title:'Potentiel famille', html:'<p class="text-xs t-disabled p-2">Chargez les données clients et chalandise.</p>' };
 
   // Extraire une famille cible de la requête
@@ -1139,7 +1139,7 @@ function _nlQ_PotentielFamille(raw) {
   if (!targetFam) {
     // Trouver la famille avec le plus de clients métier qui n'achètent pas
     const famAcheteurs = new Map();
-    for (const [cc, arts] of _S.ventesClientArticle) {
+    for (const [cc, arts] of _S.ventesLocalMagPeriode) {
       for (const [code] of arts) {
         const f = _S.articleFamille?.[code]; if (!f) continue;
         if (!famAcheteurs.has(f)) famAcheteurs.set(f, new Set());
@@ -1191,7 +1191,7 @@ function _nlQ_PotentielFamille(raw) {
 
   // Famille ciblée : lister les clients qui n'achètent pas cette famille
   const acheteurs = new Set();
-  for (const [cc, arts] of _S.ventesClientArticle) {
+  for (const [cc, arts] of _S.ventesLocalMagPeriode) {
     for (const [code] of arts) {
       if (_S.articleFamille?.[code] === targetFam) { acheteurs.add(cc); break; }
     }
@@ -1201,7 +1201,7 @@ function _nlQ_PotentielFamille(raw) {
   for (const [cc, info] of _S.chalandiseData) {
     if (acheteurs.has(cc)) continue;
     let caPDV = 0;
-    const arts = _S.ventesClientArticle?.get(cc);
+    const arts = _S.ventesLocalMagPeriode?.get(cc);
     if (arts) for (const [, v] of arts) caPDV += (v.sumCA || 0);
     if (caPDV < 200) continue; // filtre bruit
     potentiels.push({ cc, nom: info.nom || cc, metier: info.metier || '', commercial: info.commercial || '', caPDV });
@@ -1250,12 +1250,12 @@ function _nlQ_ProfilCommercial(commercial) {
   for (const cc of clients) {
     // CA PDV
     let ccCAPDV = 0, ccBL = 0;
-    const arts = _S.ventesClientArticle?.get(cc);
+    const arts = _S.ventesLocalMagPeriode?.get(cc);
     if (arts) for (const [, v] of arts) { ccCAPDV += (v.sumCA || 0); ccBL += (v.countBL || 0); }
     caPDV += ccCAPDV; nbBL += ccBL;
 
     // CA hors
-    const artsH = _S.ventesClientHorsMagasin?.get(cc);
+    const artsH = _S.ventesLocalHorsMag?.get(cc);
     if (artsH) for (const [, v] of artsH) caHors += (v.sumCA || 0);
 
     // Silence
@@ -1386,7 +1386,7 @@ function _nlQ_CouvertureJours() {
 
 // ── Sprint AZ : Clients gagnés vs perdus ─────────────────────
 function _nlQ_ProfilClient(raw) {
-  if (!_S.ventesClientArticle?.size)
+  if (!_S.ventesLocalMagPeriode?.size)
     return { title:'Profil client', html:'<p class="text-xs t-disabled p-2">Chargez les données clients.</p>' };
 
   // Recherche client par nom (3+ tokens dans la requête) ou code
@@ -1421,8 +1421,8 @@ function _nlQ_ProfilClient(raw) {
     return { title:'Profil client', html:'<p class="text-xs t-disabled p-2">Client non trouvé. Tapez le nom du client (ex : "profil client dupont plomberie").</p>' };
 
   const info = _S.chalandiseData?.get(targetCC) || {};
-  const arts = _S.ventesClientArticle?.get(targetCC) || new Map();
-  const artsH = _S.ventesClientHorsMagasin?.get(targetCC) || new Map();
+  const arts = _S.ventesLocalMagPeriode?.get(targetCC) || new Map();
+  const artsH = _S.ventesLocalHorsMag?.get(targetCC) || new Map();
 
   let caPDV = 0, nbBL = 0, nbArts = arts.size;
   for (const [, v] of arts) { caPDV += (v.sumCA || 0); nbBL += (v.countBL || 0); }
@@ -1605,14 +1605,14 @@ function _nlQ_StockSecurite() {
 
 // ── Sprint BD : Pivot métiers × familles ─────────────────────
 function _nlQ_PivotMetierFamille() {
-  if (!_S.ventesClientArticle?.size || !_S.chalandiseData?.size)
+  if (!_S.ventesLocalMagPeriode?.size || !_S.chalandiseData?.size)
     return { title:'Pivot métiers × familles', html:'<p class="text-xs t-disabled p-2">Chargez les données clients et chalandise.</p>' };
 
   // Agréger CA PDV par métier × famille
   const pivot = new Map(); // metier → Map<fam, ca>
   const allFams = new Set();
 
-  for (const [cc, arts] of _S.ventesClientArticle) {
+  for (const [cc, arts] of _S.ventesLocalMagPeriode) {
     const info = _S.chalandiseData?.get(cc);
     const metier = info?.metier || 'Non renseigné';
     if (!pivot.has(metier)) pivot.set(metier, new Map());
@@ -1764,7 +1764,7 @@ function _nlQ_RepartitionGeo() {
     const d = deptMap.get(dept);
     d.nClients++;
     // CA PDV si disponible
-    const arts = _S.ventesClientArticle?.get(cc);
+    const arts = _S.ventesLocalMagPeriode?.get(cc);
     if (arts) for (const [, v] of arts) d.caPDV += (v.sumCA || 0);
   }
 
@@ -1816,7 +1816,7 @@ function _nlQ_RepartitionGeo() {
 
 // ── Sprint BG : Score engagement clients ─────────────────────
 function _nlQ_TopFamillesMetier(metier) {
-  if (!_S.ventesClientArticle?.size || !_S.chalandiseData?.size)
+  if (!_S.ventesLocalMagPeriode?.size || !_S.chalandiseData?.size)
     return { title:`Top familles ${metier}`, html:'<p class="text-xs t-disabled p-2">Chargez les données clients et chalandise.</p>' };
 
   // Clients du métier
@@ -1832,7 +1832,7 @@ function _nlQ_TopFamillesMetier(metier) {
   const famCA = new Map();
   let totalCA = 0, nClients = 0;
   for (const cc of clients) {
-    const arts = _S.ventesClientArticle?.get(cc); if (!arts) continue;
+    const arts = _S.ventesLocalMagPeriode?.get(cc); if (!arts) continue;
     let hasCA = false;
     for (const [code, v] of arts) {
       const fam = _S.articleFamille?.[code]; if (!fam) continue;

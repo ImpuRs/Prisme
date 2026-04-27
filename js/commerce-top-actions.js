@@ -34,12 +34,12 @@ function buildArticleEntries({selectedTopClient,mode,finalDataIndex}) {
   const ailMap=new Map();
 
   for(const cc of targetCcs){
-    const pdv=_S.ventesClientArticle?.get(cc);
+    const pdv=_S.ventesLocalMagPeriode?.get(cc);
     if(pdv)for(const[code,d]of pdv){
       if(!iciMap.has(code))iciMap.set(code,{ca:0,nbClients:0,nbBL:0});
       const a=iciMap.get(code);a.ca+=d.sumCA||0;a.nbClients++;a.nbBL+=d.countBL||0;
     }
-    const hors=_S.ventesClientHorsMagasin?.get(cc);
+    const hors=_S.ventesLocalHorsMag?.get(cc);
     if(hors)for(const[code,d]of hors){
       if(!ailMap.has(code))ailMap.set(code,{ca:0,nbClients:0,nbBL:0});
       const a=ailMap.get(code);a.ca+=d.sumCA||0;a.nbClients++;a.nbBL+=d.countBL||0;

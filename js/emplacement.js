@@ -15,10 +15,10 @@ function computePerfEmplacement() {
   const data = DataStore.finalData;
   if (!data.length) return [];
 
-  // CA période depuis ventes MAGASIN (ventesClientArticle — MAGASIN uniquement)
+  // CA période depuis ventes MAGASIN (ventesLocalMagPeriode — MAGASIN uniquement)
   const caByArticle = new Map();
-  if (_S.ventesClientArticle) {
-    for (const [, artMap] of _S.ventesClientArticle) {
+  if (_S.ventesLocalMagPeriode) {
+    for (const [, artMap] of _S.ventesLocalMagPeriode) {
       for (const [code, d] of artMap) {
         caByArticle.set(code, (caByArticle.get(code) || 0) + (d.sumCA || 0));
       }
@@ -42,9 +42,9 @@ function computePerfEmplacement() {
     }
   }
 
-  // CA + VMB depuis ventesParMagasin (même source, même période = ratio cohérent)
+  // CA + VMB depuis ventesParAgence (même source, même période = ratio cohérent)
   const vpmByArticle = new Map(); // code → { ca, vmb }
-  const myStoreData = _S.ventesParMagasin?.[_S.selectedMyStore];
+  const myStoreData = _S.ventesParAgence?.[_S.selectedMyStore];
   if (myStoreData) {
     for (const [code, d] of Object.entries(myStoreData)) {
       vpmByArticle.set(code, { ca: d.sumCA || 0, vmb: d.sumVMB || 0 });
@@ -257,10 +257,10 @@ function _computeEnlevesSansRayon() {
   const data = DataStore.finalData;
   if (!data.length) return [];
 
-  // Construire CA prélevé + enlevé par article depuis ventesClientMagFull (pleine période, MAGASIN)
+  // Construire CA prélevé + enlevé par article depuis ventesLocalMag12MG (pleine période, MAGASIN)
   const artStats = new Map(); // code → { caPrel, caEnl, blPrel, blEnl, clients: Set }
-  if (_S.ventesClientMagFull?.size) {
-    for (const [cc, artMap] of _S.ventesClientMagFull) {
+  if (_S.ventesLocalMag12MG?.size) {
+    for (const [cc, artMap] of _S.ventesLocalMag12MG) {
       for (const [code, d] of artMap) {
         if (!/^\d{6}$/.test(code)) continue;
         if (!artStats.has(code)) artStats.set(code, { caPrel: 0, caEnl: 0, blPrel: 0, blEnl: 0, clients: new Set() });
