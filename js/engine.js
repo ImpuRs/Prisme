@@ -222,7 +222,7 @@ export function _isPDVActif(cc) {
     const info = _S.chalandiseData.get(cc);
     if (info) return (info.activitePDV || '').startsWith('Actif PDV Zone');
   }
-  const art = _S.ventesLocalMagPeriode?.get(cc);
+  const art = _S.ventesLocalMag12MG?.get(cc);
   return art && art.size > 0;
 }
 
@@ -391,7 +391,7 @@ export function clientMatchesUniversFilter(cc) {
 export function getUniversFilteredCA(cc) {
   const au = _S.articleUnivers || {};
   const sel = _S._selectedUnivers;
-  const artMap = _S.ventesLocalMagPeriode?.get(cc);
+  const artMap = _S.ventesLocalMag12MG?.get(cc);
 
   // Pas de filtre univers → CA brut
   if (!sel.size) {
@@ -424,7 +424,7 @@ export function _clientPassesFilters(info, cc='') {
   // cible de conquête, pas un client à cacher. Voir getUniversFilteredCA().
   // Distance : client qui a acheté ICI (myStore) → vient déjà au comptoir, ne pas exclure par distance
   // NE PAS utiliser _isPDVActif (trop large : inclut réseau/Qlik/hors-agence)
-  const _boughtHere = cc && (_S.clientsMagasin?.has(cc) || _S.ventesLocalMagPeriode?.has(cc));
+  const _boughtHere = cc && (_S.clientsMagasin?.has(cc) || _S.ventesLocalMag12MG?.has(cc));
   const distOk = clientMatchesDistanceFilter(info) || _boughtHere;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
@@ -467,7 +467,7 @@ export function _diagClassifBadge(c) {
 // ── Decision Queue — génération (Sprint 1) ────────────────────
 // Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
 // Retourne les codes clients actifs pour le canal donné.
-// '' ou 'MAGASIN' → ventesLocalMagPeriode ; autre canal → ventesLocalHorsMag filtré.
+// '' ou 'MAGASIN' → ventesLocalMagPeriode (Commerce, filtré période) ; autre canal → ventesLocalHorsMag.
 function _getClientsActifs(canal = '') {
   const vca = _S.ventesLocalMagPeriode;
   const vh = _S.ventesLocalHorsMag;
@@ -653,7 +653,7 @@ export function computeReconquestCohort() {
   cohort.sort((a, b) => b.score - a.score);
   _S.reconquestCohort = cohort;
 
-  // ── Section 2 : livrés sans PDV (jamais dans ventesLocalMagPeriode) ──
+  // ── Section 2 : livrés sans PDV (jamais dans ventesLocalMag12MG) ──
   if (_S.livraisonsReady && _S.livraisonsData?.size) {
     const sansPDV = [];
     for (const [cc, livData] of _S.livraisonsData) {
@@ -677,7 +677,7 @@ export function computeReconquestCohort() {
 }
 
 // ── C1: Opportunité nette — par FAMILLE, clients AG22 qui achètent ailleurs ──
-// Définition : client présent dans ventesLocalMagPeriode (il achète chez nous),
+// Définition : client présent dans ventesLocalMag12MG (il achète chez nous),
 // mais qui achète via d'autres canaux/agences (ventesLocalHorsMag) des articles
 // dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
@@ -1734,7 +1734,7 @@ export function applyVerdictOverrides() {
 
 // ═══════════════════════════════════════════════════════════════
 // MA CLIENTÈLE — Cartographie métiers + drill-down
-// Croise chalandise × ventesLocalMagPeriode × stock
+// Croise chalandise × ventesLocalMag12MG × stock
 // ═══════════════════════════════════════════════════════════════
 
 export function computeMaClientele(metierFilter, distanceKm) {

@@ -94,7 +94,7 @@ export function computePhysigamme({
 
   if (perimetre === 'agence') {
     // Consommé de mon agence : MAGASIN + canaux PDV hors comptoir (Web/Rep/DCS).
-    processClientArticleMap(_S.ventesLocalMagPeriode);
+    processClientArticleMap(_S.ventesLocalMag12MG);
     processClientArticleMap(_S.ventesLocalHorsMag);
   } else if (perimetre === 'reseau') {
     processClientArticleMap(_S.ventesReseauTousCanaux);

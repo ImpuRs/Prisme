@@ -134,7 +134,7 @@ function _computeAssocForStore(store, famA, famB) {
 }
 
 /**
- * Vue omnicanale unifiée par client : merge ventesLocalMagPeriode + ventesLocalHorsMag.
+ * Vue omnicanale unifiée par client : merge ventesLocalMag12MG + ventesLocalHorsMag.
  * Retourne un itérateur de [cc, Map<code, {sumCA}>] — tous canaux confondus.
  * Le BL du co-achat se mesure au niveau client (a-t-il acheté A ET B ?), pas au niveau BL,
  * donc on agrège le CA tous canaux pour chaque couple (client, article).
@@ -142,9 +142,9 @@ function _computeAssocForStore(store, famA, famB) {
 function _omniClientArticles() {
   const merged = new Map(); // cc → Map<code, {sumCA}>
   const hasFilter = !!_assocMetierFilter || !!_assocStratFilter;
-  // Source 1 : MAGASIN (ventesLocalMagPeriode)
-  if (_S.ventesLocalMagPeriode?.size) {
-    for (const [cc, artMap] of _S.ventesLocalMagPeriode) {
+  // Source 1 : MAGASIN (ventesLocalMag12MG — pleine période, structurel)
+  if (_S.ventesLocalMag12MG?.size) {
+    for (const [cc, artMap] of _S.ventesLocalMag12MG) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
       if (!merged.has(cc)) merged.set(cc, new Map());
       const m = merged.get(cc);
@@ -335,7 +335,7 @@ function _findClientTargets(famA, famB) {
     }
     if (hasA && !hasB) {
       // Uniquement clients PDV (au moins 1 achat MAGASIN)
-      if (!_S.ventesLocalMag12MG?.has(cc) && !_S.ventesLocalMagPeriode?.has(cc)) continue;
+      if (!_S.ventesLocalMag12MG?.has(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       targets.push({
         cc,
@@ -411,7 +411,7 @@ function _renderAssociations() {
 function _famStats() {
   if (_famStatsCache) return _famStatsCache;
   const catFam = _S.catalogueFamille;
-  const vca = _S.ventesLocalMagPeriode;
+  const vca = _S.ventesLocalMag12MG;
   const stats = new Map();
 
   const _ensure = (cf) => {
@@ -419,7 +419,7 @@ function _famStats() {
     return stats.get(cf);
   };
 
-  // Source 1 : ventesLocalMagPeriode (MAGASIN) + ventesLocalHorsMag (Web, Rep, DCS)
+  // Source 1 : ventesLocalMag12MG (MAGASIN, pleine période) + ventesLocalHorsMag (Web, Rep, DCS)
   // Omnicanal : tous les canaux comptent pour les associations
   const hasFilter = !!_assocMetierFilter || !!_assocStratFilter;
   if (vca?.size) {
