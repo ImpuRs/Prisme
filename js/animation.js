@@ -77,9 +77,9 @@ function _buildPeriodFilteredStoreCA() {
   const pEnd = _S.periodFilterEnd;
   const hasPeriod = !!(pStart || pEnd);
 
-  // Fallback pleine période — ventesParMagasinByCanal MAGASIN prélevé
+  // Fallback pleine période — ventesParAgenceByCanal MAGASIN prélevé
   if (!bmsac) {
-    const vbc = _S.ventesParMagasinByCanal || {};
+    const vbc = _S.ventesParAgenceByCanal || {};
     const result = {};
     for (const store in vbc) {
       result[store] = {};
@@ -434,7 +434,7 @@ const CLASSIF_ORIENTATION = {
 /** Trouve le top marques d'une famille par CA réseau */
 function _topBrandsForFamily(codeFam) {
   if (!_S.catalogueMarques?.size || !_S.catalogueFamille?.size) return [];
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
 
   // Articles de cette famille dans le catalogue

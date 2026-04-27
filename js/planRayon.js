@@ -33,7 +33,7 @@ const _prLivMonthRange = () => {
   return { min: dMin.getFullYear() * 12 + dMin.getMonth(), max: dMax.getFullYear() * 12 + dMax.getMonth() };
 };
 // CA agence par client×article filtré sur la période Livraisons (via byMonthFull)
-// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesClientMagFull.sumCA
+// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesLocalMag12MG.sumCA
 const _prClientArtCA = (cc, code, range) => {
   if (range) {
     const caR = getClientArticleCAFullInMonthRange(cc, code, range);
@@ -197,7 +197,7 @@ function _prVerdict(classif, role, code) {
 const _isLocalIncont = (code, roleOrMap) => {
   const role = typeof roleOrMap === 'string' ? roleOrMap : roleOrMap?.get(code);
   if (role !== 'incontournable') return false;
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const myCA = vpm[myStore]?.[code]?.sumCA || 0;
   if (!myCA) return false;
@@ -222,7 +222,7 @@ const _isLocalIncont = (code, roleOrMap) => {
 
 // ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
 function _prComputeRoles(codeFam) {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
@@ -243,7 +243,7 @@ function _prComputeRoles(codeFam) {
 
   // Index inversé hors-magasin : code → Set<cc> (construit une seule fois)
   const hmBuyers = new Map();
-  const vchm = _S.ventesClientHorsMagasin;
+  const vchm = _S.ventesLocalHorsMag;
   if (vchm) {
     for (const [cc, artMap] of vchm) {
       for (const code of artMap.keys()) {
@@ -343,7 +343,7 @@ function _prAgenceVocationCtx() {
   _prAgenceCtxStore = currentStore;
   const cd = _S.chalandiseData;
   const vca = getVentesClientMagFull();
-  const vcm = _S.ventesClientHorsMagasin;
+  const vcm = _S.ventesLocalHorsMag;
   const metierCA = new Map();   // metier → CA total
   const segCA = { chantier: 0, erp: 0, deco: 0, source: 0 };
   if (cd && (vca || vcm)) {
@@ -396,7 +396,7 @@ function computePlanStock() {
   const fmr_f  = document.getElementById('filterFMR')?.value || '';
   const stat_f = document.getElementById('filterStatut')?.value || '';
 
-  const _cacheKey = `${fam_f}|${abc_f}|${fmr_f}|${stat_f}|${_S.finalData?.length||0}|${_S.selectedMyStore||''}|${_S.storesIntersection?.size||0}|${_S.ventesClientArticle?.size||0}|${_S.benchLists?.obsFamiliesLose?.length||0}`;
+  const _cacheKey = `${fam_f}|${abc_f}|${fmr_f}|${stat_f}|${_S.finalData?.length||0}|${_S.selectedMyStore||''}|${_S.storesIntersection?.size||0}|${_S.ventesLocalMagPeriode?.size||0}|${_S.benchLists?.obsFamiliesLose?.length||0}`;
   if (_prPlanCacheKey === _cacheKey && _prPlanCache) return _prPlanCache;
 
   const filteredData = (_S.finalData || []).filter(r => {
@@ -463,7 +463,7 @@ function computePlanStock() {
   };
 
   const fdMap = _prGetFdMap();
-  const vpmPlan = _S.ventesParMagasin || {};
+  const vpmPlan = _S.ventesParAgence || {};
   const myStorePlan = _S.selectedMyStore;
   let nbStoresPlan = 0;
   for (const s in vpmPlan) if (s !== myStorePlan) nbStoresPlan++;
@@ -585,8 +585,8 @@ function computePlanStock() {
       }
     }
   }
-  if (_S.ventesClientHorsMagasin) {
-    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+  if (_S.ventesLocalHorsMag) {
+    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
       const isStrat = stratClients.has(cc);
       for (const [code, data] of artMap) {
         if (!filteredCodes.has(code)) continue;
@@ -716,7 +716,7 @@ function computePlanStock() {
   for (const o of [...obsLose, ...obsWin]) obsIdx.set(o.fam, o);
 
   // Rang agence par famille : CA par store par codeFam → classement
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const bassin = _S.selectedBenchBassin?.size > 0 ? _S.selectedBenchBassin : null;
   const stores = [...(_S.storesIntersection || [])].filter(s => !bassin || s === _S.selectedMyStore || bassin.has(s));
   const myStore = _S.selectedMyStore;
@@ -744,7 +744,7 @@ function computePlanStock() {
       const myIdx = sorted.findIndex(([s]) => s === myStore);
       f.rangReseau = myIdx >= 0 ? myIdx + 1 : null;
       f.rangReseauTotal = sorted.length;
-      // Médiane CA réseau calculée depuis ventesParMagasin
+      // Médiane CA réseau calculée depuis ventesParAgence
       const cas = sorted.map(([, ca]) => ca);
       const mid = Math.floor(cas.length / 2);
       const medianCA = cas.length % 2 === 0 ? (cas[mid - 1] + cas[mid]) / 2 : cas[mid];
@@ -1369,7 +1369,7 @@ function _prRenderSquelette(fam) {
   }
   // Potentiel Zone : CA médian réseau article × nb clients métier dominant sur la zone
   const _benchM = _S.chalandiseReady ? (typeof computeBenchMetier === 'function' ? computeBenchMetier() : null) : null;
-  const _vpm = _S.ventesParMagasin || {};
+  const _vpm = _S.ventesParAgence || {};
   const _myStore = _S.selectedMyStore;
   const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
   const artsWithW = arts.map(a => {
@@ -1530,10 +1530,10 @@ function _prRenderMetiers(fam) {
       }
     }
   }
-  // Aussi les canaux hors-MAGASIN — seulement si ventesClientMagFull n'existe pas
+  // Aussi les canaux hors-MAGASIN — seulement si ventesLocalMag12MG n'existe pas
   // (Full contient déjà TOUS les canaux, évite le double-comptage)
-  if (!hasFull && _S.ventesClientHorsMagasin?.size) {
-    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+  if (!hasFull && _S.ventesLocalHorsMag?.size) {
+    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || 'Non renseigné';
@@ -1790,7 +1790,7 @@ function _prRenderAnalyse(fam) {
 
 // ── Onglet Physigamme ────────────────────────────────────────────────
 function _prRenderPhysigamme(fam) {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const spm = _S.stockParMagasin || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
@@ -1823,7 +1823,7 @@ function _prRenderPhysigamme(fam) {
 
   // Index inversé hors-magasin pour cette famille
   const _hmBuyers = new Map();
-  const _vchm = _S.ventesClientHorsMagasin;
+  const _vchm = _S.ventesLocalHorsMag;
   if (_vchm) {
     for (const [cc, artMap] of _vchm) {
       for (const code of artMap.keys()) {
@@ -2107,7 +2107,7 @@ function _prRenderPilotage(fam) {
 
   // ── Potentiel Zone pour IMPLANTER ──
   {
-    const _vpm = _S.ventesParMagasin || {};
+    const _vpm = _S.ventesParAgence || {};
     const _myStore = _S.selectedMyStore;
     const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
     if (_storeKeys.length > 0) {
@@ -2344,7 +2344,7 @@ function _prRenderPilotage(fam) {
 
 // ── Mode Conquête — Kit de Démarrage ─────────────────────────────────
 function _prBuildConqueteKit(codeFam) {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
@@ -2621,7 +2621,7 @@ function _prRenderReseau(fam) {
   }
   // Enrichir incontournables avec données réseau
   const myStore = _S.selectedMyStore;
-  const myV = _S.ventesParMagasin?.[myStore] || {};
+  const myV = _S.ventesParAgence?.[myStore] || {};
   const incont = [];
   for (const code of incontCodes) {
     const myData = myV[code];
@@ -2629,7 +2629,7 @@ function _prRenderReseau(fam) {
     const myCA   = myData?.sumCA || 0;
     // Médiane réseau
     const csFreqs = [];
-    for (const [st, arts] of Object.entries(_S.ventesParMagasin || {})) {
+    for (const [st, arts] of Object.entries(_S.ventesParAgence || {})) {
       if (st === myStore || !_S.storesIntersection?.has(st)) continue;
       if (arts[code]) csFreqs.push(arts[code].countBL || 0);
     }
@@ -3739,7 +3739,7 @@ function _prGatherFamData(codeFam, matchFn) {
       }
     }
     if (!hasFull2) {
-      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      for (const [cc, artMap] of (_S.ventesLocalHorsMag || new Map())) {
         if (!_prDistOk(cc)) continue;
         const info = _S.chalandiseData?.get(cc);
         const metier = info?.metier || 'Hors chalandise';
@@ -4126,7 +4126,7 @@ function _prBuildDiagText(codeFam) {
           if (!_otherStores.length) return null;
           const computed = [];
           for (const s of _otherStores) {
-            const v = _S.ventesParMagasin?.[s]?.[code];
+            const v = _S.ventesParAgence?.[s]?.[code];
             if (!v || !v.countBL || v.countBL <= 1) continue;
             const W = v.countBL;
             const V = v.sumPrelevee || 0;
@@ -4535,7 +4535,7 @@ function _prBuildLLMPack(codeFam) {
   pack += `- Spécialistes : ${fam.nbSpecEnStock}/${fam.nbSpecialistes} en stock (${fam.nbSpecialistes > 0 ? Math.round(fam.nbSpecEnStock / fam.nbSpecialistes * 100) : 100}%)\n\n`;
 
   // ── PHYSIGAMME ──
-  const _vpm = _S.ventesParMagasin || {};
+  const _vpm = _S.ventesParAgence || {};
   const _spm = _S.stockParMagasin || {};
   const _myS = _S.selectedMyStore;
   const _stores = Object.keys(_vpm).filter(s => s !== _myS);
@@ -4712,7 +4712,7 @@ window._prExportDiag = function(codeFam) {
 let _palSort = 'ecart'; // 'fam'|'ecart'|'rang'
 let _palSortAsc = false;
 function _renderPalmaresContent() {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const stores = Object.keys(vpm).filter(s => s !== myStore).sort();
   if (!stores.length) return '<div class="t-disabled text-sm text-center py-12">Chargez le fichier Terrain pour activer le Palmarès Réseau.</div>';
@@ -4937,8 +4937,8 @@ function _prComputeMetierFull(metier) {
   const perClient = new Map();
   for (const cc of clientSetRaw) {
     const arts = new Map();
-    // Source 1: ventesClientArticle (MAGASIN = monCA + caZone)
-    const myArts = _S.ventesClientArticle?.get(cc);
+    // Source 1: ventesLocalMagPeriode (MAGASIN = monCA + caZone)
+    const myArts = _S.ventesLocalMagPeriode?.get(cc);
     if (myArts) {
       for (const [code, data] of myArts) {
         if (!/^\d{6}$/.test(code)) continue;
@@ -4946,8 +4946,8 @@ function _prComputeMetierFull(metier) {
         arts.set(code, { ca, mon: ca });
       }
     }
-    // Source 2: ventesClientHorsMagasin (hors-MAGASIN → caZone only)
-    const hmArts = _S.ventesClientHorsMagasin?.get(cc);
+    // Source 2: ventesLocalHorsMag (hors-MAGASIN → caZone only)
+    const hmArts = _S.ventesLocalHorsMag?.get(cc);
     if (hmArts) {
       for (const [code, data] of hmArts) {
         if (!/^\d{6}$/.test(code)) continue;
@@ -5050,7 +5050,7 @@ function _prComputeMetierFull(metier) {
   }
 
   // ── Enrichir avec données réseau (articles vendus par d'autres agences, mêmes familles) ──
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
 
   // Enrichir articles existants avec données réseau (nb agences, CA réseau)
@@ -5069,9 +5069,9 @@ function _prComputeMetierFull(metier) {
   const clientCanal = new Map(); // cc → {caMag, caLivre, pctLivre}
   for (const cc of clientSetRaw) {
     let caMag = 0, caLivre = 0;
-    const myArts = _S.ventesClientArticle?.get(cc);
+    const myArts = _S.ventesLocalMagPeriode?.get(cc);
     if (myArts) for (const [, d] of myArts) caMag += +(d.sumCA || 0);
-    const hmArts = _S.ventesClientHorsMagasin?.get(cc);
+    const hmArts = _S.ventesLocalHorsMag?.get(cc);
     if (hmArts) for (const [, d] of hmArts) caLivre += +(d.sumCA || 0);
     const total = caMag + caLivre;
     if (total > 100) clientCanal.set(cc, { caMag, caLivre, pctLivre: Math.round(caLivre / total * 100) });
@@ -5166,8 +5166,8 @@ function _prApplyMetierDist() {
           if (!seen.has(code)) { a.nbCli++; seen.add(code); }
         }
       };
-      addArts(_S.ventesClientArticle?.get(cc), true);
-      addArts(_S.ventesClientHorsMagasin?.get(cc), false);
+      addArts(_S.ventesLocalMagPeriode?.get(cc), true);
+      addArts(_S.ventesLocalHorsMag?.get(cc), false);
     }
 
     if (livresClients.length) {
@@ -5642,7 +5642,7 @@ function _prRenderTouristePanier(cc) {
 
   // Collect articles from hors-magasin + livraisons
   const arts = new Map(); // code → {ca, source}
-  const hmArts = _S.ventesClientHorsMagasin?.get(cc);
+  const hmArts = _S.ventesLocalHorsMag?.get(cc);
   if (hmArts) {
     for (const [code, d] of hmArts) {
       if (!/^\d{6}$/.test(code)) continue;
@@ -5657,7 +5657,7 @@ function _prRenderTouristePanier(cc) {
     }
   }
   // Also check what they buy at my store
-  const myArts = _S.ventesClientArticle?.get(cc);
+  const myArts = _S.ventesLocalMagPeriode?.get(cc);
   if (myArts) {
     for (const [code, d] of myArts) {
       if (!/^\d{6}$/.test(code)) continue;
@@ -5807,7 +5807,7 @@ export function renderPlanRayon() {
   _prMetierLivres = null;
   _prFdMapCache = null;
 
-  if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length || !_S.finalData?.length) {
+  if (!_S.ventesParAgence || !Object.keys(_S.ventesParAgence).length || !_S.finalData?.length) {
     el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
     return;
   }

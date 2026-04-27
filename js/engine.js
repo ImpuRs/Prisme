@@ -33,19 +33,19 @@ function _isSixDigitCode(code) {
 // Quand un article est en rupture (stock=0), la valeur PRMP = 0.
 // On enrichit le PU depuis le CA consommé (sumCA / sumPrelevee).
 export function enrichPrixUnitaire() {
-  const mySk = _S.selectedMyStore || Object.keys(_S.ventesParMagasin)[0] || '';
-  const otherStoreKeys = Object.keys(_S.ventesParMagasin).filter(sk => sk !== mySk);
+  const mySk = _S.selectedMyStore || Object.keys(_S.ventesParAgence)[0] || '';
+  const otherStoreKeys = Object.keys(_S.ventesParAgence).filter(sk => sk !== mySk);
   for (const r of _S.finalData) {
     if (r.prixUnitaire > 0) continue;
     // Fallback 1: PU from own store's consommé
-    const myV = _S.ventesParMagasin[mySk]?.[r.code];
+    const myV = _S.ventesParAgence[mySk]?.[r.code];
     if (myV && myV.sumPrelevee > 0 && myV.sumCA > 0) {
       r.prixUnitaire = Math.round(myV.sumCA / myV.sumPrelevee * 100) / 100;
       continue;
     }
     // Fallback 2: PU from any other store (multi-agence)
     for (const sk of otherStoreKeys) {
-      const sv = _S.ventesParMagasin[sk]?.[r.code];
+      const sv = _S.ventesParAgence[sk]?.[r.code];
       if (sv && sv.sumPrelevee > 0 && sv.sumCA > 0) {
         r.prixUnitaire = Math.round(sv.sumCA / sv.sumPrelevee * 100) / 100;
         break;
@@ -216,13 +216,13 @@ export function _isPDVActif(cc) {
   // Fallback legacy : MAGASIN only
   if (_S.clientsMagasin?.has(cc)) return true;
   // Fallback legacy : hors-MAGASIN period-filtered (si présent)
-  if (_S.ventesClientHorsMagasin?.has(cc)) return true;
+  if (_S.ventesLocalHorsMag?.has(cc)) return true;
   // Sinon, chalandise Qlik comme fallback
   if (_S.chalandiseReady && _S.chalandiseData?.size) {
     const info = _S.chalandiseData.get(cc);
     if (info) return (info.activitePDV || '').startsWith('Actif PDV Zone');
   }
-  const art = _S.ventesClientArticle?.get(cc);
+  const art = _S.ventesLocalMagPeriode?.get(cc);
   return art && art.size > 0;
 }
 
@@ -245,13 +245,13 @@ export function _isPerdu24plus(info) {
 export function computeClientCrossing() {
   // PDV = clients ayant acheté chez nous sur la période (tous canaux).
   // Quand _clientsTousCanaux existe (refilter byMonth), c'est la source de vérité.
-  // Sinon, fallback legacy : union clientsMagasin + ventesClientHorsMagasin (cache ancien).
+  // Sinon, fallback legacy : union clientsMagasin + ventesLocalHorsMag (cache ancien).
   let pdvSet = (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size)
     ? _S._clientsTousCanaux
     : null;
   if (!pdvSet) {
     const s = new Set(_S.clientsMagasin || []);
-    if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) s.add(cc);
+    if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) s.add(cc);
     pdvSet = s;
   }
   if (!_S.chalandiseReady || !pdvSet.size) { _S.crossingStats = null; return; }
@@ -391,7 +391,7 @@ export function clientMatchesUniversFilter(cc) {
 export function getUniversFilteredCA(cc) {
   const au = _S.articleUnivers || {};
   const sel = _S._selectedUnivers;
-  const artMap = _S.ventesClientArticle?.get(cc);
+  const artMap = _S.ventesLocalMagPeriode?.get(cc);
 
   // Pas de filtre univers → CA brut
   if (!sel.size) {
@@ -424,7 +424,7 @@ export function _clientPassesFilters(info, cc='') {
   // cible de conquête, pas un client à cacher. Voir getUniversFilteredCA().
   // Distance : client qui a acheté ICI (myStore) → vient déjà au comptoir, ne pas exclure par distance
   // NE PAS utiliser _isPDVActif (trop large : inclut réseau/Qlik/hors-agence)
-  const _boughtHere = cc && (_S.clientsMagasin?.has(cc) || _S.ventesClientArticle?.has(cc));
+  const _boughtHere = cc && (_S.clientsMagasin?.has(cc) || _S.ventesLocalMagPeriode?.has(cc));
   const distOk = clientMatchesDistanceFilter(info) || _boughtHere;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
@@ -467,10 +467,10 @@ export function _diagClassifBadge(c) {
 // ── Decision Queue — génération (Sprint 1) ────────────────────
 // Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
 // Retourne les codes clients actifs pour le canal donné.
-// '' ou 'MAGASIN' → ventesClientArticle ; autre canal → ventesClientHorsMagasin filtré.
+// '' ou 'MAGASIN' → ventesLocalMagPeriode ; autre canal → ventesLocalHorsMag filtré.
 function _getClientsActifs(canal = '') {
-  const vca = _S.ventesClientArticle;
-  const vh = _S.ventesClientHorsMagasin;
+  const vca = _S.ventesLocalMagPeriode;
+  const vh = _S.ventesLocalHorsMag;
   if (!canal || canal === 'MAGASIN') {
     return vca ? Array.from(vca.keys()) : [];
   }
@@ -653,7 +653,7 @@ export function computeReconquestCohort() {
   cohort.sort((a, b) => b.score - a.score);
   _S.reconquestCohort = cohort;
 
-  // ── Section 2 : livrés sans PDV (jamais dans ventesClientArticle) ──
+  // ── Section 2 : livrés sans PDV (jamais dans ventesLocalMagPeriode) ──
   if (_S.livraisonsReady && _S.livraisonsData?.size) {
     const sansPDV = [];
     for (const [cc, livData] of _S.livraisonsData) {
@@ -677,11 +677,11 @@ export function computeReconquestCohort() {
 }
 
 // ── C1: Opportunité nette — par FAMILLE, clients AG22 qui achètent ailleurs ──
-// Définition : client présent dans ventesClientArticle (il achète chez nous),
-// mais qui achète via d'autres canaux/agences (ventesClientHorsMagasin) des articles
+// Définition : client présent dans ventesLocalMagPeriode (il achète chez nous),
+// mais qui achète via d'autres canaux/agences (ventesLocalHorsMag) des articles
 // dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
-  if (!_S.ventesClientHorsMagasin?.size || !_S.finalData?.length) {
+  if (!_S.ventesLocalHorsMag?.size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
@@ -692,7 +692,7 @@ export function computeOpportuniteNette() {
     if (fam) rayonFamSet.add(fam);
   }
   const results = [];
-  for (const [cc, horsArts] of _S.ventesClientHorsMagasin.entries()) {
+  for (const [cc, horsArts] of _S.ventesLocalHorsMag.entries()) {
     if (!horsArts.size) continue;
     // 2a. caParFamMoi = CA chez AG22 par famille pour ce client
     const caParFamMoi = new Map();
@@ -915,7 +915,7 @@ export function resetBenchMetierCache() { _benchMetierCache = null; }
 
 // ── Moteur 3 : Alerte Prix — écart PU vs Top 3 réseau ────────────────────
 export function computePriceGap(code) {
-  const vpm = _S.ventesParMagasin;
+  const vpm = _S.ventesParAgence;
   if (!vpm) return null;
   const myStore = _S.selectedMyStore;
   const myData = vpm[myStore]?.[code];
@@ -973,11 +973,11 @@ export function computeOmniScores() {
   const allCc = new Set();
   const _vcaOmni = _vcaFull();
   if (_vcaOmni) for (const cc of _vcaOmni.keys()) allCc.add(cc);
-  if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) allCc.add(cc);
+  if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
   for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
   for (const cc of allCc) {
     const pdvArts = _vcaOmni?.get(cc);
-    const horArts = _S.ventesClientHorsMagasin?.get(cc);
+    const horArts = _S.ventesLocalHorsMag?.get(cc);
     let caPDV = 0;
     if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
     let caHors = 0;
@@ -1042,12 +1042,12 @@ export function computeOmniScores() {
 // les acheter au comptoir → signal de gamme manquante ou de captation partielle
 // Résultat : _S.famillesHors = [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 export function computeFamillesHors() {
-  if (!_vcaFull()?.size || !_S.ventesClientHorsMagasin?.size) {
+  if (!_vcaFull()?.size || !_S.ventesLocalHorsMag?.size) {
     _S.famillesHors = [];
     return;
   }
   const famData = new Map(); // rawFam → {nbClients, caHors, canalCount:Map, clients}
-  for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
+  for (const [cc, horArts] of _S.ventesLocalHorsMag) {
     const pdvArts = _vcaFull().get(cc);
     if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
     // Familles achetées en PDV
@@ -1132,7 +1132,7 @@ export function computeArticleZoneIndex() {
     c.ca += ca; c.mon += mon;
   };
 
-  // Source 1 : ventesClientMagFull (MAGASIN = mon agence, pleine période 12MG)
+  // Source 1 : ventesLocalMag12MG (MAGASIN = mon agence, pleine période 12MG)
   for (const [cc, artMap] of (_vcaFull() || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
@@ -1144,8 +1144,8 @@ export function computeArticleZoneIndex() {
       _addContrib(o, cc, ca, ca);
     }
   }
-  // Source 2 : ventesClientHorsMagasin (Internet, Représentant, DCS)
-  for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+  // Source 2 : ventesLocalHorsMag (Internet, Représentant, DCS)
+  for (const [cc, artMap] of (_S.ventesLocalHorsMag || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
       if (!_isSixDigitCode(code)) continue;
@@ -1183,7 +1183,7 @@ let _sqCacheResult = null;
 export function invalidateSqueletteCache() { _sqCacheKey = ''; _sqCacheResult = null; }
 
 export function computeSquelette(directionFilter) {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const finalData = _S.finalData || [];
   let storesCount = 0;
@@ -1498,7 +1498,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
         _addCli(z, cc);
       }
     }
-    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+    for (const [cc, artMap] of (_S.ventesLocalHorsMag || new Map())) {
       if (!chal.has(cc)) continue;
       for (const [code, data] of artMap) {
         if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
@@ -1595,7 +1595,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
 }
 
 export function applyVerdictOverrides() {
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   if (!myStore || !Object.keys(vpm).length) return 0;
 
@@ -1607,8 +1607,8 @@ export function applyVerdictOverrides() {
 
   // Index hors-magasin : code → cc[] (array, pas Set — moins d'alloc)
   const hmBuyers = new Map();
-  if (_S.ventesClientHorsMagasin) {
-    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+  if (_S.ventesLocalHorsMag) {
+    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
       for (const code of artMap.keys()) {
         if (!finalCodes.has(code)) continue;
         let arr = hmBuyers.get(code);
@@ -1734,7 +1734,7 @@ export function applyVerdictOverrides() {
 
 // ═══════════════════════════════════════════════════════════════
 // MA CLIENTÈLE — Cartographie métiers + drill-down
-// Croise chalandise × ventesClientArticle × stock
+// Croise chalandise × ventesLocalMagPeriode × stock
 // ═══════════════════════════════════════════════════════════════
 
 export function computeMaClientele(metierFilter, distanceKm) {
@@ -1821,7 +1821,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     if (!_distOk(cc)) continue;
     const chal = _S.chalandiseData.get(cc);
     const vca = _vcaFull()?.get(cc);
-    const vcaHors = _S.ventesClientHorsMagasin?.get(cc);
+    const vcaHors = _S.ventesLocalHorsMag?.get(cc);
     if (!vca && !vcaHors) {
       // Prospect sans achats
       clientDetails.push({
@@ -1957,7 +1957,7 @@ export function computeAnimation(marque) {
   const marqueCodes = new Set();
   for (const code of marqueArticles) marqueCodes.add(code.replace(/^0+/, '').padStart(6, '0'));
   const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
@@ -2250,7 +2250,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
   if (!codeFam) return null;
 
   const fd = _S.finalData || [];
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const catMarq = _S.catalogueMarques;

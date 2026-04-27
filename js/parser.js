@@ -698,7 +698,7 @@ export function computeBenchmark(canaux = new Set()) {
     _S.benchFamEcarts = _S._benchCache.benchFamEcarts;
     return; // ~0ms — invariant canaux confirmé
   }
-  // Cache miss — invalider les médianes (reconstruites depuis ventesParMagasin période-courante)
+  // Cache miss — invalider les médianes (reconstruites depuis ventesParAgence période-courante)
   delete _S._artMedianBL; delete _S._artMedianQte; delete _S._artMedianCA;
 
   // Bassin : sélection manuelle > tous les stores
@@ -899,7 +899,7 @@ export function computeBenchmark(canaux = new Set()) {
         if (!/^\d{6}$/.test(code)) continue;
         const sumP = _fPm.reduce((s, m) => s + (monthly[m] || 0), 0);
         if (sumP <= 0) continue;
-        const _vpmArt = _S.ventesParMagasin?.[_S.selectedMyStore]?.[code];
+        const _vpmArt = _S.ventesParAgence?.[_S.selectedMyStore]?.[code];
         _pepMyStore[code] = { sumPrelevee: sumP, sumCA: _vpmArt?.sumCA || 0, countBL: _vpmArt?.countBL || 0 };
       }
     }
@@ -923,7 +923,7 @@ export function computeBenchmark(canaux = new Set()) {
     const myQte = myPep?.sumPrelevee || 0;
     const csQtes = _pepCsQte[code] || [];
     const _obsStore = _S.selectedObsCompare && _S.selectedObsCompare !== 'median' ? _S.selectedObsCompare : null;
-    const compQte = _obsStore ? (_S.ventesParMagasin[_obsStore]?.[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
+    const compQte = _obsStore ? (_S.ventesParAgence[_obsStore]?.[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
     const caMe = myPep?.sumCA || artCA(myV[code] || {}) || 0;
     pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(caMe), myQte, compQte: Math.round(compQte) });
   }
@@ -955,7 +955,7 @@ export function computeBenchmark(canaux = new Set()) {
 // Calcule : nomades, orphelins réseau, fuites par métier
 export function _reseauWorker() {
   self.onmessage = function(e) {
-    const { myStore, ventesParMagasin, storesIntersection, articleFamille,
+    const { myStore, ventesParAgence, storesIntersection, articleFamille,
             chalandiseData, chalandiseReady, famLookup } = e.data;
     const _famLib = (code) => (famLookup && famLookup[code]) ? famLookup[code] : (code || '');
 
@@ -968,8 +968,8 @@ export function _reseauWorker() {
     // ── 1. Nomades : clients actifs dans ≥2 agences dont myStore ──────────
     const clientStores = {}; // cc → Set<store>
     for (const store of storesIntersection) {
-      const sv = ventesParMagasin[store] || {};
-      // ventesParMagasin est indexé par article dans le worker, on a besoin d'une map client→store
+      const sv = ventesParAgence[store] || {};
+      // ventesParAgence est indexé par article dans le worker, on a besoin d'une map client→store
       // Transmis via clientsPerStore (Set<cc> par store)
     }
     const nomades = [];
@@ -987,7 +987,7 @@ export function _reseauWorker() {
     const artTotalFreq = {};  // code → fréquence totale réseau
     for (const store of storesIntersection) {
       if (store === myStore) continue;
-      const sv = ventesParMagasin[store] || {};
+      const sv = ventesParAgence[store] || {};
       for (const [code, data] of Object.entries(sv)) {
         if (!/^\d{6}$/.test(code)) continue;
         if ((data.countBL || 0) > 0) {
@@ -997,7 +997,7 @@ export function _reseauWorker() {
       }
     }
     const otherStoresCount = storesIntersection.filter(s => s !== myStore).length || 1;
-    const myV = ventesParMagasin[myStore] || {};
+    const myV = ventesParAgence[myStore] || {};
     const orphelins = [];
     for (const [code, cnt] of Object.entries(artStoreCount)) {
       if (cnt < otherStoresCount * 0.5) continue; // présent dans <50% des autres stores
@@ -1042,7 +1042,7 @@ export function _reseauWorker() {
 
     for (const store of storesIntersection) {
       if (store === myStore) continue;
-      const sv = ventesParMagasin[store] || {};
+      const sv = ventesParAgence[store] || {};
       const storeClientsSet = new Set(e.data.clientsPerStore[store] || []);
 
       for (const [code, data] of Object.entries(sv)) {
@@ -1149,7 +1149,7 @@ function launchReseauWorker() {
 
       worker.postMessage({
         myStore: _S.selectedMyStore,
-        ventesParMagasin: _S.ventesParMagasin,
+        ventesParAgence: _S.ventesParAgence,
         storesIntersection: [..._S.storesIntersection],
         articleFamille: _S.articleFamille,
         chalandiseReady: _S.chalandiseReady,

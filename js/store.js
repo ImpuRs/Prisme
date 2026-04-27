@@ -58,7 +58,7 @@ export const DataStore = {
   get benchFamEcarts()        { return _S.benchFamEcarts; },
 
   // ── [CANAL-INVARIANT] Agrégats magasin (source Benchmark, stable) ─────────
-  get ventesParMagasin()      { return _S.ventesParMagasin; },
+  get ventesParAgence()      { return _S.ventesParAgence; },
   get storesIntersection()    { return _S.storesIntersection; },
   get selectedMyStore()       { return _S.selectedMyStore; },
   get selectedBenchBassin()   { return _S.selectedBenchBassin; },
@@ -71,8 +71,8 @@ export const DataStore = {
 
   // ── [CANAL-INVARIANT] Clients / Chalandise ────────────────────────────────
   // Dualité PDV/hors-agence = feature métier (voir synthèse débat 2026-03-27)
-  get ventesClientArticle()   { return _S.ventesClientArticle; },         // MAGASIN/myStore only
-  get ventesClientHorsMagasin() { return _S.ventesClientHorsMagasin; },   // canaux hors-MAGASIN
+  get ventesLocalMagPeriode()   { return _S.ventesLocalMagPeriode; },         // MAGASIN/myStore only
+  get ventesLocalHorsMag() { return _S.ventesLocalHorsMag; },   // canaux hors-MAGASIN
   get chalandiseData()        { return _S.chalandiseData; },
   get chalandiseReady()       { return _S.chalandiseReady; },
 

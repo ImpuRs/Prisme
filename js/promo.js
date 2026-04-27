@@ -209,7 +209,7 @@ function runPromoSearch(){
 
   // Source 1 : MAGASIN — skippé si filtre canal non-MAGASIN
   if(!_gc || _gc === 'MAGASIN'){
-    for(const [cc,artMap] of DataStore.ventesClientArticle.entries()){
+    for(const [cc,artMap] of DataStore.ventesLocalMagPeriode.entries()){
       for(const code of artMap.keys()){
         if(!matchedCodes.has(code))continue;
         if(!buyerMap.has(cc)){
@@ -223,7 +223,7 @@ function runPromoSearch(){
 
   // Source 2 : hors magasin (WEB/REP/DCS) — skippé si filtre canal MAGASIN
   if(_gc !== 'MAGASIN'){
-    for(const [cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+    for(const [cc,artMap] of (_S.ventesLocalHorsMag||new Map()).entries()){
       for(const [code,data] of artMap.entries()){
         if(!matchedCodes.has(code))continue;
         if(_gc && data.canal !== _gc)continue; // filtre canal spécifique
@@ -413,9 +413,9 @@ function exportTourneeCSV() {
     const spc  = c.spc || computeSPC(c.cc, info);
 
     // Fix omnicanal : exclure les 3 canaux
-    const artMapMag = DataStore.ventesClientArticle.get(c.cc)       || new Map();
+    const artMapMag = DataStore.ventesLocalMagPeriode.get(c.cc)       || new Map();
     const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
-    const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(c.cc)||new Map()).keys());
+    const horsCodes = new Set((_S.ventesLocalHorsMag?.get(c.cc)||new Map()).keys());
 
     const toPitch = [];
     for(const code of matchedCodes) {
@@ -546,15 +546,15 @@ function _buildPitchHTML(cc) {
                     || new Set();
   if(!matchedCodes.size) return '<p class="t-disabled text-[11px] py-1">Aucune recherche active.</p>';
 
-  const artMap    = DataStore.ventesClientArticle.get(cc)        || new Map();
+  const artMap    = DataStore.ventesLocalMagPeriode.get(cc)        || new Map();
   const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
-  const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
+  const horsCodes = new Set((_S.ventesLocalHorsMag?.get(cc)||new Map()).keys());
 
   const candidates = [...matchedCodes].filter(code =>
     !artMap.has(code) && !terrCodes.has(code) && !horsCodes.has(code)
   );
 
-  const myStore  = _S.ventesParMagasin[_S.selectedMyStore] || {};
+  const myStore  = _S.ventesParAgence[_S.selectedMyStore] || {};
   const isPepite = new Set((_S.benchLists?.pepitesOther||[]).map(a=>a.code));
 
   candidates.sort((a,b) => {
@@ -593,7 +593,7 @@ function _buildPitchHTML(cc) {
 }
 
 function _buildAchatsHTML(cc) {
-  const artData = DataStore.ventesClientArticle.get(cc);
+  const artData = DataStore.ventesLocalMagPeriode.get(cc);
   if(!artData?.size) return '<p class="t-disabled text-[11px] py-1">Aucune donnée comptoir.</p>';
 
   const matchedCodes = _promoSearchResult?.matchedCodes;
@@ -647,7 +647,7 @@ function _renderSearchResults() {
   // Article-level famille/sous-famille check for section A
   const _passFamA=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
-    const artData=DataStore.ventesClientArticle.get(cc);if(!artData)return false;
+    const artData=DataStore.ventesLocalMagPeriode.get(cc);if(!artData)return false;
     for(const code of artData.keys()){
       if(!r.matchedCodes.has(code))continue;
       const f=_S.articleFamille[code]||_promoSfMap[code]?.famille||'';
@@ -814,12 +814,12 @@ let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, section
 
 /**
  * Retourne true si le client cc a déjà acheté l'article code sur n'importe quel canal.
- * Agrège : MAGASIN (ventesClientArticle) + WEB/REP/DCS (ventesClientHorsMagasin) + territoire.
+ * Agrège : MAGASIN (ventesLocalMagPeriode) + WEB/REP/DCS (ventesLocalHorsMag) + territoire.
  * Usage : promo.js uniquement — accède à _S, ne pas déplacer dans utils.js.
  */
 function _isArticleAlreadyBought(cc,code){
-  if((DataStore.ventesClientArticle.get(cc)||new Map()).has(code))return true;
-  if((_S.ventesClientHorsMagasin?.get(cc)||new Map()).has(code))return true;
+  if((DataStore.ventesLocalMagPeriode.get(cc)||new Map()).has(code))return true;
+  if((_S.ventesLocalHorsMag?.get(cc)||new Map()).has(code))return true;
   if(_S.territoireReady){
     for(const l of DataStore.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
   }
@@ -872,7 +872,7 @@ async function runPromoImport(){
   const sectionD=[];
   for(const code of promoCodes){
     let qtyTotal=0,caTotal=0,buyers=new Set();
-    for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
+    for(const[cc,artMap] of DataStore.ventesLocalMagPeriode.entries()){
       const d=artMap.get(code);if(!d)continue;
       buyers.add(cc);qtyTotal+=(d.sumPrelevee||0);caTotal+=(d.sumCA||d.sumPrelevee||0);
     }
@@ -904,14 +904,14 @@ async function runPromoImport(){
   for(const code of promoCodes){const f=famLib(_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'');if(f)promoFams.add(f);}
   // Helper: true si cc a déjà acheté un article promo (comptoir + territoire + hors magasin)
   const _dejaAcheteur=(cc,promoCodes)=>{
-    const comptoir=DataStore.ventesClientArticle.get(cc)||new Map();
+    const comptoir=DataStore.ventesLocalMagPeriode.get(cc)||new Map();
     const terr=new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
-    const hors=new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
+    const hors=new Set((_S.ventesLocalHorsMag?.get(cc)||new Map()).keys());
     return[...promoCodes].some(code=>comptoir.has(code)||terr.has(code)||hors.has(code));
   };
   // Clients who buy the family but not the promo articles (any channel)
   const sectionF=[];
-  for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
+  for(const[cc,artMap] of DataStore.ventesLocalMagPeriode.entries()){
     if(_dejaAcheteur(cc,promoCodes))continue;
     // Check if client buys any article in the promo families
     let famCA=0;let famStr='';
@@ -1435,7 +1435,7 @@ function _nlKpiTauxService(){
 
 function _nlClientsHorsAgence({caMin}){
   const agg=new Map();
-  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+  for(const[cc,artMap] of (_S.ventesLocalHorsMag||new Map()).entries()){
     let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
     if(ca<(caMin||0))continue;
     const _r=_S.clientStore?.get(cc)||{};
@@ -1461,8 +1461,8 @@ function _nlClientsHorsAgence({caMin}){
 
 function _nlCanalExclusif({canal}){
   const rows=[];
-  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
-    if(_S.ventesClientArticle?.has(cc))continue; // déjà PDV
+  for(const[cc,artMap] of (_S.ventesLocalHorsMag||new Map()).entries()){
+    if(_S.ventesLocalMagPeriode?.has(cc))continue; // déjà PDV
     let ca=0;let hasCanal=false;
     for(const v of artMap.values()){
       if(v.canal===canal)hasCanal=true;
@@ -1488,7 +1488,7 @@ function _nlCanalExclusif({canal}){
 
 function _nlTopClientsCanal({canal,topN}){
   const agg=new Map();
-  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+  for(const[cc,artMap] of (_S.ventesLocalHorsMag||new Map()).entries()){
     let ca=0;let hasC=false;
     for(const v of artMap.values()){if(v.canal===canal){hasC=true;ca+=(v.sumCA||0);}}
     if(!hasC||ca<=0)continue;
@@ -1604,7 +1604,7 @@ function _nlChurnActif({jours}){
     if(!/fid|pot\+|actif/i.test(info.classification||''))continue;
     const rec=_S.clientStore?.get(cc);
     const lastDate=rec?.lastOrderPDV||_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
-    const artMap=_S.ventesClientArticle?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
+    const artMap=_S.ventesLocalMagPeriode?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
     if(ca<=0)continue;
     rows.push({nom:escapeHtml(info.nom||cc),classif:escapeHtml(info.classification||''),joursN:Math.round((now-lastDate)/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—')});
   }
@@ -1627,17 +1627,17 @@ function _nlChurnActif({jours}){
 }
 
 function _nlRupturesTopClients({topN}){
-  if(!DataStore.finalData.length||!_S.ventesClientArticle?.size){
+  if(!DataStore.finalData.length||!_S.ventesLocalMagPeriode?.size){
     _renderNLResult('Ruptures top clients',[],[],`Données insuffisantes`);return;
   }
   const clientCA=new Map();
-  for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+  for(const[cc,artMap] of _S.ventesLocalMagPeriode.entries()){
     let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);clientCA.set(cc,ca);
   }
   const topSet=new Set([...clientCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,topN||5).map(([cc])=>cc));
   const rupMap=new Map();
   for(const cc of topSet){
-    const artMap=_S.ventesClientArticle.get(cc)||new Map();
+    const artMap=_S.ventesLocalMagPeriode.get(cc)||new Map();
     for(const[code,v] of artMap.entries()){
       const art=DataStore.finalData.find(r=>r.code===code);
       if(!art||(art.stockActuel||0)>0)continue;
@@ -1745,7 +1745,7 @@ function _nlBenchFamilleReseau({query}){
 }
 
 function _nlMetierCanal({canal,metierKw}){
-  if(!_S.ventesClientHorsMagasin?.size){_renderNLResult(`Clients ${canal}`,[],[],`Données hors-agence non disponibles`);return;}
+  if(!_S.ventesLocalHorsMag?.size){_renderNLResult(`Clients ${canal}`,[],[],`Données hors-agence non disponibles`);return;}
   // Cherche le libellé métier exact dans chalandise
   let metierMatch=null;
   if(_S.chalandiseReady&&metierKw){
@@ -1754,7 +1754,7 @@ function _nlMetierCanal({canal,metierKw}){
     }
   }
   const rows=[];
-  for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+  for(const[cc,artMap] of _S.ventesLocalHorsMag.entries()){
     let ca=0,hasC=false;
     for(const v of artMap.values()){if(v.canal===canal){hasC=true;ca+=(v.sumCA||0);}}
     if(!hasC||ca<=0)continue;
@@ -1784,10 +1784,10 @@ function _nlMetierCanal({canal,metierKw}){
 }
 
 function _nlArticlesHorsMarque({term}){
-  if(!_S.ventesClientHorsMagasin?.size){_renderNLResult('Articles achetés ailleurs',[],[],`Données hors-agence non disponibles`);return;}
+  if(!_S.ventesLocalHorsMag?.size){_renderNLResult('Articles achetés ailleurs',[],[],`Données hors-agence non disponibles`);return;}
   const tn=_normNL(term);
   const codeCA=new Map();
-  for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+  for(const[cc,artMap] of _S.ventesLocalHorsMag.entries()){
     for(const[code,v] of artMap.entries()){
       const lib=_normNL(_S.libelleLookup[code]||code);
       if(!lib.includes(tn)&&!_normNL(code).includes(tn))continue;
@@ -1797,7 +1797,7 @@ function _nlArticlesHorsMarque({term}){
   }
   const rows=[...codeCA.entries()].map(([code,d])=>{
     const art=DataStore.finalData.find(r=>r.code===code);
-    const inPdv=[...(_S.ventesClientArticle?.values()||[])].some(m=>m.has(code));
+    const inPdv=[...(_S.ventesLocalMagPeriode?.values()||[])].some(m=>m.has(code));
     return{code,lib:escapeHtml((_S.libelleLookup[code]||code).substring(0,35)),caHors:d.ca,clients:d.clients.size,inPdv,abc:art?.abcClass||'—',stock:art!=null?(art.stockActuel||0):-1};
   }).sort((a,b)=>b.caHors-a.caHors).slice(0,30);
   _renderNLResult(`"${term.substring(0,20)}" achetés ailleurs`,rows.map(r=>({
@@ -1855,11 +1855,11 @@ function renderAnimCommerciale(code) {
     el.classList.remove('hidden'); return;
   }
   const myStore = _S.selectedMyStore;
-  const myData = _S.ventesParMagasin?.[myStore]?.[code] || {};
+  const myData = _S.ventesParAgence?.[myStore]?.[code] || {};
   const famille = famLib(_S.articleFamille?.[code] || art.famille || '');
 
   // Réseau
-  const reseauRows = Object.entries(_S.ventesParMagasin || {})
+  const reseauRows = Object.entries(_S.ventesParAgence || {})
     .map(([store, arts]) => ({ store, d: arts[code] || null }))
     .filter(r => r.d && (r.d.sumCA || 0) > 0)
     .sort((a, b) => (b.d.sumCA || 0) - (a.d.sumCA || 0));
@@ -1867,7 +1867,7 @@ function renderAnimCommerciale(code) {
   // Top 5 clients actifs PDV
   const clientsActifs = [...(_S.articleClients?.get(code) || [])]
     .map(cc => {
-      const d = _S.ventesClientArticle?.get(cc)?.get(code) || {};
+      const d = _S.ventesLocalMagPeriode?.get(cc)?.get(code) || {};
       return { cc, nom: _S.clientStore?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
     })
     .sort((a, b) => b.ca - a.ca)

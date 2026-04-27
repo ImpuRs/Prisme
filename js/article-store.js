@@ -22,7 +22,7 @@ import { _S } from './state.js';
  *  6. articleUnivers      → univers
  *  7. finalData           → statut, emplacement, stock, W, prix, ABC/FMR, sousFamille (libellé stock)
  *  8. articleZoneIndex    → caZone, caAgence, cliZone, contribs
- *  9. ventesParMagasin    → caReseau (nb agences vendant cet article)
+ *  9. ventesParAgence    → caReseau (nb agences vendant cet article)
  * 10. articleClients      → nbClientsPDV
  *
  * Lazy-cached dans _S.articleStore. Invalidé par invalidateCache('art').
@@ -44,7 +44,7 @@ function buildArticleStore() {
   if (_S.catalogueMarques) for (const c of _S.catalogueMarques.keys()) allCodes.add(c);
   if (_S.finalData) for (const r of _S.finalData) allCodes.add(r.code);
   // Réseau : articles vendus par d'autres agences (peuvent ne pas être en stock local)
-  if (_S.ventesParMagasin) for (const arts of Object.values(_S.ventesParMagasin)) for (const c of Object.keys(arts)) allCodes.add(c);
+  if (_S.ventesParAgence) for (const arts of Object.values(_S.ventesParAgence)) for (const c of Object.keys(arts)) allCodes.add(c);
 
   // ── Lookup rapide finalData ──
   const fdMap = new Map();
@@ -66,8 +66,8 @@ function buildArticleStore() {
   // ── Réseau : nb agences par article ──
   const myStore = _S.selectedMyStore;
   const reseauCount = new Map(); // code → nbAgences
-  if (_S.ventesParMagasin) {
-    for (const [st, arts] of Object.entries(_S.ventesParMagasin)) {
+  if (_S.ventesParAgence) {
+    for (const [st, arts] of Object.entries(_S.ventesParAgence)) {
       if (st === myStore) continue;
       for (const [code, data] of Object.entries(arts)) {
         if (data.countBL > 0) reseauCount.set(code, (reseauCount.get(code) || 0) + 1);

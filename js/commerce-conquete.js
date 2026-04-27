@@ -50,7 +50,7 @@ export function buildOverviewCacheKey(){
     reseauMagasinMode:_S._reseauMagasinMode||'all',
     chalandiseSize:_S.chalandiseData?.size||0,
     clientsMagasinSize:_S.clientsMagasin?.size||0,
-    ventesHorsMagasinSize:_S.ventesClientHorsMagasin?.size||0,
+    ventesHorsMagasinSize:_S.ventesLocalHorsMag?.size||0,
     globalCanal:_S._globalCanal||''
   });
 }

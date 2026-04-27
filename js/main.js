@@ -111,14 +111,14 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
             lowMem: !!_S.lowMemMode,
           });
           // Sauvegarder les données période-invariantes avant hydratation
-          const _savedFull=_S.ventesClientMagFull.size?_S.ventesClientMagFull:new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
-          const _savedHors=_S.ventesClientHorsMagasin;
+          const _savedFull=_S.ventesLocalMag12MG.size?_S.ventesLocalMag12MG:new Map([..._S.ventesLocalMagPeriode].map(([cc,arts])=>[cc,new Map(arts)]));
+          const _savedHors=_S.ventesLocalHorsMag;
           const _savedLastOrderAll=_S.clientLastOrderAll;
           const _savedLastOrderByCanal=_S.clientLastOrderByCanal;
           _hydrateStateFromParseResult(parseResult,_S.selectedMyStore);
           // Restaurer les invariants période (hors-MAGASIN ne change pas au refilter)
-          if(!_S.ventesClientMagFull.size&&_savedFull.size)_S.ventesClientMagFull=_savedFull;
-          if(!_S.ventesClientHorsMagasin.size&&_savedHors.size)_S.ventesClientHorsMagasin=_savedHors;
+          if(!_S.ventesLocalMag12MG.size&&_savedFull.size)_S.ventesLocalMag12MG=_savedFull;
+          if(!_S.ventesLocalHorsMag.size&&_savedHors.size)_S.ventesLocalHorsMag=_savedHors;
           if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
           if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
           enrichPrixUnitaire();_enrichFinalDataWithCA();
@@ -136,7 +136,7 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
     }
   }
 
-  // ── _refilterFromByMonth — reconstruction instantanée ventesClientArticle + canalAgence ──
+  // ── _refilterFromByMonth — reconstruction instantanée ventesLocalMagPeriode + canalAgence ──
   // Appelé quand _S._byMonth est disponible. Opère en <100ms sans re-lancer le Worker.
   let _refilterRunning=false;
   function _refilterFromByMonth(){
@@ -154,7 +154,7 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
     const activeCanal=_S._globalCanal||'';
     const mode=_S._reseauMagasinMode||'all';
 
-    // ── Reconstruire ventesClientArticle ──
+    // ── Reconstruire ventesLocalMagPeriode ──
     const newVCA=new Map();
     const newClientsMagasin=new Set();
     const newClientsMagasinFreq=new Map();
@@ -191,9 +191,9 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
         }
       }
     } else {
-      // Chemin hors-MAGASIN — ventesClientHorsMagasin filtré par canal
+      // Chemin hors-MAGASIN — ventesLocalHorsMag filtré par canal
       // Pas de filtrage période au niveau client (byMonth n'existe que pour MAGASIN)
-      const vchm=_S.ventesClientHorsMagasin;
+      const vchm=_S.ventesLocalHorsMag;
       if(vchm){
         for(const[cc,artMap]of vchm){
           for(const[code,d]of artMap){
@@ -213,7 +213,7 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
       }
     }
 
-    // sumCAAll : copier depuis ventesClientMagFull (pleine période) — MAGASIN uniquement
+    // sumCAAll : copier depuis ventesLocalMag12MG (pleine période) — MAGASIN uniquement
     if((!activeCanal||activeCanal==='MAGASIN')&&hasVentesClientMagFull()){
       const _fullVCA = getVentesClientMagFull();
       for(const[cc,artMap]of newVCA){
@@ -226,7 +226,7 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
       }
     }
 
-    _S.ventesClientArticle=newVCA;
+    _S.ventesLocalMagPeriode=newVCA;
     _S.clientsMagasin=newClientsMagasin;
     _S.clientsMagasinFreq=newClientsMagasinFreq;
 
@@ -272,10 +272,10 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
 _S.canalAgence=newCanalAgence;
     }
 
-    // ── Reconstruire ventesParMagasinByCanal depuis _byMonthStoreArtCanal ──
+    // ── Reconstruire ventesParAgenceByCanal depuis _byMonthStoreArtCanal ──
     // Fix bug Réseau : KPI Comparatifs, storePerf, familyPerf tournaient sur pleine période
     // peu importe le filtre. vbc alimente computeBenchmark en mode multi-canal via parser.js.
-    // On ne reconstruit PAS _S.ventesParMagasin car son sumPrelevee (qté) n'est pas stockable
+    // On ne reconstruit PAS _S.ventesParAgence car son sumPrelevee (qté) n'est pas stockable
     // dans bmsac (où sumPrelevee = CA prélevé). Autres onglets restent sur vpm pleine période.
     const bmsac=_S._byMonthStoreArtCanal;
     if(bmsac){
@@ -304,7 +304,7 @@ _S.canalAgence=newCanalAgence;
           }
         }
       }
-      _S.ventesParMagasinByCanal=newVpmByCanal;
+      _S.ventesParAgenceByCanal=newVpmByCanal;
       // Invalider cache bench + recomputeBenchmark pour que benchLists reflète la période
       _S._benchCache=null;
       if(_S.storesIntersection.size>1&&_S.selectedMyStore){
@@ -565,7 +565,7 @@ _S.canalAgence=newCanalAgence;
     const blTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
     const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
 
-    const nbClientsPDV=_S.ventesClientArticle?.size||0;
+    const nbClientsPDV=_S.ventesLocalMagPeriode?.size||0;
     let nbClientsAll=nbClientsPDV;
     {const _bmc=_S._byMonthClients;if(_bmc){const _pMin=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;const _pMax=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_pMin&&_pMax){const _si=_pMin.getFullYear()*12+_pMin.getMonth();const _ei=_pMax.getFullYear()*12+_pMax.getMonth();const _set=new Set();for(const midxStr in _bmc){const midx=+midxStr;if(midx>=_si&&midx<=_ei)for(const cc of _bmc[midxStr])_set.add(cc);}if(_set.size>0)nbClientsAll=_set.size;}}else if(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0){nbClientsAll=_S._clientsTousCanaux.size;}}
 
@@ -808,7 +808,7 @@ _S.canalAgence=newCanalAgence;
     const caTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
     const blTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
     const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
-    const nbClientsPDV=_S.ventesClientArticle?.size||0;
+    const nbClientsPDV=_S.ventesLocalMagPeriode?.size||0;
     let nbClientsAll=nbClientsPDV;
     {const _bmc=_S._byMonthClients;if(_bmc){const _pMin=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;const _pMax=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_pMin&&_pMax){const _si=_pMin.getFullYear()*12+_pMin.getMonth();const _ei=_pMax.getFullYear()*12+_pMax.getMonth();const _set=new Set();for(const midxStr in _bmc){const midx=+midxStr;if(midx>=_si&&midx<=_ei)for(const cc of _bmc[midxStr])_set.add(cc);}if(_set.size>0)nbClientsAll=_set.size;}}else if(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0){nbClientsAll=_S._clientsTousCanaux.size;}}
     const txMarge=caTotal>0?vmbTotal/caTotal*100:0;
@@ -1248,8 +1248,8 @@ _S.canalAgence=newCanalAgence;
     _S.articleRaw         = r.articleRaw || {};
     _S.articleMonthlySales    = r.monthlySales || {};
     _S.seasonalIndexReseau    = r.seasonalIndexReseau || {};
-    _S.ventesParMagasin   = r.ventesParMagasin || {};
-    _S.ventesParMagasinByCanal = r.ventesParMagasinByCanal || {};
+    _S.ventesParAgence   = r.ventesParAgence || {};
+    _S.ventesParAgenceByCanal = r.ventesParAgenceByCanal || {};
     _S.clientNomLookup    = r.clientNomLookup || {};
     _S.articleFamille     = r.articleFamille || {};
     _S.articleUnivers     = r.articleUnivers || {};
@@ -1331,10 +1331,10 @@ _S.canalAgence=newCanalAgence;
     // ou déjà set par applyPeriodFilter() avant un refilter.
 
     // Maps imbriquées
-    _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
-    _S.ventesClientMagFull = new Map((r.ventesClientMagFull||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesLocalMagPeriode     = new Map((r.ventesLocalMagPeriode||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesLocalMag12MG = new Map((r.ventesLocalMag12MG||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesReseauTousCanaux = new Map((r.ventesReseauTousCanaux||[]).map(([k,v]) => [k, new Map(v)]));
-    _S.ventesClientHorsMagasin = new Map((r.ventesClientHorsMagasin||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesLocalHorsMag = new Map((r.ventesLocalHorsMag||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
     _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
     _S.clientLastOrderByCanal  = new Map((r.clientLastOrderByCanal||[]).map(([k,v]) => [k, new Map(v)]));
@@ -1377,7 +1377,7 @@ _S.canalAgence=newCanalAgence;
   function _applyVitesseReseau(){
     if(!DataStore.finalData.length)return;
     const _myS=_S.selectedMyStore;
-    const _vpm=_S.ventesParMagasin||{};
+    const _vpm=_S.ventesParAgence||{};
     const _allStoresFull=Object.keys(_vpm).filter(s=>s!==_myS);
     if(_allStoresFull.length<2)return;
     let _applied=0;
@@ -1531,7 +1531,7 @@ _S.canalAgence=newCanalAgence;
         // launchClientWorker — toujours lancé (gère chalandise vide en interne)
         // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
         launchClientWorker().then(async()=>{
-          if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+          if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
           if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
         }).catch(err=>console.warn('Client worker error:',err));
       } else {
@@ -1644,9 +1644,9 @@ _S.canalAgence=newCanalAgence;
   }
 
   function _enrichFinalDataWithCA() {
-    // Injecte caAnnuel sur chaque article depuis ventesClientMagFull (12 mois glissants, myStore)
+    // Injecte caAnnuel sur chaque article depuis ventesLocalMag12MG (12 mois glissants, myStore)
     // Pleine période comme PRÉL/ENL/FRÉQ — invariant au filtre période UI
-    const _full=_S.ventesClientMagFull;
+    const _full=_S.ventesLocalMag12MG;
     if(_full?.size){
       const _caByCode=new Map();
       for(const[,artMap] of _full){
@@ -1657,9 +1657,9 @@ _S.canalAgence=newCanalAgence;
       for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
       return;
     }
-    // Fallback VPM si ventesClientMagFull pas encore peuplé
+    // Fallback VPM si ventesLocalMag12MG pas encore peuplé
     const _myStore=_S.selectedMyStore;
-    const _vpmStore=_myStore?(_S.ventesParMagasin?.[_myStore]||null):null;
+    const _vpmStore=_myStore?(_S.ventesParAgence?.[_myStore]||null):null;
     if(_vpmStore){
       for(const r of DataStore.finalData){r.caAnnuel=Math.round(_vpmStore?.[r.code]?.sumCA||0);}
     }
@@ -1681,7 +1681,7 @@ _S.canalAgence=newCanalAgence;
   function _computeClientDominantUnivers(){
     const m=new Map();
     const au=_S.articleUnivers||{};
-    for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+    for(const[cc,artMap] of _S.ventesLocalMagPeriode.entries()){
       const sums=Object.create(null);
       let maxU='',maxCA=0;
       for(const[code,v] of artMap.entries()){
@@ -1699,7 +1699,7 @@ _S.canalAgence=newCanalAgence;
 
   // caByArticleCanal — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
   function _rebuildCaByArticleCanal(){
-    const vh=_S.ventesClientHorsMagasin;
+    const vh=_S.ventesLocalHorsMag;
     const fd=DataStore.finalData;
     if(!vh?.size||!fd?.length)return;
 
@@ -1771,13 +1771,13 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes consommé différentes du stock
       _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesReseauTousCanaux=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.clientsByStoreUnivers={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
-      _S.ventesParMagasinByCanal={};
+      const articleRaw={};_S.ventesParAgence={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesLocalMagPeriode=new Map();_S.ventesReseauTousCanaux=new Map();_S.ventesClientsPerStore={};_S.caClientParStore={};_S.clientsByStoreUnivers={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();_S.articleClientsFull=new Map();}
+      _S.ventesParAgenceByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();const _tempCAAll=new Map(); // accumulation sumCAAll tous canaux, filtré période, fusionné après la boucle
-      const _tempCAAllFull=new Map(); // accumulation sumCAAll tous canaux, pleine période, pour ventesClientMagFull
+      const _tempCAAllFull=new Map(); // accumulation sumCAAll tous canaux, pleine période, pour ventesLocalMag12MG
       const _storeUniverseBuyerRows=[]; // store × client × article, rebâti en univers après enrichissement familles
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2 / OPT3 : pré-mapper les colonnes UNE FOIS avant la boucle (évite findKey par row)
@@ -1815,23 +1815,23 @@ _S.canalAgence=newCanalAgence;
       // clientLastOrder — MAGASIN uniquement, period-independent (comme clientLastOrderAll)
       if(!canal||canal==='MAGASIN'){const _prevMag=_S.clientLastOrder.get(_ccAll);if(!_prevMag||dateV>_prevMag)_S.clientLastOrder.set(_ccAll,dateV);}}}
       // Accumulation CA tous canaux par client dans _tempCAAll (fusionné après la boucle)
-      // Ne PAS créer d'entrée dans ventesClientArticle ici — seules les lignes MAGASIN (L1686) le font
+      // Ne PAS créer d'entrée dans ventesLocalMagPeriode ici — seules les lignes MAGASIN (L1686) le font
       if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
       {const _ccA=extractClientCode(_rc);const _codeA=cleanCode(_ra);const _skA=_rs;if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAT=_rcp+_rce;if(_caAT>0){if(!_tempCAAll.has(_ccA))_tempCAAll.set(_ccA,new Map());const _amA=_tempCAAll.get(_ccA);_amA.set(_codeA,(_amA.get(_codeA)||0)+_caAT);}}}
-      // _tempCAAllFull — tous canaux, pleine période (sans filtre), pour ventesClientMagFull.sumCAAll
+      // _tempCAAllFull — tous canaux, pleine période (sans filtre), pour ventesLocalMag12MG.sumCAAll
       if(!isRefilter){const _ccAF=extractClientCode(_rc);const _codeAF=cleanCode(_ra);if(_ccAF&&_codeAF&&(!_S.selectedMyStore||_rs==='INCONNU'||_rs===_S.selectedMyStore)){const _caAF=_rcp+_rce;if(_caAF>0){if(!_tempCAAllFull.has(_ccAF))_tempCAAllFull.set(_ccAF,new Map());const _amAF=_tempCAAllFull.get(_ccAF);_amAF.set(_codeAF,(_amAF.get(_codeAF)||0)+_caAF);}}}
       // clientNomLookup — ALL canals, before the canal split, so hors-MAGASIN clients get named too
       if(!isRefilter){const _ccNom=extractClientCode(_rc);if(_ccNom&&!_S.clientNomLookup[_ccNom]){const _rawFull=_rc;const _di=_rawFull.indexOf(' - ');if(_di>=0)_S.clientNomLookup[_ccNom]=_rawFull.slice(_di+3).trim();}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
-        // Canaux hors MAGASIN — filtre période + accumulation ventesParMagasinByCanal
+        // Canaux hors MAGASIN — filtre période + accumulation ventesParAgenceByCanal
         if(canal){
           if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart){continue;}
           if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd){continue;}
           const cc=extractClientCode(_rc);const codeArt=cleanCode(_ra);const caLigne=_rcp+_rce;const qteLigne=_rqp+_rqe;const skHors=_rs;
-          // ventesClientHorsMagasin — skip for isRefilter
-          if(!isRefilter&&cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,sumCAP:0,sumCAE:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.sumCAP+=_rcp;ex.sumCAE+=_rce;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}
-          // ventesParMagasinByCanal — toujours (y compris isRefilter)
-          if(codeArt&&(skHors==='INCONNU'||_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=_rcp;_vpmc.countBL++;const _vmbPH=_rvp;const _vmbEH=_rve;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
+          // ventesLocalHorsMag — skip for isRefilter
+          if(!isRefilter&&cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesLocalHorsMag.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,sumCAP:0,sumCAE:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.sumCAP+=_rcp;ex.sumCAE+=_rce;ex.countBL++;hm.set(codeArt,ex);_S.ventesLocalHorsMag.set(cc,hm);}
+          // ventesParAgenceByCanal — toujours (y compris isRefilter)
+          if(codeArt&&(skHors==='INCONNU'||_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParAgenceByCanal[_storeKey])_S.ventesParAgenceByCanal[_storeKey]={};if(!_S.ventesParAgenceByCanal[_storeKey][canal])_S.ventesParAgenceByCanal[_storeKey][canal]={};if(!_S.ventesParAgenceByCanal[_storeKey][canal][codeArt])_S.ventesParAgenceByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParAgenceByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=_rcp;_vpmc.countBL++;const _vmbPH=_rvp;const _vmbEH=_rve;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
           // commandesPerStoreCanal — hors-MAGASIN
           if(_rncb){if(!_S.commandesPerStoreCanal[skHors])_S.commandesPerStoreCanal[skHors]={};if(!_S.commandesPerStoreCanal[skHors][canal])_S.commandesPerStoreCanal[skHors][canal]=new Set();_S.commandesPerStoreCanal[skHors][canal].add(_rncb);}
           // CA tous canaux dans d'autres agences (sk ≠ myStore)
@@ -1843,28 +1843,28 @@ _S.canalAgence=newCanalAgence;
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
       const famConso=((CI.famille!==null?(row[CI.famille]??''):'')||(CI.univers!==null?(row[CI.univers]??''):'')||'').toString().trim();const _codeFamConso=(CI.codeFam!==null?(row[CI.codeFam]??''):'').toString().trim();const _famCode=_codeFamConso||extractFamCode(famConso);if(_famCode&&code)_S.articleFamille[code]=_famCode;const _uv2=(CI.univers!==null?(row[CI.univers]??''):'').toString().trim();const _cf2=_codeFamConso||'';const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
       if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
-      // Hoistés avant le filtre période : invariants (W/V/MIN/MAX), ventesClientMagFull
+      // Hoistés avant le filtre période : invariants (W/V/MIN/MAX), ventesLocalMag12MG
       const cc2=extractClientCode(_rc);const nc=(_hasCommandeCol?(_rncb||''):('__r'+j)).toString().trim()||('__r'+j);
       if(!isRefilter&&dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
       if(!isRefilter&&(!useMulti||sk===_S.selectedMyStore)){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}}
-      if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!_S.ventesClientMagFull.has(cc2))_S.ventesClientMagFull.set(cc2,new Map());const _artF=_S.ventesClientMagFull.get(cc2);if(!_artF.has(code))_artF.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const _eF=_artF.get(code);if(qteP>0){_eF.sumPrelevee+=qteP;_eF.sumCAPrelevee+=caP;}_eF.sumCA+=caP+caE;if(qteP>0||qteE>0)_eF.countBL++;}
+      if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!_S.ventesLocalMag12MG.has(cc2))_S.ventesLocalMag12MG.set(cc2,new Map());const _artF=_S.ventesLocalMag12MG.get(cc2);if(!_artF.has(code))_artF.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const _eF=_artF.get(code);if(qteP>0){_eF.sumPrelevee+=qteP;_eF.sumCAPrelevee+=caP;}_eF.sumCA+=caP+caE;if(qteP>0||qteE>0)_eF.countBL++;}
       // articleClientsFull — pleine période, hoisté hors filtre période (pour squelette invariant)
       if(!isRefilter&&cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const _ccFull=extractClientCode(_rc);if(_ccFull){if(!_S.articleClientsFull.has(code))_S.articleClientsFull.set(code,new Set());_S.articleClientsFull.get(code).add(_ccFull);}}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
-      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=_rvp+_rve;if(canal){const _bck=_S.ventesParMagasin[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=_rvp+_rve;}if(code&&(!canal||canal==='MAGASIN')){const _canalKey='MAGASIN';if(!_S.ventesParMagasinByCanal[sk])_S.ventesParMagasinByCanal[sk]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey])_S.ventesParMagasinByCanal[sk][_canalKey]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey][code])_S.ventesParMagasinByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParMagasinByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=_rvp;const _vmbE2=_rve;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
-      // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
-      // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesClientMagFull)
+      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParAgence[sk])_S.ventesParAgence[sk]={};if(!_S.ventesParAgence[sk][code])_S.ventesParAgence[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParAgence[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParAgence[sk][code].sumEnleve+=qteE;_S.ventesParAgence[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParAgence[sk][code].countBL++;_S.ventesParAgence[sk][code].sumVMB+=_rvp+_rve;if(canal){const _bck=_S.ventesParAgence[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=_rvp+_rve;}if(code&&(!canal||canal==='MAGASIN')){const _canalKey='MAGASIN';if(!_S.ventesParAgenceByCanal[sk])_S.ventesParAgenceByCanal[sk]={};if(!_S.ventesParAgenceByCanal[sk][_canalKey])_S.ventesParAgenceByCanal[sk][_canalKey]={};if(!_S.ventesParAgenceByCanal[sk][_canalKey][code])_S.ventesParAgenceByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParAgenceByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=_rvp;const _vmbE2=_rve;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
+      // V2 Phase 1: DataStore.ventesLocalMagPeriode (myStore only) + _S.ventesClientsPerStore (all stores)
+      // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesLocalMag12MG)
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);{const _cca=caP+caE;if(_cca>0){if(!_S.caClientParStore[sk])_S.caClientParStore[sk]=new Map();_S.caClientParStore[sk].set(cc2,(_S.caClientParStore[sk].get(cc2)||0)+_cca);}}}
       // commandesPerStoreCanal : N° commande (ou BL) uniques par store × canal (pour nbCommandes dans agenceStore)
       {const _ncCmd=_rncb;if(_ncCmd){const _canalCmd=canal||'MAGASIN';if(!_S.commandesPerStoreCanal[sk])_S.commandesPerStoreCanal[sk]={};if(!_S.commandesPerStoreCanal[sk][_canalCmd])_S.commandesPerStoreCanal[sk][_canalCmd]=new Set();_S.commandesPerStoreCanal[sk][_canalCmd].add(_ncCmd);}}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=_rncb||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
       // clientNomLookup already populated above (before canal split) for ALL canals
-      // ventesClientArticle = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
+      // ventesLocalMagPeriode = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
-      // ventesClientArticle (myStore) + ventesReseauTousCanaux (ALL stores)
-      if(cc2&&code){if(!_S.ventesReseauTousCanaux.has(cc2))_S.ventesReseauTousCanaux.set(cc2,new Map());const artMapR=_S.ventesReseauTousCanaux.get(cc2);if(!artMapR.has(code))artMapR.set(code,{sumCA:0,countBL:0});const eR=artMapR.get(code);eR.sumCA+=caP+caE;if(qteP>0||qteE>0)eR.countBL++;if(!_S.selectedMyStore||sk===_S.selectedMyStore){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}}
+      // ventesLocalMagPeriode (myStore) + ventesReseauTousCanaux (ALL stores)
+      if(cc2&&code){if(!_S.ventesReseauTousCanaux.has(cc2))_S.ventesReseauTousCanaux.set(cc2,new Map());const artMapR=_S.ventesReseauTousCanaux.get(cc2);if(!artMapR.has(code))artMapR.set(code,{sumCA:0,countBL:0});const eR=artMapR.get(code);eR.sumCA+=caP+caE;if(qteP>0||qteE>0)eR.countBL++;if(!_S.selectedMyStore||sk===_S.selectedMyStore){if(!DataStore.ventesLocalMagPeriode.has(cc2))DataStore.ventesLocalMagPeriode.set(cc2,new Map());const artMap=DataStore.ventesLocalMagPeriode.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}}
       // CA MAGASIN dans d'autres agences (sk ≠ myStore)
       if(!isRefilter&&cc2&&code&&_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore){const _caAut=caP+caE;if(_caAut>0){_S.ventesClientAutresAgences.set(cc2,(_S.ventesClientAutresAgences.get(cc2)||0)+_caAut);}}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=_rnc;if(_nc3)commandesPDV.add(_nc3);}
@@ -1880,10 +1880,10 @@ _S.canalAgence=newCanalAgence;
         _S.clientArticles.get(codeClient).add(code);
       }
       if(!useMulti||sk===_S.selectedMyStore){if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));if(qteP>0)_S.blPreleveeSet.add(blNum);}}}updateProgress(45+Math.round(i/dataC.rows.length*20),100);await yieldToMain();}
-      // Fusion sumCAAll : enrichir ventesClientArticle avec les CA tous canaux (seuls les clients MAGASIN existants)
-      for(const [_cc,_arts] of _tempCAAll){if(!_S.ventesClientArticle.has(_cc))continue;const _cMap=_S.ventesClientArticle.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}
-      // Fusion sumCAAll pleine période dans ventesClientMagFull
-      if(!isRefilter){for(const [_cc,_arts] of _tempCAAllFull){if(!_S.ventesClientMagFull.has(_cc))continue;const _cMap=_S.ventesClientMagFull.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}}
+      // Fusion sumCAAll : enrichir ventesLocalMagPeriode avec les CA tous canaux (seuls les clients MAGASIN existants)
+      for(const [_cc,_arts] of _tempCAAll){if(!_S.ventesLocalMagPeriode.has(_cc))continue;const _cMap=_S.ventesLocalMagPeriode.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}
+      // Fusion sumCAAll pleine période dans ventesLocalMag12MG
+      if(!isRefilter){for(const [_cc,_arts] of _tempCAAllFull){if(!_S.ventesLocalMag12MG.has(_cc))continue;const _cMap=_S.ventesLocalMag12MG.get(_cc);for(const [_code,_ca] of _arts){const _e=_cMap.get(_code);if(_e)_e.sumCAAll+=_ca;}}}
       // Build blCanalMap + convert canalAgence bl sets — skipped for isRefilter (canalAgence unchanged)
       if(!isRefilter){
       _S.blCanalMap = new Map();
@@ -1961,7 +1961,7 @@ _S.canalAgence=newCanalAgence;
       }
       const totalBLs=Object.keys(_S.blData).length;let sumRefParBL=0,sumFamParBL=0;const famBLcount={};
       for(const bl of Object.values(_S.blData)){sumRefParBL+=bl.codes.size;sumFamParBL+=bl.familles.size;for(const fam of bl.familles)famBLcount[fam]=(famBLcount[fam]||0)+1;}
-      const _sd0=_S.ventesParMagasin[_S.selectedMyStore]||{};const _caCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumCA||0),0);const _vmbCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumVMB||0),0);
+      const _sd0=_S.ventesParAgence[_S.selectedMyStore]||{};const _caCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumCA||0),0);const _vmbCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumVMB||0),0);
       _S.ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
       let familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();
@@ -2022,7 +2022,7 @@ _S.canalAgence=newCanalAgence;
       if(useMulti&&DataStore.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of DataStore.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
-      _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
+      _enrichFinalDataWithCA(); // CA réel depuis ventesLocalMagPeriode (MAGASIN, myStore)
 
       // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
       if(useMulti) _applyVitesseReseau();
@@ -2079,9 +2079,9 @@ _S.canalAgence=newCanalAgence;
       computeClientCrossing();computeReconquestCohort();
       buildClientStore();_applyForcageCommercial();_mark('ClientStore + crossing');
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
-      // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
+      // caByArticleCanal — skipped for isRefilter (ventesLocalHorsMag unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
       if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');
       if(!isRefilter){_syncTabAccess();}
@@ -2258,7 +2258,7 @@ _S.canalAgence=newCanalAgence;
     // CA perdu — contexte multi vs mono agence
     const hasMulti=_S.storesIntersection.size>1;
     const medianCAByCode={};
-    if(hasMulti&&_S.selectedMyStore){const cs=[..._S.storesIntersection];const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>_S.ventesParMagasin[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
+    if(hasMulti&&_S.selectedMyStore){const cs=[..._S.storesIntersection];const myV=_S.ventesParAgence[_S.selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>_S.ventesParAgence[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
 
     for(const r of dataSource){const lv=r.valeurStock!=null?r.valeurStock:r.stockActuel*(r.prixUnitaire||0);totalValue+=lv;
     if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
@@ -2513,10 +2513,10 @@ _S.canalAgence=newCanalAgence;
     const cMin=_S.consommePeriodMinFull||_S.consommePeriodMin;
     const cMax=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     if(cMin&&cMax){
-      const stores=_S.storesIntersection?.size||Object.keys(_S.ventesParMagasin||{}).length||0;
-      const clientsMAG=_S.ventesClientArticle?.size||0;
-      const clientsHM=_S.ventesClientHorsMagasin?.size||0;
-      const allClients=new Set([...(_S.ventesClientArticle?.keys()||[]),...(_S.ventesClientHorsMagasin?.keys()||[])]);
+      const stores=_S.storesIntersection?.size||Object.keys(_S.ventesParAgence||{}).length||0;
+      const clientsMAG=_S.ventesLocalMagPeriode?.size||0;
+      const clientsHM=_S.ventesLocalHorsMag?.size||0;
+      const allClients=new Set([...(_S.ventesLocalMagPeriode?.keys()||[]),...(_S.ventesLocalHorsMag?.keys()||[])]);
       const totalClients=allClients.size||clientsMAG;
       const nbUniv=new Set(Object.values(_S.articleUnivers||{})).size;
       const univLabel=nbUniv>0?` · ${nbUniv} univers`:'';
@@ -2535,12 +2535,12 @@ _S.canalAgence=newCanalAgence;
       const nbMetiers=new Set([..._S.chalandiseData.values()].map(i=>i.metier).filter(m=>m&&m.length>2)).size;
       // Taux de couverture vs consommé
       let matchCount=0;
-      if(_S.ventesClientArticle?.size){
-        for(const cc of _S.ventesClientArticle.keys()){if(_S.chalandiseData.has(cc))matchCount++;}
+      if(_S.ventesLocalMagPeriode?.size){
+        for(const cc of _S.ventesLocalMagPeriode.keys()){if(_S.chalandiseData.has(cc))matchCount++;}
       }
-      const pctMatch=_S.ventesClientArticle?.size>0?Math.round(matchCount/_S.ventesClientArticle.size*100):0;
+      const pctMatch=_S.ventesLocalMagPeriode?.size>0?Math.round(matchCount/_S.ventesLocalMagPeriode.size*100):0;
       const matchColor=pctMatch>=70?'#4ade80':pctMatch>=30?'#fbbf24':'#f87171';
-      pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3)"><span style="color:#fbbf24">📋 Chalandise</span> <span class="t-disabled">${total.toLocaleString('fr')} clients · ${nbMetiers} métiers</span> <span style="color:${matchColor}" title="${matchCount} clients PDV retrouvés dans la chalandise sur ${_S.ventesClientArticle?.size||0}">· couverture ${pctMatch}%</span></span>`);
+      pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3)"><span style="color:#fbbf24">📋 Chalandise</span> <span class="t-disabled">${total.toLocaleString('fr')} clients · ${nbMetiers} métiers</span> <span style="color:${matchColor}" title="${matchCount} clients PDV retrouvés dans la chalandise sur ${_S.ventesLocalMagPeriode?.size||0}">· couverture ${pctMatch}%</span></span>`);
     }
     if(!pills.length){el.innerHTML='';return;}
     pills.push(`<a href="conv.html" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded no-underline" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);cursor:pointer"><span style="color:#a78bfa">🔄 Convertisseur XLSX → CSV</span></a>`);
@@ -2870,12 +2870,12 @@ _S.canalAgence=newCanalAgence;
       // ── 0. Gardes-fous AVANT tout code UI — _S.storesIntersection et _S.selectedMyStore ──
       // Doit s'exécuter immédiatement après await _restoreSessionFromIDB(),
       // avant toute référence à _S.selectedMyStore ou _S.storesIntersection dans l'UI.
-      if(!_S.storesIntersection.size&&Object.keys(_S.ventesParMagasin).length>0&&Object.keys(_S.stockParMagasin).length>0){
-        const vKeys=new Set(Object.keys(_S.ventesParMagasin)),sKeys=new Set(Object.keys(_S.stockParMagasin));
+      if(!_S.storesIntersection.size&&Object.keys(_S.ventesParAgence).length>0&&Object.keys(_S.stockParMagasin).length>0){
+        const vKeys=new Set(Object.keys(_S.ventesParAgence)),sKeys=new Set(Object.keys(_S.stockParMagasin));
         _S.storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
       }
       // Fallback compteurs : si non persistés dans l'ancien cache, recalculer depuis les maps
-      if(!_S.storeCountConsomme)_S.storeCountConsomme=Object.keys(_S.ventesParMagasin).length;
+      if(!_S.storeCountConsomme)_S.storeCountConsomme=Object.keys(_S.ventesParAgence).length;
       if(!_S.storeCountStock)_S.storeCountStock=Object.keys(_S.stockParMagasin).length;
       if(!_S.selectedMyStore&&_S.storesIntersection.size>0){
         const _saved2=localStorage.getItem('prisme_selectedStore');_S.selectedMyStore=(_saved2&&_S.storesIntersection.has(_saved2))?_saved2:[..._S.storesIntersection][0];
@@ -2935,10 +2935,10 @@ _S.canalAgence=newCanalAgence;
       _mc('crossing + distances');
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
-      if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors(); }
+      if (_S.chalandiseReady && DataStore.ventesLocalMagPeriode.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors(); }
       buildClientStore();_applyForcageCommercial();_mc('buildClientStore');
-      if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
-      if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
+      if (_S.ventesLocalHorsMag.size) _rebuildCaByArticleCanal();
+      if(_S.ventesLocalMagPeriode.size) _computeClientDominantUnivers();
       // Sync commercial input after data reload
       const _comSb=document.getElementById('terrCommercialSidebar');
       if(_comSb&&_S._selectedCommercial)_comSb.value=_S._selectedCommercial;
@@ -2960,8 +2960,8 @@ _S.canalAgence=newCanalAgence;
       collapseImportZone();
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
-      if(!_S.ventesClientMagFull.size&&_S.ventesClientArticle.size){
-        _S.ventesClientMagFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+      if(!_S.ventesLocalMag12MG.size&&_S.ventesLocalMagPeriode.size){
+        _S.ventesLocalMag12MG=new Map([..._S.ventesLocalMagPeriode].map(([cc,arts])=>[cc,new Map(arts)]));
       }
       invalidateCache('tab','terr');buildPeriodFilter();
       _mc('pré-render');
@@ -3136,7 +3136,7 @@ window.onChalandiseSelected = async function(input) {
   renderAll();
   // Recalculer les agrégats clients en tâche de fond
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
-  if (DataStore.ventesClientArticle.size > 0) {
+  if (DataStore.ventesLocalMagPeriode.size > 0) {
     launchClientWorker().then(() => {
       resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors();
       buildClientStore(); _applyForcageCommercial();
@@ -3304,7 +3304,7 @@ window.applyPeriodFilter = applyPeriodFilter;
 window.exportScanData = function() {
   if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
   const myStore = _S.selectedMyStore || '';
-  const vpm = _S.ventesParMagasin || {};
+  const vpm = _S.ventesParAgence || {};
   const otherStores = Object.keys(vpm).filter(s => s !== myStore);
   const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
   const articles = DataStore.finalData.map(r => {

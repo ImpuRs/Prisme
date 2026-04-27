@@ -25,8 +25,8 @@ _S.debounceTimer = null; // timer UI — intentionnellement absent de resetAppSt
 _S.lowMemMode = false;
 
 // ── Store / ventes ──
-_S.ventesParMagasin = {};
-_S.ventesParMagasinByCanal = {}; // structure séparée multi-canal pour Spectre Réseau
+_S.ventesParAgence = {};
+_S.ventesParAgenceByCanal = {}; // structure séparée multi-canal pour Spectre Réseau
 _S.stockParMagasin = {};
 _S.storesIntersection = new Set();
 _S.selectedMyStore = '';
@@ -142,19 +142,19 @@ _S._clientDominantUnivers = new Map(); // cc → univers dominant (par CA)
  * @property {number} sumPrelevee    - Quantité prélevée (prél uniquement)
  * @property {number} sumCAPrelevee  - CA sur quantités prélevées
  * @property {number} sumCA          - CA total (prél + enlev)
- * @property {number} [sumCAAll]     - CA tous canaux (ventesClientArticle uniquement)
+ * @property {number} [sumCAAll]     - CA tous canaux (ventesLocalMagPeriode uniquement)
  * @property {number} countBL        - Nb BL distincts
- * @property {string} [canal]        - Canal source (ventesClientHorsMagasin uniquement)
+ * @property {string} [canal]        - Canal source (ventesLocalHorsMag uniquement)
  */
 // ── Client data ──
 // Achats comptoir : cc → Map(codeArticle → ClientArticleFact) — myStore, canal MAGASIN uniquement
-_S.ventesClientArticle = new Map();
+_S.ventesLocalMagPeriode = new Map();
 // Snapshot période-invariante (toute la période consommé) — pour cockpit/silencieux/Top 5
-_S.ventesClientMagFull = new Map();
+_S.ventesLocalMag12MG = new Map();
 // Réseau = client × article TOUTES agences du consommé (pour Tronc Commun Réseau)
 _S.ventesReseauTousCanaux = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
-_S.ventesClientHorsMagasin = new Map();
+_S.ventesLocalHorsMag = new Map();
 // CA MAGASIN dans d'autres agences : cc → totalCA (comptoir ailleurs)
 _S.ventesClientAutresAgences = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
@@ -259,7 +259,7 @@ _S.anglesMorts = [];           // [{cc, nom, metier, commercial, missing:[{famCo
 _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
 _S._byMonthFull = null;     // accumulation mensuelle cc→code→monthIdx→{sumCA} (TOUS canaux, myStore)
 _S._byMonthCanal = null;    // accumulation mensuelle store→canal→monthIdx→agg
-_S._byMonthStoreArtCanal = null; // accumulation mensuelle store→canal→code→monthIdx→agg (rebuild ventesParMagasinByCanal période)
+_S._byMonthStoreArtCanal = null; // accumulation mensuelle store→canal→code→monthIdx→agg (rebuild ventesParAgenceByCanal période)
 _S._byMonthStoreClients = null;  // accumulation mensuelle store→monthIdx→Set<cc> (rebuild nbClients période)
 _S._byMonthStoreClientCA = null; // accumulation mensuelle store→monthIdx→{cc: sumCA} (rebuild CA client période)
 _S._byMonthClients = null;  // accumulation mensuelle monthIdx→Set<cc> — tous canaux, pleine période
@@ -341,7 +341,7 @@ export function resetAppState() {
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
-  _S.ventesParMagasin = {}; _S.ventesParMagasinByCanal = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
+  _S.ventesParAgence = {}; _S.ventesParAgenceByCanal = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
   _S.selectedMyStore = ''; _S.libelleLookup = {}; _S.articleFamille = {}; _S.articleUnivers = {};
 
   // Benchmark
@@ -371,7 +371,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientMagFull = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesLocalMagPeriode = new Map(); _S.ventesLocalMag12MG = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesLocalHorsMag = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.clientsByStoreUnivers = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
@@ -499,14 +499,14 @@ export function assertPostParseInvariants() {
   else if(_jj<90)console.warn('[PRISME] globalJoursOuvres='+_jj+' — période courte (40–90 j), MIN/MAX approximatifs');
   else if(_jj>365)console.warn('[PRISME] globalJoursOuvres='+_jj+' — période anormalement longue (>365 j), vérifier les dates du consommé');}
 
-  // Invariant 3 : ventesClientArticle peuplé si un magasin est sélectionné
+  // Invariant 3 : ventesLocalMagPeriode peuplé si un magasin est sélectionné
   // (MIN/MAX calculés sur agence sélectionnée — si vide, V=0 pour tous les articles)
   if (_S.selectedMyStore) {
-    console.assert(_S.ventesClientArticle.size > 0,
-      '[PRISME] ventesClientArticle vide avec magasin sélectionné : ' + _S.selectedMyStore);
+    console.assert(_S.ventesLocalMagPeriode.size > 0,
+      '[PRISME] ventesLocalMagPeriode vide avec magasin sélectionné : ' + _S.selectedMyStore);
   }
 
-  // Invariant 4 : dualité ventesClientArticle/HorsMagasin — MAGASIN ne doit pas être dans cannauxHorsMagasin
+  // Invariant 4 : dualité ventesLocalMagPeriode/HorsMagasin — MAGASIN ne doit pas être dans cannauxHorsMagasin
   // (feature métier : PDV comptoir ≠ hors-agence — si cassé, les 2 structures se chevauchent)
   console.assert(!_S.cannauxHorsMagasin.has('MAGASIN'),
     '[PRISME] cannauxHorsMagasin contient MAGASIN — dualité PDV/hors-agence corrompue');
@@ -517,14 +517,14 @@ export function assertPostParseInvariants() {
   console.assert(_broken === 0,
     '[PRISME] ' + _broken + ' articles avec V ou W non-numériques dans finalData');
 
-  // Invariant 6 : ventesClientHorsMagasin utilise le schéma ClientArticleFact (sumCA, pas ca)
+  // Invariant 6 : ventesLocalHorsMag utilise le schéma ClientArticleFact (sumCA, pas ca)
   // Si un entry contient encore l'ancien champ 'ca', la migration étape 2 n'a pas été appliquée.
-  if (_S.ventesClientHorsMagasin.size > 0) {
-    const _first = _S.ventesClientHorsMagasin.values().next().value;
+  if (_S.ventesLocalHorsMag.size > 0) {
+    const _first = _S.ventesLocalHorsMag.values().next().value;
     if (_first?.size > 0) {
       const _firstVal = _first.values().next().value;
       console.assert(typeof _firstVal?.sumCA === 'number',
-        '[PRISME] ventesClientHorsMagasin utilise encore l\'ancien schema {ca} — migration étape 2 requise');
+        '[PRISME] ventesLocalHorsMag utilise encore l\'ancien schema {ca} — migration étape 2 requise');
     }
   }
 }

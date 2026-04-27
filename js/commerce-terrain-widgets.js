@@ -18,14 +18,14 @@ function getOverviewCapteSet(){
   // Fallback legacy : anciennes sessions IDB sans index mensuels client/canal.
   if(!canal){
     const set=new Set(_S.clientsMagasin||[]);
-    if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())set.add(cc);
+    if(_S.ventesLocalHorsMag)for(const cc of _S.ventesLocalHorsMag.keys())set.add(cc);
     return set;
   }
   if(canal==='MAGASIN')return _S.clientsMagasin||new Set();
 
   const set=new Set();
-  if(_S.ventesClientHorsMagasin){
-    for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+  if(_S.ventesLocalHorsMag){
+    for(const[cc,artMap]of _S.ventesLocalHorsMag){
       for(const[,v]of artMap){if((v.canal||'')===canal){set.add(cc);break;}}
     }
   }
@@ -69,7 +69,7 @@ export function computeCommercialScorecard({ commercial, finalDataIndex, setRupt
         caPDV=(rec?.caPDV||0)+(rec?.caHors||0);
         if(_S.periodFilterStart||_S.periodFilterEnd)caDegraded=true;
       }else{
-        const hm=_S.ventesClientHorsMagasin?.get(cc);
+        const hm=_S.ventesLocalHorsMag?.get(cc);
         if(hm)for(const[,d]of hm){if((d.canal||'')===canal)caPDV+=d.sumCA||0;}
         if(_S.periodFilterStart||_S.periodFilterEnd)caDegraded=true;
       }
@@ -87,7 +87,7 @@ export function computeCommercialScorecard({ commercial, finalDataIndex, setRupt
   for(const cc of ccs){
     const info=_S.chalandiseData?.get(cc);
     if(!passesOverviewClient(info,cc,captePDVSet))continue;
-    const horArts=_S.ventesClientHorsMagasin?.get(cc);
+    const horArts=_S.ventesLocalHorsMag?.get(cc);
     if(!horArts)continue;
     for(const[code,d]of horArts){
       const ca=d.sumCA||0;
@@ -106,7 +106,7 @@ export function computeCommercialScorecard({ commercial, finalDataIndex, setRupt
   for(const cc of ccs){
     const info=_S.chalandiseData?.get(cc);
     if(!passesOverviewClient(info,cc,captePDVSet))continue;
-    if(_S.ventesClientArticle?.has(cc))comClientSet.add(cc);
+    if(_S.ventesLocalMagPeriode?.has(cc))comClientSet.add(cc);
   }
   let nbRupturesImpact=0,nbClientsImpactes=0;
   const ruptureClientSet=new Set();

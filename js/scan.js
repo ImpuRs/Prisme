@@ -79,9 +79,9 @@ async function loadData() {
       if (dataEffective?.finalData?.length) {
         _articles = new Map();
         for (const r of dataEffective.finalData) _articles.set(r.code, r);
-        if (dataEffective.ventesParMagasin) {
+        if (dataEffective.ventesParAgence) {
           const myStore = dataEffective.selectedMyStore || '';
-          const vpm = dataEffective.ventesParMagasin;
+          const vpm = dataEffective.ventesParAgence;
           const allStores = Object.keys(vpm);
           for (const [code, r] of _articles) {
             let reseauCount = 0, totalCA = 0, totalQte = 0, totalVMB = 0;

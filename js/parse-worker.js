@@ -586,12 +586,12 @@ async function _handleParseMessage(data) {
     var articleRaw = {};
     var monthlySales = {};
     var monthlySalesReseau = {};
-    var ventesParMagasin = {};
-    var ventesParMagasinByCanal = {};
-    var ventesClientArticle = new Map();
-    var ventesClientMagFull = new Map();
+    var ventesParAgence = {};
+    var ventesParAgenceByCanal = {};
+    var ventesLocalMagPeriode = new Map();
+    var ventesLocalMag12MG = new Map();
     var ventesReseauTousCanaux = new Map();
-    var ventesClientHorsMagasin = new Map();
+    var ventesLocalHorsMag = new Map();
     var ventesClientsPerStore = {};
     var caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
     var byMonthStoreClients = {}; // {store → {monthIdx → Set<cc>}} — pour rebuild période
@@ -630,7 +630,7 @@ async function _handleParseMessage(data) {
     var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
     var byMonthClientsByCanal = {}; // monthIdx → canal → Set<cc> — pour comptage clients par canal+période
     var byMonthClientCAByCanal = {}; // monthIdx → canal → {cc → sumCA} — CA client par canal+période (myStore)
-    var byMonthStoreArtCanal = {}; // store → canal → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBPrel} — pour rebuild ventesParMagasinByCanal filtré période
+    var byMonthStoreArtCanal = {}; // store → canal → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBPrel} — pour rebuild ventesParAgenceByCanal filtré période
 
     var rows = dataC.rows;
     var totalRows = rows.length;
@@ -892,7 +892,7 @@ async function _handleParseMessage(data) {
           var qteLigne_h = _rqp + _rqe;
           if (cc_h && codeArt_h && (!selectedStore || skHors === 'INCONNU' || skHors === selectedStore)) {
             cannauxHorsMagasin.add(canal);
-            var hm = ventesClientHorsMagasin.get(cc_h) || new Map();
+            var hm = ventesLocalHorsMag.get(cc_h) || new Map();
             var ex_h = hm.get(codeArt_h) || { sumCA: 0, sumPrelevee: 0, sumCAPrelevee: 0, sumCAP: 0, sumCAE: 0, countBL: 0, canal: canal };
             ex_h.sumCA += caLigne_h;
             ex_h.sumPrelevee += qteLigne_h;
@@ -901,7 +901,7 @@ async function _handleParseMessage(data) {
             ex_h.sumCAE += _rce;
             ex_h.countBL++;
             hm.set(codeArt_h, ex_h);
-            ventesClientHorsMagasin.set(cc_h, hm);
+            ventesLocalHorsMag.set(cc_h, hm);
           }
           // ventesClientsPerStore — hors-MAGASIN (period-filtered)
           if (_cc_bm_h && codeArt_h) {
@@ -919,26 +919,26 @@ async function _handleParseMessage(data) {
               _cbuDeferred.push({ store: _skCli_h, cc: _cc_bm_h, code: codeArt_h });
             }
           }
-          // ventesParMagasinByCanal
+          // ventesParAgenceByCanal
           if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
             var _storeKey_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
-            if (!ventesParMagasinByCanal[_storeKey_h]) ventesParMagasinByCanal[_storeKey_h] = {};
-            if (!ventesParMagasinByCanal[_storeKey_h][canal]) ventesParMagasinByCanal[_storeKey_h][canal] = {};
-            if (!ventesParMagasinByCanal[_storeKey_h][canal][codeArt_h]) ventesParMagasinByCanal[_storeKey_h][canal][codeArt_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
-            var _vpmc_h = ventesParMagasinByCanal[_storeKey_h][canal][codeArt_h];
+            if (!ventesParAgenceByCanal[_storeKey_h]) ventesParAgenceByCanal[_storeKey_h] = {};
+            if (!ventesParAgenceByCanal[_storeKey_h][canal]) ventesParAgenceByCanal[_storeKey_h][canal] = {};
+            if (!ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h]) ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            var _vpmc_h = ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h];
             _vpmc_h.sumCA += caLigne_h;
             _vpmc_h.sumPrelevee += _rcp;
             _vpmc_h.countBL++;
             _vpmc_h.sumVMB += _rvp + _rve;
             _vpmc_h.sumVMBPrel += _rvp;
-            // ventesParMagasin — accumuler hors-MAGASIN aussi (cohérence tous canaux)
-            if (!ventesParMagasin[_storeKey_h]) ventesParMagasin[_storeKey_h] = {};
-            if (!ventesParMagasin[_storeKey_h][codeArt_h]) ventesParMagasin[_storeKey_h][codeArt_h] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-            ventesParMagasin[_storeKey_h][codeArt_h].sumCA += caLigne_h;
-            if (_rqp > 0) ventesParMagasin[_storeKey_h][codeArt_h].sumPrelevee += _rqp;
-            if (_rqe > 0) ventesParMagasin[_storeKey_h][codeArt_h].sumEnleve += _rqe;
-            ventesParMagasin[_storeKey_h][codeArt_h].countBL++;
-            ventesParMagasin[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
+            // ventesParAgence — accumuler hors-MAGASIN aussi (cohérence tous canaux)
+            if (!ventesParAgence[_storeKey_h]) ventesParAgence[_storeKey_h] = {};
+            if (!ventesParAgence[_storeKey_h][codeArt_h]) ventesParAgence[_storeKey_h][codeArt_h] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+            ventesParAgence[_storeKey_h][codeArt_h].sumCA += caLigne_h;
+            if (_rqp > 0) ventesParAgence[_storeKey_h][codeArt_h].sumPrelevee += _rqp;
+            if (_rqe > 0) ventesParAgence[_storeKey_h][codeArt_h].sumEnleve += _rqe;
+            ventesParAgence[_storeKey_h][codeArt_h].countBL++;
+            ventesParAgence[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
           }
           // commandesPerStoreCanal — hors-MAGASIN
           if (_rncb) {
@@ -1020,10 +1020,10 @@ async function _handleParseMessage(data) {
         else { var ex_r = a.bls[nc]; if (Math.max(qteP, 0) > ex_r.p) ex_r.p = Math.max(qteP, 0); if (Math.max(qteE, 0) > ex_r.e) ex_r.e = Math.max(qteE, 0); }
       }
 
-      // ventesClientMagFull (pleine période, MAGASIN, myStore only)
+      // ventesLocalMag12MG (pleine période, MAGASIN, myStore only)
       if (!lowMem && cc2 && code && (!selectedStore || sk === selectedStore)) {
-        if (!ventesClientMagFull.has(cc2)) ventesClientMagFull.set(cc2, new Map());
-        var _artF = ventesClientMagFull.get(cc2);
+        if (!ventesLocalMag12MG.has(cc2)) ventesLocalMag12MG.set(cc2, new Map());
+        var _artF = ventesLocalMag12MG.get(cc2);
         if (!_artF.has(code)) _artF.set(code, { sumPrelevee: 0, sumCAPrelevee: 0, sumCA: 0, sumCAAll: 0, countBL: 0 });
         var _eF = _artF.get(code);
         if (qteP > 0) { _eF.sumPrelevee += qteP; _eF.sumCAPrelevee += caP; }
@@ -1073,17 +1073,17 @@ async function _handleParseMessage(data) {
         }
       }
 
-      // ventesParMagasin (PAS de filtre période — cohérent avec articleRaw)
+      // ventesParAgence (PAS de filtre période — cohérent avec articleRaw)
       if (storesIntersection.has(sk) || !storesIntersection.size) {
-        if (!ventesParMagasin[sk]) ventesParMagasin[sk] = {};
-        if (!ventesParMagasin[sk][code]) ventesParMagasin[sk][code] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-        if (qteP > 0) ventesParMagasin[sk][code].sumPrelevee += qteP;
-        if (qteE > 0) ventesParMagasin[sk][code].sumEnleve += qteE;
-        ventesParMagasin[sk][code].sumCA += caP + caE;
-        if (qteP > 0 || qteE > 0) ventesParMagasin[sk][code].countBL++;
-        ventesParMagasin[sk][code].sumVMB += _rvp + _rve;
+        if (!ventesParAgence[sk]) ventesParAgence[sk] = {};
+        if (!ventesParAgence[sk][code]) ventesParAgence[sk][code] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+        if (qteP > 0) ventesParAgence[sk][code].sumPrelevee += qteP;
+        if (qteE > 0) ventesParAgence[sk][code].sumEnleve += qteE;
+        ventesParAgence[sk][code].sumCA += caP + caE;
+        if (qteP > 0 || qteE > 0) ventesParAgence[sk][code].countBL++;
+        ventesParAgence[sk][code].sumVMB += _rvp + _rve;
         if (!lowMem && canal) {
-          var _bck = ventesParMagasin[sk][code];
+          var _bck = ventesParAgence[sk][code];
           if (!_bck.byCanal) _bck.byCanal = {};
           if (!_bck.byCanal[canal]) _bck.byCanal[canal] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
           var _bc = _bck.byCanal[canal];
@@ -1094,10 +1094,10 @@ async function _handleParseMessage(data) {
         }
         if (!lowMem && code && (!canal || canal === 'MAGASIN')) {
           var _canalKey = 'MAGASIN';
-          if (!ventesParMagasinByCanal[sk]) ventesParMagasinByCanal[sk] = {};
-          if (!ventesParMagasinByCanal[sk][_canalKey]) ventesParMagasinByCanal[sk][_canalKey] = {};
-          if (!ventesParMagasinByCanal[sk][_canalKey][code]) ventesParMagasinByCanal[sk][_canalKey][code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
-          var _vpmc2 = ventesParMagasinByCanal[sk][_canalKey][code];
+          if (!ventesParAgenceByCanal[sk]) ventesParAgenceByCanal[sk] = {};
+          if (!ventesParAgenceByCanal[sk][_canalKey]) ventesParAgenceByCanal[sk][_canalKey] = {};
+          if (!ventesParAgenceByCanal[sk][_canalKey][code]) ventesParAgenceByCanal[sk][_canalKey][code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+          var _vpmc2 = ventesParAgenceByCanal[sk][_canalKey][code];
           _vpmc2.sumCA += caP + caE;
           _vpmc2.sumPrelevee += caP;
           if (qteP > 0 || qteE > 0) _vpmc2.countBL++;
@@ -1160,10 +1160,10 @@ async function _handleParseMessage(data) {
         _clientMagasinBLsTemp.get(cc2).add(_nc4m);
       }
 
-      // ventesClientArticle (MAGASIN, myStore, période filtrée)
+      // ventesLocalMagPeriode (MAGASIN, myStore, période filtrée)
       if (cc2 && code && (!selectedStore || sk === selectedStore)) {
-        if (!ventesClientArticle.has(cc2)) ventesClientArticle.set(cc2, new Map());
-        var artMap = ventesClientArticle.get(cc2);
+        if (!ventesLocalMagPeriode.has(cc2)) ventesLocalMagPeriode.set(cc2, new Map());
+        var artMap = ventesLocalMagPeriode.get(cc2);
         if (!artMap.has(code)) artMap.set(code, { sumPrelevee: 0, sumCAPrelevee: 0, sumCA: 0, sumCAAll: 0, countBL: 0 });
         var e_vca = artMap.get(code);
         if (qteP > 0) { e_vca.sumPrelevee += qteP; e_vca.sumCAPrelevee += caP; }
@@ -1229,16 +1229,16 @@ async function _handleParseMessage(data) {
     if (!lowMem) {
       // ── Fusion sumCAAll ────────────────────────────────────────────────
       _tempCAAll.forEach(function(_arts, _cc) {
-        if (!ventesClientArticle.has(_cc)) return;
-        var _cMap = ventesClientArticle.get(_cc);
+        if (!ventesLocalMagPeriode.has(_cc)) return;
+        var _cMap = ventesLocalMagPeriode.get(_cc);
         _arts.forEach(function(_ca, _code) {
           var _e = _cMap.get(_code);
           if (_e) _e.sumCAAll += _ca;
         });
       });
       _tempCAAllFull.forEach(function(_arts, _cc) {
-        if (!ventesClientMagFull.has(_cc)) return;
-        var _cMap = ventesClientMagFull.get(_cc);
+        if (!ventesLocalMag12MG.has(_cc)) return;
+        var _cMap = ventesLocalMag12MG.get(_cc);
         _arts.forEach(function(_ca, _code) {
           var _e = _cMap.get(_code);
           if (_e) _e.sumCAAll += _ca;
@@ -1287,7 +1287,7 @@ async function _handleParseMessage(data) {
         sumFamParBL += blEntry.familles.size;
         blEntry.familles.forEach(function(fam) { famBLcount[fam] = (famBLcount[fam] || 0) + 1; });
       }
-      var _sd0 = ventesParMagasin[selectedStore] || {};
+      var _sd0 = ventesParAgence[selectedStore] || {};
       var _caCalc = Object.values(_sd0).reduce(function(s, v) { return s + (v.sumCA || 0); }, 0);
       var _vmbCalc = Object.values(_sd0).reduce(function(s, v) { return s + (v.sumVMB || 0); }, 0);
       ventesAnalysis = {
@@ -1500,11 +1500,11 @@ async function _handleParseMessage(data) {
     var abcMatrixData = computeABCFMR(finalData);
 
     // ── caAnnuel ──────────────────────────────────────────────────────────
-    // Full mode : depuis ventesClientArticle (MAGASIN).
-    // LowMem mode : fallback depuis ventesParMagasin (myStore) pour éviter les gros Maps clients.
+    // Full mode : depuis ventesLocalMagPeriode (MAGASIN).
+    // LowMem mode : fallback depuis ventesParAgence (myStore) pour éviter les gros Maps clients.
     if (!lowMem) {
       var _caByCode = new Map();
-      ventesClientArticle.forEach(function(artMap) {
+      ventesLocalMagPeriode.forEach(function(artMap) {
         artMap.forEach(function(data2, code2) {
           _caByCode.set(code2, (_caByCode.get(code2) || 0) + (data2.sumCA || 0));
         });
@@ -1513,7 +1513,7 @@ async function _handleParseMessage(data) {
         finalData[fdi3].caAnnuel = Math.round(_caByCode.get(finalData[fdi3].code) || 0);
       }
     } else {
-      var _sdCA = ventesParMagasin[selectedStore] || {};
+      var _sdCA = ventesParAgence[selectedStore] || {};
       for (var fdi4 = 0; fdi4 < finalData.length; fdi4++) {
         var _c = finalData[fdi4].code;
         finalData[fdi4].caAnnuel = Math.round((_sdCA[_c] && _sdCA[_c].sumCA) || 0);
@@ -1580,7 +1580,7 @@ async function _handleParseMessage(data) {
     // Payload : full vs lowMem (mobile) — on réduit drastiquement le structured clone.
     var payload = {
       finalData: finalData,
-      ventesParMagasin: ventesParMagasin,
+      ventesParAgence: ventesParAgence,
       storesFoundC: Array.from(storesFoundC),
       storesFoundS: Array.from(storesFoundS),
       storesIntersection: Array.from(storesIntersection),
@@ -1598,7 +1598,7 @@ async function _handleParseMessage(data) {
       payload.articleRaw = articleRaw;
       payload.monthlySales = monthlySales;
       payload.seasonalIndexReseau = seasonalIndexReseau;
-      payload.ventesParMagasinByCanal = ventesParMagasinByCanal;
+      payload.ventesParAgenceByCanal = ventesParAgenceByCanal;
       payload.ventesClientsPerStore = ventesClientsPerStoreSer;
       // clientsByStoreUnivers — sérialiser Sets → Arrays
       var _cbuSer = {};
@@ -1622,10 +1622,10 @@ async function _handleParseMessage(data) {
       payload.ventesAnalysis = ventesAnalysis;
       payload.headersC = headersC;
       // Maps sérialisées
-      payload.ventesClientArticle = serMap(ventesClientArticle);
-      payload.ventesClientMagFull = serMap(ventesClientMagFull);
+      payload.ventesLocalMagPeriode = serMap(ventesLocalMagPeriode);
+      payload.ventesLocalMag12MG = serMap(ventesLocalMag12MG);
       payload.ventesReseauTousCanaux = serMap(ventesReseauTousCanaux);
-      payload.ventesClientHorsMagasin = serMap(ventesClientHorsMagasin);
+      payload.ventesLocalHorsMag = serMap(ventesLocalHorsMag);
       payload.clientLastOrder = Array.from(clientLastOrder).map(function(kv) { return [kv[0], kv[1] instanceof Date ? kv[1].getTime() : kv[1]]; });
       payload.clientLastOrderAll = Array.from(clientLastOrderAll).map(function(kv) { return [kv[0], { date: kv[1].date instanceof Date ? kv[1].date.getTime() : kv[1].date, canal: kv[1].canal }]; });
       payload.clientLastOrderByCanal = serMap(clientLastOrderByCanal);

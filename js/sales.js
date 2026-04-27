@@ -11,25 +11,25 @@ import { _S } from './state.js';
 /**
  * MAGASIN — période filtrée (période UI).
  *
- * Note : selon le canal global actif, ventesClientArticle peut être reconstruite
+ * Note : selon le canal global actif, ventesLocalMagPeriode peut être reconstruite
  * (ex: filtre canal hors-MAGASIN), donc c'est une "vue active" et non une source brute.
  */
 export function getVentesClientMagFiltered() {
-  return _S.ventesClientArticle;
+  return _S.ventesLocalMagPeriode;
 }
 
 /**
  * MAGASIN — pleine période (12MG), si disponible.
- * Fallback legacy : ventesClientArticle (anciennes sessions / caches).
+ * Fallback legacy : ventesLocalMagPeriode (anciennes sessions / caches).
  */
 export function getVentesClientMagFull() {
-  const m = _S.ventesClientMagFull;
+  const m = _S.ventesLocalMag12MG;
   if (m && m.size) return m;
-  return _S.ventesClientArticle;
+  return _S.ventesLocalMagPeriode;
 }
 
 export function hasVentesClientMagFull() {
-  return !!(_S.ventesClientMagFull && _S.ventesClientMagFull.size);
+  return !!(_S.ventesLocalMag12MG && _S.ventesLocalMag12MG.size);
 }
 
 /**
@@ -55,8 +55,8 @@ export function getClientCAFullAllCanaux(cc, storeCode = '') {
 /**
  * Helper : fact client×article.
  *
- * canal='MAGASIN' => ventesClientArticle / ventesClientMagFull
- * canal!='MAGASIN' => ventesClientHorsMagasin (agrégé; pas de découpage mensuel aujourd'hui)
+ * canal='MAGASIN' => ventesLocalMagPeriode / ventesLocalMag12MG
+ * canal!='MAGASIN' => ventesLocalHorsMag (agrégé; pas de découpage mensuel aujourd'hui)
  *
  * @param {string} cc
  * @param {string} code
@@ -73,7 +73,7 @@ export function getClientArticleFact(cc, code, opts = {}) {
   }
 
   // Hors MAGASIN : le fact porte un .canal (dernier canal vu). Filtrage best-effort.
-  const hm = _S.ventesClientHorsMagasin?.get(cc);
+  const hm = _S.ventesLocalHorsMag?.get(cc);
   if (!hm) return null;
   const fact = hm.get(code) || null;
   if (!fact) return null;
@@ -336,7 +336,7 @@ export function getClientCAByCanalInPeriod(cc, canal = '', opts = {}) {
 
 // ── Clients actifs (période) depuis byMonthClients* ──────────────────────
 // Problème : quand on restaure depuis IDB et qu'on change la période, les
-// agrégats period-filtered (ex: ventesClientHorsMagasin) ne sont pas
+// agrégats period-filtered (ex: ventesLocalHorsMag) ne sont pas
 // reconstruits. Ces helpers donnent un Set<cc> exact par période/canal,
 // sans re-parser les fichiers.
 

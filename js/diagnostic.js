@@ -226,10 +226,10 @@ function _renderClient360(clientCode,source){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const _csRec=_S.clientStore?.get(clientCode);
   const nom=_csRec?.nom||info.nom||clientCode;
-  const artMapPeriod=DataStore.ventesClientArticle?.get(clientCode);
-  const artMapFull=_S.ventesClientMagFull?.get(clientCode);
+  const artMapPeriod=DataStore.ventesLocalMagPeriode?.get(clientCode);
+  const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
-  const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
+  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
   // All-channels last order: prefer clientStore (pre-aggregated)
   const _rec=_S.clientStore?.get(clientCode);
@@ -425,7 +425,7 @@ function _renderClient360(clientCode,source){
   // Articles F/M (fréquents) + volume moyen faible = typiquement dépannage/proximité
   if(caSociete>0){
     let caCompat=0,caTotal=0;
-    // Sources : artMapFull (PDV pleine période) + ventesClientHorsMagasin
+    // Sources : artMapFull (PDV pleine période) + ventesLocalHorsMag
     const _allArts=new Map();
     if(artMapFull)for(const[code,d]of artMapFull){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
     if(horsMag)for(const[code,d]of horsMag){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
@@ -728,10 +728,10 @@ function _c360SwitchTab(clientCode,tabId){
 function _c360CopyResume(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
-  const _artP=DataStore.ventesClientArticle?.get(clientCode);
-  const _artF=_S.ventesClientMagFull?.get(clientCode);
+  const _artP=DataStore.ventesLocalMagPeriode?.get(clientCode);
+  const _artF=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);
-  const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
+  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
   const _rec2=_S.clientStore?.get(clientCode);
   const caPDV=_rec2?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const caHors=_rec2?.caHors||(horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
@@ -789,13 +789,13 @@ function openArticlePanel(code,source){
     const fam=_S.articleFamille?.[code]||'';
     let nbBL=0;
     const kitRows=[];
-    for(const [ag,arts] of Object.entries(_S.ventesParMagasin||{})){
+    for(const [ag,arts] of Object.entries(_S.ventesParAgence||{})){
       if(arts[code]){const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];kitRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
     }
     kitRows.sort((a,b)=>b.ca-a.ca);
     const nbAgKit = kitRows.length;
 
-    // Réseau : par défaut (historique) = MAGASIN pleine période via ventesParMagasin.
+    // Réseau : par défaut (historique) = MAGASIN pleine période via ventesParAgence.
     // Depuis Duel Agence, on préfère afficher la période active PRISME + tous canaux
     // (sinon on voit des CA "qui baissent" en ouvrant la fiche).
     let agRows = kitRows;
@@ -845,7 +845,7 @@ function openArticlePanel(code,source){
       // Calculer la médiane qté/BL sur tout le réseau pour l'écrêtage
       const allQtePerBL=[];
       for(const a of kitRows){
-        const v=_S.ventesParMagasin?.[a.ag]?.[code];
+        const v=_S.ventesParAgence?.[a.ag]?.[code];
         if(v&&v.countBL>0&&v.sumPrelevee>0) allQtePerBL.push((v.sumPrelevee)/v.countBL);
       }
       allQtePerBL.sort((a,b)=>a-b);
@@ -853,7 +853,7 @@ function openArticlePanel(code,source){
       const capQBL=Math.max(medQBL*3,1); // cap à 3× la médiane
       let totQte=0,totBL=0,totCA=0;
       for(const a of top3){
-        const v=_S.ventesParMagasin?.[a.ag]?.[code];
+        const v=_S.ventesParAgence?.[a.ag]?.[code];
         if(v&&v.countBL>0){
           const rawQBL=(v.sumPrelevee||0)/v.countBL;
           const clippedQBL=Math.min(rawQBL,capQBL);
@@ -941,8 +941,8 @@ function openArticlePanel(code,source){
   let buyerList=[];
   if(buyers&&buyers.size){
     for(const cc of buyers){
-      const _magCA=((DataStore.ventesClientArticle.get(cc)||new Map()).get(code)||{}).sumCA||0;
-      const _hmCA=((_S.ventesClientHorsMagasin?.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _magCA=((DataStore.ventesLocalMagPeriode.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _hmCA=((_S.ventesLocalHorsMag?.get(cc)||new Map()).get(code)||{}).sumCA||0;
       const caArt=_magCA+_hmCA;
       const rec=_S.clientStore?.get(cc);
       const lastDate=rec?.lastOrderPDV||null;
@@ -997,9 +997,9 @@ function openArticlePanel(code,source){
         rows.push({ag,ca,bl,min:minAg,max:maxAg});
       }
       title='🏪 Réseau (période PRISME · tous canaux)';
-    }else if(_S.ventesParMagasin){
+    }else if(_S.ventesParAgence){
       // Défaut : MAGASIN pleine période (historique)
-      for(const [ag,arts] of Object.entries(_S.ventesParMagasin)){
+      for(const [ag,arts] of Object.entries(_S.ventesParAgence)){
         if(ag===_S.selectedMyStore)continue;
         const d=arts?.[code];
         if(!d)continue;
@@ -1053,7 +1053,7 @@ function openArticlePanel(code,source){
   const _famSpk = _familySparkline(r.famille);
   const _seasonR = _seasonRibbon(r.famille);
   // Marge
-  const vpm = _S.ventesParMagasin?.[_S.selectedMyStore]?.[code];
+  const vpm = _S.ventesParAgence?.[_S.selectedMyStore]?.[code];
   const duelStats = _isDuelScope ? _getDuelArticlePeriodStats(_S.selectedMyStore,code) : null;
   const periodStats = duelStats || _getArticlePeriodStats(code);
   const artCA = periodStats ? periodStats.ca : (vpm?.sumCA || r.caAnnuel || 0);
@@ -1231,8 +1231,8 @@ window._diagAFSwitchTab = function(tab) {
 function _diagAFRenderStock(famille,v1) {
   const famArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
   let caFam=0;
-  if(DataStore.ventesClientArticle?.size){
-    for(const[,artMap]of DataStore.ventesClientArticle){
+  if(DataStore.ventesLocalMagPeriode?.size){
+    for(const[,artMap]of DataStore.ventesLocalMagPeriode){
       for(const[code,d]of artMap){if(famArts.has(code))caFam+=(d.sumCA||0);}
     }
   }
@@ -1325,8 +1325,8 @@ function _diagCellRenderStock(key,v1) {
   const cellArts=_S._diagCellArts||[];
   const artSet=new Set(cellArts.map(r=>r.code));
   let caFam=0;
-  if(DataStore.ventesClientArticle?.size){
-    for(const[,artMap]of DataStore.ventesClientArticle){
+  if(DataStore.ventesLocalMagPeriode?.size){
+    for(const[,artMap]of DataStore.ventesLocalMagPeriode){
       for(const[code,d]of artMap){if(artSet.has(code))caFam+=(d.sumCA||0);}
     }
   }
@@ -1359,8 +1359,8 @@ function _diagCellRenderClientele(key,v2) {
   // ── Cross-Sell Inversé : gros clients qui boudent cette case ──
   // 1. Calculer CA total PDV + CA sur cette case pour chaque client
   const clientStats=[];
-  if(DataStore.ventesClientArticle?.size){
-    for(const[cc,artMap]of DataStore.ventesClientArticle){
+  if(DataStore.ventesLocalMagPeriode?.size){
+    for(const[cc,artMap]of DataStore.ventesLocalMagPeriode){
       const info=_S.chalandiseData?.get(cc);
       if(!info)continue;
       let caTotal=0, caCase=0, nbArtCase=0;
@@ -1537,12 +1537,12 @@ function _renderDiagnosticCellPanel(key,cellArts){
         const pct=Math.round(buyerSet.size/totalBuyers*100);
         // Actifs : uniquement les clients qui achètent des articles de la case
         const actifClients=[];
-        for(const cc of buyerSet){const info=_S.chalandiseData.get(cc);if(!info)continue;const myData=DataStore.ventesClientArticle.get(cc);const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;actifClients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca2025:info.ca2025||0,famCA});}
+        for(const cc of buyerSet){const info=_S.chalandiseData.get(cc);if(!info)continue;const myData=DataStore.ventesLocalMagPeriode.get(cc);const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;actifClients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca2025:info.ca2025||0,famCA});}
         actifClients.sort((a,b)=>b.famCA-a.famCA||b.ca2025-a.ca2025);
         const caActifs=actifClients.reduce((s,c)=>s+c.famCA,0);
         // Perdus pertinents (reconquête) vs Prospects métier (conquête)
         let pertinentPerdus=0,prospectMetier=0,potentiel=0;
-        for(const[cc,info] of _S.chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=DataStore.ventesClientArticle.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>{const artFam=_S.articleFamille[artCode];return artFam&&cellFamSet.has(artFam);});if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>{const f=_S.articleFamille[c];return f&&cellFamSet.has(f);}).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
+        for(const[cc,info] of _S.chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=DataStore.ventesLocalMagPeriode.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>{const artFam=_S.articleFamille[artCode];return artFam&&cellFamSet.has(artFam);});if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>{const f=_S.articleFamille[c];return f&&cellFamSet.has(f);}).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
         return{metier,pct,total:buyerSet.size,actifs:actifClients.filter(c=>c.famCA>0).length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
       });
       const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
@@ -1560,7 +1560,7 @@ function _renderDiagnosticCellPanel(key,cellArts){
     const nbOtherStores=_S.storesIntersection.size-1;
     for(const store of _S.storesIntersection){
       if(store===_S.selectedMyStore)continue;
-      const sv=_S.ventesParMagasin[store]||{};let cnt=0;
+      const sv=_S.ventesParAgence[store]||{};let cnt=0;
       for(const[code,sv2] of Object.entries(sv)){if(!cellFamSet.has(_S.articleFamille[code]))continue;if((sv2.countBL||0)>0)cnt++;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(sv2.countBL||0);if(!artStorePrelevee[code])artStorePrelevee[code]=[];artStorePrelevee[code].push({sumPrelevee:sv2.sumPrelevee||0,countBL:sv2.countBL||0});}
       if(cnt>0)storeRefCounts.push(cnt);
     }
@@ -1690,11 +1690,11 @@ function _diagLevel2(famille,hasBench,refStore){
   const sousD=arts.filter(r=>r.ancienMin>0&&r.nouveauMin>r.ancienMin);
   let sousPerf=[];
   if(hasBench&&refStore){
-    const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};
-    const refV=_S.ventesParMagasin[refStore]||{};
+    const myV=_S.ventesParAgence[_S.selectedMyStore]||{};
+    const refV=_S.ventesParAgence[refStore]||{};
     for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
   }
-  const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(_S.ventesParMagasin[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
+  const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(_S.ventesParAgence[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
   const nb=nonCal.length+sousD.length;
   return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
 }
@@ -1730,7 +1730,7 @@ function _diagVoyant2(famille,hasChal,metierFilter){
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(info.metier!==metier)continue;
       if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
-      const myData=DataStore.ventesClientArticle.get(cc);
+      const myData=DataStore.ventesLocalMagPeriode.get(cc);
       const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
@@ -1869,7 +1869,7 @@ function _diagVoyant3(famille,hasMulti){
   // Price lookup (my DataStore.finalData)
   const prixLookup={};for(const r of DataStore.finalData)prixLookup[r.code]=r.prixUnitaire||0;
   // My arts + my CA for this famille
-  const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};
+  const myV=_S.ventesParAgence[_S.selectedMyStore]||{};
   const myArts=new Set();let myCA=0;
   for(const[code,data] of Object.entries(myV)){
     if(famLib(_S.articleFamille[code]||'')!==famille)continue;
@@ -1879,7 +1879,7 @@ function _diagVoyant3(famille,hasMulti){
   // Per-store CA + article presence counts
   const artStoreCnt={},artStoreFreqs={},artStoreCAs={},storeCAs=[];
   for(const store of cs){
-    const sv=_S.ventesParMagasin[store]||{};let storeCA=0;
+    const sv=_S.ventesParAgence[store]||{};let storeCA=0;
     for(const[code,data] of Object.entries(sv)){
       if(famLib(_S.articleFamille[code]||'')!==famille)continue;
       const codeCA=data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0);
@@ -2000,7 +2000,7 @@ function _diagLevel3(famille,hasBench,hasTerr,refStore){
   if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Le Terrain ou des données multi-agences pour activer l\'analyse de gamme'};
   const myArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
   if(hasBench&&refStore){
-    const refV=_S.ventesParMagasin[refStore]||{};
+    const refV=_S.ventesParAgence[refStore]||{};
     const refArts=Object.keys(refV).filter(c=>famLib(_S.articleFamille[c])===famille);
     const missing=refArts.filter(c=>!myArts.has(c)).map(c=>{
       const refF=refV[c]?.countBL||0;const lib=_S.libelleLookup[c]||c;
@@ -2121,7 +2121,7 @@ function _diagLevel4MetierMode(metier,hasChal){
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(info.metier!==metier)continue;
     if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
-    const myData=DataStore.ventesClientArticle.get(cc);
+    const myData=DataStore.ventesLocalMagPeriode.get(cc);
     const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
     const prio=_diagClientPrio(info,famCA);
     clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
@@ -2206,7 +2206,7 @@ function _diagLevel4(famille,hasChal,metierFilter){
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(info.metier!==metier)continue;
       if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
-      const myData=DataStore.ventesClientArticle.get(cc);
+      const myData=DataStore.ventesLocalMagPeriode.get(cc);
       const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});

@@ -351,7 +351,7 @@ export function switchTab(id) {
       const skFn = skeletonMap[id];
       if (skFn && tab) tab.innerHTML = `<div class="container mx-auto mt-3 p-4 md:p-5">${skFn()}</div>`;
       renderCurrentTab();
-    } else if (!_S._tabRendered[id] && _S.ventesClientArticle?.size > 0) {
+    } else if (!_S._tabRendered[id] && _S.ventesLocalMagPeriode?.size > 0) {
       renderCurrentTab();
     }
   }
@@ -1076,8 +1076,8 @@ export function _cmdBuildResults(q) {
 }
 
 export function _cmdClientCA(code) {
-  if (typeof DataStore.ventesClientArticle === 'undefined') return '';
-  const arts = DataStore.ventesClientArticle.get(code);
+  if (typeof DataStore.ventesLocalMagPeriode === 'undefined') return '';
+  const arts = DataStore.ventesLocalMagPeriode.get(code);
   if (!arts) return '';
   let total = 0;
   for (const v of arts.values()) total += (v.sumCA || 0);
@@ -1156,7 +1156,7 @@ export function showSilencieux60() {
       const chal = _S.chalandiseData?.get(cc);
       let ca = chal?.caPDVN || 0;
       if (!ca) {
-        const artMap = _S.ventesClientArticle?.get(cc);
+        const artMap = _S.ventesLocalMagPeriode?.get(cc);
         if (artMap) artMap.forEach(v => { ca += (v.sumCAPrelevee || v.sumCA || 0); });
       }
       const nom = chal?.nom || cc;
@@ -1520,7 +1520,7 @@ export function exportAgenceSnapshot() {
   let captationScore = 100, caPDVtot = 0, caFuyantTot = 0;
   if (_S.famillesHors?.length > 0) {
     caFuyantTot = _S.famillesHors.reduce((s, f) => s + (f.caHors || 0), 0);
-    if (_S.ventesClientArticle) for (const [, arts] of _S.ventesClientArticle) for (const [, v] of arts) caPDVtot += (v.sumCA || 0);
+    if (_S.ventesLocalMagPeriode) for (const [, arts] of _S.ventesLocalMagPeriode) for (const [, v] of arts) caPDVtot += (v.sumCA || 0);
     const tot = caPDVtot + caFuyantTot;
     captationScore = tot > 0 ? Math.round(100 * caPDVtot / tot) : 100;
   }
@@ -1744,7 +1744,7 @@ export function renderTabBadges() {
     } else {
       const nowTs = Date.now();
       for (const [cc, dt] of _S.clientLastOrder) {
-        if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
+        if ((nowTs - dt) > 90 * 86400000 && _S.ventesLocalMagPeriode?.has(cc)) silentCount++;
       }
     }
     if (silentCount > 0) {

@@ -19,7 +19,7 @@ function _passesAllFilters(cc){
   if(view==='potentiels'&&_S.chalandiseData?.has(cc))return false;
   if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
   if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
-  if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
+  if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesLocalHorsMag?.get(cc);const m2=_S.ventesLocalMagPeriode?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
   if(view==='dormants'){const _r=_S.clientStore?.get(cc);const silence=_r?.silenceDaysPDV??(_S.clientLastOrder?.get(cc)?Math.round((Date.now()-_S.clientLastOrder.get(cc))/86400000):999);if(silence<=180)return false;}
   if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
   return true;
@@ -44,13 +44,13 @@ function _passesAllFilters(cc){
         if(!_clientPassesFilters(info,cc))continue;
         if(_S._omniSegmentFilter){const _seg=_S.clientOmniScore?.get(cc)?.segment;if(_seg!==_S._omniSegmentFilter)continue;}
         _nbF++;
-        const _mag=_S.ventesClientArticle.get(cc);
+        const _mag=_S.ventesLocalMagPeriode.get(cc);
         if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}
-        const _hors=_S.ventesClientHorsMagasin.get(cc);
+        const _hors=_S.ventesLocalHorsMag.get(cc);
         if(_hors){for(const d of _hors.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caP+=(d.sumCAP||0);_local[_c].caE+=(d.sumCAE||0);}}
       }
       // Segment filter: also count clients NOT in chalandise but in clientOmniScore
-      if(_S._omniSegmentFilter&&_S.clientOmniScore){for(const[cc,o]of _S.clientOmniScore){if(_S.chalandiseData.has(cc))continue;if(o.segment!==_S._omniSegmentFilter)continue;_nbF++;const _mag=_S.ventesClientArticle.get(cc);if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}const _hors2=_S.ventesClientHorsMagasin.get(cc);if(_hors2){for(const d of _hors2.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caP+=(d.sumCAP||0);_local[_c].caE+=(d.sumCAE||0);}}}}
+      if(_S._omniSegmentFilter&&_S.clientOmniScore){for(const[cc,o]of _S.clientOmniScore){if(_S.chalandiseData.has(cc))continue;if(o.segment!==_S._omniSegmentFilter)continue;_nbF++;const _mag=_S.ventesLocalMagPeriode.get(cc);if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}const _hors2=_S.ventesLocalHorsMag.get(cc);if(_hors2){for(const d of _hors2.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caP+=(d.sumCAP||0);_local[_c].caE+=(d.sumCAE||0);}}}}
       _canalData=_local;
       const _segLbl=_S._omniSegmentFilter?(SEG_LABELS[_S._omniSegmentFilter]||''):'';
       if(_subtitleEl)_subtitleEl.textContent=`Filtré sur ${_nbF.toLocaleString('fr-FR')} client${_nbF>1?'s':''}${_segLbl?' · '+_segLbl:''}`;
@@ -347,10 +347,10 @@ function _passesAllFilters(cc){
   function computePhantomArticles(){
     _S.phantomArticles=[];if(!_S.cockpitLists?.phantom)return;_S.cockpitLists.phantom.clear();
     if(!DataStore.finalData.length)return;
-    // soldAtPDV = articles vendus en MAGASIN uniquement (ventesClientArticle = canal MAGASIN)
-    // _S.articleClients agrège tous canaux — utiliser ventesClientArticle (filtré MAGASIN) à la place
+    // soldAtPDV = articles vendus en MAGASIN uniquement (ventesLocalMagPeriode = canal MAGASIN)
+    // _S.articleClients agrège tous canaux — utiliser ventesLocalMagPeriode (filtré MAGASIN) à la place
     const soldAtPDV=new Set();
-    for(const[,artMap]of DataStore.ventesClientArticle.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
+    for(const[,artMap]of DataStore.ventesLocalMagPeriode.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
     _S.phantomArticles=DataStore.finalData.filter(r=>r.stockActuel>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }

@@ -201,12 +201,12 @@ function _buildChalDirBlock(blkEl) {
     // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
     if(!_cdCanal){
       cmSet=new Set(_S.clientsMagasin||[]);
-      if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())cmSet.add(cc);
+      if(_S.ventesLocalHorsMag)for(const cc of _S.ventesLocalHorsMag.keys())cmSet.add(cc);
     }else if(_cdCanal==='MAGASIN'){
       cmSet=_S.clientsMagasin||new Set();
     }else{
       cmSet=new Set();
-      if(_S.ventesClientHorsMagasin)for(const[cc,artMap] of _S.ventesClientHorsMagasin){for(const[,v] of artMap){if((v.canal||'')===_cdCanal){cmSet.add(cc);break;}}}
+      if(_S.ventesLocalHorsMag)for(const[cc,artMap] of _S.ventesLocalHorsMag){for(const[,v] of artMap){if((v.canal||'')===_cdCanal){cmSet.add(cc);break;}}}
     }
   }
   const _cdLabel=_cdCanal?(_CANAL_LABELS_OV[_cdCanal]||_cdCanal):'PDV';
@@ -500,7 +500,7 @@ window._ccc = (di,mi,ci) => {
     const hasTerr=_hasTerritoire();
     const hasChal=DataStore.chalandiseReady;
     const hasData=DataStore.finalData.length>0;
-    const hasConsomme=_S.ventesClientArticle.size>0;
+    const hasConsomme=_S.ventesLocalMagPeriode.size>0;
     const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
     let crossCaptes=0,crossFideles=0,crossPotentiels=0;
     const hasCross=!!_S.crossingStats;
@@ -551,7 +551,7 @@ window._ccc = (di,mi,ci) => {
           caPDV=rec.caPDV||0;caHors=rec.caHors||0;
         }else{
           // Canal spécifique hors-MAGASIN — besoin du détail par canal
-          const horsMap=_S.ventesClientHorsMagasin?.get(rec.cc);
+          const horsMap=_S.ventesLocalHorsMag?.get(rec.cc);
           if(horsMap){let ca=0;for(const v of horsMap.values())if(v.canal===_gCanal)ca+=v.sumCA||0;caPDV=ca;}
           caHors=0;caTotal=caPDV;
         }
@@ -573,7 +573,7 @@ window._ccc = (di,mi,ci) => {
         // ── Digitaux en fuite (acheteurs hors-magasin silencieux PDV) ──
         if((rec.caHors||0)>=200&&rec.isPDVActif&&(rec.silenceDaysPDV||0)>=90){
           // Besoin du détail canal pour mainCanal
-          const horsMap=_S.ventesClientHorsMagasin?.get(rec.cc);
+          const horsMap=_S.ventesLocalHorsMag?.get(rec.cc);
           if(horsMap){
             const canalCA={};for(const v of horsMap.values()){canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
             const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
@@ -847,7 +847,7 @@ window._ccc = (di,mi,ci) => {
         const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
         for(const cc of buyers){
           const nom=_S.clientStore?.get(cc)?.nom||cc;
-          const caArt=(DataStore.ventesClientArticle.get(cc)||new Map()).get(art.code);
+          const caArt=(DataStore.ventesLocalMagPeriode.get(cc)||new Map()).get(art.code);
           if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
           const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
         }
@@ -864,7 +864,7 @@ window._ccc = (di,mi,ci) => {
   function renderMesClients(){
     const el=document.getElementById('tabClients');
     if(!el)return;
-    if(!_S.ventesClientArticle.size && !_S.finalData.length){
+    if(!_S.ventesLocalMagPeriode.size && !_S.finalData.length){
       el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
       return;
     }
@@ -1237,7 +1237,7 @@ function _onTerrClientSearch(){
     // Si c'est un code client connu → ouvrir directement Client 360
     if(raw && /^\d{4,}$/.test(raw)){
       const cc=raw;
-      const known=_S.chalandiseData?.has(cc)||_S.clientNomLookup?.[cc]||_S.clientStore?.has(cc)||_S.ventesClientArticle?.has(cc);
+      const known=_S.chalandiseData?.has(cc)||_S.clientNomLookup?.[cc]||_S.clientStore?.has(cc)||_S.ventesLocalMagPeriode?.has(cc);
       if(known){
         document.getElementById('terrSearch').value='';
         _S._terrClientSearch='';
@@ -1635,13 +1635,13 @@ function _buildChalandiseOverviewInner(force){
       // Tous canaux : clientsMagasin (period-filtered, comportement d'origine)
       _captePDVSet=new Set(_S.clientsMagasin||[]);
       // + hors-MAGASIN period-filtered
-      if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())_captePDVSet.add(cc);
+      if(_S.ventesLocalHorsMag)for(const cc of _S.ventesLocalHorsMag.keys())_captePDVSet.add(cc);
     }else if(_oCanal==='MAGASIN'){
       _captePDVSet=_S.clientsMagasin||new Set();
     }else{
-      // Hors-MAGASIN : ventesClientHorsMagasin filtré par canal (period-filtered comme clientsMagasin)
+      // Hors-MAGASIN : ventesLocalHorsMag filtré par canal (period-filtered comme clientsMagasin)
       _captePDVSet=new Set();
-      if(_S.ventesClientHorsMagasin)for(const[cc,artMap] of _S.ventesClientHorsMagasin){for(const[,v] of artMap){if((v.canal||'')===_oCanal){_captePDVSet.add(cc);break;}}}
+      if(_S.ventesLocalHorsMag)for(const[cc,artMap] of _S.ventesLocalHorsMag){for(const[,v] of artMap){if((v.canal||'')===_oCanal){_captePDVSet.add(cc);break;}}}
     }
   }
   _overviewCaptePDVSet=_captePDVSet; // share with L2 renderer
@@ -1811,11 +1811,11 @@ installConqueteOverviewController(_conqueteOverviewController);
 function _toggleClientArticles(row,clientCode){
   const nextRow=row.nextElementSibling;
   if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
-  // [Adapter Étape 5] — territoireLines / finalData / ventesClientArticle : canal-invariants
+  // [Adapter Étape 5] — territoireLines / finalData / ventesLocalMagPeriode : canal-invariants
   const hasTerr=_hasTerritoire();
   const stockMap=_getFinalDataIndex();
-  // Section 1 : achats comptoir (DataStore.ventesClientArticle — MAGASIN/myStore only)
-  const artData=DataStore.ventesClientArticle.get(clientCode);
+  // Section 1 : achats comptoir (DataStore.ventesLocalMagPeriode — MAGASIN/myStore only)
+  const artData=DataStore.ventesLocalMagPeriode.get(clientCode);
   let comptoirArts=[];
   if(artData&&artData.size>0){
     comptoirArts=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
@@ -1898,7 +1898,7 @@ function _setPDVCanalFilter(val){
 
 function _buildDegradedCockpit(){
   const el=document.getElementById('terrDegradedBlock');if(!el)return;
-  if(!DataStore.finalData.length && !_S.ventesClientArticle.size)return;
+  if(!DataStore.finalData.length && !_S.ventesLocalMagPeriode.size)return;
   _populateTerrFamilleFilter();
   const qClient=_S._terrClientSearch||'';
   const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
@@ -1910,11 +1910,11 @@ function _buildDegradedCockpit(){
   const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
   let _clientArtMap;
   if(_isNonMagasin){
-    // Canaux hors MAGASIN : utiliser ventesClientHorsMagasin directement (v.sumCA = total non-MAGASIN)
+    // Canaux hors MAGASIN : utiliser ventesLocalHorsMag directement (v.sumCA = total non-MAGASIN)
     // Ne pas filtrer par articleCanalCA — ce filtre pouvait vider _clientArtMap si articleCanalCA
     // n'était pas peuplé (ex. lignes sans N° commande), ce qui faisait disparaître tout le bloc.
     _clientArtMap=new Map();
-    for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+    for(const[cc,artMap] of _S.ventesLocalHorsMag.entries()){
       const filtered=new Map();
       for(const[artCode,v] of artMap.entries()){
         if(v.sumCA>0)filtered.set(artCode,{sumCA:v.sumCA,sumCAPrelevee:v.sumCAPrelevee||0,sumCAAll:v.sumCA,sumPrelevee:v.sumPrelevee||0,countBL:v.countBL||0});
@@ -1922,7 +1922,7 @@ function _buildDegradedCockpit(){
       if(filtered.size>0)_clientArtMap.set(cc,filtered);
     }
   }else{
-    _clientArtMap=DataStore.ventesClientArticle;
+    _clientArtMap=DataStore.ventesLocalMagPeriode;
   }
   // Silencieux >30j — MAGASIN uniquement (via clientStore.silenceDaysPDV)
   const silencieux=[];
@@ -2001,7 +2001,7 @@ function _buildCockpitClient(force){
   }
   function _hasLostCapitaine(cc){
     if(!_socleCodes)return false;
-    const fullArts=_S.ventesClientMagFull?.get(cc);
+    const fullArts=_S.ventesLocalMag12MG?.get(cc);
     if(!fullArts)return false;
     for(const[code] of fullArts){if(_socleCodes.has(code))return true;}
     return false;
@@ -2332,13 +2332,13 @@ function _toggleHorsMagasin(btn, cc) {
   const existing = document.getElementById(existingId);
   if (existing) { existing.remove(); return; }
 
-  const artMap = _S.ventesClientHorsMagasin.get(cc);
+  const artMap = _S.ventesLocalHorsMag.get(cc);
   if (!artMap || !artMap.size) return;
 
   const CANAL_LABELS = { INTERNET:'🌐 Web', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS' };
 
   // Filtrer articles déjà vendus en MAGASIN à ce client
-  const magasinArts = DataStore.ventesClientArticle.get(cc) || new Map();
+  const magasinArts = DataStore.ventesLocalMagPeriode.get(cc) || new Map();
 
   let rows = '';
   for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].sumCA - a[1].sumCA)) {
