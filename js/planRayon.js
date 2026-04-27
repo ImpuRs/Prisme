@@ -4903,7 +4903,7 @@ function _prTopTabBar() {
       ${tab('metier', '🎯', 'Pilotage Métier')}
       ${_S.storesIntersection?.size > 1 ? tab('palmares', '🏆', 'Palmarès Réseau') : ''}
     </div>
-    <div class="relative py-2">
+    <div class="relative py-2" ${_prTopView !== 'famille' ? 'style="display:none"' : ''}>
       <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
         autocomplete="off"
         class="w-full px-3 py-2 pr-8 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
