@@ -5030,6 +5030,58 @@ function _prComputeMetierFull(metier) {
     }
   }
 
+  // ── Enrichir avec données réseau (articles vendus par d'autres agences, mêmes familles) ──
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const metierFams = new Set();
+  for (const [, e] of enriched) if (e.codeFam) metierFams.add(e.codeFam);
+
+  // Compter réseau par article (toutes familles du métier)
+  const _resByCode = new Map(); // code → {nbAg, ca}
+  for (const store in vpm) {
+    if (store === myStore) continue;
+    const arts = vpm[store];
+    for (const code in arts) {
+      const d = arts[code];
+      if (!d || d.countBL <= 0 || !/^\d{6}$/.test(code)) continue;
+      const _cf2 = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+      if (!_cf2 || !metierFams.has(_cf2)) continue;
+      let r = _resByCode.get(code);
+      if (!r) { r = { nbAg: 0, ca: 0 }; _resByCode.set(code, r); }
+      r.nbAg++;
+      r.ca += d.sumCA || 0;
+    }
+  }
+  // Appliquer réseau aux articles existants
+  for (const [code, e] of enriched) {
+    const r = _resByCode.get(code);
+    e.nbAgencesReseau = r?.nbAg || 0;
+    e.caReseau = r?.ca || 0;
+  }
+  // Ajouter articles réseau-only (≥3 agences, pas en stock local, pas déjà dans enriched)
+  const _nbStoresExclMy = Math.max(1, Object.keys(vpm).filter(s => s !== myStore).length);
+  const _minAgReseau = Math.max(2, Math.ceil(_nbStoresExclMy / 3));
+  for (const [code, r] of _resByCode) {
+    if (enriched.has(code) || r.nbAg < _minAgReseau) continue;
+    const cf = catFam?.get(code);
+    const codeFam = cf?.codeFam || _S.articleFamille?.[code] || '';
+    if (!codeFam) continue;
+    const libFam = FAMILLE_LOOKUP[codeFam] || codeFam;
+    const fd = fdMap.get(code);
+    const inStock = fd && (fd.stockActuel || 0) > 0;
+    if (!rolesByFam.has(codeFam)) rolesByFam.set(codeFam, _prComputeRoles(codeFam));
+    const role = rolesByFam.get(codeFam)?.get(code) || 'standard';
+    enriched.set(code, {
+      code, libelle: articleLib(code),
+      marque: _S.catalogueMarques?.get(code) || '',
+      codeFam, libFam, sousFam: cf?.sousFam || '',
+      inStock, stockActuel: fd?.stockActuel || 0, role,
+      _contribs: [],
+      nbAgencesReseau: r.nbAg, caReseau: r.ca,
+      _reseauOnly: true,
+    });
+  }
+
   // ── Canal de Proximité: per-client canal split ──
   const clientCanal = new Map(); // cc → {caMag, caLivre, pctLivre}
   for (const cc of clientSetRaw) {
@@ -5071,7 +5123,7 @@ function _prApplyMetierDist() {
       monCA += c.mon;
       nbClients++;
     }
-    if (nbClients === 0) continue;
+    if (nbClients === 0 && !e._reseauOnly) continue;
     const pdm = caZone > 0 ? Math.round(monCA / caZone * 100) : null;
     result.set(code, {
       code, libelle: e.libelle, marque: e.marque,
@@ -5079,6 +5131,9 @@ function _prApplyMetierDist() {
       caZone, monCA, nbClientsZone: nbClients,
       inStock: e.inStock, stockActuel: e.stockActuel,
       role: e.role, pdm,
+      nbAgencesReseau: e.nbAgencesReseau || 0,
+      caReseau: e.caReseau || 0,
+      reseauOnly: !!e._reseauOnly,
     });
 
     if (!famAgg.has(e.codeFam)) famAgg.set(e.codeFam, { codeFam: e.codeFam, libFam: e.libFam, caZone: 0, monCA: 0, nbArts: 0, nbEnStock: 0 });
@@ -5377,10 +5432,12 @@ function _renderMetierBody() {
   const sortFns = {
     code: (a, b) => String(a.code).localeCompare(String(b.code)),
     caZone: (a, b) => b.caZone - a.caZone,
+    caReseau: (a, b) => (b.caReseau || 0) - (a.caReseau || 0),
     monCA: (a, b) => b.monCA - a.monCA,
     pdm: (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
     cliZone: (a, b) => b.nbClientsZone - a.nbClientsZone,
     stock: (a, b) => (b.stockActuel || 0) - (a.stockActuel || 0),
+    reseau: (a, b) => (b.nbAgencesReseau || 0) - (a.nbAgencesReseau || 0),
   };
   const _mBaseFn = sortFns[_prMSort] || sortFns.caZone;
   const sorted = [...filtered].sort((a, b) => _prMSortAsc ? -_mBaseFn(a, b) : _mBaseFn(a, b));
@@ -5402,7 +5459,9 @@ function _renderMetierBody() {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         ${th('stock', 'Stock')}
         ${!_prMFilterFam ? `<th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Famille</th>` : ''}
-        ${th('caZone', 'CA Zone')}
+        ${th('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone')}
+        ${th('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences hors la mienne')}
+        ${th('reseau', 'Agences', 'text-right', 'Nb agences réseau vendant cet article')}
         ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
         <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Verdict Squelette">Verdict</th>
       </tr></thead><tbody>`;
@@ -5419,12 +5478,18 @@ function _renderMetierBody() {
       verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
       if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.name)}</span>`;
     }
-    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+    const _rOnly = a.reseauOnly;
+    const _rowStyle = _rOnly ? 'background:rgba(59,130,246,0.06)' : '';
+    const _nbAg = a.nbAgencesReseau || 0;
+    const _agColor = _nbAg >= 5 ? '#22c55e' : _nbAg >= 3 ? '#f59e0b' : 'var(--t-secondary)';
+    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" style="${_rowStyle}" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1 px-2 font-mono text-[10px]">${a.code} ${_copyCodeBtn(a.code)}</td>
-      <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}${_rOnly ? ' <span class="text-[8px] px-1 py-0.5 rounded" style="background:rgba(59,130,246,0.2);color:#3b82f6">réseau</span>' : ''}</td>
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
       ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
-      <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caZone)}</td>
+      <td class="py-1 px-2 text-right font-bold">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
+      <td class="py-1 px-2 text-right" style="color:#3b82f6">${a.caReseau ? formatEuro(a.caReseau) : '—'}</td>
+      <td class="py-1 px-2 text-right" style="color:${_agColor}">${_nbAg || '—'}</td>
       <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
       <td class="py-1 px-2 text-center">${verdictCell}</td>
     </tr>`;
