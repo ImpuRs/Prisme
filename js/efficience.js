@@ -190,7 +190,7 @@ export function renderEfficienceTab() {
           <span class="text-[10px] t-disabled font-normal">(par marge perdue)</span>
         </h4>
         ${_buildTable(detailRupture, [
-          { label: 'Code', render: r => `<span class="font-mono">${r.code}</span>` },
+          { label: 'Code', render: r => `<span class="font-mono">${r.code}</span><button onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-1" title="Fiche article">🔍</button>` },
           { label: 'Libellé', render: r => `<span class="max-w-[180px] truncate inline-block" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</span>` },
           { label: 'ABC', render: r => r.abc || '-', align: 'text-center' },
           { label: 'CA annuel', render: r => formatEuro(r.ca), align: 'text-right' },
@@ -205,7 +205,7 @@ export function renderEfficienceTab() {
           <span class="text-[10px] t-disabled font-normal">(par coût de stockage)</span>
         </h4>
         ${_buildTable(detailSurstock, [
-          { label: 'Code', render: r => `<span class="font-mono">${r.code}</span>` },
+          { label: 'Code', render: r => `<span class="font-mono">${r.code}</span><button onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-1" title="Fiche article">🔍</button>` },
           { label: 'Libellé', render: r => `<span class="max-w-[180px] truncate inline-block" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</span>` },
           { label: 'Stock', render: r => r.stock, align: 'text-center' },
           { label: 'MAX', render: r => r.max, align: 'text-center' },
@@ -222,7 +222,7 @@ export function renderEfficienceTab() {
         <span class="text-[10px] t-disabled font-normal">(en stock mais jamais vendus — par valeur immobilisée)</span>
       </h4>
       ${_buildTable(detailDormant, [
-        { label: 'Code', render: r => `<span class="font-mono">${r.code}</span>` },
+        { label: 'Code', render: r => `<span class="font-mono">${r.code}</span><button onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-1" title="Fiche article">🔍</button>` },
         { label: 'Libellé', render: r => `<span class="max-w-[250px] truncate inline-block" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</span>` },
         { label: 'Famille', render: r => r.famille || '-' },
         { label: 'Stock', render: r => r.stock, align: 'text-center' },
