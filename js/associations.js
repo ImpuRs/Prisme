@@ -169,8 +169,8 @@ function _omniClientArticles() {
     }
   }
   // Source 3 : Terrain (BL Qlik multi-agences — livraisons, chantiers)
-  if (_S.territoireReady && _S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  if (_S.territoireReady && _S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       const cc = l.clientCode;
       if (!cc || !l.ca) continue;
       if (!/^\d{6}$/.test(l.code)) continue;
@@ -453,8 +453,8 @@ function _famStats() {
   }
 
   // Source 1c : Terrain (BL Qlik multi-agences — livraisons, chantiers)
-  if (_S.territoireReady && _S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  if (_S.territoireReady && _S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       const cc = l.clientCode;
       if (!cc || !l.ca) continue;
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
@@ -1067,7 +1067,7 @@ function _renderTroncCommun() {
   // Univers buttons supprimés — pilotés par le sidebar Direction
 
   // ── Périmètre : PDV omnicanal agence, réseau consommé, territoire Qlik ──
-  const hasTerrain = _S.territoireReady && _S.territoireLines?.length > 0;
+  const hasTerrain = _S.territoireReady && _S.ventesTerrain?.length > 0;
   const _perimTooltips = {
     agence: 'Consommé de mon agence, tous canaux PDV (MAGASIN/Web/Rep/DCS)',
     reseau: 'Ventes de toutes les agences du fichier consommé',
@@ -1519,7 +1519,7 @@ window._troncLoiAirainState = function() { return _troncLoiAirain; };
 
 window._troncSetPerimetre = function(perim) {
   // Sécurité : seul Territoire nécessite le fichier Qlik
-  const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
+  const hasTerr = _S.territoireReady && _S.ventesTerrain?.length > 0;
   if (perim === 'territoire' && !hasTerr) return;
   _troncPerimetre = (perim === 'agence' || perim === 'reseau' || perim === 'territoire') ? perim : 'agence';
   renderAssociationsTab();

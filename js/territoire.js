@@ -301,7 +301,7 @@ function _loadMoreTerrFamArt(btn,rowId,offset,encDir,encFam,statusFilter){
 // VOLET 3: Résumé exécutif du croisement
 function renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock){
   const el=document.getElementById('terrCroisementText');if(!el)return;
-  const nbLignes=DataStore.territoireLines.length;
+  const nbLignes=DataStore.ventesTerrain.length;
   const nbBL=blSetAll.size;
   const nbDirs=dirSet.size;
   const nbClients=Object.keys(clientsMap).length;
@@ -312,7 +312,7 @@ function renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100
   let terrPeriodStr='';
   // Detect territory period from lines
   let tMin=null,tMax=null;
-  for(const l of DataStore.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
+  for(const l of DataStore.ventesTerrain){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
   if(tMin&&tMax)terrPeriodStr=`, ${fmtDate(new Date(tMin))}–${fmtDate(new Date(tMax))}`;
   else if(_S.consommePeriodMin)terrPeriodStr='';
   el.innerHTML=`<p>🔗 PRISME a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="c-action">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="c-ok">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
@@ -543,7 +543,7 @@ function exportContribCSV(){
 }
 
 function exportTerritoireCSV(){
-  if(!DataStore.territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
+  if(!DataStore.ventesTerrain.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
   const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
   const lines=['\uFEFF'+h.join(SEP)];
   const q=(document.getElementById('terrSearch')||{}).value||'';

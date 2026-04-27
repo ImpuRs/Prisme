@@ -241,7 +241,7 @@ function runPromoSearch(){
 
   // Source 3 : territoire (si chargé)
   if(_S.territoireReady){
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.ventesTerrain){
       if(!matchedCodes.has(l.code))continue;
       const cc=l.clientCode;if(!cc)continue;
       if(!buyerMap.has(cc)){
@@ -260,7 +260,7 @@ function runPromoSearch(){
   for(const c of sectionA)if(c.metier)targetMetiers.add(c.metier);
   // fallback: all families matched — use chalandise metiers of anyone who bought these families via territoire
   if(!targetMetiers.size&&_S.territoireReady){
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.ventesTerrain){
       if(matchedFamilles.has(l.famille)&&l.clientCode){
         const info=_S.chalandiseData.get(l.clientCode)||{};if(info.metier)targetMetiers.add(info.metier);
       }
@@ -271,12 +271,12 @@ function runPromoSearch(){
     // Clients who buy these families via territoire (other canals) but not at PDV
     const terrBuyers=new Set();
     if(_S.territoireReady){
-      for(const l of DataStore.territoireLines){if(matchedFamilles.has(l.famille)&&l.clientCode&&!buyerCodes.has(l.clientCode))terrBuyers.add(l.clientCode);}
+      for(const l of DataStore.ventesTerrain){if(matchedFamilles.has(l.famille)&&l.clientCode&&!buyerCodes.has(l.clientCode))terrBuyers.add(l.clientCode);}
     }
     for(const cc of terrBuyers){
       const info=_S.chalandiseData.get(cc)||{};
       if(!_clientPassesFilters||_clientPassesFilters(info)){
-        const terrCA=DataStore.territoireLines.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
+        const terrCA=DataStore.ventesTerrain.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
         const _r=_S.clientStore?.get(cc)||{};
         sectionB.push({cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',ca2025:info.ca2025||0,terrCA});
       }
@@ -414,7 +414,7 @@ function exportTourneeCSV() {
 
     // Fix omnicanal : exclure les 3 canaux
     const artMapMag = DataStore.ventesLocalMagPeriode.get(c.cc)       || new Map();
-    const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
+    const terrCodes = new Set((DataStore.ventesTerrain||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
     const horsCodes = new Set((_S.ventesLocalHorsMag?.get(c.cc)||new Map()).keys());
 
     const toPitch = [];
@@ -547,7 +547,7 @@ function _buildPitchHTML(cc) {
   if(!matchedCodes.size) return '<p class="t-disabled text-[11px] py-1">Aucune recherche active.</p>';
 
   const artMap    = DataStore.ventesLocalMagPeriode.get(cc)        || new Map();
-  const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+  const terrCodes = new Set((DataStore.ventesTerrain||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
   const horsCodes = new Set((_S.ventesLocalHorsMag?.get(cc)||new Map()).keys());
 
   const candidates = [...matchedCodes].filter(code =>
@@ -661,7 +661,7 @@ function _renderSearchResults() {
   const _passFamB=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
     if(!_S.territoireReady)return true;
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.ventesTerrain){
       if(l.clientCode!==cc)continue;
       if(!r.matchedFamilles.has(l.famille))continue;
       if(fFamille&&l.famille!==fFamille)continue;
@@ -821,7 +821,7 @@ function _isArticleAlreadyBought(cc,code){
   if((DataStore.ventesLocalMagPeriode.get(cc)||new Map()).has(code))return true;
   if((_S.ventesLocalHorsMag?.get(cc)||new Map()).has(code))return true;
   if(_S.territoireReady){
-    for(const l of DataStore.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
+    for(const l of DataStore.ventesTerrain){if(l.clientCode===cc&&l.code===code)return true;}
   }
   return false;
 }
@@ -905,7 +905,7 @@ async function runPromoImport(){
   // Helper: true si cc a déjà acheté un article promo (comptoir + territoire + hors magasin)
   const _dejaAcheteur=(cc,promoCodes)=>{
     const comptoir=DataStore.ventesLocalMagPeriode.get(cc)||new Map();
-    const terr=new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+    const terr=new Set((DataStore.ventesTerrain||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
     const hors=new Set((_S.ventesLocalHorsMag?.get(cc)||new Map()).keys());
     return[...promoCodes].some(code=>comptoir.has(code)||terr.has(code)||hors.has(code));
   };

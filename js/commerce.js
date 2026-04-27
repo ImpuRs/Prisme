@@ -606,7 +606,7 @@ window._ccc = (di,mi,ci) => {
 
     // Commerce tab always shows clients view (canal moved to Omnicanalité tab)
 
-    // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
+    // [Adapter Étape 5] — DataStore.ventesTerrain / .finalData : canal-invariants
     const{hasTerr,hasChal,hasData,hasConsomme,degraded}=k;
     // terrNoChalandise: only when truly nothing loaded
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
@@ -1811,7 +1811,7 @@ installConqueteOverviewController(_conqueteOverviewController);
 function _toggleClientArticles(row,clientCode){
   const nextRow=row.nextElementSibling;
   if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
-  // [Adapter Étape 5] — territoireLines / finalData / ventesLocalMagPeriode : canal-invariants
+  // [Adapter Étape 5] — ventesTerrain / finalData / ventesLocalMagPeriode : canal-invariants
   const hasTerr=_hasTerritoire();
   const stockMap=_getFinalDataIndex();
   // Section 1 : achats comptoir (DataStore.ventesLocalMagPeriode — MAGASIN/myStore only)
@@ -1823,11 +1823,11 @@ function _toggleClientArticles(row,clientCode){
       return{code,libelle:si?si.libelle:_S.libelleLookup[code]||code,qty:d.sumPrelevee,ca:d.sumCA,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
     });
   }
-  // Section 2 : achats hors comptoir (DataStore.territoireLines — tous canaux BL omnicanal)
+  // Section 2 : achats hors comptoir (DataStore.ventesTerrain — tous canaux BL omnicanal)
   let terrArts=[];
   if(hasTerr){
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.ventesTerrain){
       if(l.clientCode===clientCode){
         if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0,canals:new Set(),rayonStatus:l.rayonStatus};
         artMap[l.code].ca+=l.ca;
@@ -2509,7 +2509,7 @@ function renderCommerceTab() {
     window.renderOmniContent?.();
     _buildChalandiseOverviewData();
     // renderTerritoireTab seulement si les blocs territoire sont visibles (fichier BL chargé)
-    if(_S.territoireLines?.length) renderTerritoireTab();
+    if(_S.ventesTerrain?.length) renderTerritoireTab();
   });
 }
 

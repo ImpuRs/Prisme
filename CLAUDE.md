@@ -74,7 +74,7 @@ DataStore.abcMatrixData          // matrice ABC/FMR précalculée
 DataStore.ventesParAgence        // {store: {code: {sumPrelevee, sumCA, countBL}}}
 DataStore.storesIntersection     // Set<storeCode> agences présentes dans les 2 fichiers
 DataStore.selectedMyStore        // agence sélectionnée
-DataStore.territoireLines        // lignes BL brutes — NE PAS filtrer ici
+DataStore.ventesTerrain        // lignes BL brutes — NE PAS filtrer ici
 DataStore.ventesLocalMagPeriode   // Map<cc, Map<code, {sumPrelevee,sumCA,countBL}>> — MAGASIN only, period-filtered
 DataStore.ventesLocalHorsMag     // Map<cc, Map<code, {sumCA,canal}>> — hors-MAGASIN
 DataStore.chalandiseData         // Map<cc, {nom,commercial,metier,classification,ca2025,caPDVN,...}>
@@ -87,7 +87,7 @@ DataStore.benchLists             // {missed,over,storePerf,familyPerf,obsKpis,pe
 const ctx = DataStore.byContext({ canal, periode, commercial });
 // Lit par défaut : _S._globalCanal, _S._globalPeriodePreset, _S._selectedCommercial
 // Retourne :
-ctx.terrLines        // territoireLines filtré canal + commercial
+ctx.terrLines        // ventesTerrain filtré canal + commercial
 ctx.activeFilters    // { canal, periode, commercial }
 ctx.capabilities     // { hasTerritoire, hasArticleFacts, hasCommercial, hasPeriodeFilter }
 ctx.periodeMonths    // indices mois actifs pour sparklines
@@ -132,7 +132,7 @@ _S.ventesLocalMag12MG        // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sum
 _S.ventesLocalHorsMag        // Map<cc, Map<code, {sumCA,sumPrelevee,sumCAPrelevee,countBL,canal}>>
                               // Source : tous canaux hors-MAGASIN
 _S.clientOmniScore           // Map<cc, {segment,score,caPDV,caHors,caTotal,nbCanaux,nbBL,silenceDays}>
-                              // Score omnicanal enrichi avec territoireLines (Qlik)
+                              // Score omnicanal enrichi avec ventesTerrain (Qlik)
 _S.clientLastOrder           // Map<cc, Date> — dernière commande PDV
 _S.clientNomLookup           // {cc → nom}
 _S.clientsMagasin            // Set<cc> — clients ayant acheté en MAGASIN sur la période
@@ -176,7 +176,7 @@ _S.ventesReseauTousCanaux    // Map<store, Map<cc, Map<code, {sumPrelevee,sumCA,
 
 ### Données territoire
 ```js
-_S.territoireLines           // [{code, libelle, famille, direction, secteur, bl, ca,
+_S.ventesTerrain           // [{code, libelle, famille, direction, secteur, bl, ca,
                               //   canal, clientCode, clientNom, clientType, rayonStatus,
                               //   isSpecial, commercial, dateExp}]
 _S.terrContribBySecteur      // Map<secteur, {blTerr, blAgence, ca, clients}>
@@ -215,7 +215,7 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `computeSPC(cc, info)` — Score Potentiel Client 0-100
 - `computeOpportuniteNette()` — familles manquantes par client vs métier moyen
 - `computeReseauHeatmap()` — heatmap famille × agence (ratio vs médiane)
-- `computeOmniScores()` — score omnicanal par client (PDV + hors-mag + territoireLines Qlik)
+- `computeOmniScores()` — score omnicanal par client (PDV + hors-mag + ventesTerrain Qlik)
 - `computeBenchMetier()` — lazy-cached médiane CA + tronc commun par segment métier (Jumeau Statistique)
 - `computePriceGap(code)` — écart PU local vs Top 3 agences réseau (Alerte Prix)
 - `_clientPassesFilters(info)` — filtre chalandise (dept, classif, métier, commercial...)
@@ -224,7 +224,7 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 ### parser.js
 - `parseChalandise(file)` — CSV CP1252 ou Excel, peuple chalandiseData + clientsByCommercial
 - `parseTerritoireFile(file)` — lecture brute territoire (retourne raw data)
-- `launchTerritoireWorker(raw, onProgress)` — Web Worker territoire → territoireLines
+- `launchTerritoireWorker(raw, onProgress)` — Web Worker territoire → ventesTerrain
 - `launchClientWorker()` — Web Worker agrégats clients → clientFamCA, metierFamBench
 - `launchReseauWorker()` — Web Worker réseau → nomades, orphelins, fuites, heatmap
 - `computeBenchmark()` — benchmark réseau multi-agences, peuple benchLists
@@ -250,7 +250,7 @@ Niveaux du diagnostic :
 |---|---|---|
 | 1 — Stock | Toujours | finalData |
 | 2 — Calibrage MIN/MAX | Toujours | finalData + bench si dispo |
-| 3 — Gamme | Bench OU Territoire | ventesParAgence ou territoireLines |
+| 3 — Gamme | Bench OU Territoire | ventesParAgence ou ventesTerrain |
 | 4 — Clients métier | Chalandise | ventesLocalMagPeriode × chalandiseData |
 
 ---
@@ -270,7 +270,7 @@ Niveaux du diagnostic :
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
 16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesLocalMag12MG.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesLocalMagPeriode` (period-filtered) ni `ventesParAgence` (tous canaux prélevé+enlevé).
-17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `territoireLines`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
+17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `ventesTerrain`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
@@ -310,7 +310,7 @@ articleCanalCA × finalData
 clientsByCommercial × clientLastOrder × ventesLocalMagPeriode
   → portefeuille commercial : silencieux, actifs, CA
 
-territoireLines × ventesLocalMagPeriode × chalandiseData
+ventesTerrain × ventesLocalMagPeriode × chalandiseData
   → captation zone : qui achète ailleurs vs en agence
 
 benchLists × finalData × chalandiseData
@@ -371,7 +371,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
 `finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`,
-`caClientParStore`, `chalandiseData`, `territoireLines`, `clientsByCommercial`, `clientLastOrder`,
+`caClientParStore`, `chalandiseData`, `ventesTerrain`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
 `benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
 `_selectedMetier`, `_globalCanal`, `periodFilterStart`, `periodFilterEnd`
@@ -443,6 +443,6 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 - Utiliser `ventesLocalMagPeriode` pour caAnnuel (period-filtered) — utiliser `ventesLocalMag12MG`
 - Utiliser `articleClients` ou `clientsMagasin` pour nbClientsPDV squelette (period-filtered) — utiliser `articleClientsFull`
 - Utiliser `ventesParAgence.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesLocalMag12MG.sumCAPrelevee`
-- Calculer l'omnicanalité sans `territoireLines` — le consommé local ne voit pas les ventes dans d'autres agences
+- Calculer l'omnicanalité sans `ventesTerrain` — le consommé local ne voit pas les ventes dans d'autres agences
 - Créer de nouvelles variables `_S.xxx` sans les ajouter dans `resetAppState()`
 - Mettre du `await` sans `yieldToMain()` dans les boucles de parsing (bloque l'UI)

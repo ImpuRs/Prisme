@@ -555,8 +555,8 @@ let _terrFBCache = null;
 function _buildTerrFB() {
   if (_terrFBCache) return _terrFBCache;
   _terrFBCache = new Map();
-  if (_S.territoireLines?.length) {
-    for (const ln of _S.territoireLines) {
+  if (_S.ventesTerrain?.length) {
+    for (const ln of _S.ventesTerrain) {
       if (!ln.clientCode) continue;
       const cc = ln.clientCode;
       if (!_terrFBCache.has(cc)) {
@@ -961,10 +961,10 @@ function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
 export function computeOmniScores() {
   const scores = new Map();
   const nowTs = Date.now();
-  // Index territoireLines par client (une seule passe sur les 250k lignes)
+  // Index ventesTerrain par client (une seule passe sur les 250k lignes)
   const _terrByClient = new Map();
-  if (_S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  if (_S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       if (!l.clientCode || l.canal === 'MAGASIN') continue;
       if (!_terrByClient.has(l.clientCode)) _terrByClient.set(l.clientCode, []);
       _terrByClient.get(l.clientCode).push(l);
@@ -989,7 +989,7 @@ export function computeOmniScores() {
         if (v.canal) canaux.add(v.canal);
       }
     }
-    // Enrichir avec territoireLines (Qlik) — canaux + CA hors agence
+    // Enrichir avec ventesTerrain (Qlik) — canaux + CA hors agence
     const _terrLines = _terrByClient.get(cc);
     if (_terrLines) {
       for (const l of _terrLines) {
@@ -1024,7 +1024,7 @@ export function computeOmniScores() {
     const _nbFamsCrossRef = [0];
     if (pdvArts) for (const [code] of pdvArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'MAGASIN');
     if (horArts) for (const [code, v] of horArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], v.canal || 'HORS');
-    // Enrichir familles cross-canal avec territoireLines (index pré-calculé)
+    // Enrichir familles cross-canal avec ventesTerrain (index pré-calculé)
     if (_terrLines) {
       for (const l of _terrLines) {
         _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[l.code], l.canal === 'EXTÉRIEUR' ? 'AUTRES_AGENCES' : (l.canal || 'HORS'));
@@ -1155,9 +1155,9 @@ export function computeArticleZoneIndex() {
       _addContrib(o, cc, ca, 0);
     }
   }
-  // Source 3 : territoireLines (livraisons réseau → clients zone)
-  if (_S.territoireReady && _S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  // Source 3 : ventesTerrain (livraisons réseau → clients zone)
+  if (_S.territoireReady && _S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       if (l.isSpecial || !l.clientCode || !chalClients.has(l.clientCode)) continue;
       if (!_isSixDigitCode(l.code)) continue;
       const ca = +(l.ca || 0);
@@ -1194,9 +1194,9 @@ export function computeSquelette(directionFilter) {
   }
   const nbStoresExclMy = Math.max(1, storesExclMy);
   // Cache rapide — même données source = même résultat
-  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.territoireLines?.length||0}|${_S.chalandiseData?.size||0}|${_S.articleClientsFull?.size||0}|${directionFilter||''}`;
+  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.ventesTerrain?.length||0}|${_S.chalandiseData?.size||0}|${_S.articleClientsFull?.size||0}|${directionFilter||''}`;
   if (_sk === _sqCacheKey && _sqCacheResult) return _sqCacheResult;
-  const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
+  const hasTerr = _S.territoireReady && _S.ventesTerrain?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
   const articleData = new Map();
@@ -1265,7 +1265,7 @@ export function computeSquelette(directionFilter) {
   // ── Source 4 : Livraisons (réseau) — BL count + direction ──
   if (hasTerr) {
     const deliveredCodes = new Set();
-    for (const l of _S.territoireLines) {
+    for (const l of _S.ventesTerrain) {
       if (l.isSpecial) continue;
       const a = _ensure(l.code);
       a.caLivraisons += l.ca;
@@ -1507,8 +1507,8 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
         _addCli(z, cc);
       }
     }
-    if (_S.territoireReady && _S.territoireLines?.length) {
-      for (const l of _S.territoireLines) {
+    if (_S.territoireReady && _S.ventesTerrain?.length) {
+      for (const l of _S.ventesTerrain) {
         if (l.isSpecial || !l.clientCode || !chal.has(l.clientCode)) continue;
         const code = l.code;
         if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;

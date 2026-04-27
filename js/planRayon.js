@@ -4483,7 +4483,7 @@ function _prBuildLLMPack(codeFam) {
   const ctx = _prAgenceVocationCtx();
   // Lookup libellé multi-source : consommé → territoire
   const _tLib = {};
-  if (_S.territoireLines) for (const l of _S.territoireLines) { if (l.code && l.libelle && !_tLib[l.code]) _tLib[l.code] = l.libelle; }
+  if (_S.ventesTerrain) for (const l of _S.ventesTerrain) { if (l.code && l.libelle && !_tLib[l.code]) _tLib[l.code] = l.libelle; }
   const lib = (c) => articleLib(c) !== c ? articleLib(c) : (_tLib[c] || '');
   const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
 
@@ -4975,9 +4975,9 @@ function _prComputeMetierFull(metier) {
     if (arts.size) perClient.set(cc, arts);
   }
 
-  // Source 4: territoireLines — index by client once (avoid O(clients × lines))
-  if (_S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  // Source 4: ventesTerrain — index by client once (avoid O(clients × lines))
+  if (_S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       if (!l.clientCode || !clientSetRaw.has(l.clientCode)) continue;
       if (!/^\d{6}$/.test(l.code)) continue;
       let arts = perClient.get(l.clientCode);
@@ -5666,8 +5666,8 @@ function _prRenderTouristePanier(cc) {
       arts.set(code, { ca: +(d.sumCA || 0), source: 'hors-mag' });
     }
   }
-  if (_S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  if (_S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       if (l.clientCode !== cc || !/^\d{6}$/.test(l.code)) continue;
       if (!arts.has(l.code)) arts.set(l.code, { ca: 0, source: 'réseau' });
       arts.get(l.code).ca += +(l.ca || 0);

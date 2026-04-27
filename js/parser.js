@@ -242,7 +242,7 @@ export function _computeChalandiseDistances() {
   if (computed) console.log(`[PRISME] Distances calculées : ${computed}/${_S.chalandiseData.size} clients`);
 }
 
-// ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
+// ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + ventesTerrain ──
 export async function parseLivraisons(file) {
   if (_S.lowMemMode) {
     showToast('📱 Mode mobile: Livraisons/Terrain désactivés (mémoire). Chargez-les sur PC.', 'info', 6000);
@@ -287,7 +287,7 @@ export async function parseLivraisons(file) {
       _S._livraisonsDebug.row0 = rows[0] || null;
     }
 
-    // Passe unique : livraisonsData + territoireLines
+    // Passe unique : livraisonsData + ventesTerrain
     const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const nHeaders = headersFound.map(h => _norm(h));
     // exact-match en priorité, puis includes (évite faux positifs sur 'ca' / 'bl')
@@ -465,7 +465,7 @@ export async function parseLivraisons(file) {
         if (dateMs != null && (d.lastDateMs == null || dateMs > d.lastDateMs)) d.lastDateMs = dateMs;
       }
 
-      // — territoireLines — tous codes y compris spéciaux (isSpecial = true pour non-stockables)
+      // — ventesTerrain — tous codes y compris spéciaux (isSpecial = true pour non-stockables)
       const direction = (cDir !== null ? (_cachedTrim(_trimCacheDir, row?.[cDir]) || 'Non défini') : 'Non défini');
       const secteur = cSect !== null ? _cachedTrim(_trimCacheSect, row?.[cSect]) : '';
       let clientNom = '';
@@ -505,7 +505,7 @@ export async function parseLivraisons(file) {
       d.lastDate = d.lastDateMs != null ? new Date(d.lastDateMs) : null;
       delete d.lastDateMs;
     }
-    _S.territoireLines = terrLines;
+    _S.ventesTerrain = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;
     // Enrichir libelleLookup depuis les livraisons (articles réseau sans consommé local)
@@ -529,7 +529,7 @@ export async function parseLivraisons(file) {
     }
     showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients · ${terrLines.length} lignes terrain chargés`, 'success');
 
-    // territoireLines déjà positionné ligne ~221 sur terrLines (tableau)
+    // ventesTerrain déjà positionné ligne ~221 sur terrLines (tableau)
     // livraisonsData reste la Map client ; pas de réassignation ici
     window.computeReconquestCohort?.();
     window.computeOpportuniteNette?.();

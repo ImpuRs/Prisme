@@ -69,7 +69,7 @@ export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.9'; // bump : territoireLines en store séparé (columnar), allège structured clone
+const CACHE_VERSION  = 'v3.9'; // bump : ventesTerrain en store séparé (columnar), allège structured clone
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -345,7 +345,7 @@ export function _openDB() {
   });
 }
 
-// Sérialise territoireLines en format columnar (tableaux de colonnes)
+// Sérialise ventesTerrain en format columnar (tableaux de colonnes)
 // → réduit le coût du structured clone IDB de ~60% vs tableau d'objets
 function _serializeTerritoire(lines) {
   if (!lines?.length) return null;
@@ -559,14 +559,14 @@ async function _saveSessionToIDBNow() {
     st.put(payload, 'current');
     // Territoire en store séparé (columnar → structured clone allégé)
     const terrStore = tx.objectStore(IDB_TERR);
-    const terrPayload = _serializeTerritoire(_S.territoireLines);
+    const terrPayload = _serializeTerritoire(_S.ventesTerrain);
     terrStore.put(terrPayload, 'lines');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     try { db.close(); } catch (_) {}
     localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
     console.log('[PRISME] session sauvegardée dans IndexedDB', {
       finalData: _S.finalData?.length || 0,
-      territoireLines: _S.territoireLines?.length || 0,
+      ventesTerrain: _S.ventesTerrain?.length || 0,
       chalandise: _S.chalandiseData?.size || 0,
       livraisons: _S.livraisonsData?.size || 0,
     });
@@ -666,11 +666,11 @@ export async function _restoreSessionFromIDB() {
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
     _S.territoireReady   = data.territoireReady   || false;
-    _S.territoireLines   = terrCols ? _deserializeTerritoire(terrCols) : (data.territoireLines || []);
+    _S.ventesTerrain   = terrCols ? _deserializeTerritoire(terrCols) : (data.ventesTerrain || []);
     _S.terrDirectionData = data.terrDirectionData || {};
     // Enrichir libelleLookup depuis les livraisons restaurées (articles réseau sans consommé local)
-    if (_S.territoireLines?.length && _S.libelleLookup) {
-      for (const l of _S.territoireLines) {
+    if (_S.ventesTerrain?.length && _S.libelleLookup) {
+      for (const l of _S.ventesTerrain) {
         if (l.code && l.libelle && !_S.libelleLookup[l.code]) _S.libelleLookup[l.code] = l.libelle;
       }
     }

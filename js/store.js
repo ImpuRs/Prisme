@@ -15,7 +15,7 @@
 
 import { _S } from './state.js';
 
-// Filtre les lignes (territoireLines ou tout tableau avec .dateExp/.date/.dateCommande)
+// Filtre les lignes (ventesTerrain ou tout tableau avec .dateExp/.date/.dateCommande)
 // selon _S.periodFilterStart / _S.periodFilterEnd. O(n), retourne lines tel quel si aucun filtre.
 function _filterByPeriode(lines) {
   const start = _S.periodFilterStart;
@@ -34,7 +34,7 @@ function _filterByPeriode(lines) {
 let _ftlCache = null;
 let _ftlCacheKey = '';
 function _cachedFilteredTerrLines() {
-  const lines = _S.territoireLines;
+  const lines = _S.ventesTerrain;
   if (!lines?.length) return lines || [];
   const key = `${_S._terrVersion||0}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${lines.length}`;
   if (_ftlCacheKey === key && _ftlCache) return _ftlCache;
@@ -64,9 +64,9 @@ export const DataStore = {
   get selectedBenchBassin()   { return _S.selectedBenchBassin; },
 
   // ── [CANAL-INVARIANT] Territoire ─────────────────────────────────────────
-  // territoireLines : source brute non filtrée (pour presence checks, lookups, period-range detection)
+  // ventesTerrain : source brute non filtrée (pour presence checks, lookups, period-range detection)
   // filteredTerritoireLines : filtrée par _S.periodFilterStart/End (pour KPI computation)
-  get territoireLines()         { return _S.territoireLines; },
+  get ventesTerrain()         { return _S.ventesTerrain; },
   get filteredTerritoireLines() { return _cachedFilteredTerrLines(); },
 
   // ── [CANAL-INVARIANT] Clients / Chalandise ────────────────────────────────
@@ -93,7 +93,7 @@ export const DataStore = {
     const kpis = this.byCanal(_canal);
 
     // Dimension commercial — filtre terrLines par-dessus le filtre canal.
-    // Important: territoireLines ne portent pas toujours `commercial`; on filtre via
+    // Important: ventesTerrain ne portent pas toujours `commercial`; on filtre via
     // l'index `_S.clientsByCommercial` (clientCode → appartenance commercial).
     // byCanal() a déjà appliqué _filterByPeriode, pas de 2e passage.
     let terrLines = kpis.terrLines;
@@ -140,12 +140,12 @@ export const DataStore = {
     }
     // Fallback si appelé avant initialisation main.js (ex: tests unitaires)
     const _c = canal && canal !== 'ALL' ? canal : null;
-    const hasTerritoire = _S.territoireLines.length > 0;
+    const hasTerritoire = _S.ventesTerrain.length > 0;
     return {
       canal: _c || 'ALL',
       canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
       totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + (v.ca || 0), 0),
-      terrLines: _filterByPeriode(_c ? _S.territoireLines.filter(l => l.canal === _c) : _S.territoireLines),
+      terrLines: _filterByPeriode(_c ? _S.ventesTerrain.filter(l => l.canal === _c) : _S.ventesTerrain),
       articleFacts: !hasTerritoire ? _S.articleCanalCA : null,
       finalData: _S.finalData,
       capabilities: {

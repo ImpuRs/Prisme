@@ -2523,10 +2523,10 @@ _S.canalAgence=newCanalAgence;
       pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)"><span style="color:#60a5fa">📦 Consommé</span> <span class="t-disabled">${fmtD(cMin)} → ${fmtD(cMax)}</span> <span class="t-disabled">· ${stores} agence${stores>1?'s':''}${univLabel} · ${totalClients} clients${clientsHM>0?' ('+clientsMAG+' comptoir)':''}</span></span>`);
     }
     // Territoire
-    if(_S.territoireReady&&_S.territoireLines?.length){
+    if(_S.territoireReady&&_S.ventesTerrain?.length){
       let tMin=null,tMax=null;
-      for(const l of _S.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
-      const nbClients=new Set(_S.territoireLines.map(l=>l.clientCode).filter(Boolean)).size;
+      for(const l of _S.ventesTerrain){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
+      const nbClients=new Set(_S.ventesTerrain.map(l=>l.clientCode).filter(Boolean)).size;
       if(tMin&&tMax)pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3)"><span style="color:#4ade80">🌍 Territoire</span> <span class="t-disabled">${fmtD(new Date(tMin))} → ${fmtD(new Date(tMax))}</span> <span class="t-disabled">· ${nbClients} clients</span></span>`);
     }
     // Chalandise

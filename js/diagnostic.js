@@ -105,9 +105,9 @@ function _buildFreqExcludeSet() {
     for (const c of info.codes) freq.set(c, (freq.get(c) || 0) + 1);
   }
   // Enrichir avec territoire
-  if (_S.territoireLines?.length) {
+  if (_S.ventesTerrain?.length) {
     const terrBL = {};
-    for (const l of _S.territoireLines) {
+    for (const l of _S.ventesTerrain) {
       if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
       const k = l.bl + '|' + l.code;
       if (!terrBL[k]) { terrBL[k] = true; freq.set(l.code, (freq.get(l.code) || 0) + 1); }
@@ -129,8 +129,8 @@ function _computeSmartCoAchats(code, sqMap) {
     for (const c of info.codes) if (/^\d{6}$/.test(c)) codes.add(c);
     blIndex[bl] = codes;
   }
-  if (_S.territoireReady && _S.territoireLines?.length) {
-    for (const l of _S.territoireLines) {
+  if (_S.territoireReady && _S.ventesTerrain?.length) {
+    for (const l of _S.ventesTerrain) {
       if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
       if (!blIndex[l.bl]) blIndex[l.bl] = new Set();
       blIndex[l.bl].add(l.code);
@@ -230,7 +230,7 @@ function _renderClient360(clientCode,source){
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
   const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
-  const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
+  const hasTerr=_S.territoireReady&&DataStore.ventesTerrain?.length>0;
   // All-channels last order: prefer clientStore (pre-aggregated)
   const _rec=_S.clientStore?.get(clientCode);
   const lastOrder=_rec?.lastOrderAll||_rec?.lastOrderPDV||null;
@@ -459,17 +459,17 @@ function _renderClient360(clientCode,source){
 
   // Livré MAG = commandes passées via Web/DCS/Rep mais dont le BL est dans le consommé local (= passé par l'agence)
   // Source 1 : horsMag avec sumCAE > 0
-  // Source 2 : territoireLines dont le BL est dans blCanalMap (= consommé local) et canal ≠ MAGASIN
+  // Source 2 : ventesTerrain dont le BL est dans blCanalMap (= consommé local) et canal ≠ MAGASIN
   const livreMagMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){if((d.sumCAE||0)<=0)continue;if(!livreMagMap.has(code))livreMagMap.set(code,{ca:0,canal:d.canal});livreMagMap.get(code).ca+=d.sumCAE;}
   const _blLocal=_S.blCanalMap;
-  if(hasTerr&&_blLocal)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(!l.bl||!_blLocal.has(l.bl))continue;if(!livreMagMap.has(l.code))livreMagMap.set(l.code,{ca:0,canal:l.canal||'—'});livreMagMap.get(l.code).ca+=l.ca||0;}
+  if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(!l.bl||!_blLocal.has(l.bl))continue;if(!livreMagMap.has(l.code))livreMagMap.set(l.code,{ca:0,canal:l.canal||'—'});livreMagMap.get(l.code).ca+=l.ca||0;}
   const livreMagArts=[...livreMagMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
 
   // Ailleurs = hors agence uniquement : BL NON présent dans le consommé local
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
-  if(hasTerr&&_blLocal)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
+  if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
 
   const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
@@ -833,7 +833,7 @@ function openArticlePanel(code,source){
     }
 
     const nbAg = agRows.length;
-    for(const l of (_S.territoireLines||[])) if(l.code===code) nbBL++;
+    for(const l of (_S.ventesTerrain||[])) if(l.code===code) nbBL++;
     const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau ──
     // Formule : qté prélevée Top 3 / nb BL Top 3 = vitesse (pièces/BL)
@@ -2012,7 +2012,7 @@ function _diagLevel3(famille,hasBench,hasTerr,refStore){
   }
   if(hasTerr){
     const tMap={};
-    for(const l of DataStore.territoireLines){if(l.isSpecial||(famLib(l.famille||''))!==famille)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}
+    for(const l of DataStore.ventesTerrain){if(l.isSpecial||(famLib(l.famille||''))!==famille)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}
     const tArts=Object.values(tMap).sort((a,b)=>b.ca-a.ca);
     const missing=tArts.filter(a=>!myArts.has(a.code)).map(a=>({...a,abcClass:DataStore.finalData.find(r=>r.code===a.code)?.abcClass||'?',fmrClass:DataStore.finalData.find(r=>r.code===a.code)?.fmrClass||'?'}));
     return{status:missing.length===0?'ok':missing.length>5?'error':'warn',mode:'territoire',myCount:myArts.size,terrCount:tArts.length,missing:missing.slice(0,25),strongMissing:0};

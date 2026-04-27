@@ -61,7 +61,7 @@ _S.enleveSingleBL = {}; // {code → count} BL MAGASIN mono-article 100% enlevé
 _S.clientsMagasin = new Set();
 _S.clientsMagasinFreq = new Map(); // Map<clientCode, nbBL> — fréquence MAGASIN par client
 _S.articleClientsFull = new Map(); // Map<code, Set<cc>> — pleine période, invariant UI (pour squelette)
-_S.territoireLines = [];
+_S.ventesTerrain = [];
 _S.territoireReady = false;
 _S.terrDirectionData = {};
 _S.terrContribBySecteur = new Map();
@@ -356,7 +356,7 @@ export function resetAppState() {
 
   // Territoire
   _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S._reseauMagasinMode = 'all'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map(); _S._clientsPDVPage = 0; _S._showHorsAgence = false; _S._showHorsZone = false; _S._horsZonePage = 0; _S._clientView = 'tous'; _S._topPDVOpen = true;
-  _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
+  _S.ventesTerrain = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
   // Compteurs agences
