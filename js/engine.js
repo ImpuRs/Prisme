@@ -573,7 +573,7 @@ export function _enrichClientInfo(cc) {
   if (rec) return { nom: rec.nom, metier: rec.metier, commercial: rec.commercial };
   const info = _S.chalandiseData?.get(cc);
   const fb = _buildTerrFB().get(cc);
-  return { nom: info?.nom || cc, metier: info?.metier || '', commercial: info?.commercial || fb?.commercial || '' };
+  return { nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier || '', commercial: info?.commercial || fb?.commercial || '' };
 }
 export function _invalidateTerrFBCache() { _terrFBCache = null; }
 

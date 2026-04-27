@@ -20,11 +20,18 @@ let _prSqPage        = 50;     // nb articles affichés dans le Squelette
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prSqSortAsc     = false;
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
+let _prFilterMetier  = '';   // '' = tous clients, sinon filtre métier chalandise
+let _prFilterMetierClients = null; // Set<cc> — cache clients du métier sélectionné
 const _prDistOk = (cc) => {
   if (!_prMetierDist) return true;
   const info = _S.chalandiseData?.get(cc);
-  if (!info || info.distanceKm == null) return true; // pas de coordonnées → ne pas exclure (aligné Terrain)
+  if (!info || info.distanceKm == null) return true;
   return info.distanceKm <= _prMetierDist;
+};
+// Filtre combiné métier + distance pour articleZoneFiltered
+const _prCombinedFilter = (cc) => {
+  if (_prFilterMetierClients && !_prFilterMetierClients.has(cc)) return false;
+  return _prDistOk(cc);
 };
 // Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
 const _prLivMonthRange = () => {
@@ -948,6 +955,46 @@ function _buildPrSearchIndex() {
 }
 
 // ── Liste compacte familles (panneau gauche split-screen) ─────────────
+function _prBuildMetierSidebar() {
+  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) return '';
+  const metierOpts = [];
+  for (const [metier, clients] of _S.clientsByMetier) {
+    if (!metier || metier === '-' || metier.trim() === '') continue;
+    metierOpts.push({ metier, nb: clients.size });
+  }
+  metierOpts.sort((a, b) => b.nb - a.nb);
+  const options = metierOpts.map(m =>
+    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prFilterMetier ? 'selected' : ''}>${m.metier} (${m.nb})</option>`
+  ).join('');
+
+  const hasDist = _prHasChalDist();
+  const distBtns = (_prFilterMetier && hasDist) ? `<div class="flex items-center gap-1 mt-1.5">
+    <span class="text-[9px] t-disabled">📍</span>
+    ${[{v:0,l:'Tous'},{v:2,l:'2km'},{v:5,l:'5km'},{v:10,l:'10km'},{v:15,l:'15km'},{v:30,l:'30km'}].map(d => {
+      const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
+      return `<button onclick="window._prFamMetierDist(${d.v})"
+        class="text-[8px] py-0.5 px-1.5 rounded-full border b-default cursor-pointer"
+        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'color:var(--t-secondary)'}">${d.l}</button>`;
+    }).join('')}
+  </div>` : '';
+
+  const nbClients = _prFilterMetierClients?.size || 0;
+
+  return `<div class="mb-3 pb-3 border-b b-light">
+    <div class="text-[10px] t-disabled font-bold mb-1">🎯 Filtre Métier</div>
+    <div class="flex items-center gap-1">
+      <select id="prFamMetierSelect" onchange="window._prFamMetierChange(this.value)"
+        class="text-[11px] px-2 py-1 rounded border b-default s-card t-primary" style="max-width:200px;${_prFilterMetier ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
+        <option value="">Tous les clients</option>
+        ${options}
+      </select>
+      ${_prFilterMetier ? `<button onclick="window._prFamMetierChange('')" class="text-[9px] t-disabled hover:t-primary cursor-pointer">✕</button>` : ''}
+    </div>
+    ${_prFilterMetier ? `<div class="text-[9px] t-disabled mt-1">${nbClients} clients ${escapeHtml(_prFilterMetier)}${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div>` : ''}
+    ${distBtns}
+  </div>`;
+}
+
 function _prBuildCompactList(data) {
   let families = _prFilterClassif === 'inactive'
     ? (data.inactiveFamilies || [])
@@ -2042,11 +2089,11 @@ function _prRenderPilotage(fam) {
 
   const fdMap = _prGetFdMap();
 
-  // ── Filtre distance : via articleZoneFiltered (article-store.js) ──
-  const _hasDist = _prMetierDist && _S.chalandiseReady && _S.chalandiseData?.size;
-  const _distFn = _hasDist ? _prDistOk : null;
+  // ── Filtre distance + métier : via articleZoneFiltered (article-store.js) ──
+  const _hasFilter = (_prMetierDist || _prFilterMetier) && _S.chalandiseReady && _S.chalandiseData?.size;
+  const _distFn = _hasFilter ? _prCombinedFilter : null;
   // Pré-calcul index zone si nécessaire
-  if (_hasDist) computeArticleZoneIndex();
+  if (_hasFilter) computeArticleZoneIndex();
 
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
@@ -2928,6 +2975,7 @@ function _renderPlanRayonContent(data) {
       <div id="prSearchResults" class="hidden fixed s-card border rounded-xl shadow-xl max-h-[640px] overflow-y-auto z-[9999]"></div>
     </div>
     ${_prEmpFilter ? `<div class="flex items-center gap-2 mb-2"><span class="text-[11px] t-secondary">📍 ${escapeHtml(_prEmpFilter)}</span><button onclick="window._prSelectEmp('')" class="text-[10px] t-disabled hover:t-primary">✕</button></div>` : ''}
+    ${!_prOpenFam ? _prBuildMetierSidebar() : ''}
     <details class="mb-3" ${_prOpenFam ? 'style="display:none"' : ''}>
       <summary class="text-[10px] t-disabled cursor-pointer hover:t-primary select-none">📖 Glossaire — Matrice Physigamme × Squelette</summary>
       <div class="mt-2 s-card border rounded-xl p-4 text-[10px] t-secondary overflow-x-auto">
@@ -2986,6 +3034,7 @@ function _renderPlanRayonContent(data) {
   </div>
   ${_prOpenFam ? `<div class="grid grid-cols-[280px_1fr] gap-3" style="min-height:400px;overflow:hidden">
     <div style="max-height:calc(100vh - 200px);overflow-y:auto;min-width:0" class="border-r b-light pr-2">
+      ${_prBuildMetierSidebar()}
       ${_prBuildCompactList(data)}
     </div>
     <div style="min-width:0">${_prRenderDetail(_prOpenFam)}</div>
@@ -3191,6 +3240,22 @@ window._prSetFilter = function(key) {
       btn.style.boxShadow = active ? `0 0 0 2px ${b.color}` : '';
     }
   });
+};
+
+window._prFamMetierChange = function(metier) {
+  _prFilterMetier = metier || '';
+  if (_prFilterMetier) {
+    _prFilterMetierClients = _S.clientsByMetier?.get(_prFilterMetier) || new Set();
+  } else {
+    _prFilterMetierClients = null;
+    _prMetierDist = 0;
+  }
+  _prRerender();
+};
+
+window._prFamMetierDist = function(km) {
+  _prMetierDist = km || 0;
+  _prRerender();
 };
 
 window._prOpenDetail = function(codeFam) {
@@ -5419,8 +5484,8 @@ function _renderMetierBody() {
       verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
       if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.name)}</span>`;
     }
-    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors">
-      <td class="py-1 px-2 font-mono text-[10px]">${a.code}</td>
+    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+      <td class="py-1 px-2 font-mono text-[10px]">${a.code} ${_copyCodeBtn(a.code)}</td>
       <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
       ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
