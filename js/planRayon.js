@@ -5033,10 +5033,35 @@ function _prComputeMetierFull(metier) {
   // ── Enrichir avec données réseau (articles vendus par d'autres agences, mêmes familles) ──
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
-  const metierFams = new Set();
-  for (const [, e] of enriched) if (e.codeFam) metierFams.add(e.codeFam);
 
-  // Compter réseau par article (toutes familles du métier)
+  // Filtrer les familles spécifiques au métier : ne garder que celles où les clients
+  // du métier représentent une part significative des acheteurs zone (≥10% ou ≥5 clients)
+  const _famMetierClients = new Map(); // codeFam → Set<cc> (clients métier)
+  for (const [, e] of enriched) {
+    if (!e.codeFam) continue;
+    if (!_famMetierClients.has(e.codeFam)) _famMetierClients.set(e.codeFam, new Set());
+    const s = _famMetierClients.get(e.codeFam);
+    for (const c of e._contribs) s.add(c.cc);
+  }
+  // Compter tous les clients zone par famille (via articleZoneIndex)
+  const _zoneIdx = computeArticleZoneIndex();
+  const _famAllClients = new Map(); // codeFam → Set<cc>
+  for (const [code, zi] of _zoneIdx) {
+    const fam = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+    if (!fam || !_famMetierClients.has(fam)) continue;
+    if (!_famAllClients.has(fam)) _famAllClients.set(fam, new Set());
+    const s = _famAllClients.get(fam);
+    if (zi.contribs) for (const c of zi.contribs) s.add(c.cc);
+  }
+  const metierFams = new Set();
+  for (const [fam, metClients] of _famMetierClients) {
+    const allClients = _famAllClients.get(fam)?.size || 1;
+    const pct = metClients.size / allClients;
+    // Garder si ≥10% des acheteurs zone sont du métier, OU ≥5 clients du métier
+    if (pct >= 0.10 || metClients.size >= 5) metierFams.add(fam);
+  }
+
+  // Compter réseau par article (familles spécifiques au métier uniquement)
   const _resByCode = new Map(); // code → {nbAg, ca}
   for (const store in vpm) {
     if (store === myStore) continue;
