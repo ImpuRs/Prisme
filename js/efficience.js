@@ -2,7 +2,7 @@
 
 import { _S } from './state.js';
 import { DataStore } from './store.js';
-import { formatEuro, pct, escapeHtml } from './utils.js';
+import { formatEuro, escapeHtml } from './utils.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Efficience de l'Offre — KPIs assortiment + gains potentiels
@@ -156,8 +156,8 @@ export function renderEfficienceTab() {
 
     <!-- KPIs assortiment -->
     <div class="flex flex-wrap gap-3">
-      ${_kpiCard('TGV', pct(tgv), `${nbVendus} vendues / ${nbEnStock} en stock`, tgvColor)}
-      ${_kpiCard('Taux de dispo', pct(tauxDispo), `Objectif : ${pct(OBJECTIF_DISPO * 100)}`, dispoColor)}
+      ${_kpiCard('TGV', tgv.toFixed(1) + '%', `${nbVendus} vendues / ${nbEnStock} en stock`, tgvColor)}
+      ${_kpiCard('Taux de dispo', tauxDispo.toFixed(1) + '%', `Objectif : 96%`, dispoColor)}
       ${_kpiCard('Refs en stock', nbEnStock.toLocaleString('fr-FR'), `dont ${nbDormant} dormantes`, '#60a5fa')}
       ${_kpiCard('Valeur stock', formatEuro(valeurStock), '', '#94a3b8')}
     </div>
