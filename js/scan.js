@@ -979,40 +979,172 @@ function _updateActionBadge() {
   badge.style.display = n > 0 ? 'flex' : 'none';
 }
 
-// ── Code 128B — encodeur SVG inline (zéro dépendance) ─────────────────
-function _barcode128(text) {
-  const P = [
-    '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
-    '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
-    '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
-    '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
-    '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
-    '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
-    '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
-    '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
-    '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
-    '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
-    '114131','311141','411131','211412','211214','211232','2331112'
-  ];
-  const codes = [104]; // Start B
-  let chk = 104;
-  for (let i = 0; i < text.length; i++) {
-    const v = text.charCodeAt(i) - 32;
-    codes.push(v);
-    chk += v * (i + 1);
-  }
-  codes.push(chk % 103);
-  codes.push(106); // Stop
-  let bars = '', x = 0;
-  for (const c of codes) {
-    const p = P[c];
-    for (let j = 0; j < p.length; j++) {
-      const w = +p[j];
-      if (j % 2 === 0) bars += `<rect x="${x}" y="0" width="${w * 2}" height="50"/>`;
-      x += w * 2;
+// ── QR Code — encodeur SVG inline (zéro dépendance, numérique V1-M 21×21) ──
+function _qrCode(text) {
+  // Utilise la lib html5-qrcode déjà chargée ? Non — on génère nous-mêmes.
+  // Approche : on encode via un canvas offscreen avec la lib qrcode-generator embarquée inline.
+  // Plus simple : on utilise un data URL vers une API QR ? Non, offline.
+  // Solution pragmatique : générer via canvas offscreen avec la mini-lib ci-dessous.
+
+  const size = 21; // Version 1
+  const m = _qrGenerate(text);
+  if (!m) return '';
+  const s = m.length;
+  const c = 3; // cell size
+  let rects = '';
+  for (let y = 0; y < s; y++)
+    for (let x = 0; x < s; x++)
+      if (m[y][x]) rects += `<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`;
+  const q = 4 * c; // quiet zone
+  const total = s * c + q * 2;
+  return `<svg viewBox="${-q} ${-q} ${total} ${total}" width="56" height="56" style="background:#fff;border-radius:4px;padding:2px">${rects}</svg>`;
+}
+
+// Mini QR encoder — Version 1, ECC-M, numeric mode, pour codes ≤14 chiffres
+function _qrGenerate(text) {
+  // GF(256) math for Reed-Solomon
+  const gfExp = new Uint8Array(512), gfLog = new Uint8Array(256);
+  let v = 1;
+  for (let i = 0; i < 255; i++) { gfExp[i] = v; gfLog[v] = i; v <<= 1; if (v & 256) v ^= 0x11d; }
+  for (let i = 255; i < 512; i++) gfExp[i] = gfExp[i - 255];
+  const gfMul = (a, b) => a && b ? gfExp[gfLog[a] + gfLog[b]] : 0;
+
+  // Reed-Solomon generator polynomial
+  function rsGenPoly(nsym) {
+    let g = [1];
+    for (let i = 0; i < nsym; i++) {
+      const ng = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) {
+        ng[j] ^= g[j];
+        ng[j + 1] ^= gfMul(g[j], gfExp[i]);
+      }
+      g = ng;
     }
+    return g;
   }
-  return `<svg viewBox="-10 -4 ${x + 20} 58" height="50" style="background:#fff;border-radius:4px;padding:2px 6px">${bars}</svg>`;
+
+  // Reed-Solomon encode
+  function rsEncode(data, nsym) {
+    const gen = rsGenPoly(nsym);
+    const rem = new Array(gen.length - 1).fill(0);
+    for (const d of data) {
+      const coef = d ^ rem[0];
+      rem.shift(); rem.push(0);
+      for (let j = 0; j < rem.length; j++) rem[j] ^= gfMul(gen[j + 1], coef);
+    }
+    return rem;
+  }
+
+  // Numeric encoding
+  const digits = text.replace(/\D/g, '');
+  if (digits.length > 14) return null; // V1-M max 34 numeric, plenty
+  const bits = [];
+  const pushBits = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+  pushBits(1, 4); // mode: numeric
+  pushBits(digits.length, 10); // char count
+  let i = 0;
+  while (i + 2 < digits.length) { pushBits(parseInt(digits.substr(i, 3)), 10); i += 3; }
+  if (digits.length - i === 2) pushBits(parseInt(digits.substr(i, 2)), 7);
+  else if (digits.length - i === 1) pushBits(parseInt(digits.substr(i, 1)), 4);
+  // Terminator
+  const totalBits = 128; // V1-M: 16 data codewords × 8
+  const termLen = Math.min(4, totalBits - bits.length);
+  for (let t = 0; t < termLen; t++) bits.push(0);
+  while (bits.length % 8) bits.push(0);
+  // Pad codewords
+  const pads = [0xEC, 0x11];
+  let pi = 0;
+  while (bits.length < totalBits) { pushBits(pads[pi % 2], 8); pi++; }
+  // Convert to bytes
+  const data = [];
+  for (let b = 0; b < bits.length; b += 8) data.push((bits[b]<<7)|(bits[b+1]<<6)|(bits[b+2]<<5)|(bits[b+3]<<4)|(bits[b+4]<<3)|(bits[b+5]<<2)|(bits[b+6]<<1)|bits[b+7]);
+  // ECC: V1-M = 10 ECC codewords
+  const ecc = rsEncode(data, 10);
+  const codewords = [...data, ...ecc];
+
+  // Build 21×21 matrix
+  const sz = 21;
+  const grid = Array.from({length: sz}, () => new Uint8Array(sz));
+  const reserved = Array.from({length: sz}, () => new Uint8Array(sz));
+
+  // Finder patterns
+  function putFinder(r, c) {
+    for (let dr = -1; dr <= 7; dr++)
+      for (let dc = -1; dc <= 7; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || rr >= sz || cc < 0 || cc >= sz) continue;
+        const inOuter = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+        const inInner = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+        grid[rr][cc] = (inOuter || inInner) ? 1 : 0;
+        reserved[rr][cc] = 1;
+      }
+  }
+  putFinder(0, 0); putFinder(0, 14); putFinder(14, 0);
+
+  // Timing patterns
+  for (let t = 8; t < 13; t++) {
+    grid[6][t] = t % 2 === 0 ? 1 : 0; reserved[6][t] = 1;
+    grid[t][6] = t % 2 === 0 ? 1 : 0; reserved[t][6] = 1;
+  }
+
+  // Dark module
+  grid[13][8] = 1; reserved[13][8] = 1;
+
+  // Reserve format info areas
+  for (let p = 0; p < 8; p++) { reserved[8][p] = 1; reserved[8][sz-1-p] = 1; reserved[p][8] = 1; reserved[sz-1-p][8] = 1; }
+  reserved[8][8] = 1;
+
+  // Place data bits
+  const allBits = [];
+  for (const cw of codewords) for (let b = 7; b >= 0; b--) allBits.push((cw >> b) & 1);
+  let bi = 0;
+  let right = sz - 1;
+  let upward = true;
+  while (right >= 0) {
+    if (right === 6) { right--; continue; }
+    for (let row = 0; row < sz; row++) {
+      const r = upward ? sz - 1 - row : row;
+      for (const dx of [0, -1]) {
+        const c = right + dx;
+        if (c < 0 || reserved[r][c]) continue;
+        grid[r][c] = bi < allBits.length ? allBits[bi++] : 0;
+        reserved[r][c] = 1;
+      }
+    }
+    upward = !upward;
+    right -= 2;
+  }
+
+  // Apply mask 0 (checkerboard) — simplest
+  for (let r = 0; r < sz; r++)
+    for (let c = 0; c < sz; c++) {
+      // Skip finder, timing, format, dark module
+      let skip = false;
+      if ((r < 9 && c < 9) || (r < 9 && c >= 13) || (r >= 13 && c < 9)) skip = true;
+      if (r === 6 || c === 6) skip = true;
+      if (r === 13 && c === 8) skip = true;
+      // Format info positions
+      if (r === 8 && (c < 9 || c >= 13)) skip = true;
+      if (c === 8 && (r < 9 || r >= 13)) skip = true;
+      if (!skip && (r + c) % 2 === 0) grid[r][c] ^= 1;
+    }
+
+  // Format info for mask 0, ECC-M
+  // Pre-computed: ECC-M (00), mask 0 (000) → format bits = 0b000 → after BCH + XOR mask
+  const fmtBits = 0x5412; // ECC-M, mask 0: 101_0100_0001_0010
+  function setFmt(bit, r, c) { grid[r][c] = (fmtBits >> bit) & 1; }
+  // Around top-left finder
+  setFmt(14, 0, 8); setFmt(13, 1, 8); setFmt(12, 2, 8); setFmt(11, 3, 8);
+  setFmt(10, 4, 8); setFmt(9, 5, 8); setFmt(8, 7, 8); setFmt(7, 8, 8);
+  setFmt(6, 8, 7); setFmt(5, 8, 5); setFmt(4, 8, 4); setFmt(3, 8, 3);
+  setFmt(2, 8, 2); setFmt(1, 8, 1); setFmt(0, 8, 0);
+  // Right of top-left & below top-left
+  setFmt(14, 8, 13); setFmt(13, 8, 14); setFmt(12, 8, 15); setFmt(11, 8, 16);
+  setFmt(10, 8, 17); setFmt(9, 8, 18); setFmt(8, 8, 19); setFmt(7, 8, 20);
+  setFmt(6, 13, 8); setFmt(5, 14, 8); setFmt(4, 15, 8); setFmt(3, 16, 8);
+  setFmt(2, 17, 8); setFmt(1, 18, 8); setFmt(0, 19, 8);
+
+  return grid;
 }
 
 function showActions() {
@@ -1063,7 +1195,7 @@ function showActions() {
       // Ligne 1 : Code géant + barcode + supprimer
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
       + '<span style="font-size:22px;font-weight:900;color:var(--t1);letter-spacing:2px;font-variant-numeric:tabular-nums">' + _esc(a.code) + '</span>'
-      + '<div style="display:flex;align-items:center;gap:8px">' + _barcode128(a.code)
+      + '<div style="display:flex;align-items:center;gap:8px">' + _qrCode(a.code)
       + '<button onclick="removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;padding:4px">✕</button>'
       + '</div></div>'
       // Ligne 2 : Libellé souffleur
