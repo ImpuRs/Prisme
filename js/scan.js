@@ -296,7 +296,7 @@ function lookup(code) {
   _renderCard(r.code);
   // Mode inventaire : enregistrer le scan
   if (_invMode && _invEmpl && !_invScanned.has(r.code)) {
-    _invScanned.set(r.code, { stock: r.stockActuel || 0, confirmed: true });
+    _invScanned.set(r.code, { stock: r.stockActuel || 0, stockERP: r.stockActuel || 0, confirmed: true });
     _saveInv();
     _updateInvBanner();
   }
@@ -871,7 +871,9 @@ function _applyStockCorrection(code, ancienStock) {
   }
   // Mode inventaire : mettre à jour le stock compté
   if (_invMode && _invEmpl) {
-    _invScanned.set(code, { stock: nv, confirmed: true, corrected: nv !== ancienStock });
+    const prev = _invScanned.get(code);
+    const erp = prev ? prev.stockERP : ancienStock;
+    _invScanned.set(code, { stock: nv, stockERP: erp, confirmed: true, corrected: nv !== erp });
     _saveInv();
     _updateInvBanner();
   }
@@ -1216,7 +1218,7 @@ function showInvSummary() {
   for (const r of expected) {
     if (scanned.has(r.code)) {
       const s = scanned.get(r.code);
-      lignesScannees.push({ ...r, invStock: s.stock, corrected: s.corrected || false });
+      lignesScannees.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false });
     } else {
       lignesNonScannees.push(r);
     }
@@ -1246,7 +1248,7 @@ function showInvSummary() {
         <div style="font-size:11px;color:var(--t2)">Non vérifiés</div>
       </div>
       <div style="flex:1;padding:10px;border-radius:10px;background:rgba(251,191,36,.15);text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--amber)">${lignesScannees.filter(r => r.invStock !== (r.stockActuel || 0)).length}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--amber)">${lignesScannees.filter(r => r.invStock !== r.stockERP).length}</div>
         <div style="font-size:11px;color:var(--t2)">Écarts</div>
       </div>
       <div style="flex:1;padding:10px;border-radius:10px;background:rgba(96,165,250,.15);text-align:center">
@@ -1256,7 +1258,7 @@ function showInvSummary() {
     </div>`;
 
   // Écarts (stock inventorié ≠ stock ERP) — calculé pour KPI et section plus bas
-  const lignesEcarts = lignesScannees.filter(r => r.invStock !== (r.stockActuel || 0));
+  const lignesEcarts = lignesScannees.filter(r => r.invStock !== r.stockERP);
 
   // Non-scannés en premier (priorité)
   if (lignesNonScannees.length > 0) {
@@ -1282,7 +1284,7 @@ function showInvSummary() {
     html += `<div style="margin-bottom:16px">
       <h3 style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Vérifiés (${lignesScannees.length})</h3>`;
     for (const r of lignesScannees) {
-      const delta = r.invStock - (r.stockActuel || 0);
+      const delta = r.invStock - r.stockERP;
       const deltaHtml = r.corrected && delta !== 0 ? `<span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'};font-size:12px;font-weight:700;margin-left:4px">${delta > 0 ? '+' : ''}${delta}</span>` : '';
       html += `<div style="padding:6px 12px;margin-bottom:2px;background:var(--card);border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
         <div>
@@ -1318,14 +1320,14 @@ function showInvSummary() {
         <h3 style="font-size:13px;font-weight:700;color:var(--amber)">📝 Écarts à saisir dans l'ERP (${lignesEcarts.length})</h3>
       </div>`;
     for (const r of lignesEcarts) {
-      const delta = r.invStock - (r.stockActuel || 0);
+      const delta = r.invStock - r.stockERP;
       html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
         <div>
           <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
           <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
         </div>
         <div style="text-align:right">
-          <span style="font-size:12px;color:var(--t3)">ERP: ${r.stockActuel || 0}</span>
+          <span style="font-size:12px;color:var(--t3)">ERP: ${r.stockERP}</span>
           <span style="font-size:14px;font-weight:900;margin-left:6px">→ ${r.invStock}</span>
           <span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'};font-size:12px;font-weight:700;margin-left:4px">${delta > 0 ? '+' : ''}${delta}</span>
         </div>
@@ -1348,7 +1350,7 @@ function exportInventaire() {
 
   for (const r of expected) {
     const s = scanned.get(r.code);
-    const stockERP = r.stockActuel || 0;
+    const stockERP = s ? s.stockERP : (r.stockActuel || 0);
     const stockInv = s ? s.stock : '';
     const ecart = s ? (s.stock - stockERP) : '';
     const statut = s ? (s.corrected ? 'Corrigé' : 'OK') : 'Non vérifié';
@@ -1361,7 +1363,7 @@ function exportInventaire() {
     const r = _articles?.get(code);
     if (!r) continue;
     if ((r.emplacement || '').trim().toUpperCase() === _invEmpl) continue;
-    rows.push([r.code, r.libelle, r.famille, r.emplacement || '', r.stockActuel || 0, s.stock, '', 'Hors emplacement']
+    rows.push([r.code, r.libelle, r.famille, r.emplacement || '', s.stockERP, s.stock, '', 'Hors emplacement']
       .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(sep));
   }
 
