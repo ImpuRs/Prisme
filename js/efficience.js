@@ -14,7 +14,8 @@ const TAUX_MARGE_MOYEN = 0.35;   // fallback si pas de marge article
 const OBJECTIF_DISPO = 0.96;     // 96% taux de présence cible
 
 function _computeEfficience() {
-  const fd = DataStore.finalData;
+  const _filtered = DataStore.filteredData;
+  const fd = (_filtered.length > 0 && _filtered.length < DataStore.finalData.length) ? _filtered : DataStore.finalData;
   if (!fd || !fd.length) return null;
 
   let nbEnStock = 0, nbVendus = 0, nbRupture = 0, nbSurstock = 0, nbDormant = 0;
