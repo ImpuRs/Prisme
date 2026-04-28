@@ -995,9 +995,9 @@ function _qrCode(text) {
   for (let y = 0; y < s; y++)
     for (let x = 0; x < s; x++)
       if (m[y][x]) rects += `<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`;
-  const q = 4 * c; // quiet zone
+  const q = 2 * c; // quiet zone (réduite pour maximiser le QR)
   const total = s * c + q * 2;
-  return `<svg viewBox="${-q} ${-q} ${total} ${total}" width="56" height="56" style="background:#fff;border-radius:4px;padding:2px">${rects}</svg>`;
+  return `<svg viewBox="${-q} ${-q} ${total} ${total}" width="64" height="64" style="background:#fff;border-radius:4px;padding:0">${rects}</svg>`;
 }
 
 // Mini QR encoder — Version 1, ECC-M, numeric mode, pour codes ≤14 chiffres
