@@ -1279,10 +1279,26 @@ function showInvSummary() {
   // Écarts (stock inventorié ≠ stock ERP) — calculé pour KPI et section plus bas
   const lignesEcarts = lignesScannees.filter(r => r.invStock !== r.stockERP);
 
-  // Non-scannés en premier (priorité)
+  // Extras en premier — emplacement à corriger dans l'ERP
+  if (lignesExtras.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <h3 style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">📍 Hors emplacement — scannés ici, ERP dit ailleurs (${lignesExtras.length})</h3>`;
+    for (const r of lignesExtras) {
+      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
+        </div>
+        <div style="font-size:11px;color:var(--amber)">ERP: ${_esc(r.emplacement || '—')}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Non-scannés
   if (lignesNonScannees.length > 0) {
     html += `<div style="margin-bottom:16px">
-      <h3 style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px">⚠️ Non vérifiés — à contrôler en priorité</h3>`;
+      <h3 style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px">⚠️ Non vérifiés — à contrôler en priorité (${lignesNonScannees.length})</h3>`;
     for (const r of lignesNonScannees) {
       html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(248,113,113,.3);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="input.value='${r.code}';lookup('${r.code}')">
         <div>
@@ -1298,7 +1314,7 @@ function showInvSummary() {
     html += '</div>';
   }
 
-  // Scannés
+  // Vérifiés
   if (lignesScannees.length > 0) {
     html += `<div style="margin-bottom:16px">
       <h3 style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Vérifiés (${lignesScannees.length})</h3>`;
@@ -1311,22 +1327,6 @@ function showInvSummary() {
           <span style="font-size:11px;color:var(--t3);margin-left:6px">${_esc((r.libelle || '').slice(0, 25))}</span>
         </div>
         <div style="font-size:13px;font-weight:700">${r.invStock}${deltaHtml}</div>
-      </div>`;
-    }
-    html += '</div>';
-  }
-
-  // Extras (pas dans l'emplacement ERP)
-  if (lignesExtras.length > 0) {
-    html += `<div>
-      <h3 style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">📍 Hors emplacement — trouvés ici mais ERP dit ailleurs</h3>`;
-    for (const r of lignesExtras) {
-      html += `<div style="padding:6px 12px;margin-bottom:2px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <span style="font-size:13px;font-weight:700">${_esc(r.code)}</span>
-          <span style="font-size:11px;color:var(--t3);margin-left:6px">${_esc((r.libelle || '').slice(0, 25))}</span>
-        </div>
-        <div style="font-size:11px;color:var(--amber)">ERP: ${_esc(r.emplacement || '—')}</div>
       </div>`;
     }
     html += '</div>';
