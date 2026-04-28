@@ -1316,7 +1316,6 @@ function showInvSummary() {
     html += `<div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h3 style="font-size:13px;font-weight:700;color:var(--amber)">📝 Écarts à saisir dans l'ERP (${lignesEcarts.length})</h3>
-        <button onclick="exportEcarts()" style="padding:4px 10px;border-radius:6px;border:none;background:var(--amber);color:#000;font-size:11px;font-weight:700;cursor:pointer">Exporter écarts</button>
       </div>`;
     for (const r of lignesEcarts) {
       const delta = r.invStock - (r.stockActuel || 0);
@@ -1375,28 +1374,3 @@ function exportInventaire() {
 }
 window.exportInventaire = exportInventaire;
 
-function exportEcarts() {
-  const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
-  const scanned = _invScanned;
-  const sep = ';';
-  const header = ['Code', 'Libellé', 'Famille', 'Emplacement', 'Stock ERP', 'Stock inventorié', 'Écart'].join(sep);
-  const rows = [];
-
-  for (const r of expected) {
-    const s = scanned.get(r.code);
-    if (!s) continue;
-    const stockERP = r.stockActuel || 0;
-    if (s.stock === stockERP) continue;
-    rows.push([r.code, r.libelle, r.famille, _invEmpl, stockERP, s.stock, s.stock - stockERP]
-      .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(sep));
-  }
-
-  if (rows.length === 0) { alert('Aucun écart à exporter'); return; }
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'prisme-ecarts-' + _invEmpl + '-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
-  URL.revokeObjectURL(url);
-}
-window.exportEcarts = exportEcarts;
