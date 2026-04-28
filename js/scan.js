@@ -447,9 +447,6 @@ function _verdict(r) {
   // Fin de série / stock / catalogue → purge
   if (_isFin(r) && stock > 0)
     return { label: '🗑️ Fin — à purger', bg: 'rgba(239,68,68,.15)', color: '#f87171' };
-  if (_isFin(r) && stock === 0)
-    return { label: '🏁 Fin — soldé', bg: 'rgba(100,116,139,.15)', color: '#94a3b8' };
-
   // Rupture
   if (stock === 0 && min > 0)
     return { label: '🔴 RUPTURE', bg: 'rgba(239,68,68,.2)', color: '#fca5a5' };
