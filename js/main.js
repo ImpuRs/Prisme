@@ -2116,8 +2116,6 @@ _S.articleMonthlySales=monthlySales;
       try{
         const sq=computeSquelette();
         _S._prSqData=sq;
-        // Re-render alerte anticipée avec badges SOCLE
-        _renderSaisonAnticipe();
         console.log(`[IDLE] computeSquelette ${performance.now()-t0|0}ms`);
       }catch(e){console.warn('[IDLE] computeSquelette error:',e);}
     };
@@ -2150,88 +2148,6 @@ _S.articleMonthlySales=monthlySales;
   }
   window.setPeriodePreset = setPeriodePreset;
 
-  function _getSaisonCandidats() {
-    const mois = new Date().getMonth();
-    const candidats = [];
-    for (const r of DataStore.finalData) {
-      if (r.nouveauMin <= 0 || r.W < 1 || r.isParent) continue;
-      const coeff = _S.seasonalIndex[r.famille]?.[mois];
-      // Seulement les mois à forte saisonnalité (coeff > 1) — évite le bruit en basse saison
-      if (!coeff || coeff <= 1.05) continue;
-      let saisonMin = Math.ceil(r.nouveauMin * coeff);
-      // Plafonnement articles chers — évite recommandations absurdes (8 Kärcher à 300€)
-      const px=r.prixUnitaire||0;
-      if(px>HIGH_PRICE){saisonMin=Math.min(saisonMin,Math.max(r.stockActuel+1,2));}
-      else if(px>50){saisonMin=Math.min(saisonMin,Math.max(Math.ceil(r.nouveauMin*1.5),3));}
-      if (r.stockActuel < saisonMin) {
-        const qteCde = saisonMin - r.stockActuel;
-        candidats.push({
-          code: r.code, libelle: r.libelle, famille: r.famille,
-          nouveauMin: r.nouveauMin, saisonMin,
-          stockActuel: r.stockActuel, coeff, prixUnitaire: px,
-          qteCde, vaEuro: qteCde * px,
-        });
-      }
-    }
-    candidats.sort((a, b) => b.vaEuro - a.vaEuro);
-    return candidats;
-  }
-
-  // ── Alerte Saisonnière Anticipée (M+1 / M+2) × Tronc Commun ──
-  function _getAlerteSaisonAnticipee() {
-    const now = new Date();
-    const m1 = (now.getMonth() + 1) % 12; // mois M+1
-    const m2 = (now.getMonth() + 2) % 12; // mois M+2
-    // Set des articles Socle (Tronc Commun) — via squelette
-    let socleCodes = null;
-    if (_S._prSqData) {
-      socleCodes = new Set();
-      for (const d of _S._prSqData.directions) { for (const a of (d.socle || [])) socleCodes.add(a.code); }
-    }
-    // Pré-calcul : qté vendue par famille sur chaque mois pic (contexte utilisateur)
-    const _ms = _S.articleMonthlySales || {};
-    const _famQteMois = {}; // {fam → {mois → qté totale}}
-    for (const [code, months] of Object.entries(_ms)) {
-      const fam = _S.articleFamille[code]; if (!fam) continue;
-      if (!_famQteMois[fam]) _famQteMois[fam] = {};
-      for (const m of [m1, m2]) {
-        _famQteMois[fam][m] = (_famQteMois[fam][m] || 0) + (months[m] || 0);
-      }
-    }
-    const alertes = [];
-    for (const r of DataStore.finalData) {
-      if (r.nouveauMin <= 0 || r.W < 1 || r.isParent) continue;
-      const fam = r.famille;
-      const si = _S.seasonalIndex[fam];
-      if (!si) continue;
-      // Coeff max sur M+1 et M+2
-      const c1 = si[m1] || 1, c2 = si[m2] || 1;
-      const coeffPic = Math.max(c1, c2);
-      const moisPic = c1 >= c2 ? m1 : m2;
-      if (coeffPic <= 1.2) continue; // pas de pic significatif
-      // Besoin anticipé = MIN × coeff pic
-      let saisonMin = Math.ceil(r.nouveauMin * coeffPic);
-      const px = r.prixUnitaire || 0;
-      if (px > HIGH_PRICE) saisonMin = Math.min(saisonMin, Math.max(r.stockActuel + 2, 3));
-      else if (px > 50) saisonMin = Math.min(saisonMin, Math.max(Math.ceil(r.nouveauMin * 1.5), 3));
-      if (r.stockActuel >= saisonMin) continue; // stock suffisant
-      const qteCde = saisonMin - r.stockActuel;
-      const isSocle = socleCodes ? socleCodes.has(r.code) : false;
-      // Contexte : qté article vendue sur le mois pic + qté famille
-      const artQte = (_ms[r.code] || [])[moisPic] || 0;
-      const famQte = _famQteMois[fam]?.[moisPic] || 0;
-      alertes.push({
-        code: r.code, libelle: r.libelle, famille: fam,
-        nouveauMin: r.nouveauMin, saisonMin, coeffPic,
-        moisPic, stockActuel: r.stockActuel, prixUnitaire: px,
-        qteCde, vaEuro: qteCde * px, isSocle,
-        qteArticlePic: artQte, qteFamillePic: famQte,
-      });
-    }
-    // Tri : Socle d'abord, puis par valeur à commander décroissante
-    alertes.sort((a, b) => (b.isSocle ? 1 : 0) - (a.isSocle ? 1 : 0) || b.vaEuro - a.vaEuro);
-    return alertes;
-  }
 
   function renderDashboardAndCockpit(){
     if(!_S._hasStock){
@@ -2436,74 +2352,13 @@ _S.articleMonthlySales=monthlySales;
     }}
 
     // ── Sidebar pills ──
-    const _saisonCount=Object.keys(_S.seasonalIndex).length>0?_getSaisonCandidats().length:0;
-    _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:_saisonCount,saso:lstS.length,colis:lstColis.length,rupClients:0};
+    _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saso:lstS.length,colis:lstColis.length,rupClients:0};
     {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
     _renderStockPills();
-    _renderSaisonAnticipe();
     _renderDataScopeBar();
     renderCockpitBriefing();
   }
 
-  function _renderSaisonAnticipe(){
-    const el=document.getElementById('saisonAnticipeWidget');
-    if(!el)return;
-    if(!Object.keys(_S.seasonalIndex).length){el.classList.add('hidden');return;}
-    const alertes=_getAlerteSaisonAnticipee();
-    if(!alertes.length){el.classList.add('hidden');return;}
-    el.classList.remove('hidden');
-    const nomsMois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    const nbSocle=alertes.filter(a=>a.isSocle).length;
-    const totalVa=alertes.reduce((s,a)=>s+a.vaEuro,0);
-    const moisPicLabel=nomsMois[alertes[0]?.moisPic??0];
-    const nomsMoisCourt=['janv','fév','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
-    const rows=alertes.slice(0,30).map(r=>{
-      const coeffPct='+'+Math.round((r.coeffPic-1)*100)+'%';
-      const socleBadge='';
-      // Contexte factuel : volume réel du mois pic
-      const moisLabel=nomsMoisCourt[r.moisPic]||'';
-      const qteRef=r.qteArticlePic>0?r.qteArticlePic:r.qteFamillePic;
-      const isFamFallback=r.qteArticlePic<=0;
-      const lowConfidence=qteRef>0&&qteRef<10;
-      let ctxLabel='';
-      if(r.qteArticlePic>0)ctxLabel=r.qteArticlePic+' vendus en '+moisLabel;
-      else if(r.qteFamillePic>0)ctxLabel=r.qteFamillePic+' fam. en '+moisLabel;
-      const ctxStyle=lowConfidence?'color:#f59e0b;font-style:italic':'';
-      const ctxTitle=lowConfidence?'Volume faible — index saisonnier peu fiable':'Volume réel constaté sur l\'historique local';
-      const ctxHtml=ctxLabel?'<span class="text-[9px]" style="'+ctxStyle+'" title="'+ctxTitle+'"> · '+ctxLabel+'</span>':'';
-      return`<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}','planRayon')">
-        <td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(r.code)}</td>
-        <td class="py-1.5 px-2 t-primary truncate" style="max-width:220px" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)} ${socleBadge}</td>
-        <td class="py-1.5 px-2 text-center">${r.stockActuel}</td>
-        <td class="py-1.5 px-2 text-center font-bold c-caution">${r.saisonMin} <span class="text-[9px] font-normal t-disabled">(${coeffPct})</span>${ctxHtml}</td>
-        <td class="py-1.5 px-2 text-center font-bold" style="color:#f97316">+${r.qteCde}</td>
-        <td class="py-1.5 px-2 text-right font-bold t-primary">${r.vaEuro>0?formatEuro(r.vaEuro):'—'}</td>
-      </tr>`;
-    }).join('');
-    el.innerHTML=`<div class="s-card rounded-xl p-4 mb-4" style="border-left:4px solid #f97316">
-      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 class="text-[12px] font-bold" style="color:#f97316">⏰ Alerte anticipée — pic ${moisPicLabel}</h3>
-        <span class="text-[10px] t-secondary">${alertes.length} articles · ${formatEuro(totalVa)} à commander</span>
-      </div>
-      <p class="text-[10px] t-disabled mb-3">Stock insuffisant pour le pic saisonnier dans 30-60 jours. Index basé sur l'historique local — volumes réels affichés pour chaque article.</p>
-      <div class="overflow-x-auto" style="max-height:350px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead class="sticky top-0" style="background:var(--color-bg-primary,#0f172a);z-index:1">
-            <tr class="text-[10px] t-secondary border-b b-light">
-              <th class="py-1.5 px-2 text-left">Code</th>
-              <th class="py-1.5 px-2 text-left">Libellé</th>
-              <th class="py-1.5 px-2 text-center">Stock</th>
-              <th class="py-1.5 px-2 text-center">Seuil pic</th>
-              <th class="py-1.5 px-2 text-center">À cder</th>
-              <th class="py-1.5 px-2 text-right">Valeur</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      ${alertes.length>30?'<p class="text-[9px] t-disabled mt-2 text-center">'+alertes.length+' articles au total — top 30 affichés</p>':''}
-    </div>`;
-  }
 
   function _renderDataScopeBar(){
     const el=document.getElementById('dataScopeGlobal')||document.getElementById('dataScopeBar');
@@ -2559,7 +2414,6 @@ _S.articleMonthlySales=monthlySales;
       {icon:'⚠️',label:'Anomalies',count:c.anomalies||0,color:'#ea580c',cockpit:'anomalies'},
       {icon:'💤',label:'Dormants',count:c.dormants||0,color:'#ea580c',cockpit:'dormants'},
       {icon:'📁',label:'Fins de serie',count:c.fins||0,color:'#6b7280',cockpit:'fins'},
-      {icon:'🌸',label:'Saisonnalite',count:c.saison||0,color:'#d97706',cockpit:null,onclick:'document.getElementById("saisonAnticipeWidget")?.scrollIntoView({behavior:"smooth"})'},
       {icon:'📦',label:'Excedent ERP',count:c.saso||0,color:'#7c3aed',cockpit:'saso'},
       {icon:'📦→🏪',label:'Colis a stocker',count:c.colis||0,color:'#0891b2',cockpit:'colisrayon'},
       {icon:'👥',label:'Clients impactes',count:c.rupClients||0,color:'#dc2626',cockpit:null},
