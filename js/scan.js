@@ -1245,11 +1245,18 @@ function showInvSummary() {
         <div style="font-size:22px;font-weight:900;color:var(--red)">${lignesNonScannees.length}</div>
         <div style="font-size:11px;color:var(--t2)">Non vérifiés</div>
       </div>
+      <div style="flex:1;padding:10px;border-radius:10px;background:rgba(251,191,36,.15);text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--amber)">${lignesScannees.filter(r => r.invStock !== (r.stockActuel || 0)).length}</div>
+        <div style="font-size:11px;color:var(--t2)">Écarts</div>
+      </div>
       <div style="flex:1;padding:10px;border-radius:10px;background:rgba(96,165,250,.15);text-align:center">
         <div style="font-size:22px;font-weight:900;color:var(--act)">${expected.length}</div>
         <div style="font-size:11px;color:var(--t2)">Attendus ERP</div>
       </div>
     </div>`;
+
+  // Écarts (stock inventorié ≠ stock ERP) — calculé pour KPI et section plus bas
+  const lignesEcarts = lignesScannees.filter(r => r.invStock !== (r.stockActuel || 0));
 
   // Non-scannés en premier (priorité)
   if (lignesNonScannees.length > 0) {
@@ -1304,6 +1311,30 @@ function showInvSummary() {
     html += '</div>';
   }
 
+  // Écarts — à saisir dans l'ERP (en dernier = ce qu'on donne à l'ERP)
+  if (lignesEcarts.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="font-size:13px;font-weight:700;color:var(--amber)">📝 Écarts à saisir dans l'ERP (${lignesEcarts.length})</h3>
+        <button onclick="exportEcarts()" style="padding:4px 10px;border-radius:6px;border:none;background:var(--amber);color:#000;font-size:11px;font-weight:700;cursor:pointer">Exporter écarts</button>
+      </div>`;
+    for (const r of lignesEcarts) {
+      const delta = r.invStock - (r.stockActuel || 0);
+      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
+        </div>
+        <div style="text-align:right">
+          <span style="font-size:12px;color:var(--t3)">ERP: ${r.stockActuel || 0}</span>
+          <span style="font-size:14px;font-weight:900;margin-left:6px">→ ${r.invStock}</span>
+          <span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'};font-size:12px;font-weight:700;margin-left:4px">${delta > 0 ? '+' : ''}${delta}</span>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
   html += '</div>';
   el.innerHTML = html;
 }
@@ -1343,3 +1374,29 @@ function exportInventaire() {
   URL.revokeObjectURL(url);
 }
 window.exportInventaire = exportInventaire;
+
+function exportEcarts() {
+  const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
+  const scanned = _invScanned;
+  const sep = ';';
+  const header = ['Code', 'Libellé', 'Famille', 'Emplacement', 'Stock ERP', 'Stock inventorié', 'Écart'].join(sep);
+  const rows = [];
+
+  for (const r of expected) {
+    const s = scanned.get(r.code);
+    if (!s) continue;
+    const stockERP = r.stockActuel || 0;
+    if (s.stock === stockERP) continue;
+    rows.push([r.code, r.libelle, r.famille, _invEmpl, stockERP, s.stock, s.stock - stockERP]
+      .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(sep));
+  }
+
+  if (rows.length === 0) { alert('Aucun écart à exporter'); return; }
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'prisme-ecarts-' + _invEmpl + '-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+window.exportEcarts = exportEcarts;
