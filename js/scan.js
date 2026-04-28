@@ -294,6 +294,12 @@ function lookup(code) {
   document.getElementById('scanCount').textContent = _scanCount + ' scan' + (_scanCount > 1 ? 's' : '');
   _lastCode = r.code;
   _renderCard(r.code);
+  // Mode inventaire : enregistrer le scan
+  if (_invMode && _invEmpl && !_invScanned.has(r.code)) {
+    _invScanned.set(r.code, { stock: r.stockActuel || 0, confirmed: true });
+    _saveInv();
+    _updateInvBanner();
+  }
   // Zebra : vider l'input pour que le prochain scan ne concatène pas
   input.value = '';
   clearBtn.style.display = 'none';
@@ -862,6 +868,12 @@ function _applyStockCorrection(code, ancienStock) {
   if (nv !== ancienStock) {
     addAction(code, 'inventaire', 'Stock: ' + ancienStock + ' → ' + nv);
   }
+  // Mode inventaire : mettre à jour le stock compté
+  if (_invMode && _invEmpl) {
+    _invScanned.set(code, { stock: nv, confirmed: true, corrected: nv !== ancienStock });
+    _saveInv();
+    _updateInvBanner();
+  }
   // Re-render the full card with updated stock & recalculated actions
   _renderCard(code);
   _vibrate();
@@ -1057,3 +1069,271 @@ function exportActions() {
   URL.revokeObjectURL(url);
 }
 window.exportActions = exportActions;
+
+// ══════════════════════════════════════════════════════════════════════════
+// MODE INVENTAIRE — scan exhaustif par emplacement
+// ══════════════════════════════════════════════════════════════════════════
+
+let _invMode = false;
+let _invEmpl = '';           // emplacement en cours
+let _invScanned = new Map(); // Map<code, {stock, confirmed}>
+const _INV_KEY = 'prisme_scan_inventaire';
+
+function _saveInv() {
+  const data = { empl: _invEmpl, scanned: Object.fromEntries(_invScanned) };
+  localStorage.setItem(_INV_KEY, JSON.stringify(data));
+}
+function _restoreInv() {
+  try {
+    const raw = localStorage.getItem(_INV_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    _invEmpl = data.empl || '';
+    _invScanned = new Map(Object.entries(data.scanned || {}));
+  } catch(_) {}
+}
+
+function toggleInventaire() {
+  if (_invMode) {
+    // Quitter le mode inventaire
+    if (_invScanned.size > 0 && !confirm('Quitter le mode inventaire ? Les données scannées seront conservées.')) return;
+    _invMode = false;
+    _invEmpl = '';
+    document.getElementById('invBtn').style.background = 'transparent';
+    document.getElementById('invBtn').style.color = 'var(--t2)';
+    _hideInvBanner();
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="icon">📦</div><p>Scannez un code article<br>ou tapez-le au clavier</p></div>';
+    return;
+  }
+  // Activer le mode inventaire → demander l'emplacement
+  _invMode = true;
+  document.getElementById('invBtn').style.background = 'var(--amber)';
+  document.getElementById('invBtn').style.color = '#000';
+  _showEmplPicker();
+}
+window.toggleInventaire = toggleInventaire;
+
+function _showEmplPicker() {
+  const el = document.getElementById('content');
+  // Collecter les emplacements uniques depuis les articles
+  const empls = new Map();
+  if (_articles) {
+    for (const [code, r] of _articles) {
+      const e = (r.emplacement || '').trim().toUpperCase();
+      if (e && e !== '—') {
+        if (!empls.has(e)) empls.set(e, 0);
+        empls.set(e, empls.get(e) + 1);
+      }
+    }
+  }
+  const sorted = [...empls.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  el.innerHTML = `<div style="padding:16px 0">
+    <h2 style="font-size:16px;font-weight:800;margin-bottom:12px">📋 Mode Inventaire</h2>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:16px">Sélectionnez ou scannez l'emplacement à inventorier.</p>
+    <input type="text" id="invEmplInput" placeholder="Emplacement…" autocomplete="off"
+      style="width:100%;padding:12px;font-size:16px;font-weight:700;border-radius:10px;border:2px solid var(--border);background:var(--card);color:var(--t1);text-transform:uppercase;margin-bottom:12px;letter-spacing:1px">
+    ${sorted.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${sorted.map(([e, n]) =>
+      `<button onclick="startInventaire('${_esc(e)}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:12px;font-weight:600;cursor:pointer">${_esc(e)} <span style="color:var(--t3);font-size:10px">${n}</span></button>`
+    ).join('')}</div>` : ''}
+    <button onclick="startInventaire(document.getElementById('invEmplInput').value)" style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--amber);color:#000;font-size:16px;font-weight:700;cursor:pointer">Démarrer l'inventaire</button>
+  </div>`;
+  const inp = document.getElementById('invEmplInput');
+  inp.focus();
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); startInventaire(inp.value); }
+  });
+}
+
+function startInventaire(empl) {
+  empl = (empl || '').trim().toUpperCase();
+  if (!empl) { alert('Entrez un emplacement'); return; }
+  _invEmpl = empl;
+  _invScanned = new Map();
+  _saveInv();
+  _showInvBanner();
+  // Prêt à scanner
+  const el = document.getElementById('content');
+  const expected = _getExpectedArticles();
+  el.innerHTML = `<div class="empty"><div class="icon">📦</div><p>Emplacement <strong>${_esc(empl)}</strong><br>${expected.length} articles attendus dans l'ERP<br><br>Scannez le premier article</p></div>`;
+  input.focus();
+}
+window.startInventaire = startInventaire;
+
+function _getExpectedArticles() {
+  if (!_articles) return [];
+  const results = [];
+  for (const [code, r] of _articles) {
+    const e = (r.emplacement || '').trim().toUpperCase();
+    if (e === _invEmpl) results.push(r);
+  }
+  return results;
+}
+
+function _showInvBanner() {
+  let banner = document.getElementById('invBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'invBanner';
+    banner.style.cssText = 'padding:6px 12px;background:rgba(251,191,36,.15);border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;color:var(--amber)';
+    const searchWrap = document.querySelector('.search-wrap');
+    searchWrap.parentNode.insertBefore(banner, searchWrap.nextSibling);
+  }
+  _updateInvBanner();
+}
+
+function _hideInvBanner() {
+  const banner = document.getElementById('invBanner');
+  if (banner) banner.remove();
+}
+
+function _updateInvBanner() {
+  const banner = document.getElementById('invBanner');
+  if (!banner) return;
+  const expected = _getExpectedArticles();
+  const n = _invScanned.size;
+  const total = expected.length;
+  banner.innerHTML = `<span>📋 ${_esc(_invEmpl)} — ${n} / ${total} scannés</span>`
+    + `<button onclick="showInvSummary()" style="padding:3px 10px;border-radius:6px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-size:11px;font-weight:700;cursor:pointer">Bilan</button>`;
+}
+
+
+function showInvSummary() {
+  const el = document.getElementById('content');
+  const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
+  const scanned = _invScanned;
+
+  // Séparer : scannés vs non-scannés
+  const lignesScannees = [];
+  const lignesNonScannees = [];
+
+  for (const r of expected) {
+    if (scanned.has(r.code)) {
+      const s = scanned.get(r.code);
+      lignesScannees.push({ ...r, invStock: s.stock, corrected: s.corrected || false });
+    } else {
+      lignesNonScannees.push(r);
+    }
+  }
+
+  // Articles scannés mais pas dans l'emplacement ERP (rajouts)
+  const lignesExtras = [];
+  for (const [code, s] of scanned) {
+    const r = _articles?.get(code);
+    if (r && (r.emplacement || '').trim().toUpperCase() !== _invEmpl) {
+      lignesExtras.push({ ...r, invStock: s.stock, corrected: s.corrected || false, extra: true });
+    }
+  }
+
+  let html = `<div style="padding:12px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="font-size:16px;font-weight:800">📋 Bilan — ${_esc(_invEmpl)}</h2>
+      <button onclick="exportInventaire()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div style="flex:1;padding:10px;border-radius:10px;background:rgba(34,197,94,.15);text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--green)">${lignesScannees.length}</div>
+        <div style="font-size:11px;color:var(--t2)">Scannés</div>
+      </div>
+      <div style="flex:1;padding:10px;border-radius:10px;background:rgba(248,113,113,.15);text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--red)">${lignesNonScannees.length}</div>
+        <div style="font-size:11px;color:var(--t2)">Non vérifiés</div>
+      </div>
+      <div style="flex:1;padding:10px;border-radius:10px;background:rgba(96,165,250,.15);text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--act)">${expected.length}</div>
+        <div style="font-size:11px;color:var(--t2)">Attendus ERP</div>
+      </div>
+    </div>`;
+
+  // Non-scannés en premier (priorité)
+  if (lignesNonScannees.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <h3 style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px">⚠️ Non vérifiés — à contrôler en priorité</h3>`;
+    for (const r of lignesNonScannees) {
+      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(248,113,113,.3);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="input.value='${r.code}';lookup('${r.code}')">
+        <div>
+          <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
+        </div>
+        <div style="text-align:right">
+          <span style="font-size:13px;font-weight:700">Stock ERP: ${r.stockActuel || 0}</span>
+          <span style="font-size:11px;color:var(--red);margin-left:6px">Non vérifié</span>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Scannés
+  if (lignesScannees.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <h3 style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Vérifiés (${lignesScannees.length})</h3>`;
+    for (const r of lignesScannees) {
+      const delta = r.invStock - (r.stockActuel || 0);
+      const deltaHtml = r.corrected && delta !== 0 ? `<span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'};font-size:12px;font-weight:700;margin-left:4px">${delta > 0 ? '+' : ''}${delta}</span>` : '';
+      html += `<div style="padding:6px 12px;margin-bottom:2px;background:var(--card);border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:13px;font-weight:700;letter-spacing:1px">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:6px">${_esc((r.libelle || '').slice(0, 25))}</span>
+        </div>
+        <div style="font-size:13px;font-weight:700">${r.invStock}${deltaHtml}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Extras (pas dans l'emplacement ERP)
+  if (lignesExtras.length > 0) {
+    html += `<div>
+      <h3 style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">📍 Hors emplacement — trouvés ici mais ERP dit ailleurs</h3>`;
+    for (const r of lignesExtras) {
+      html += `<div style="padding:6px 12px;margin-bottom:2px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:13px;font-weight:700">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:6px">${_esc((r.libelle || '').slice(0, 25))}</span>
+        </div>
+        <div style="font-size:11px;color:var(--amber)">ERP: ${_esc(r.emplacement || '—')}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+window.showInvSummary = showInvSummary;
+
+function exportInventaire() {
+  const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
+  const scanned = _invScanned;
+  const sep = ';';
+  const header = ['Code', 'Libellé', 'Famille', 'Emplacement', 'Stock ERP', 'Stock inventorié', 'Écart', 'Statut'].join(sep);
+  const rows = [];
+
+  for (const r of expected) {
+    const s = scanned.get(r.code);
+    const stockERP = r.stockActuel || 0;
+    const stockInv = s ? s.stock : '';
+    const ecart = s ? (s.stock - stockERP) : '';
+    const statut = s ? (s.corrected ? 'Corrigé' : 'OK') : 'Non vérifié';
+    rows.push([r.code, r.libelle, r.famille, _invEmpl, stockERP, stockInv, ecart, statut]
+      .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(sep));
+  }
+
+  // Extras
+  for (const [code, s] of scanned) {
+    const r = _articles?.get(code);
+    if (!r) continue;
+    if ((r.emplacement || '').trim().toUpperCase() === _invEmpl) continue;
+    rows.push([r.code, r.libelle, r.famille, r.emplacement || '', r.stockActuel || 0, s.stock, '', 'Hors emplacement']
+      .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(sep));
+  }
+
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'prisme-inventaire-' + _invEmpl + '-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+window.exportInventaire = exportInventaire;
