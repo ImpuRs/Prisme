@@ -4712,6 +4712,7 @@ window._prExportDiag = function(codeFam) {
 
 let _palSort = 'ecart'; // 'fam'|'ecart'|'rang'
 let _palSortAsc = false;
+let _palSearch = '';
 function _renderPalmaresContent() {
   const vpm = _S.ventesParAgence || {};
   const myStore = _S.selectedMyStore;
@@ -4781,14 +4782,19 @@ function _renderPalmaresContent() {
   const baseFn = sortFns[_palSort] || sortFns.ecart;
   rows.sort((a, b) => _palSortAsc ? -baseFn(a, b) : baseFn(a, b));
 
-  // KPIs globaux
-  const nbRetard = rows.filter(r => r.ecart < -20).length;
-  const nbAvance = rows.filter(r => r.ecart > 20).length;
-  const nbMoyen = rows.length - nbRetard - nbAvance;
-  const avgRang = rows.length ? (rows.reduce((s, r) => s + r.myRang, 0) / rows.length).toFixed(1) : '—';
+  // Filtre recherche famille
+  const _q = _palSearch.toLowerCase().trim();
+  const filteredRows = _q ? rows.filter(r => r.lib.toLowerCase().includes(_q) || r.cf.toLowerCase().includes(_q)) : rows;
 
-  let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Familles comparées</div><div class="text-[14px] font-bold t-primary">${rows.length}</div></div>
+  // KPIs globaux
+  const nbRetard = filteredRows.filter(r => r.ecart < -20).length;
+  const nbAvance = filteredRows.filter(r => r.ecart > 20).length;
+  const nbMoyen = filteredRows.length - nbRetard - nbAvance;
+  const avgRang = filteredRows.length ? (filteredRows.reduce((s, r) => s + r.myRang, 0) / filteredRows.length).toFixed(1) : '—';
+
+  let html = `<div class="mb-3"><input type="text" id="palSearchInput" value="${escapeHtml(_palSearch)}" placeholder="Rechercher une famille…" oninput="window._palSearchFn(this.value)" class="w-full text-xs py-2 px-3 rounded-lg" style="background:var(--color-bg-secondary,#1e293b);border:1px solid var(--color-border,#334155);color:var(--t-primary,#f8fafc);outline:none" autocomplete="off"></div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Familles${_q ? ' filtrées' : ''}</div><div class="text-[14px] font-bold t-primary">${filteredRows.length}${_q ? ' / ' + rows.length : ''}</div></div>
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Rang moyen</div><div class="text-[14px] font-bold" style="color:#f59e0b">${avgRang} / ${allStores.length}</div></div>
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">🔴 En retard (&lt;-20%)</div><div class="text-[14px] font-bold" style="color:#ef4444">${nbRetard}</div></div>
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">🟢 En avance (&gt;+20%)</div><div class="text-[14px] font-bold" style="color:#22c55e">${nbAvance}</div></div>
@@ -4811,7 +4817,7 @@ function _renderPalmaresContent() {
         <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Mon CA</th>
         ${stores.map(s => `<th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500;min-width:50px">${s}</th>`).join('')}
       </tr></thead>
-      <tbody>${rows.map(r => {
+      <tbody>${filteredRows.map(r => {
         const ecartC = r.ecart >= 20 ? '#22c55e' : r.ecart >= -20 ? '#f59e0b' : '#ef4444';
         const rangC = r.myRang <= 2 ? '#22c55e' : r.myRang <= Math.ceil(r.nbActive * 0.5) ? '#f59e0b' : '#ef4444';
         // Cells agences
@@ -4845,6 +4851,16 @@ function _renderPalmaresContent() {
 window._prOpenFamily = function(codeFam) {
   _prTopView = 'famille';
   window._prOpenDetail(codeFam);
+};
+
+window._palSearchFn = function(val) {
+  _palSearch = val;
+  const el = document.getElementById('planRayonBlock');
+  if (el) {
+    el.innerHTML = _prPerfBanner() + _prTopTabBar() + _renderPalmaresContent();
+    const inp = document.getElementById('palSearchInput');
+    if (inp) { inp.focus(); inp.setSelectionRange(val.length, val.length); }
+  }
 };
 
 window._palSortFn = function(key) {
