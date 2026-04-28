@@ -888,6 +888,32 @@ function openArticlePanel(code,source){
         <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
       </div>`;
     }
+    // Fallback : Kit de démarrage LOCAL quand pas de réseau mais BL territoire
+    if(!kitHtml && nbBL > 0) {
+      const terrLines = (_S.ventesTerrain||[]).filter(l => l.code === code);
+      let totQteT = 0, totBLT = 0, totCAT = 0;
+      const blSeen = new Set();
+      for (const l of terrLines) {
+        const qte = Math.abs(l.qte || l.qtePrelevee || 1);
+        const ca = Math.abs(l.ca || 0);
+        const blKey = (l.bl || '') + '_' + (l.clientCode || '');
+        if (!blSeen.has(blKey)) { totBLT++; blSeen.add(blKey); }
+        totQteT += qte;
+        totCAT += ca;
+      }
+      if (totBLT > 0) {
+        const vitesseLoc = totQteT / totBLT;
+        const sugMin = Math.max(Math.ceil(vitesseLoc), 1);
+        const sugMax = Math.max(Math.ceil(vitesseLoc * 2), sugMin + 1);
+        kitHtml = `<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(251,191,36,0.3);background:rgba(251,191,36,0.08)">
+          <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(251,191,36,0.2);color:#fbbf24">📍 Local (territoire)</span></div>
+          <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#fbbf24">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Locale)</span></div>
+          <div class="text-[10px] t-disabled">Vitesse locale : ${vitesseLoc.toFixed(1)} pièces/BL (${totBLT} BL territoire, ${formatEuro(totCAT)})</div>
+          <div class="text-[10px] t-disabled mt-1" style="color:#f59e0b">⚠ Aucune agence réseau ne vend cet article — estimation basée uniquement sur les livraisons territoire</div>
+          <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Locale)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
+        </div>`;
+      }
+    }
     // Co-achats (Smart — 5 gestes Coach)
     const _sqR2=_S._prSqData||computeSquelette();const _sqM2=new Map();
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
