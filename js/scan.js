@@ -960,11 +960,11 @@ function _barcode128(text) {
     const p = P[c];
     for (let j = 0; j < p.length; j++) {
       const w = +p[j];
-      if (j % 2 === 0) bars += `<rect x="${x}" y="0" width="${w}" height="28"/>`;
-      x += w;
+      if (j % 2 === 0) bars += `<rect x="${x}" y="0" width="${w * 2}" height="50"/>`;
+      x += w * 2;
     }
   }
-  return `<svg viewBox="-6 -2 ${x + 12} 32" height="28" style="background:#fff;border-radius:3px;padding:1px 4px">${bars}</svg>`;
+  return `<svg viewBox="-10 -4 ${x + 20} 58" height="50" style="background:#fff;border-radius:4px;padding:2px 6px">${bars}</svg>`;
 }
 
 function showActions() {
