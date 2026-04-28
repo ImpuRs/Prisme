@@ -1282,7 +1282,10 @@ function showInvSummary() {
   // Extras en premier — emplacement à corriger dans l'ERP
   if (lignesExtras.length > 0) {
     html += `<div style="margin-bottom:16px">
-      <h3 style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">📍 Hors emplacement — scannés ici, ERP dit ailleurs (${lignesExtras.length})</h3>`;
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="font-size:13px;font-weight:700;color:var(--amber)">📍 Hors emplacement — scannés ici, ERP dit ailleurs (${lignesExtras.length})</h3>
+        <button onclick="validerExtras()" style="padding:4px 10px;border-radius:6px;border:none;background:var(--green);color:#000;font-size:11px;font-weight:700;cursor:pointer">Tous vérifiés ✓</button>
+      </div>`;
     for (const r of lignesExtras) {
       html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
         <div>
@@ -1359,6 +1362,19 @@ function showInvSummary() {
   el.innerHTML = html;
 }
 window.showInvSummary = showInvSummary;
+
+function validerExtras() {
+  for (const [code, s] of _invScanned) {
+    const r = _articles?.get(code);
+    if (!r) continue;
+    if ((r.emplacement || '').trim().toUpperCase() !== _invEmpl) {
+      r.emplacement = _invEmpl;
+    }
+  }
+  _saveInv();
+  showInvSummary();
+}
+window.validerExtras = validerExtras;
 
 function exportInventaire() {
   const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
