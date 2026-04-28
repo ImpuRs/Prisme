@@ -186,7 +186,7 @@ export function renderEfficienceTab() {
     <div class="flex flex-wrap gap-3">
       ${_kpiCard('TGV', tgv.toFixed(1) + '%', `${nbVendus} vendues / ${nbEnStock} en stock`, tgvColor)}
       ${_kpiCard('Taux de dispo', tauxDispo.toFixed(1) + '%', `Objectif : 96%`, dispoColor)}
-      ${_kpiCard('Refs en stock', nbEnStock.toLocaleString('fr-FR'), `dont ${nbDormant} dormantes`, '#60a5fa')}
+      ${_kpiCard('Refs en stock (>0)', nbEnStock.toLocaleString('fr-FR'), `dont ${nbDormant} dormantes`, '#60a5fa')}
       ${_kpiCard('Valeur stock', formatEuro(valeurStock), '', '#94a3b8')}
     </div>
 
