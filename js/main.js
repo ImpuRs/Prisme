@@ -2010,7 +2010,7 @@ _S.articleMonthlySales=monthlySales;
       else if(V===0){nouveauMin=0;nouveauMax=0;}
       else if(Wp===0){nouveauMin=0;nouveauMax=0;} // H1: guard — Wp=0 ne doit jamais atteindre l'écretage
       else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);const secDays=Wp>=12?4:Wp>=4?3:(prixUnitaire>HIGH_PRICE?1:2);nouveauMin=Math.max(Math.min(Math.round(dl+(X*secDays)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?(Wp>12?1:0):(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
-      if(code==='446733')console.log('DEBUG 446733',{T,V,W,Wp,U,X,dlR:T>3*(Wp>0?V/Wp:0)?3*(Wp>0?V/Wp:0):T,joursOuvres,nouveauMin,nouveauMax,prixUnitaire});
+      if(code==='446733'){console.log('DEBUG 446733',JSON.stringify({T:T,V:V,W:W,Wp:Wp,U:U,X:X,joursOuvres:joursOuvres,nouveauMin:nouveauMin,nouveauMax:nouveauMax,pu:prixUnitaire,isNouv:isNouveaute,cs:cs,isP:isParent}));}
       const couvertureJours=calcCouverture(stockActuel,V);
       if(_S._pushedCodes.has(code))continue; _S._pushedCodes.add(code);
       DataStore.finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
