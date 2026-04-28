@@ -514,7 +514,7 @@ function _startCamera() {
   _camScanner = new Html5Qrcode('camReader');
   _camScanner.start(
     { facingMode: 'environment' },
-    { fps: 15, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5,
+    { fps: 20, qrbox: { width: 350, height: 150 }, aspectRatio: 1.5,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
