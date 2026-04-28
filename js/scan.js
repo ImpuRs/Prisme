@@ -1467,7 +1467,7 @@ function showInvSummary() {
         <button onclick="validerExtras()" style="padding:4px 10px;border-radius:6px;border:none;background:var(--green);color:#000;font-size:11px;font-weight:700;cursor:pointer">Tous vérifiés ✓</button>
       </div>`;
     for (const r of lignesExtras) {
-      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between">
+      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(251,191,36,.3);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="input.value='${r.code}';lookup('${r.code}')">
         <div>
           <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
           <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
