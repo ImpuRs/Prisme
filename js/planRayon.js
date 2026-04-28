@@ -4,7 +4,7 @@ import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon, computeArticleZoneIndex } from './engine.js';
 import { articleLib, articleZoneFiltered } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
-import { getFilteredData, buildSqLookup } from './ui.js';
+import { getFilteredData, buildSqLookup, switchTab } from './ui.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange } from './sales.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -4871,39 +4871,10 @@ window._palSortFn = function(key) {
 };
 
 window._palClickCell = function(fam, store) {
-  // Routage intelligent : clic sur un rang agence → split-screen onglet Réseau
-  _prTopView = 'famille';
-  _prOpenFam = fam;
-  _prOpenSousFam = '';
-  _S._prSqFilter = '';
-  _prSqPage = 50;
-  _prSqSort = 'reseau'; _prSqSortAsc = false;
-  _prPilotSort = 'verdict'; _prPilotSortAsc = false;
-  _prMetierDist = 0;
-  _prSelectedSFs.clear();
-  _prSelectedEmps.clear();
-  _prSelectedMarques.clear();
-  const found = _prFindFam(fam);
-  const isUnknown = !found;
-  _prConqueteMode = isUnknown || found?.classifGlobal === 'inactive';
-  _prDetailTab = _prConqueteMode ? 'conquete' : 'reseau';
-  // Famille visible dans le réseau mais absente du plan local → créer un stub
-  if (isUnknown && _S._prData) {
-    const stub = { codeFam: fam, libFam: famLib(fam) || fam, classifGlobal: 'inactive',
-      socle: 0, implanter: 0, challenger: 0, surveiller: 0, nbEnRayon: 0, caAgence: 0,
-      caReseau: 0, nbRefsReseau: 0, nbIncontournables: 0, nbIncontEnStock: 0,
-      nbSpecialistes: 0, nbSpecEnStock: 0, caZoneTotal: 0, potentielExterne: 0,
-      nbClients: 0, caStratClients: 0, caTotalClients: 0, pctStrat: 0,
-      nbDormants: 0, nbRuptures: 0, nbFin: 0, nbSchizo: 0, schizoItems: [],
-      tagSpecialiste: false, srcReseau: false, srcChalandise: false,
-      srcHorsZone: false, srcLivraisons: false, srcPdvClients: false };
-    _S._prData.inactiveFamilies.push(stub);
-  }
-  _prRerender();
-  setTimeout(() => {
-    const panel = document.getElementById('prDetailPanel');
-    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 50);
+  // Ouvrir le Duel Agence avec cette agence comme cible, filtré sur cette famille
+  if (window._duelSelectTarget) window._duelSelectTarget(store);
+  if (window._duelOpenPlanFam) window._duelOpenPlanFam('', fam);
+  switchTab('duel');
 };
 
 
