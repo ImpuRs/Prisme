@@ -561,7 +561,8 @@ input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const code = input.value.trim();
-    if (code) { _clearSuggestions(); lookup(code); }
+    if (_invMode && !_invEmpl && code) { startInventaire(code); }
+    else if (code) { _clearSuggestions(); lookup(code); }
     setTimeout(() => input.select(), 50);
   }
 });
@@ -1102,6 +1103,7 @@ function toggleInventaire() {
     document.getElementById('invBtn').style.background = 'transparent';
     document.getElementById('invBtn').style.color = 'var(--t2)';
     _hideInvBanner();
+    input.placeholder = 'Code, libellé ou emplacement…';
     document.getElementById('content').innerHTML = '<div class="empty"><div class="icon">📦</div><p>Scannez un code article<br>ou tapez-le au clavier</p></div>';
     return;
   }
@@ -1139,7 +1141,10 @@ function _showEmplPicker() {
     <button onclick="startInventaire(document.getElementById('invEmplInput').value)" style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--amber);color:#000;font-size:16px;font-weight:700;cursor:pointer">Démarrer l'inventaire</button>
   </div>`;
   const inp = document.getElementById('invEmplInput');
-  inp.focus();
+  // Zebra scanne toujours dans le main input → changer son placeholder
+  input.placeholder = 'Scannez ou tapez l\'emplacement…';
+  input.value = '';
+  input.focus();
   inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); startInventaire(inp.value); }
   });
@@ -1149,6 +1154,7 @@ function startInventaire(empl) {
   empl = (empl || '').trim().toUpperCase();
   if (!empl) { alert('Entrez un emplacement'); return; }
   _invEmpl = empl;
+  input.placeholder = 'Code, libellé ou emplacement…';
   _invScanned = new Map();
   _saveInv();
   _showInvBanner();
