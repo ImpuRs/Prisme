@@ -4021,7 +4021,7 @@ function _prBuildDiagText(codeFam) {
     };
 
     // === CLASSIFICATION TERRAIN ===
-    const _isFinSerie = (a) => { const s = (a.statut || '').toLowerCase(); return s.includes('fin de série') || s.includes('fin de serie'); };
+    const _isFinSerie = (a) => { const s = (a.statut || '').toLowerCase(); return s.includes('fin de série') || s.includes('fin de serie') || s.includes('fin de catalogue'); };
     const _isFinStock = (a) => (a.statut || '').toLowerCase().includes('fin de stock');
     const _isFin = (a) => _isFinSerie(a) || _isFinStock(a);
 

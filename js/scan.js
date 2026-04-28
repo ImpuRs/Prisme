@@ -352,19 +352,25 @@ function _renderCard(code) {
       <strong id="retourQte" onclick="event.stopPropagation();_editRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="cursor:pointer;text-decoration:underline;font-size:18px">${surplus} pcs</strong>
     </button>`;
   }
-  if (hasNewMM && (erpMin !== min || erpMax !== max)) {
+  const _fin = _isFin(r);
+  if (!_fin && hasNewMM && (erpMin !== min || erpMax !== max)) {
     actionHtml += `<button class="action-btn action-erp" onclick="${_noted()}addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
       🔄 Corriger ERP · ${min} / ${max}</button>`;
   }
   const effectiveMin = hasNewMM ? min : erpMin;
-  if (effectiveMin > 0 && stock < effectiveMin) {
+  if (!_fin && effectiveMin > 0 && stock < effectiveMin) {
     const qte = effectiveMin - stock;
     actionHtml += `<button class="action-btn action-rupture" onclick="${_noted()}addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
       🚨 Commander · <strong>${qte} pcs</strong> (stock ${stock} &lt; MIN ${effectiveMin})</button>`;
   }
-  // Poids mort : purge complète (MIN/MAX→0, vider empl., retour stock)
+  // Fin de série/stock/catalogue avec stock restant → purge
   const W = r.enleveTotal || 0;
-  if (min === 0 && max === 0 && stock > 0 && W === 0) {
+  if (_fin && stock > 0) {
+    actionHtml += `<button class="action-btn" style="margin-bottom:6px;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)" onclick="${_noted()}addAction('${r.code}','corriger_erp','Purge fin: MIN/MAX → 0/0');addAction('${r.code}','emplacement','');addAction('${r.code}','retour','Retour: ${stock} pcs (${_esc(r.statut)})')">
+      🗑️ Purger · retour <strong>${stock} pcs</strong> · vider empl.</button>`;
+  }
+  // Poids mort : purge complète (MIN/MAX→0, vider empl., retour stock)
+  if (!_fin && min === 0 && max === 0 && stock > 0 && W === 0) {
     actionHtml += `<button class="action-btn" style="margin-bottom:6px;background:rgba(100,116,139,.2);color:#cbd5e1;border:1px solid rgba(100,116,139,.3)" onclick="${_noted()}addAction('${r.code}','corriger_erp','Purge: MIN/MAX → 0/0');addAction('${r.code}','emplacement','');addAction('${r.code}','retour','Retour: ${stock} pcs (purge poids mort)')">
       🗑️ Purger · MIN/MAX 0/0 · vider empl. · retour <strong>${stock} pcs</strong></button>`;
   }
@@ -423,12 +429,23 @@ function _renderCard(code) {
 }
 
 // ── Verdict (simplifié) ────────────────────────────────────────────────
+function _isFin(r) {
+  const sl = (r.statut || '').toLowerCase();
+  return sl.includes('fin de série') || sl.includes('fin de serie') || sl.includes('fin de stock') || sl.includes('fin de catalogue');
+}
+
 function _verdict(r) {
   const stock = r.stockActuel || 0;
   const min = r.nouveauMin || 0;
   const max = r.nouveauMax || 0;
   const W = r.W || 0;
   const isVitesse = !!r._vitesseReseau;
+
+  // Fin de série / stock / catalogue → purge
+  if (_isFin(r) && stock > 0)
+    return { label: '🗑️ Fin — à purger', bg: 'rgba(239,68,68,.15)', color: '#f87171' };
+  if (_isFin(r) && stock === 0)
+    return { label: '🏁 Fin — soldé', bg: 'rgba(100,116,139,.15)', color: '#94a3b8' };
 
   // Rupture
   if (stock === 0 && min > 0)
@@ -717,6 +734,14 @@ async function purgeCache() {
   _saveActions();
   try { localStorage.removeItem(_LS_KEY); } catch(_) {}
   _scanCount = 0;
+  // Purger aussi l'inventaire
+  _invEmpl = '';
+  _invScanned = new Map();
+  _invMode = false;
+  try { localStorage.removeItem(_INV_KEY); } catch(_) {}
+  _hideInvBanner();
+  const _invBtn = document.getElementById('invBtn');
+  if (_invBtn) { _invBtn.style.background = 'transparent'; _invBtn.style.color = 'var(--t2)'; }
   document.getElementById('refCount').textContent = '—';
   document.getElementById('scanCount').textContent = '';
   _updateActionBadge();

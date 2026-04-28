@@ -921,7 +921,7 @@ function openArticlePanel(code,source){
   const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Méd. ERP Réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
   const _statutRaw=r.statut||'';
   const _statutLow=_statutRaw.toLowerCase();
-  const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';
+  const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')||_statutLow.includes('fin de catalogue')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';
   const _statutRow=_statutRaw?`<span class="t-disabled">Statut ERP</span><span class="${_statutColor} font-semibold">${escapeHtml(_statutRaw)}</span>`:'';
   const _empStr=`<span class="t-disabled">Emplacement</span><span class="${r.emplacement?'t-primary font-semibold':'t-disabled'}">${r.emplacement?escapeHtml(r.emplacement):'—'}</span>`;
   const _abcBg=r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)';

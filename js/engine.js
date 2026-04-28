@@ -1384,7 +1384,7 @@ export function computeSquelette(directionFilter) {
       // ── Filtre Fin de Vie : exclure les articles morts du catalogue ──
       // 1. Statut local ERP = fin de série / fin de stock → bruit
       const _sl = (fd?.statut || '').toLowerCase();
-      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
+      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
       if (_isFin) { a.classification = 'bruit'; continue; }
       // 2. Signal réseau mort : toutes les agences qui vendent ont MIN/MAX=0/0 → produit bloqué nationalement
       // Exception : si ≥3 agences vendent ET CA réseau ≥ 3000€ → clairement actif, pas bloqué
@@ -1565,7 +1565,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
       else classif = 'surveiller';
     } else {
       const _sl = (r.statut || '').toLowerCase();
-      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
+      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
       if (_isFin) { classif = 'bruit'; }
       else {
         // Signal réseau mort : si aucune agence n'a de MIN/MAX → produit bloqué nationalement

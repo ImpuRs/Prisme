@@ -293,7 +293,7 @@ function _computeEnlevesSansRayon() {
 
     // Exclure fin de série
     const sl = (r.statut || '').toLowerCase();
-    if (sl.includes('fin de série') || sl.includes('fin de serie') || sl.includes('fin de stock')) continue;
+    if (sl.includes('fin de série') || sl.includes('fin de serie') || sl.includes('fin de stock') || sl.includes('fin de catalogue')) continue;
 
     const blMono = _S.enleveSingleBL?.[r.code] || 0;
 
