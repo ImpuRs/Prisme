@@ -1630,7 +1630,6 @@ export function applyVerdictOverrides() {
   const { classifMap, nbStByCode, caReseauByCode } = _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes });
 
   let overrideCount = 0;
-  let facingCount = 0;
 
   for (const r of finalData) {
     const classif = classifMap.get(r.code);
@@ -1675,11 +1674,6 @@ export function applyVerdictOverrides() {
     r._sqRole = role;
     r._sqVerdict = _VERDICT_MAP[classif]?.[role] || '';
 
-    // ── Geste 2 : MIN_FACING — plancher visuel pour petits produits fréquents ──
-    if (r.abcClass === 'C' && r.fmrClass === 'F' && r.nouveauMax > 0 && r.nouveauMax < 10) {
-      r.nouveauMax = 10;
-      facingCount++;
-    }
   }
 
   // ── Geste 3 : Bouclier Squelette — overrides MIN/MAX ──
@@ -1729,7 +1723,7 @@ export function applyVerdictOverrides() {
     }
   }
 
-  return { overrides: overrideCount, facings: facingCount };
+  return { overrides: overrideCount };
 }
 
 // ═══════════════════════════════════════════════════════════════
