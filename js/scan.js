@@ -296,8 +296,7 @@ function lookup(code) {
   _renderCard(r.code);
   // Mode inventaire : enregistrer le scan
   if (_invMode && _invEmpl && !_invScanned.has(r.code)) {
-    const _isLocal = (r.emplacement || '').trim().toUpperCase() === _invEmpl;
-    _invScanned.set(r.code, { stock: r.stockActuel || 0, stockERP: r.stockActuel || 0, confirmed: true, local: _isLocal });
+    _invScanned.set(r.code, { stock: r.stockActuel || 0, stockERP: r.stockActuel || 0, confirmed: true });
     _saveInv();
     _updateInvBanner();
   }
@@ -874,8 +873,7 @@ function _applyStockCorrection(code, ancienStock) {
   if (_invMode && _invEmpl) {
     const prev = _invScanned.get(code);
     const erp = prev ? prev.stockERP : ancienStock;
-    const local = prev ? prev.local : false;
-    _invScanned.set(code, { stock: nv, stockERP: erp, confirmed: true, corrected: nv !== erp, local });
+    _invScanned.set(code, { stock: nv, stockERP: erp, confirmed: true, corrected: nv !== erp });
     _saveInv();
     _updateInvBanner();
   }
@@ -1232,26 +1230,25 @@ function showInvSummary() {
   const expected = _getExpectedArticles().sort((a, b) => a.code.localeCompare(b.code));
   const scanned = _invScanned;
 
-  // Séparer par flag local (figé au moment du scan)
+  // Séparer : scannés vs non-scannés
   const lignesScannees = [];
   const lignesNonScannees = [];
-  const lignesExtras = [];
-  const scannedLocalCodes = new Set();
 
-  for (const [code, s] of scanned) {
-    const r = _articles?.get(code);
-    if (!r) continue;
-    if (s.local) {
-      scannedLocalCodes.add(code);
+  for (const r of expected) {
+    if (scanned.has(r.code)) {
+      const s = scanned.get(r.code);
       lignesScannees.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false });
     } else {
-      lignesExtras.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false, extra: true });
+      lignesNonScannees.push(r);
     }
   }
 
-  for (const r of expected) {
-    if (!scannedLocalCodes.has(r.code)) {
-      lignesNonScannees.push(r);
+  // Articles scannés mais pas dans l'emplacement ERP (rajouts)
+  const lignesExtras = [];
+  for (const [code, s] of scanned) {
+    const r = _articles?.get(code);
+    if (r && (r.emplacement || '').trim().toUpperCase() !== _invEmpl) {
+      lignesExtras.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false, extra: true });
     }
   }
 
