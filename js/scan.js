@@ -1083,6 +1083,7 @@ let _invScanned = new Map(); // Map<code, {stock, confirmed}>
 const _INV_KEY = 'prisme_scan_inventaire';
 
 function _saveInv() {
+  if (!_invMode) { localStorage.removeItem(_INV_KEY); return; }
   const data = { empl: _invEmpl, scanned: Object.fromEntries(_invScanned) };
   localStorage.setItem(_INV_KEY, JSON.stringify(data));
 }
@@ -1096,12 +1097,30 @@ function _restoreInv() {
   } catch(_) {}
 }
 
+// Restaurer inventaire en cours au chargement
+_restoreInv();
+if (_invEmpl && _invScanned.size > 0) {
+  _invMode = true;
+  const btn = document.getElementById('invBtn');
+  if (btn) { btn.style.background = 'var(--amber)'; btn.style.color = '#000'; }
+  // Afficher le bilan après que les articles soient chargés
+  const _waitArticles = setInterval(() => {
+    if (_articles && _articles.size > 0) {
+      clearInterval(_waitArticles);
+      _showInvBanner();
+      showInvSummary();
+    }
+  }, 500);
+}
+
 function toggleInventaire() {
   if (_invMode) {
     // Quitter le mode inventaire
     if (_invScanned.size > 0 && !confirm('Quitter le mode inventaire ? Les données scannées seront conservées.')) return;
     _invMode = false;
     _invEmpl = '';
+    _invScanned = new Map();
+    _saveInv();
     document.getElementById('invBtn').style.background = 'transparent';
     document.getElementById('invBtn').style.color = 'var(--t2)';
     _hideInvBanner();
