@@ -404,7 +404,7 @@ function _renderCard(code) {
       <span class="sq-label">${_esc(sqLabel)}</span>
       <span class="sq-classif">${_esc(sqClassif)}</span>
     </div>` : ''}
-    ${verdict.label !== '—' ? `<div class="verdict-bar" style="background:${verdict.bg};color:${verdict.color}">${verdict.label}</div>` : ''}
+    <div class="verdict-bar" style="background:${verdict.bg};color:${verdict.color}">${verdict.label}</div>
     <div class="detail-grid">
       <div class="d-cell">
         <span class="d-label">MIN/MAX ${mmSource}${vitTag}</span>
