@@ -84,7 +84,7 @@ function _computeEfficience() {
         stock, pu, valeur: stock * pu, ageJours: r.ageJours || 0 });
     }
 
-    if (stock > 0) valeurStock += stock * pu;
+    if (stock > 0) valeurStock += r.valeurStock != null ? r.valeurStock : stock * pu;
 
     // Sous-dimensionné : MAX < Qté Chantier réseau
     if (max > 0) {
