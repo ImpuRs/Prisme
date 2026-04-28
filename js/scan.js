@@ -830,6 +830,14 @@ function _validateEmp(code, ancienEmp) {
     // Mettre à jour l'article local
     const r = _articles?.get(code);
     if (r) r.emplacement = nouvelEmp;
+    // Mode inventaire : si l'article était attendu ici → relocated
+    if (_invMode && _invEmpl && ancienEmp === _invEmpl) {
+      const prev = _invScanned.get(code);
+      const erp = prev ? prev.stockERP : (r?.stockActuel || 0);
+      _invScanned.set(code, { stock: prev ? prev.stock : (r?.stockActuel || 0), stockERP: erp, confirmed: true, relocated: nouvelEmp });
+      _saveInv();
+      _updateInvBanner();
+    }
   }
   _renderCard(code);
   _vibrate();
@@ -1234,18 +1242,30 @@ function showInvSummary() {
   const lignesScannees = [];
   const lignesNonScannees = [];
 
+  const lignesRelocated = []; // Non-vérifiés dont l'emplacement a été corrigé
+
   for (const r of expected) {
     if (scanned.has(r.code)) {
       const s = scanned.get(r.code);
       lignesScannees.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false });
     } else {
+      // Vérifie si l'article a été relocalisé (emplacement changé → plus dans expected)
       lignesNonScannees.push(r);
     }
   }
 
-  // Articles scannés mais pas dans l'emplacement ERP (rajouts)
+  // Articles relocalisés (étaient ici, envoyés ailleurs)
+  for (const [code, s] of scanned) {
+    if (s.relocated) {
+      const r = _articles?.get(code);
+      if (r) lignesRelocated.push({ ...r, invStock: s.stock, stockERP: s.stockERP, newEmpl: s.relocated });
+    }
+  }
+
+  // Articles scannés mais pas dans l'emplacement ERP (rajouts — exclure les relocated)
   const lignesExtras = [];
   for (const [code, s] of scanned) {
+    if (s.relocated) continue;
     const r = _articles?.get(code);
     if (r && (r.emplacement || '').trim().toUpperCase() !== _invEmpl) {
       lignesExtras.push({ ...r, invStock: s.stock, stockERP: s.stockERP, corrected: s.corrected || false, extra: true });
@@ -1312,6 +1332,22 @@ function showInvSummary() {
           <span style="font-size:13px;font-weight:700">Stock ERP: ${r.stockActuel || 0}</span>
           <span style="font-size:11px;color:var(--red);margin-left:6px">Non vérifié</span>
         </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Emplacement corrigé (étaient ici, déplacés ailleurs)
+  if (lignesRelocated.length > 0) {
+    html += `<div style="margin-bottom:16px">
+      <h3 style="font-size:13px;font-weight:700;color:var(--violet);margin-bottom:8px">🔀 Emplacement corrigé (${lignesRelocated.length})</h3>`;
+    for (const r of lignesRelocated) {
+      html += `<div style="padding:8px 12px;margin-bottom:4px;background:var(--card);border-radius:8px;border:1px solid rgba(167,139,250,.3);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:14px;font-weight:800;letter-spacing:1px">${_esc(r.code)}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:8px">${_esc((r.libelle || '').slice(0, 30))}</span>
+        </div>
+        <div style="font-size:11px;color:var(--violet)">${_esc(_invEmpl)} → ${_esc(r.newEmpl)}</div>
       </div>`;
     }
     html += '</div>';
