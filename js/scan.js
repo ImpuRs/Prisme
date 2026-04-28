@@ -1091,7 +1091,7 @@ let _invScanned = new Map(); // Map<code, {stock, confirmed}>
 const _INV_KEY = 'prisme_scan_inventaire';
 
 function _saveInv() {
-  if (!_invMode) { localStorage.removeItem(_INV_KEY); return; }
+  if (!_invEmpl && _invScanned.size === 0) { localStorage.removeItem(_INV_KEY); return; }
   const data = { empl: _invEmpl, scanned: Object.fromEntries(_invScanned) };
   localStorage.setItem(_INV_KEY, JSON.stringify(data));
 }
@@ -1123,12 +1123,8 @@ if (_invEmpl && _invScanned.size > 0) {
 
 function toggleInventaire() {
   if (_invMode) {
-    // Quitter le mode inventaire
-    if (_invScanned.size > 0 && !confirm('Quitter le mode inventaire ? Les données scannées seront conservées.')) return;
+    // Quitter le mode inventaire — on garde les données
     _invMode = false;
-    _invEmpl = '';
-    _invScanned = new Map();
-    _saveInv();
     document.getElementById('invBtn').style.background = 'transparent';
     document.getElementById('invBtn').style.color = 'var(--t2)';
     _hideInvBanner();
@@ -1136,11 +1132,17 @@ function toggleInventaire() {
     document.getElementById('content').innerHTML = '<div class="empty"><div class="icon">📦</div><p>Scannez un code article<br>ou tapez-le au clavier</p></div>';
     return;
   }
-  // Activer le mode inventaire → demander l'emplacement
+  // Activer le mode inventaire
   _invMode = true;
   document.getElementById('invBtn').style.background = 'var(--amber)';
   document.getElementById('invBtn').style.color = '#000';
-  _showEmplPicker();
+  // Reprendre si un inventaire est en cours
+  if (_invEmpl && _invScanned.size > 0) {
+    _showInvBanner();
+    showInvSummary();
+  } else {
+    _showEmplPicker();
+  }
 }
 window.toggleInventaire = toggleInventaire;
 
@@ -1276,6 +1278,7 @@ function showInvSummary() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:16px;font-weight:800">📋 Bilan — ${_esc(_invEmpl)}</h2>
       <button onclick="exportInventaire()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>
+      <button onclick="resetInventaire()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:13px;font-weight:600;cursor:pointer">Nouvel inventaire</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
       <div style="flex:1;padding:10px;border-radius:10px;background:rgba(34,197,94,.15);text-align:center">
@@ -1446,4 +1449,14 @@ function exportInventaire() {
   URL.revokeObjectURL(url);
 }
 window.exportInventaire = exportInventaire;
+
+function resetInventaire() {
+  if (!confirm('Repartir à zéro ? Les données scannées seront perdues.')) return;
+  _invEmpl = '';
+  _invScanned = new Map();
+  _saveInv();
+  _hideInvBanner();
+  _showEmplPicker();
+}
+window.resetInventaire = resetInventaire;
 
