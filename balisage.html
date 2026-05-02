@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRISME — Balisage</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   PRISME Balisage — Styles
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #3b82f6;
+  --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Header ── */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 18px; font-weight: 700; }
+.header h1 span { color: var(--accent); }
+.header .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+/* ── Drop zone ── */
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: calc(100vh - 60px); gap: 16px;
+}
+.dropzone .dz-box {
+  border: 2px dashed var(--border); border-radius: 12px; padding: 48px 64px;
+  text-align: center; cursor: pointer; transition: .2s;
+}
+.dropzone .dz-box:hover, .dropzone .dz-box.dragover { border-color: var(--accent); background: rgba(59,130,246,.08); }
+.dropzone .dz-box h2 { font-size: 20px; margin-bottom: 8px; }
+.dropzone .dz-box p { color: var(--muted); font-size: 14px; }
+.dropzone input[type="file"] { display: none; }
+
+/* ── Toolbar ── */
+.toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar input[type="text"] {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 12px; border-radius: 6px; font-size: 13px; width: 280px;
+}
+.toolbar input[type="text"]::placeholder { color: var(--muted); }
+.toolbar select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 10px; border-radius: 6px; font-size: 13px; max-width: 220px;
+}
+.btn { padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: .15s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.sep { width: 1px; height: 24px; background: var(--border); }
+
+/* ── Layout ── */
+.main { display: flex; height: calc(100vh - 104px); }
+.panel-list { width: 480px; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+.panel-preview { flex: 1; overflow-y: auto; padding: 24px; background: #4a5568; }
+
+/* ── Article list ── */
+.art-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  cursor: pointer; transition: .08s; border-bottom: 1px solid rgba(51,65,85,.5); font-size: 12px;
+}
+.art-item:hover { background: rgba(59,130,246,.08); }
+.art-item.selected { background: rgba(59,130,246,.15); }
+.art-item input[type="checkbox"] { flex-shrink: 0; accent-color: var(--accent); }
+.art-item .code { font-weight: 700; font-family: monospace; min-width: 58px; font-size: 12px; }
+.art-item .lib { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.art-item .marque { color: var(--amber); min-width: 80px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.art-item .fam { color: var(--muted); font-size: 11px; min-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+.art-count { padding: 8px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
+
+/* ── Preview area ── */
+.preview-empty { text-align: center; color: var(--muted); margin-top: 80px; font-size: 14px; }
+.preview-sheet { background: #fff; color: #000; margin: 0 auto; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+
+/* ═══════════════════════════════════════════════════════════
+   FORMAT : Porte-etiquette (65 x 38 mm)
+   3 colonnes par rangee A4
+   ═══════════════════════════════════════════════════════════ */
+.fmt-porte .preview-sheet { width: 210mm; padding: 4mm 5mm; display: flex; flex-wrap: wrap; gap: 0; justify-content: flex-start; }
+.label-porte {
+  width: 65mm; height: 38mm; border: .3px solid #ccc; padding: 2mm 3mm;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-family: 'Arial Narrow', Arial, sans-serif; overflow: hidden;
+  page-break-inside: avoid;
+}
+.label-porte .lp-top { display: flex; justify-content: space-between; align-items: center; }
+.label-porte .lp-code { font-size: 9pt; font-weight: 700; font-family: monospace; }
+.label-porte .lp-marque { font-size: 6pt; color: #888; max-width: 25mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.label-porte .lp-lib { font-size: 7.5pt; line-height: 1.2; max-height: 2.4em; overflow: hidden; margin: 1mm 0; }
+.label-porte .lp-fam { font-size: 6pt; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.label-porte .lp-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+.label-porte .lp-ref { font-size: 6pt; color: #999; max-width: 30mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label-porte .lp-barcode { text-align: center; }
+.label-porte .lp-barcode svg { height: 8mm; width: 55mm; }
+
+/* ═══════════════════════════════════════════════════════════
+   FORMAT : 10 x 10 cm — 2 par rangee
+   ═══════════════════════════════════════════════════════════ */
+.fmt-10x10 .preview-sheet { width: 210mm; padding: 5mm; display: flex; flex-wrap: wrap; gap: 0; justify-content: flex-start; }
+.label-10x10 {
+  width: 100mm; height: 100mm; border: .3px solid #ccc; padding: 4mm 5mm;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-family: 'Arial Narrow', Arial, sans-serif; overflow: hidden;
+  page-break-inside: avoid;
+}
+.label-10x10 .l10-top { display: flex; justify-content: space-between; align-items: center; }
+.label-10x10 .l10-code { font-size: 13pt; font-weight: 700; font-family: monospace; }
+.label-10x10 .l10-marque { font-size: 8pt; color: #888; max-width: 40mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label-10x10 .l10-lib { font-size: 11pt; line-height: 1.3; max-height: 3.9em; overflow: hidden; margin: 2mm 0; font-weight: 600; }
+.label-10x10 .l10-fam { font-size: 8.5pt; color: #666; }
+.label-10x10 .l10-sfam { font-size: 7.5pt; color: #999; margin-bottom: 2mm; }
+.label-10x10 .l10-ref { font-size: 7pt; color: #999; margin-top: 1mm; }
+.label-10x10 .l10-barcode { text-align: center; margin-top: auto; }
+.label-10x10 .l10-barcode svg { height: 14mm; width: 85mm; }
+
+/* ═══════════════════════════════════════════════════════════
+   FORMAT : A4 (fiche produit) — 1 par page
+   ═══════════════════════════════════════════════════════════ */
+.fmt-a4 .preview-sheet { width: 210mm; padding: 10mm; }
+.label-a4 {
+  width: 190mm; min-height: 120mm; border: .5px solid #999; padding: 8mm 10mm;
+  font-family: 'Arial Narrow', Arial, sans-serif; overflow: hidden;
+  page-break-inside: avoid; page-break-after: always; margin-bottom: 5mm;
+}
+.label-a4:last-child { page-break-after: auto; }
+.label-a4 .la4-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1.5px solid #333; padding-bottom: 4mm; margin-bottom: 4mm; }
+.label-a4 .la4-code { font-size: 22pt; font-weight: 700; font-family: monospace; }
+.label-a4 .la4-marque { font-size: 11pt; color: #666; text-align: right; }
+.label-a4 .la4-lib { font-size: 18pt; font-weight: 700; margin-bottom: 3mm; }
+.label-a4 .la4-fam { font-size: 12pt; color: #555; margin-bottom: 2mm; }
+.label-a4 .la4-sfam { font-size: 10pt; color: #888; margin-bottom: 5mm; }
+.label-a4 .la4-body { display: flex; justify-content: space-between; align-items: flex-end; }
+.label-a4 .la4-left { flex: 1; }
+.label-a4 .la4-details { font-size: 11pt; color: #333; line-height: 2; }
+.label-a4 .la4-details span { display: block; }
+.label-a4 .la4-right { text-align: center; }
+.label-a4 .la4-barcode svg { height: 25mm; }
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+  body { background: #fff !important; }
+  .header, .toolbar, .panel-list, .no-print { display: none !important; }
+  .main { display: block !important; height: auto !important; }
+  .panel-preview { padding: 0 !important; background: #fff !important; overflow: visible !important; }
+  .preview-sheet { box-shadow: none !important; margin: 0 !important; }
+  .label-porte, .label-10x10, .label-a4 { break-inside: avoid; }
+  @page { margin: 5mm; }
+}
+
+/* ── Hidden ── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Header ═══ -->
+<div class="header">
+  <h1><span>PRISME</span> Balisage</h1>
+  <div class="status" id="dbStatus"></div>
+</div>
+
+<!-- ═══ Drop zone (shown initially) ═══ -->
+<div class="dropzone" id="dropzone">
+  <div class="dz-box" id="dzBox">
+    <h2>Charger le fichier Catalogue</h2>
+    <p>catalogue.xls — Glisser-deposer ou cliquer pour selectionner</p>
+    <p style="margin-top:12px;font-size:12px;color:#64748b">Colonnes attendues : Code, Designation_1, Marque, Libelle_Famille, Code_EAN...</p>
+  </div>
+  <input type="file" id="fileInput" accept=".xls,.xlsx,.csv">
+</div>
+
+<!-- ═══ Toolbar (hidden initially) ═══ -->
+<div class="toolbar hidden" id="toolbar">
+  <input type="text" id="searchInput" placeholder="Recherche code, designation, marque, EAN...">
+  <select id="familleFilter"><option value="">Toutes familles</option></select>
+  <select id="marqueFilter"><option value="">Toutes marques</option></select>
+  <div class="sep"></div>
+  <select id="formatSelect">
+    <option value="porte">Porte-etiquette (65x38mm)</option>
+    <option value="10x10">Carre 10x10 cm</option>
+    <option value="a4">Fiche A4</option>
+  </select>
+  <div class="sep"></div>
+  <button class="btn btn-outline btn-sm" id="btnSelectAll">Tout cocher</button>
+  <button class="btn btn-danger btn-sm" id="btnClear">Vider</button>
+  <button class="btn btn-primary" id="btnPrint">Imprimer</button>
+</div>
+
+<!-- ═══ Main (hidden initially) ═══ -->
+<div class="main hidden" id="mainPanel">
+  <div class="panel-list" id="panelList">
+    <div class="art-count" id="artCount"></div>
+    <div id="articleList"></div>
+  </div>
+  <div class="panel-preview" id="panelPreview">
+    <div class="preview-empty" id="previewEmpty">Selectionnez des articles pour generer les etiquettes</div>
+    <div id="previewSheet"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// PRISME Balisage — Standalone label printing from catalogue.xls
+// ═══════════════════════════════════════════════════════════════
+
+let catalogue = [];
+let filtered = [];
+let selected = new Set();
+let currentFormat = 'porte';
+
+// ── DOM refs ──
+const $ = id => document.getElementById(id);
+const $dropzone = $('dropzone');
+const $toolbar = $('toolbar');
+const $mainPanel = $('mainPanel');
+const $search = $('searchInput');
+const $famille = $('familleFilter');
+const $marque = $('marqueFilter');
+const $format = $('formatSelect');
+const $list = $('articleList');
+const $count = $('artCount');
+const $preview = $('previewSheet');
+const $previewEmpty = $('previewEmpty');
+const $status = $('dbStatus');
+
+// ═══════════════════════════════════════════════════════════════
+// File loading — drag & drop or click
+// ═══════════════════════════════════════════════════════════════
+const $dzBox = $('dzBox');
+const $fileInput = $('fileInput');
+
+$dzBox.addEventListener('click', () => $fileInput.click());
+$dzBox.addEventListener('dragover', e => { e.preventDefault(); $dzBox.classList.add('dragover'); });
+$dzBox.addEventListener('dragleave', () => $dzBox.classList.remove('dragover'));
+$dzBox.addEventListener('drop', e => {
+  e.preventDefault();
+  $dzBox.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+$fileInput.addEventListener('change', () => { if ($fileInput.files.length) handleFile($fileInput.files[0]); });
+
+async function handleFile(file) {
+  $status.textContent = 'Lecture du catalogue...';
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    catalogue = [];
+    for (const r of rows) {
+      const code = String(r['Code'] || r['code'] || '').replace(/\.0$/, '').trim();
+      if (!code) continue;
+      const ean = String(r['Code_EAN'] || r['EAN'] || r['GTIN'] || '').replace(/\.0$/, '').trim();
+      catalogue.push({
+        code,
+        designation: fixEnc(String(r['Designation_1'] || r['Designation'] || r['designation'] || r['Libelle'] || '').trim()),
+        statut: fixEnc(String(r['Statut'] || r['statut'] || '').trim()),
+        marque: fixEnc(String(r['Marque'] || r['marque'] || '').trim()),
+        codeFamille: String(r['Code_Famille'] || '').trim(),
+        famille: fixEnc(String(r['Libelle_Famille'] || r['Famille'] || '').trim()),
+        codeSousFamille: String(r['Code_Sous-famille'] || r['Code_Sous_famille'] || '').trim(),
+        sousFamille: fixEnc(String(r['Libelle_Sous_Famille'] || r['Sous_Famille'] || '').trim()),
+        refFournisseur: String(r['Ref_fournisseur'] || r['Ref_Fournisseur'] || '').trim(),
+        ean: ean.length >= 8 ? ean : '',
+      });
+    }
+    catalogue.sort((a, b) => a.code.localeCompare(b.code));
+
+    // Populate filters
+    const famSet = new Set(), marqueSet = new Set();
+    for (const r of catalogue) {
+      if (r.famille) famSet.add(r.famille);
+      if (r.marque) marqueSet.add(r.marque);
+    }
+    $famille.innerHTML = '<option value="">Toutes familles (' + famSet.size + ')</option>';
+    for (const f of [...famSet].sort()) {
+      const opt = document.createElement('option');
+      opt.value = f; opt.textContent = f;
+      $famille.appendChild(opt);
+    }
+    $marque.innerHTML = '<option value="">Toutes marques (' + marqueSet.size + ')</option>';
+    for (const m of [...marqueSet].sort()) {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      $marque.appendChild(opt);
+    }
+
+    $status.textContent = catalogue.length.toLocaleString('fr-FR') + ' articles charges';
+    $dropzone.classList.add('hidden');
+    $toolbar.classList.remove('hidden');
+    $mainPanel.classList.remove('hidden');
+    applyFilter();
+  } catch (e) {
+    $status.textContent = 'Erreur : ' + e.message;
+    $status.style.color = '#ef4444';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Filter & render article list
+// ═══════════════════════════════════════════════════════════════
+function applyFilter() {
+  const q = ($search.value || '').trim().toLowerCase();
+  const fam = $famille.value;
+  const marq = $marque.value;
+
+  filtered = catalogue.filter(r => {
+    if (fam && r.famille !== fam) return false;
+    if (marq && r.marque !== marq) return false;
+    if (q) {
+      const hay = (r.code + ' ' + r.designation + ' ' + r.marque + ' ' + r.famille + ' ' + r.ean + ' ' + r.refFournisseur).toLowerCase();
+      return hay.includes(q);
+    }
+    return true;
+  });
+
+  renderList();
+}
+
+function renderList() {
+  const MAX = 500;
+  const showing = filtered.slice(0, MAX);
+  $count.textContent = filtered.length.toLocaleString('fr-FR') + ' articles' +
+    (filtered.length > MAX ? ' (affichage limite a ' + MAX + ')' : '') +
+    (selected.size ? ' | ' + selected.size + ' selectionne(s)' : '');
+
+  let html = '';
+  for (const r of showing) {
+    const sel = selected.has(r.code) ? ' selected' : '';
+    html += '<div class="art-item' + sel + '" data-code="' + r.code + '">'
+      + '<input type="checkbox"' + (sel ? ' checked' : '') + '>'
+      + '<span class="code">' + r.code + '</span>'
+      + '<span class="lib">' + esc(r.designation) + '</span>'
+      + '<span class="marque">' + esc(r.marque) + '</span>'
+      + '<span class="fam">' + esc(r.famille) + '</span>'
+      + '</div>';
+  }
+  $list.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Selection handling
+// ═══════════════════════════════════════════════════════════════
+$list.addEventListener('click', e => {
+  const item = e.target.closest('.art-item');
+  if (!item) return;
+  const code = item.dataset.code;
+  if (selected.has(code)) selected.delete(code); else selected.add(code);
+  renderList();
+  renderPreview();
+});
+
+$('btnSelectAll').addEventListener('click', () => {
+  const allSel = filtered.length > 0 && filtered.every(r => selected.has(r.code));
+  if (allSel) {
+    for (const r of filtered) selected.delete(r.code);
+  } else {
+    for (const r of filtered) selected.add(r.code);
+  }
+  renderList();
+  renderPreview();
+});
+
+$('btnClear').addEventListener('click', () => {
+  selected.clear();
+  renderList();
+  renderPreview();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Events
+// ═══════════════════════════════════════════════════════════════
+$format.addEventListener('change', () => { currentFormat = $format.value; renderPreview(); });
+$search.addEventListener('input', applyFilter);
+$famille.addEventListener('change', applyFilter);
+$marque.addEventListener('change', applyFilter);
+
+// ═══════════════════════════════════════════════════════════════
+// Preview rendering
+// ═══════════════════════════════════════════════════════════════
+function renderPreview() {
+  const items = catalogue.filter(r => selected.has(r.code));
+  if (!items.length) {
+    $preview.innerHTML = '';
+    $previewEmpty.style.display = '';
+    return;
+  }
+  $previewEmpty.style.display = 'none';
+  currentFormat = $format.value;
+
+  const parent = $('panelPreview');
+  parent.className = 'panel-preview fmt-' + currentFormat;
+
+  let html = '<div class="preview-sheet">';
+  for (const r of items) {
+    if (currentFormat === 'porte') html += renderPorte(r);
+    else if (currentFormat === '10x10') html += render10x10(r);
+    else html += renderA4(r);
+  }
+  html += '</div>';
+  $preview.innerHTML = html;
+
+  // Generate barcodes
+  requestAnimationFrame(generateBarcodes);
+}
+
+function generateBarcodes() {
+  document.querySelectorAll('.barcode-target').forEach(el => {
+    const ean = el.dataset.ean;
+    const code = el.dataset.code;
+    try {
+      if (ean && ean.length === 13) {
+        JsBarcode(el, ean, { format: 'EAN13', width: 1.2, height: 30, displayValue: true, fontSize: 8, margin: 0, textMargin: 1 });
+      } else if (ean && ean.length === 8) {
+        JsBarcode(el, ean, { format: 'EAN8', width: 1.5, height: 30, displayValue: true, fontSize: 8, margin: 0, textMargin: 1 });
+      } else {
+        JsBarcode(el, code, { format: 'CODE128', width: 1.2, height: 30, displayValue: true, fontSize: 8, margin: 0, textMargin: 1 });
+      }
+    } catch (_) {
+      // Fallback CODE128
+      try { JsBarcode(el, code, { format: 'CODE128', width: 1.2, height: 30, displayValue: true, fontSize: 8, margin: 0, textMargin: 1 }); } catch (_) {}
+    }
+  });
+}
+
+// ── Porte-etiquette (65x38mm) ──
+function renderPorte(r) {
+  return '<div class="label-porte">'
+    + '<div class="lp-top">'
+    +   '<span class="lp-code">' + r.code + '</span>'
+    +   '<span class="lp-marque">' + esc(r.marque) + '</span>'
+    + '</div>'
+    + '<div class="lp-lib">' + esc(r.designation) + '</div>'
+    + '<div class="lp-fam">' + esc(r.famille) + (r.sousFamille ? ' / ' + esc(r.sousFamille) : '') + '</div>'
+    + '<div class="lp-bottom">'
+    +   '<span class="lp-ref">' + esc(r.refFournisseur) + '</span>'
+    + '</div>'
+    + '<div class="lp-barcode"><svg class="barcode-target" data-code="' + r.code + '" data-ean="' + r.ean + '"></svg></div>'
+    + '</div>';
+}
+
+// ── 10x10 cm ──
+function render10x10(r) {
+  return '<div class="label-10x10">'
+    + '<div class="l10-top">'
+    +   '<span class="l10-code">' + r.code + '</span>'
+    +   '<span class="l10-marque">' + esc(r.marque) + '</span>'
+    + '</div>'
+    + '<div class="l10-lib">' + esc(r.designation) + '</div>'
+    + '<div class="l10-fam">' + esc(r.famille) + '</div>'
+    + (r.sousFamille ? '<div class="l10-sfam">' + esc(r.sousFamille) + '</div>' : '')
+    + (r.refFournisseur ? '<div class="l10-ref">Ref : ' + esc(r.refFournisseur) + '</div>' : '')
+    + '<div class="l10-barcode"><svg class="barcode-target" data-code="' + r.code + '" data-ean="' + r.ean + '"></svg></div>'
+    + '</div>';
+}
+
+// ── A4 fiche ──
+function renderA4(r) {
+  return '<div class="label-a4">'
+    + '<div class="la4-header">'
+    +   '<span class="la4-code">' + r.code + '</span>'
+    +   '<span class="la4-marque">' + esc(r.marque) + '</span>'
+    + '</div>'
+    + '<div class="la4-lib">' + esc(r.designation) + '</div>'
+    + '<div class="la4-fam">' + esc(r.famille) + '</div>'
+    + (r.sousFamille ? '<div class="la4-sfam">' + esc(r.sousFamille) + '</div>' : '')
+    + '<div class="la4-body">'
+    +   '<div class="la4-left">'
+    +     '<div class="la4-details">'
+    +       '<span>Code article : ' + r.code + '</span>'
+    +       (r.ean ? '<span>EAN : ' + r.ean + '</span>' : '')
+    +       (r.refFournisseur ? '<span>Ref fournisseur : ' + esc(r.refFournisseur) + '</span>' : '')
+    +       (r.statut ? '<span>Statut : ' + esc(r.statut) + '</span>' : '')
+    +       '<span>Famille : ' + esc(r.codeFamille) + ' — ' + esc(r.famille) + '</span>'
+    +       (r.sousFamille ? '<span>Sous-famille : ' + esc(r.codeSousFamille) + ' — ' + esc(r.sousFamille) + '</span>' : '')
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="la4-right">'
+    +     '<svg class="barcode-target" data-code="' + r.code + '" data-ean="' + r.ean + '"></svg>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Fix encoding — catalogue.xls uses garbled CP1252/CP850 mix
+const _ENC_MAP = {'\u00C8':'e','\u00CB':'e','\u00CD':'e','\u00C1':'c','\u00D3':'a','\u00D9':'o','\u2021':'a','\u00FF':'\u00D8'};
+// prettier versions with accents
+const _ENC_MAP2 = {'\u00C8':'\u00E9','\u00CB':'\u00E8','\u00CD':'\u00EA','\u00C1':'\u00E7','\u00D3':'\u00E2','\u00D9':'\u00F4','\u2021':'\u00E0','\u00FF':'\u00D8'};
+function fixEnc(s) {
+  if (!s) return '';
+  let out = s;
+  for (const [k, v] of Object.entries(_ENC_MAP2)) out = out.replaceAll(k, v);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Print
+// ═══════════════════════════════════════════════════════════════
+$('btnPrint').addEventListener('click', () => {
+  if (!selected.size) return;
+  window.print();
+});
+
+</script>
+</body>
+</html>
