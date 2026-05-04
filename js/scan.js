@@ -630,7 +630,8 @@ function _liveSearch(q) {
     return;
   }
   // Si 1 seul résultat exact par code → afficher direct
-  if (matches.length === 1 && matches[0].code === clean) {
+  // Mais PAS si la query est purement numérique (l'utilisateur tape un code article)
+  if (matches.length === 1 && matches[0].code === clean && /\D/.test(q)) {
     lookup(matches[0].code);
     return;
   }

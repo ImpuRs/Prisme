@@ -54,6 +54,57 @@ export function enrichPrixUnitaire() {
   }
 }
 
+// ── Vitesse Réseau — UNE SEULE formule, appelée partout ──────
+// Calcule MIN/MAX d'implantation basé sur la rotation mensuelle du réseau
+// code      : code article
+// pu        : prix unitaire
+// medMinERP : médiane MIN réseau ERP (ou 0)
+// Retourne  : { min, max, vitesse, totalBL, totalCA, isRare, nbAgTop } ou null
+export function computeVitesseReseau(code, pu, medMinERP) {
+  const vpm = _S.ventesParAgence || {};
+  const spm = _S.stockParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  if (stores.length < 2 || pu <= 0) return null;
+
+  // Filtre de la Mort : au moins 1 agence réseau a MIN/MAX > 0 ?
+  let anyStocked = false;
+  for (const s of stores) { const stk = spm[s]?.[code]; if (stk && (stk.qteMin > 0 || stk.qteMax > 0)) { anyStocked = true; break; } }
+
+  // Top 3 agences par CA
+  let t1ca = 0, t1bl = 0, t2ca = 0, t2bl = 0, t3ca = 0, t3bl = 0, any = false;
+  for (const s of stores) {
+    const v = vpm[s]?.[code]; if (!v || v.countBL <= 0) continue;
+    const ca = v.sumCA || 0, bl = v.countBL; any = true;
+    if (ca > t1ca) { t3ca = t2ca; t3bl = t2bl; t2ca = t1ca; t2bl = t1bl; t1ca = ca; t1bl = bl; }
+    else if (ca > t2ca) { t3ca = t2ca; t3bl = t2bl; t2ca = ca; t2bl = bl; }
+    else if (ca > t3ca) { t3ca = ca; t3bl = bl; }
+  }
+  if (!any) return null;
+  const totalCA = t1ca + t2ca + t3ca, totalBL = t1bl + t2bl + t3bl;
+  if (totalBL <= 0) return null;
+  const nbAgTop = (t1bl > 0 ? 1 : 0) + (t2bl > 0 ? 1 : 0) + (t3bl > 0 ? 1 : 0);
+
+  // Garde-fou fréquence : < 4 BL/an = produit Rare → prudence MIN=1/MAX=2
+  const isRare = totalBL < 4;
+  // Rotation mensuelle
+  const nbMois = Math.max((_S.globalJoursOuvres || 250) / 21, 1);
+  const totalPieces = totalCA / pu;
+  const rotMensuelle = totalPieces / nbMois;
+  let vit = isRare ? 1 : Math.max(rotMensuelle, 1);
+  // Plafond médiane ERP ×2 ou 20
+  const capMed = medMinERP > 0 ? medMinERP * 2 : 20;
+  vit = Math.min(vit, capMed);
+  // Filtre de la Mort souple
+  if (!anyStocked) vit = Math.min(vit, 1);
+
+  const min = Math.max(Math.ceil(vit), 1);
+  let max = Math.max(Math.ceil(vit * 2), min + 1);
+  if (!anyStocked || isRare) max = Math.min(max, 2);
+
+  return { min, max, vitesse: vit, totalBL, totalCA, isRare, nbAgTop, anyStocked };
+}
+
 // ── CA perdu estimé — UNE SEULE formule, appelée partout ──────
 // Remplace les 4+ formules inline : (r.V/_S.globalJoursOuvres)*jours*r.prixUnitaire
 export function estimerCAPerdu(V, prixUnitaire, jours) {
@@ -312,6 +363,11 @@ export function _clientStatusText(cc, info) {
 export function _unikLink(code) {
   if (!code || !_isSixDigitCode(code)) return '';
   return `<a data-unik-client="${code}" href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" title="Voir commandes Unik" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
+}
+
+export function _legallaisArticleLink(code) {
+  if (!code || !_isSixDigitCode(code)) return '';
+  return `<a href="https://www.legallais.com/article/${code}" target="_blank" rel="noopener" title="Voir sur legallais.com" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
 }
 
 export function _crossBadge(cc) {
@@ -1374,18 +1430,31 @@ export function computeSquelette(directionFilter) {
       // CHALLENGER : référencé ET 0 vente (W=0 = aucun BL sur la période)
       if (W === 0)
         a.classification = 'challenger';
-      // SOCLE : ≥3 clients distincts ET ≥3 BL — validé par le marché
-      else if (a.nbClientsPDV >= 3 && W >= 3)
+      // SOCLE : ≥3 clients distincts ET ≥3 BL ET ABC ≠ C — validé par le marché
+      else if (a.nbClientsPDV >= 3 && W >= 3 && fd?.abcClass !== 'C')
         a.classification = 'socle';
       // À SURVEILLER : le reste — référencé, actif mais pas encore socle
       else
         a.classification = 'surveiller';
     } else {
       // ── Filtre Fin de Vie : exclure les articles morts du catalogue ──
-      // 1. Statut local ERP = fin de série / fin de stock → bruit
+      // 1. Statut local ERP = fin de série / fin de stock / fin de catalogue → bruit
       const _sl = (fd?.statut || '').toLowerCase();
-      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
-      if (_isFin) { a.classification = 'bruit'; continue; }
+      const _isFinLocal = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
+      if (_isFinLocal) { a.classification = 'bruit'; continue; }
+      // 1b. Pas en stock local → vérifier statut réseau : si TOUTES les agences = fin de... → bruit
+      if (!fd && _S.stockParMagasin) {
+        let _allFin = true, _anyStore = false;
+        for (const s of Object.keys(vpm)) {
+          if (s === myStore) continue;
+          const stk = _S.stockParMagasin[s]?.[a.code];
+          if (!stk?.statut) continue;
+          _anyStore = true;
+          const _rs = stk.statut.toLowerCase();
+          if (!_rs.includes('fin de série') && !_rs.includes('fin de serie') && !_rs.includes('fin de stock') && !_rs.includes('fin de catalogue')) { _allFin = false; break; }
+        }
+        if (_anyStore && _allFin) { a.classification = 'bruit'; continue; }
+      }
       // 2. Signal réseau mort : toutes les agences qui vendent ont MIN/MAX=0/0 → produit bloqué nationalement
       // Exception : si ≥3 agences vendent ET CA réseau ≥ 3000€ → clairement actif, pas bloqué
       // (couvre les articles commandés à la demande sans MIN/MAX formalisé)
@@ -1401,7 +1470,7 @@ export function computeSquelette(directionFilter) {
       // À IMPLANTER : pas en stock ET signal fort
       const detention = a.nbAgencesReseau / nbStoresExclMy;
       const isIncontournable = detention >= 0.6 || (fd?.abcClass === 'A');
-      const isNouveaute = fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && a.nbAgencesReseau >= 2);
+      const isNouveaute = fd?.isNouveaute;
       if (isIncontournable || isNouveaute || a.nbClientsZone >= 5 || a.caClientsZone >= 1000)
         a.classification = 'implanter';
       else
@@ -1567,25 +1636,37 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
       const _sl = (r.statut || '').toLowerCase();
       const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
       if (_isFin) { classif = 'bruit'; }
-      else {
-        // Signal réseau mort : si aucune agence n'a de MIN/MAX → produit bloqué nationalement
-        // Exception : ≥3 agences vendent ET caReseau ≥ 3000€ → article à la demande, pas bloqué
-        const _caR = caReseauByCode.get(code) || 0;
-        if (nbAgencesReseau >= 1 && _S.stockParMagasin && !(nbAgencesReseau >= 3 && _caR >= 3000)) {
-          let anyMinMax = false;
-          for (let i = 0; i < stores.length; i++) {
-            const stk = _S.stockParMagasin[stores[i]]?.[code];
-            if (stk && ((stk.qteMin || 0) > 0 || (stk.qteMax || 0) > 0)) { anyMinMax = true; break; }
-          }
-          if (!anyMinMax) { classif = 'bruit'; continue; }
+      else if (!r.statut && _S.stockParMagasin) {
+        // Pas de statut local → vérifier réseau : si TOUTES les agences = fin de... → bruit
+        let _allFin2 = true, _anyS2 = false;
+        for (let i = 0; i < stores.length; i++) {
+          const stk = _S.stockParMagasin[stores[i]]?.[code];
+          if (!stk?.statut) continue;
+          _anyS2 = true;
+          const _rs2 = stk.statut.toLowerCase();
+          if (!_rs2.includes('fin de série') && !_rs2.includes('fin de serie') && !_rs2.includes('fin de stock') && !_rs2.includes('fin de catalogue')) { _allFin2 = false; break; }
         }
-        const detention = nbAgencesReseau / Math.max(1, nbStores);
-        const isIncontournable = detention >= 0.6 || (r.abcClass === 'A');
-        const isNouveaute = r.isNouveaute || (r.ageJours != null && r.ageJours < 90 && nbAgencesReseau >= 2);
-        if (isIncontournable || isNouveaute || nbClientsZone >= 5 || caClientsZone >= 1000)
-          classif = 'implanter';
-        else
-          classif = 'bruit';
+        if (_anyS2 && _allFin2) classif = 'bruit';
+        else {
+          // Signal réseau mort : si aucune agence n'a de MIN/MAX → produit bloqué nationalement
+          // Exception : ≥3 agences vendent ET caReseau ≥ 3000€ → article à la demande, pas bloqué
+          const _caR = caReseauByCode.get(code) || 0;
+          if (nbAgencesReseau >= 1 && _S.stockParMagasin && !(nbAgencesReseau >= 3 && _caR >= 3000)) {
+            let anyMinMax = false;
+            for (let i = 0; i < stores.length; i++) {
+              const stk = _S.stockParMagasin[stores[i]]?.[code];
+              if (stk && ((stk.qteMin || 0) > 0 || (stk.qteMax || 0) > 0)) { anyMinMax = true; break; }
+            }
+            if (!anyMinMax) { classif = 'bruit'; continue; }
+          }
+          const detention = nbAgencesReseau / Math.max(1, nbStores);
+          const isIncontournable = detention >= 0.6 || (r.abcClass === 'A');
+          const isNouveaute = r.isNouveaute;
+          if (isIncontournable || isNouveaute || nbClientsZone >= 5 || caClientsZone >= 1000)
+            classif = 'implanter';
+          else
+            classif = 'bruit';
+        }
       }
     }
     if (classif !== 'bruit') classifMap.set(code, classif);
@@ -1662,7 +1743,7 @@ export function applyVerdictOverrides() {
 
     let role = 'standard';
     if (detention >= 0.6 || (r.abcClass === 'A' && W >= 12)) role = 'incontournable';
-    else if (r.isNouveaute || (r.ageJours != null && r.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (r.isNouveaute) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
     // Fix Poids Mort : challenger avec demande externe → upgrade rôle

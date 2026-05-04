@@ -4,6 +4,14 @@ importScripts('https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js
 
 function _toStr(cell) {
   if (!cell) return '';
+  // Nombres : utiliser cell.v (valeur brute) pour éviter les séparateurs de milliers
+  // dans cell.w ("4,139" ou "4 138,80") qui cassent le parsing CSV.
+  // Exception : pourcentages (cell.v = 0.3288 vs cell.w = "32,88%") → garder cell.w
+  // Exception : dates sérialisées (cell.w contient "/" ou lettres) → garder cell.w
+  if (cell.t === 'n' && cell.v != null) {
+    if (cell.w != null && /[%\/a-zA-Z]/.test(cell.w)) return String(cell.w);
+    return String(cell.v);
+  }
   if (cell.w != null) return String(cell.w);
   if (cell.v != null) return String(cell.v);
   return '';

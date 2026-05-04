@@ -100,7 +100,22 @@ export async function parseChalandise(file) {
     const _p = v => {
       if (!v) return 0;
       if (typeof v === 'number') return v;
-      return parseFloat(String(v).replace(/\s/g, '').replace(',', '.')) || 0;
+      let s = String(v).replace(/[€\s]/g, '');
+      // Format FR : virgule peut être séparateur décimal OU milliers
+      if (s.includes(',')) {
+        const parts = s.split(',');
+        if (parts.length === 2 && /^\d{3}$/.test(parts[1]) && !s.includes('.')) {
+          // "16,754" → virgule = milliers (3 chiffres après, pas de point) → 16754
+          s = s.replace(',', '');
+        } else {
+          // "16.209,50" → point = milliers, virgule = décimal
+          // "12,50" → virgule = décimal
+          s = s.replace(/\./g, '').replace(',', '.');
+        }
+      }
+      // "16.209" → point = milliers si pattern X.XXX
+      else if (/^\d{1,3}(\.\d{3})+$/.test(s)) { s = s.replace(/\./g, ''); }
+      return parseFloat(s) || 0;
     };
     const _s = v => (v === null || v === undefined) ? '' : String(v).trim();
 
@@ -428,7 +443,7 @@ export async function parseLivraisons(file) {
 
       const qtyRaw = cQty !== null ? row?.[cQty] : 0;
       const qty = typeof qtyRaw === 'number' ? qtyRaw : (parseInt(String(qtyRaw || '0'), 10) || 0);
-      if (qty < 0) continue; // avoirs : exclure comme dans le Worker territoire
+      // avoirs (qty < 0) : on les garde, leur CA négatif se déduit naturellement
 
       const rawDate = cDate !== null ? row?.[cDate] : null;
       const dateMs = _parseDateMs(rawDate);

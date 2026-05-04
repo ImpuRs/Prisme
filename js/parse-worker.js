@@ -1386,7 +1386,8 @@ async function _handleParseMessage(data) {
           var _stkVal = _cSValS ? cleanPrice(rowS[_cSValS]) : null;
           var _kMin = parseFloat(getVal(rowS, 'min') || 0) || 0;
           var _kMax = parseFloat(getVal(rowS, 'max') || 0) || 0;
-          stockParMagasin[storeCodeS][codeS] = { stockActuel: cleanPrice(_cSStk ? rowS[_cSStk] : 0), valeurStock: _stkVal, qteMin: _kMin, qteMax: _kMax };
+          var _statutSpm = (getVal(rowS, 'Statut') || '').toString().trim();
+          stockParMagasin[storeCodeS][codeS] = { stockActuel: cleanPrice(_cSStk ? rowS[_cSStk] : 0), valeurStock: _stkVal, qteMin: _kMin, qteMax: _kMax, statut: _statutSpm };
         }
 
         if (!libelleLookup[codeS]) {

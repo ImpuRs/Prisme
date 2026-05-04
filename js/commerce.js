@@ -1233,20 +1233,77 @@ function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
   const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
   _S._terrClientSearch=raw;
+  const suggestEl=document.getElementById('terrSearchSuggest');
   _terrClientSearchTimer=setTimeout(()=>{
-    // Si c'est un code client connu → ouvrir directement Client 360
+    // Code client exact → ouvrir directement Client 360
     if(raw && /^\d{4,}$/.test(raw)){
       const cc=raw;
       const known=_S.chalandiseData?.has(cc)||_S.clientNomLookup?.[cc]||_S.clientStore?.has(cc)||_S.ventesLocalMagPeriode?.has(cc);
       if(known){
+        if(suggestEl)suggestEl.classList.add('hidden');
         document.getElementById('terrSearch').value='';
         _S._terrClientSearch='';
         openClient360(cc,'terrain');
         return;
       }
     }
-    _buildChalandiseOverview();renderMesClients();window.renderTerritoireTab?.();
-  },300);
+    // Autocomplétion à partir de 3 caractères
+    if(suggestEl && raw.length>=3){
+      const results=[];
+      // Chercher dans chalandise + clientNomLookup
+      const seen=new Set();
+      if(_S.chalandiseData){
+        for(const [cc,info] of _S.chalandiseData){
+          if(results.length>=10)break;
+          const nom=(info.nom||'').toLowerCase();
+          if((cc.includes(raw)||nom.includes(raw))&&!seen.has(cc)){
+            seen.add(cc);
+            results.push({cc,nom:info.nom||cc,metier:info.metier||'',commercial:info.commercial||''});
+          }
+        }
+      }
+      if(results.length<10&&_S.clientNomLookup){
+        for(const [cc,nom] of Object.entries(_S.clientNomLookup)){
+          if(results.length>=10)break;
+          if(seen.has(cc))continue;
+          if(cc.includes(raw)||(nom||'').toLowerCase().includes(raw)){
+            seen.add(cc);
+            results.push({cc,nom:nom||cc,metier:'',commercial:''});
+          }
+        }
+      }
+      if(results.length){
+        suggestEl.innerHTML=results.map(r=>`<div onclick="window._terrSelectClient('${r.cc}')" class="px-3 py-2 cursor-pointer hover:s-hover border-b b-light text-[11px]" style="border-color:rgba(148,163,184,0.15)">
+          <span class="font-bold t-primary">${r.cc}</span>
+          <span class="t-secondary ml-1">${r.nom}</span>
+          ${r.metier?`<span class="text-[9px] t-disabled ml-1">· ${r.metier}</span>`:''}
+        </div>`).join('');
+        suggestEl.classList.remove('hidden');
+      } else {
+        suggestEl.innerHTML='<div class="px-3 py-2 text-[10px] t-disabled">Aucun client trouvé</div>';
+        suggestEl.classList.remove('hidden');
+      }
+    } else if(suggestEl){
+      suggestEl.classList.add('hidden');
+    }
+    if(!raw){
+      _buildChalandiseOverview();renderMesClients();window.renderTerritoireTab?.();
+    }
+  },250);
+}
+// Fermer suggestions au clic extérieur
+document.addEventListener('click',e=>{
+  const wrap=document.getElementById('terrSearchBlock');
+  const sg=document.getElementById('terrSearchSuggest');
+  if(sg&&wrap&&!wrap.contains(e.target))sg.classList.add('hidden');
+});
+function _terrSelectClient(cc){
+  const suggestEl=document.getElementById('terrSearchSuggest');
+  if(suggestEl)suggestEl.classList.add('hidden');
+  const input=document.getElementById('terrSearch');
+  if(input)input.value='';
+  _S._terrClientSearch='';
+  openClient360(cc,'terrain');
 }
 let _metInputTimer = null;
 let _metierSortedCacheRef = null;
@@ -2549,6 +2606,7 @@ window._onCommercialInput         = _onCommercialInput;
 window._setDistanceQuick          = _setDistanceQuick;
 window._updateDistQuickBtns       = _updateDistQuickBtns;
 window._onTerrClientSearch        = _onTerrClientSearch;
+window._terrSelectClient          = _terrSelectClient;
 window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
 window._toggleExcludeActifsConsomme = _toggleExcludeActifsConsomme;

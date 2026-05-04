@@ -1,7 +1,7 @@
 'use strict';
 
 import { _classifShort, _isMetierStrategique, escapeHtml, formatEuro } from './utils.js';
-import { _clientStatusBadge, _crossBadge, _isGlobalActif, _isPerdu, _unikLink } from './engine.js';
+import { _clientStatusBadge, _crossBadge, _isGlobalActif, _isPerdu, _isProspect, _unikLink } from './engine.js';
 
 function pctPair(row){
   const base=(row.total||0)-(row.prospects||0);
@@ -176,20 +176,28 @@ export function renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix=''}
 
 export function renderOverviewL4Table({clients,show,more,direction,metier,secteur,canal}){
   if(!clients.length)return '<div class="t-disabled text-xs py-2">Aucun client.</div>';
-  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-right">CA N-1</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
   for(const c of show){
     const globActif=_isGlobalActif(c),perdu=_isPerdu(c);
-    const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
-    const badge=(canal&&c._pdvActifGlobal&&!c._pdvActif)
-      ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.35)">Actif PDV</span>'
-      : _clientStatusBadge(c.code,c);
+    const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu&&!c._pdvActif?'i-danger-bg':'';
+    // Badge cohérent avec capteSet (même source que L3 comptage + sort)
+    const badge=c._pdvActif
+      ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>'
+      : globActif
+        ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>'
+        : _isProspect(c)
+          ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>'
+          : perdu&&(c.caN1||0)>0
+            ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>'
+            : '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
     const code=escapeHtml(c.code);
-    html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:i-info-bg" onclick="openClient360('${code}','reseau')">
-      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${code}</span>${_crossBadge(c.code)} <span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="event.stopPropagation();openClient360('${code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${badge}</td>
+    html+=`<tr class="border-t border-blue-100 ${pdvBg} hover:i-info-bg">
+      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${code}</span>${_crossBadge(c.code)} <span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="openClient360('${code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${badge}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${escapeHtml(c.commercial||'—')}</td>
       <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
       <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
       <td class="py-1 px-2 text-right font-bold ${c.caLeg>0?'c-caution':'t-disabled'}">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
+      <td class="py-1 px-2 text-right text-[9px] ${c.caN1>0?(c.caLeg>0&&c.caLeg<c.caN1*0.5?'c-danger font-bold':'t-secondary'):'t-disabled'}">${c.caN1>0?formatEuro(c.caN1):'—'}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${escapeHtml(c.ville||'—')}</td>
     </tr>`;
   }

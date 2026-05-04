@@ -7,9 +7,532 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro, escapeHtml, famLib, _copyCodeBtn } from './utils.js';
+import { formatEuro, escapeHtml, famLib, _copyCodeBtn, readExcel, readExcelAsObjects, extractClientCode, parseCSVTextToHR } from './utils.js';
 import { computeAnimation } from './engine.js';
 import { renderAssociationsTab } from './associations.js';
+
+// ═══════════════════════════════════════════════════════════════
+// Data Fournisseur — fichier BL national chargé par l'utilisateur
+// Même format que Le Terrain (Qlik) — croisé avec la base locale
+// ═══════════════════════════════════════════════════════════════
+
+let _brandFileData = null;   // { marque, lines[], crossResult }
+let _brandFileMarque = '';   // marque active au moment du chargement
+
+async function _parseBrandFile(file) {
+  let hr;
+  const isCSV = file.name.toLowerCase().endsWith('.csv');
+  if (isCSV) {
+    // CSV : lire en CP1252 (standard Legallais/Qlik), séparateur ;
+    const text = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result);
+      r.onerror = () => rej(new Error('Lecture CSV impossible'));
+      r.readAsText(file, 'windows-1252');
+    });
+    const sep = text.indexOf(';') >= 0 ? ';' : ',';
+    hr = parseCSVTextToHR(text, sep);
+  } else {
+    hr = await readExcel(file);
+  }
+  const rows = readExcelAsObjects(hr);
+  if (!rows.length) return null;
+
+  // Détecter les colonnes (même format que Terrain / Livraisons)
+  const h = Object.keys(rows[0]);
+  const _col = (patterns) => h.find(k => patterns.some(p => k.toLowerCase().includes(p))) || '';
+  const cArticle = _col(['article']);
+  const cClient = _col(['code client']);
+  const cNomClient = _col(['nom client']);
+  const cCA = h.find(k => /^ca$/i.test(k.trim())) || _col(['montant ca', 'chiffre']);
+  const cQte = _col(['quantit', 'qté']);
+  const cSecteur = _col(['secteur']);
+  const cDirection = _col(['direction']);
+  const cDate = _col(["date d'exp", 'date exp', 'date']);
+
+  if (!cArticle || !cClient) return null;
+
+  const lines = [];
+  for (const r of rows) {
+    const artRaw = String(r[cArticle] || '');
+    // Extraire code 6 chiffres du début (ex: "183712 - OUTIL A DENUDER")
+    const m = artRaw.match(/(\d{6})/);
+    if (!m) continue;
+    const code = m[1];
+    const libelle = artRaw.replace(/^\d+\s*-?\s*/, '').trim();
+    const cc = extractClientCode(String(r[cClient] || ''));
+    if (!cc) continue;
+
+    // Parser CA (format français : "45.57 €" ou "45,57 €")
+    let ca = 0;
+    if (cCA) {
+      const raw = String(r[cCA] || '').replace(/[€\s]/g, '');
+      ca = parseFloat(raw.replace(',', '.')) || 0;
+    }
+    let qte = 0;
+    if (cQte) qte = parseInt(String(r[cQte] || ''), 10) || 0;
+
+    lines.push({
+      code, libelle, cc,
+      nom: String(r[cNomClient] || ''),
+      ca, qte,
+      secteur: String(r[cSecteur] || ''),
+      direction: String(r[cDirection] || ''),
+    });
+  }
+  return lines;
+}
+
+function _crossBrandData(lines, marque) {
+  if (!lines?.length) return null;
+  const myStore = _S.selectedMyStore;
+  const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
+  const vpm = _S.ventesParAgence || {};
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+
+  // 1. Agréger le fichier fournisseur par article
+  const artAgg = new Map(); // code → {ca, qte, nbClients, clients: Set, nbBL, secteurs: Set, libelle}
+  const clientAgg = new Map(); // cc → {nom, ca, nbArts, codes: Set}
+  for (const l of lines) {
+    if (!artAgg.has(l.code)) artAgg.set(l.code, { ca: 0, qte: 0, clients: new Set(), nbBL: 0, secteurs: new Set(), libelle: l.libelle });
+    const a = artAgg.get(l.code);
+    a.ca += l.ca; a.qte += l.qte; a.clients.add(l.cc); a.nbBL++;
+    if (l.secteur) a.secteurs.add(l.secteur);
+
+    if (!clientAgg.has(l.cc)) clientAgg.set(l.cc, { nom: l.nom, ca: 0, nbArts: 0, codes: new Set() });
+    const c = clientAgg.get(l.cc);
+    c.ca += l.ca;
+    if (!c.codes.has(l.code)) { c.codes.add(l.code); c.nbArts++; }
+  }
+
+  // 2. Articles : classé par intérêt local
+  const artResults = [];
+  for (const [code, agg] of artAgg) {
+    const fd = stockMap.get(code);
+    const myVentes = vpm[myStore]?.[code];
+    const caLocal = myVentes?.sumCA || 0;
+    const enStock = fd ? (fd.stockActuel > 0) : false;
+    const enRayon = !!fd;
+    const catFam = _S.catalogueFamille?.get(code);
+    const famLabel = catFam?.libFam || famLib(_S.articleFamille?.[code] || '') || '';
+
+    const nbCli = agg.clients.size;
+    const nbSect = agg.secteurs.size;
+    const nbBL = agg.nbBL;
+    const panierMoyen = nbCli > 0 ? agg.ca / nbCli : 0;
+    const puFourn = agg.qte > 0 ? agg.ca / agg.qte : 0;
+    // Pull % = clients uniques / nb BL × 100 — mesure la démocratisation
+    const pullPct = nbBL > 0 ? Math.round(nbCli / nbBL * 100) : 0;
+
+    artResults.push({
+      code,
+      libelle: fd ? (fd.libelle || agg.libelle) : agg.libelle,
+      famLabel,
+      caFournisseur: agg.ca,
+      qteFournisseur: agg.qte,
+      nbClientsFournisseur: nbCli,
+      nbBL, nbSecteurs: nbSect, panierMoyen, puFourn,
+      pullPct,
+      caLocal,
+      enStock,
+      enRayon,
+      statut: !enRayon ? 'absent' : !enStock ? 'rupture' : 'present',
+    });
+  }
+  // Trier : absents d'abord (opportunités), puis par CA fournisseur décroissant
+  const statutOrd = { absent: 0, rupture: 1, present: 2 };
+  artResults.sort((a, b) => statutOrd[a.statut] - statutOrd[b.statut] || b.caFournisseur - a.caFournisseur);
+
+  // 3. Clients zone : clients du fichier fournisseur présents dans ma chalandise
+  const clientsZone = [];
+  const clientsHorsZone = [];
+  for (const [cc, cAgg] of clientAgg) {
+    const chal = _S.chalandiseData?.get(cc);
+    const entry = {
+      cc, nom: cAgg.nom || chal?.nom || cc,
+      caFournisseur: cAgg.ca,
+      nbArtsFournisseur: cAgg.nbArts,
+      metier: chal?.metier || '',
+      commercial: chal?.commercial || '',
+      cp: chal?.cp || '',
+      inZone: !!chal,
+      // Est-ce qu'il achète chez moi ?
+      acheteChezMoi: !!(_S.ventesLocalMag12MG?.has(cc) || _S.ventesLocalHorsMag?.has(cc)),
+    };
+    if (chal) clientsZone.push(entry);
+    else clientsHorsZone.push(entry);
+  }
+  clientsZone.sort((a, b) => b.caFournisseur - a.caFournisseur);
+
+  // Séparer : ceux qui achètent chez moi vs ceux qui fuient
+  const captables = clientsZone.filter(c => !c.acheteChezMoi);
+  const fideles = clientsZone.filter(c => c.acheteChezMoi);
+
+  // 4. Ciblage métier : métiers dominants dans le fichier fournisseur → mes clients de ce métier
+  const metierCA = new Map();
+  for (const c of clientsZone) {
+    if (!c.metier) continue;
+    metierCA.set(c.metier, (metierCA.get(c.metier) || 0) + c.caFournisseur);
+  }
+  const topMetiers = [...metierCA.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const ciblageMetier = [];
+  if (hasChal) {
+    const clientsFournisseurSet = new Set(clientAgg.keys());
+    for (const [metier, caMetier] of topMetiers) {
+      const metierClients = _S.clientsByMetier?.get(metier);
+      if (!metierClients) continue;
+      const cibles = [];
+      for (const cc of metierClients) {
+        if (clientsFournisseurSet.has(cc)) continue; // déjà dans le fichier
+        const chal = _S.chalandiseData.get(cc);
+        if (!chal) continue;
+        const caLeg = chal.ca2026 || 0;
+        cibles.push({
+          cc, nom: chal.nom || cc,
+          metier, commercial: chal.commercial || '',
+          cp: chal.cp || '', caLeg,
+        });
+      }
+      cibles.sort((a, b) => b.caLeg - a.caLeg);
+      if (cibles.length > 0) {
+        ciblageMetier.push({ metier, caMetier, nbFournisseur: metierCA.get(metier) || 0, cibles: cibles.slice(0, 30), totalCibles: cibles.length });
+      }
+    }
+  }
+
+  const nbAbsents = artResults.filter(a => a.statut === 'absent').length;
+  const nbRuptures = artResults.filter(a => a.statut === 'rupture').length;
+  const totalCaFournisseur = artResults.reduce((s, a) => s + a.caFournisseur, 0);
+
+  // 5. Produits comptoir : PU < 50€ + fréquence ≥ 4 BL + trié par Pull %
+  const produitsComptoir = artResults
+    .filter(a => a.puFourn > 0 && a.puFourn < 100 && a.nbBL >= 4)
+    .sort((a, b) => b.pullPct - a.pullPct);
+
+  return {
+    nbArticles: artResults.length, nbAbsents, nbRuptures,
+    totalCaFournisseur, nbLignes: lines.length,
+    articles: artResults,
+    produitsComptoir,
+    captables, fideles, clientsHorsZone,
+    ciblageMetier,
+    totalClientsZone: clientsZone.length,
+    totalCaptables: captables.length,
+  };
+}
+
+function _renderBrandInsights(cross) {
+  if (!cross) return '';
+  let html = `<div class="s-card rounded-xl border overflow-hidden mb-4" style="border-color:#8b5cf6">
+    <div class="px-4 py-3 border-b" style="background:linear-gradient(135deg,#ede9fe,#c4b5fd);border-color:#8b5cf6">
+      <div class="flex items-center justify-between">
+        <h4 class="font-extrabold text-sm" style="color:#5b21b6">📊 Data Fournisseur — ${cross.nbLignes} lignes analysées</h4>
+        <button onclick="window._animClearBrandFile()" class="text-[10px] px-3 py-1.5 rounded-lg border cursor-pointer" style="border-color:#8b5cf6;color:#5b21b6">✕ Retirer</button>
+      </div>
+      <div class="flex flex-wrap gap-3 mt-2 text-[10px]" style="color:#5b21b6">
+        <span class="font-bold">${cross.nbArticles} articles</span>
+        <span>${cross.nbAbsents} absents de mon rayon</span>
+        <span>${cross.nbRuptures} en rupture</span>
+        <span class="font-bold">${formatEuro(cross.totalCaFournisseur)} CA fournisseur</span>
+        <span>${cross.totalClientsZone} clients dans ma zone</span>
+        <span class="font-bold" style="color:#dc2626">${cross.totalCaptables} à capter</span>
+      </div>
+    </div>`;
+
+  // ── Panel 0 : Produits Comptoir (merchandising comportemental) ──
+  if (cross.produitsComptoir?.length > 0) {
+    const top = cross.produitsComptoir.slice(0, 20);
+    html += `<details class="border-b b-light" open>
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px]" style="color:#f59e0b">🏪 ${cross.produitsComptoir.length} Produits Comptoir — PU < 100€, Pull élevé</span>
+        </div>
+        <span class="text-[10px] t-disabled">Pull % = clients uniques ÷ fréquence</span>
+      </summary>
+      <div class="px-4 py-2">
+        <p class="text-[9px] t-disabled mb-2">Filtre : PU < 100€ + ≥ 4 BL. Pull élevé = acheté par beaucoup de clients différents (comptoir). Pull bas = poussé par quelques gros clients (chantier). Ceux marqués "En stock" sont prêts pour la tête de gondole.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Pull %</th><th class="py-1.5 px-2 text-right">Clients</th><th class="py-1.5 px-2 text-right">BL</th><th class="py-1.5 px-2 text-right">PU moy.</th><th class="py-1.5 px-2 text-right">CA fourn.</th></tr>
+          </thead>
+          <tbody id="brandTbody_comptoir">${top.map(a => {
+            const pullBg = a.pullPct >= 80 ? '#dcfce7' : a.pullPct >= 50 ? '#fef3c7' : '#f1f5f9';
+            const pullColor = a.pullPct >= 80 ? '#166534' : a.pullPct >= 50 ? '#92400e' : '#475569';
+            const stockTag = a.statut === 'present' ? ' <span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
+            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+              <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
+              <td class="py-1.5 px-2 t-primary" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.libelle)}${stockTag}</td>
+              <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+              <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
+              <td class="py-1.5 px-2 text-right font-bold" style="color:#f59e0b">${a.nbClientsFournisseur}</td>
+              <td class="py-1.5 px-2 text-right t-secondary">${a.nbBL}</td>
+              <td class="py-1.5 px-2 text-right t-secondary">${formatEuro(a.puFourn)}</td>
+              <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+        ${cross.produitsComptoir.length > 20 ? `<button id="brandMore_comptoir" onclick="window._brandShowMore('comptoir',20)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.produitsComptoir.length - 20} restants)</button>` : ''}
+      </div>
+    </details>`;
+  }
+
+  // ── Panel 1 : Articles à implanter ──
+  const absents = cross.articles.filter(a => a.statut === 'absent');
+  if (absents.length > 0) {
+    html += `<details class="border-b b-light" open>
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px]" style="color:#dc2626">🕳️ ${absents.length} articles absents de mon rayon</span>
+        </div>
+        <span class="text-[10px] t-disabled">${formatEuro(absents.reduce((s, a) => s + a.caFournisseur, 0))} CA fournisseur</span>
+      </summary>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Qté</th><th class="py-1.5 px-2 text-right">Clients fourn.</th></tr>
+          </thead>
+          <tbody id="brandTbody_absents">${absents.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+            <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+            <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+            <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+            <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
+            <td class="py-1.5 px-2 text-right t-secondary">${a.qteFournisseur}</td>
+            <td class="py-1.5 px-2 text-right t-secondary">${a.nbClientsFournisseur}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        ${absents.length > 30 ? `<button id="brandMore_absents" onclick="window._brandShowMore('absents',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${absents.length - 30} restants)</button>` : ''}
+      </div>
+    </details>`;
+  }
+
+  // ── Panel 2 : Clients captables (zone, achètent la marque ailleurs mais pas chez moi) ──
+  if (cross.captables.length > 0) {
+    html += `<details class="border-b b-light" open>
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px]" style="color:#dc2626">🎯 ${cross.captables.length} clients zone — achètent ailleurs, pas chez moi</span>
+        </div>
+        <span class="text-[10px] t-disabled">${formatEuro(cross.captables.reduce((s, c) => s + c.caFournisseur, 0))} CA fuite</span>
+      </summary>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2">Métier</th><th class="py-1.5 px-2">CP</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Articles</th></tr>
+          </thead>
+          <tbody id="brandTbody_captables">${cross.captables.slice(0, 30).map(c => {
+            const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+              <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-[9px] t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
+              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
+              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
+              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+              <td class="py-1.5 px-2 text-right font-bold" style="color:#dc2626">${formatEuro(c.caFournisseur)}</td>
+              <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+        ${cross.captables.length > 30 ? `<button id="brandMore_captables" onclick="window._brandShowMore('captables',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.captables.length - 30} restants)</button>` : ''}
+      </div>
+    </details>`;
+  }
+
+  // ── Panel 2b : Clients fidèles (achètent chez moi ET dans le fichier fournisseur) ──
+  if (cross.fideles.length > 0) {
+    html += `<details class="border-b b-light">
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px]" style="color:#16a34a">✅ ${cross.fideles.length} clients zone — déjà actifs chez moi</span>
+        </div>
+      </summary>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2">Métier</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Articles</th></tr>
+          </thead>
+          <tbody id="brandTbody_fideles">${cross.fideles.slice(0, 30).map(c => {
+            const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+              <td class="py-1.5 px-2 font-bold max-w-[180px] truncate">${escapeHtml(c.nom)}</td>
+              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
+              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+              <td class="py-1.5 px-2 text-right font-bold" style="color:#16a34a">${formatEuro(c.caFournisseur)}</td>
+              <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+        ${cross.fideles.length > 30 ? `<button id="brandMore_fideles" onclick="window._brandShowMore('fideles',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.fideles.length - 30} restants)</button>` : ''}
+      </div>
+    </details>`;
+  }
+
+  // ── Panel 3 : Ciblage métier ──
+  if (cross.ciblageMetier.length > 0) {
+    html += `<details class="border-b b-light">
+      <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px]" style="color:#2563eb">🔵 Ciblage par métier — ${cross.ciblageMetier.reduce((s, m) => s + m.totalCibles, 0)} prospects potentiels</span>
+        </div>
+      </summary>
+      <div class="px-4 py-2">
+        <p class="text-[10px] t-disabled mb-2">Métiers qui achètent le plus cette marque dans le fichier fournisseur. Les cibles sont vos clients du même métier qui ne sont PAS dans le fichier fournisseur.</p>`;
+
+    for (let _ci = 0; _ci < cross.ciblageMetier.length; _ci++) {
+      const m = cross.ciblageMetier[_ci];
+      html += `<details class="border b-light rounded-lg mb-2">
+        <summary class="px-3 py-2 cursor-pointer select-none hover:s-hover text-[11px]">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold">${escapeHtml(m.metier)}</span>
+          <span class="t-disabled ml-2">${m.totalCibles} cibles · ${formatEuro(m.caMetier)} CA fournisseur</span>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-[11px]">
+            <thead class="text-[9px] t-disabled">
+              <tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2">CP</th><th class="py-1 px-2">Commercial</th><th class="py-1 px-2 text-right">CA Leg.</th></tr>
+            </thead>
+            <tbody id="brandTbody_ciblage_${_ci}">${m.cibles.slice(0, 15).map(c => {
+              const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+              return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+                <td class="py-1 px-2 font-bold">${escapeHtml(c.nom)}</td>
+                <td class="py-1 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
+                <td class="py-1 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+                <td class="py-1 px-2 text-right font-bold c-action">${c.caLeg > 0 ? formatEuro(c.caLeg) : '—'}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+          ${m.cibles.length > 15 ? `<button id="brandMore_ciblage_${_ci}" onclick="window._brandShowMore('ciblage_${_ci}',15)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${m.cibles.length - 15} restants)</button>` : ''}
+        </div>
+      </details>`;
+    }
+    html += '</div></details>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+window._animLoadBrandFile = async function() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.xls,.csv';
+  input.onchange = async () => {
+    if (!input.files?.[0]) return;
+    const btn = document.getElementById('animBrandFileBtn');
+    if (btn) { btn.textContent = 'Chargement…'; btn.disabled = true; }
+    try {
+      const lines = await _parseBrandFile(input.files[0]);
+      if (!lines?.length) {
+        if (btn) { btn.textContent = 'Fichier invalide'; setTimeout(() => { btn.textContent = '📊 Charger fichier fournisseur'; btn.disabled = false; }, 2000); }
+        return;
+      }
+      const marque = _S._animationData?.marque || '';
+      const cross = _crossBrandData(lines, marque);
+      _brandFileData = { marque, lines, crossResult: cross };
+      _brandFileMarque = marque;
+      // Re-render l'animation avec les insights fournisseur
+      const el = document.getElementById('animContent');
+      if (el && _S._animationData) {
+        el.innerHTML = _renderAnimation(_S._animationData);
+        el.dataset.animActive = '1';
+      }
+    } catch (e) {
+      console.error('[PRISME] Erreur parsing fichier fournisseur:', e);
+      if (btn) { btn.textContent = 'Erreur parsing'; setTimeout(() => { btn.textContent = '📊 Charger fichier fournisseur'; btn.disabled = false; }, 2000); }
+    }
+  };
+  input.click();
+};
+
+// Pagination Data Fournisseur — affiche N lignes de plus dans un tbody
+window._brandShowMore = function(panelId, step) {
+  if (!_brandFileData?.crossResult) return;
+  const cross = _brandFileData.crossResult;
+  const tbody = document.getElementById('brandTbody_' + panelId);
+  const btn = document.getElementById('brandMore_' + panelId);
+  if (!tbody || !btn) return;
+  const current = tbody.children.length;
+  let items, renderFn;
+  if (panelId === 'comptoir') {
+    items = cross.produitsComptoir;
+    renderFn = a => {
+      const pullBg = a.pullPct >= 80 ? '#dcfce7' : a.pullPct >= 50 ? '#fef3c7' : '#f1f5f9';
+      const pullColor = a.pullPct >= 80 ? '#166534' : a.pullPct >= 50 ? '#92400e' : '#475569';
+      const stockTag = a.statut === 'present' ? ' <span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
+      return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+        <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
+        <td class="py-1.5 px-2 t-primary" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.libelle)}${stockTag}</td>
+        <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+        <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
+        <td class="py-1.5 px-2 text-right font-bold" style="color:#f59e0b">${a.nbClientsFournisseur}</td>
+        <td class="py-1.5 px-2 text-right t-secondary">${a.nbBL}</td>
+        <td class="py-1.5 px-2 text-right t-secondary">${formatEuro(a.puFourn)}</td>
+        <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
+      </tr>`;
+    };
+  } else if (panelId === 'absents') {
+    items = cross.articles.filter(a => a.statut === 'absent');
+    renderFn = a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+      <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+      <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.qteFournisseur}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.nbClientsFournisseur}</td>
+    </tr>`;
+  } else if (panelId === 'captables') {
+    items = cross.captables;
+    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+      <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-[9px] t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
+      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
+      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
+      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:#dc2626">${formatEuro(c.caFournisseur)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
+    </tr>`; };
+  } else if (panelId === 'fideles') {
+    items = cross.fideles;
+    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+      <td class="py-1.5 px-2 font-bold max-w-[180px] truncate">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
+      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:#16a34a">${formatEuro(c.caFournisseur)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
+    </tr>`; };
+  } else if (panelId.startsWith('ciblage_')) {
+    const ci = parseInt(panelId.split('_')[1], 10);
+    const m = cross.ciblageMetier?.[ci];
+    if (!m) return;
+    items = m.cibles;
+    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+      <td class="py-1 px-2 font-bold">${escapeHtml(c.nom)}</td>
+      <td class="py-1 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
+      <td class="py-1 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+      <td class="py-1 px-2 text-right font-bold c-action">${c.caLeg > 0 ? formatEuro(c.caLeg) : '—'}</td>
+    </tr>`; };
+  } else return;
+  const next = items.slice(current, current + step);
+  tbody.insertAdjacentHTML('beforeend', next.map(renderFn).join(''));
+  const remaining = items.length - current - next.length;
+  if (remaining > 0) btn.textContent = `▼ Voir plus (${remaining} restants)`;
+  else btn.remove();
+};
+
+window._animClearBrandFile = function() {
+  _brandFileData = null;
+  _brandFileMarque = '';
+  const el = document.getElementById('animContent');
+  if (el && _S._animationData) {
+    el.innerHTML = _renderAnimation(_S._animationData);
+    el.dataset.animActive = '1';
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════
 // Onglet Animation — Tab bar interne (Animation / Pépites Réseau)
@@ -621,8 +1144,13 @@ function _renderAnimation(data) {
   if (!data) return '<div class="text-center py-8 t-disabled">Aucune donnée pour cette marque.</div>';
 
   // ── Header KPIs ──
+  const hasBrandFile = _brandFileData && _brandFileMarque === data.marque && _brandFileData.crossResult;
   let html = `<div class="mb-4">
-    <h3 class="font-extrabold text-lg t-primary">⚡ Animation ${escapeHtml(data.marque)}</h3>
+    <div class="flex items-center justify-between">
+      <h3 class="font-extrabold text-lg t-primary">⚡ Animation ${escapeHtml(data.marque)}</h3>
+      <button id="animBrandFileBtn" onclick="window._animLoadBrandFile()" class="text-[11px] px-4 py-2 rounded-lg border-2 cursor-pointer font-bold transition-all hover:scale-105"
+        style="border-color:#8b5cf6;color:#8b5cf6;background:rgba(139,92,246,0.08)">${hasBrandFile ? '✅ Fichier fournisseur chargé' : '📊 Charger fichier fournisseur'}</button>
+    </div>
     <div class="flex flex-wrap gap-3 mt-2 text-[11px]">
       <span class="px-2 py-1 rounded-lg border b-light">${data.nbArticlesTotal} articles catalogue</span>
       <span class="px-2 py-1 rounded-lg font-bold" style="background:#dcfce7;color:#166534">${data.nbEnStock} en stock</span>
@@ -630,6 +1158,13 @@ function _renderAnimation(data) {
       <span class="font-bold c-action px-2 py-1">${formatEuro(data.caMarqueAgence)} CA marque</span>
     </div>
   </div>`;
+
+  // ═══════════════════════════════════════════════════════════════
+  // DATA FOURNISSEUR — affiché en premier si chargé
+  // ═══════════════════════════════════════════════════════════════
+  if (hasBrandFile) {
+    html += _renderBrandInsights(_brandFileData.crossResult);
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // GESTE 1 — 🚨 URGENCE : Ruptures marque
@@ -673,6 +1208,7 @@ function _renderAnimation(data) {
     </div>`;
 
   // 🟢 Fidèles — chouchouter + cross-sell
+  _clientAccordionIdx = 0;
   html += _renderClientAccordion('🟢', `Fidèles (achètent ${escapeHtml(data.marque)})`, data.clients.acheteurs, 'acheteur', true);
 
   // 🔴 Conquête — achètent la concurrence !
@@ -711,7 +1247,7 @@ function _renderAnimation(data) {
           <thead class="text-[9px] t-disabled">
             <tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-center">Statut</th><th class="py-1 px-2 text-right">CA réseau</th><th class="py-1 px-2 text-center">Agences</th></tr>
           </thead>
-          <tbody>${trous.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+          <tbody id="animTbody_trous">${trous.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
             <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
             <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
             <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
@@ -720,7 +1256,7 @@ function _renderAnimation(data) {
             <td class="py-1.5 px-2 text-center">${_reseauBadge(a.nbAgencesReseau)}</td>
           </tr>`).join('')}</tbody>
         </table>
-        ${trous.length > 30 ? `<div class="px-3 py-2 text-[10px] t-disabled">… et ${trous.length - 30} autres trous</div>` : ''}
+        ${trous.length > 30 ? `<button id="animMore_trous" onclick="window._animShowMore('trous',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${trous.length - 30} restants)</button>` : ''}
       </div>
     </div>`;
   }
@@ -771,12 +1307,14 @@ function _renderAnimation(data) {
 }
 
 // ── Client accordion helper — adapté pour les 5 types d'invités ──
+let _clientAccordionIdx = 0;
 function _renderClientAccordion(icon, title, clients, type, openByDefault) {
   if (!clients || !clients.length) return `<details class="border-b b-light">
     <summary class="px-4 py-2.5 cursor-pointer select-none hover:s-hover text-[12px] t-disabled">
       <span class="acc-arrow t-disabled">▶</span> ${icon} 0 ${title}
     </summary></details>`;
 
+  const accIdx = _clientAccordionIdx++;
   const top30 = clients.slice(0, 30);
   const hasMore = clients.length > 30;
 
@@ -808,7 +1346,7 @@ function _renderClientAccordion(icon, title, clients, type, openByDefault) {
     </tr>`;
   }).join('');
 
-  const moreRow = hasMore ? `<div class="px-3 py-2 text-[10px] t-disabled">… et ${clients.length - 30} autres</div>` : '';
+  const moreRow = hasMore ? `<button id="animMore_clients_${accIdx}" onclick="window._animShowMore('clients_${accIdx}',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${clients.length - 30} restants)</button>` : '';
   const caHeaders = { prospect: 'CA PDV', conquete: 'CA concurrence', labo: 'CA conso', reconquete: 'CA marque', acheteur: 'CA marque' };
   const extraHeaders = { prospect: '', conquete: 'Marques', labo: 'Type', reconquete: 'Silence', acheteur: 'Articles' };
 
@@ -824,7 +1362,7 @@ function _renderClientAccordion(icon, title, clients, type, openByDefault) {
         <thead class="s-panel-inner t-inverse text-[10px]">
           <tr><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2">Métier</th><th class="py-1.5 px-2">CP</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-right">${caHeaders[type] || 'CA'}</th><th class="py-1.5 px-2 text-center">${extraHeaders[type] || ''}</th></tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody id="animTbody_clients_${accIdx}" data-type="${type}">${rows}</tbody>
       </table>
       ${moreRow}
     </div>
@@ -853,6 +1391,71 @@ window._animMoreFamArts = function(el, fi) {
     <td class="py-1.5 px-2 text-center">${_reseauBadge(a.nbAgencesReseau)}</td>
   </tr>`).join('');
   if (el && el.parentNode) el.parentNode.removeChild(el);
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Voir plus — Trous Critiques + Invités VIP (client accordions)
+// ═══════════════════════════════════════════════════════════════
+
+window._animShowMore = function(panelId, step) {
+  const data = _S._animationData;
+  if (!data) return;
+  const tbody = document.getElementById('animTbody_' + panelId);
+  const btn = document.getElementById('animMore_' + panelId);
+  if (!tbody || !btn) return;
+  const current = tbody.children.length;
+  let items, renderFn;
+
+  if (panelId === 'trous') {
+    items = data.trousCritiques || [];
+    renderFn = a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+      <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+      <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+      <td class="py-1.5 px-2 text-center">${_stockBadge(a.stockStatus, a.stockActuel)}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:#1e40af">${formatEuro(a.caReseau)}</td>
+      <td class="py-1.5 px-2 text-center">${_reseauBadge(a.nbAgencesReseau)}</td>
+    </tr>`;
+  } else if (panelId.startsWith('clients_')) {
+    const idx = parseInt(panelId.split('_')[1], 10);
+    const type = tbody.dataset.type;
+    const lists = [data.clients.acheteurs, data.clients.conquete || [], data.clients.labo || [], data.clients.prospects, data.clients.reconquete];
+    items = lists[idx];
+    if (!items) return;
+    renderFn = c => {
+      const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+      let caCol, extraCol;
+      if (type === 'prospect') {
+        caCol = `<td class="py-1.5 px-2 text-right t-disabled">${c.caTotalPDV > 0 ? formatEuro(c.caTotalPDV) : '—'}</td>`;
+        extraCol = '<td class="py-1.5 px-2"></td>';
+      } else if (type === 'conquete') {
+        caCol = `<td class="py-1.5 px-2 text-right font-bold c-danger">${formatEuro(c.caConcurrence || 0)}</td>`;
+        extraCol = `<td class="py-1.5 px-2 text-[9px] t-secondary max-w-[120px] truncate" title="${escapeHtml(c.marquesConcurrentes || '')}">${escapeHtml(c.marquesConcurrentes || '')}</td>`;
+      } else if (type === 'labo') {
+        caCol = `<td class="py-1.5 px-2 text-right font-bold" style="color:#7c3aed">${formatEuro(c.caConso || 0)}</td>`;
+        extraCol = `<td class="py-1.5 px-2 text-[9px]" style="color:#7c3aed">consommable</td>`;
+      } else if (type === 'reconquete') {
+        caCol = `<td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(c.caMarque || 0)}</td>`;
+        extraCol = `<td class="py-1.5 px-2 text-center text-[9px] c-danger font-bold">${c.daysSince}j</td>`;
+      } else {
+        caCol = `<td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(c.caMarque || 0)}</td>`;
+        extraCol = `<td class="py-1.5 px-2 text-center text-[9px]">${c.nbArticlesMarque || 0} art.</td>`;
+      }
+      return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+        <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${ccSafe}','animation')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Fiche 360°">🔍</button></td>
+        <td class="py-1.5 px-2">${escapeHtml(c.metier)}</td>
+        <td class="py-1.5 px-2">${escapeHtml(c.cp)}</td>
+        <td class="py-1.5 px-2">${escapeHtml(c.commercial)}</td>
+        ${caCol}${extraCol}
+      </tr>`;
+    };
+  } else return;
+
+  const next = items.slice(current, current + step);
+  tbody.insertAdjacentHTML('beforeend', next.map(renderFn).join(''));
+  const remaining = items.length - current - next.length;
+  if (remaining > 0) btn.textContent = `▼ Voir plus (${remaining} restants)`;
+  else btn.remove();
 };
 
 // ═══════════════════════════════════════════════════════════════

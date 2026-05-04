@@ -535,6 +535,7 @@ const _COL_DEFS = [
   { key: 'nouveauMin', label: 'MIN PRISME', default: true },
   { key: 'nouveauMax', label: 'MAX PRISME', default: true },
   { key: 'canalWeb', label: '🌐 Canal Web', default: true },
+  { key: 'pullIndex', label: 'Pull %', default: false },
 ];
 let _colVisibility = null;
 
@@ -597,8 +598,6 @@ export function _applyColVisibility() {
     for (const child of row.children) { if (child === th) break; idx++; }
     const key = th.dataset.col;
     colIndices[key] = idx;
-    // Special: canalWeb has its own visibility logic
-    if (key === 'canalWeb') return;
     th.style.display = vis[key] === false ? 'none' : '';
   });
   // Apply to body cells
@@ -606,7 +605,6 @@ export function _applyColVisibility() {
   for (const row of rows) {
     const cells = row.children;
     for (const [key, idx] of Object.entries(colIndices)) {
-      if (key === 'canalWeb') continue;
       if (cells[idx]) cells[idx].style.display = vis[key] === false ? 'none' : '';
     }
   }
@@ -691,15 +689,13 @@ export function renderInsightsBanner() {
 }
 
 // ── Reporting ────────────────────────────────────────────────
-let _reportTexts={coaching:'',region:''};
 export function openReporting() {
   const overlay = document.getElementById('reportingOverlay');
   const panel = document.getElementById('reportingPanel');
   if (!overlay || !panel) return;
   const _trigger = document.activeElement;
   const esc=t=>(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  _reportTexts.coaching = generateReportText();
-  _reportTexts.region = typeof generateRegionReportText==='function'?generateRegionReportText():'';
+  const reportText = typeof generateRegionReportText==='function'?generateRegionReportText():(typeof generateReportText==='function'?generateReportText():'');
   panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
     <h2 class="text-base font-extrabold text-white shrink-0">📊 Prompt Reporting ${_S.selectedMyStore || ''}</h2>
     <div class="flex items-center gap-2 shrink-0">
@@ -707,31 +703,13 @@ export function openReporting() {
       <button onclick="closeReporting()" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
     </div>
   </div>
-  <div class="flex gap-1 mb-3">
-    <button id="reportTabCoaching" onclick="switchReportTab('coaching')" class="text-xs py-1.5 px-4 rounded-lg font-bold transition-colors bg-indigo-700 text-white">Mon agence</button>
-    <button id="reportTabRegion" onclick="switchReportTab('region')" class="text-xs py-1.5 px-4 rounded-lg font-bold transition-colors s-panel-inner t-inverse-muted">Reporting région</button>
-  </div>
-  <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${esc(_reportTexts.coaching)}</textarea>
+  <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${esc(reportText)}</textarea>
   <p class="text-[10px] t-inverse-muted mt-2">Prompt structuré — collez dans Claude, ChatGPT ou Gemini. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
 }
 
-export function switchReportTab(tab){
-  const ta=document.getElementById('reportingTextarea');
-  const btnC=document.getElementById('reportTabCoaching');
-  const btnR=document.getElementById('reportTabRegion');
-  if(!ta||!btnC||!btnR)return;
-  if(tab==='region'){
-    ta.value=_reportTexts.region;
-    btnR.className='text-xs py-1.5 px-4 rounded-lg font-bold transition-colors bg-indigo-700 text-white';
-    btnC.className='text-xs py-1.5 px-4 rounded-lg font-bold transition-colors s-panel-inner t-inverse-muted';
-  }else{
-    ta.value=_reportTexts.coaching;
-    btnC.className='text-xs py-1.5 px-4 rounded-lg font-bold transition-colors bg-indigo-700 text-white';
-    btnR.className='text-xs py-1.5 px-4 rounded-lg font-bold transition-colors s-panel-inner t-inverse-muted';
-  }
-}
+export function switchReportTab(){}
 
 export function closeReporting() {
   const overlay = document.getElementById('reportingOverlay');

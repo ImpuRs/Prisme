@@ -1474,8 +1474,9 @@
         <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
 
         <!-- RECHERCHE — tout en haut, au-dessus de tout (Le Téléporteur) -->
-        <div id="terrSearchBlock" class="hidden mb-1.5">
-          <input type="text" id="terrSearch" oninput="_onTerrClientSearch()" class="w-full py-1.5 px-2.5 text-xs border rounded-lg font-semibold" placeholder="🔍 Code, libellé, client, direction…" style="border-color:rgba(148,163,184,0.4)">
+        <div id="terrSearchBlock" class="hidden mb-1.5" style="position:relative">
+          <input type="text" id="terrSearch" oninput="_onTerrClientSearch()" autocomplete="off" class="w-full py-1.5 px-2.5 text-xs border rounded-lg font-semibold" placeholder="🔍 Code ou nom client…" style="border-color:rgba(148,163,184,0.4)">
+          <div id="terrSearchSuggest" class="hidden" style="position:absolute;top:100%;left:0;right:0;z-index:50;max-height:220px;overflow-y:auto;border-radius:0 0 8px 8px;border:1px solid rgba(148,163,184,0.3);border-top:none;background:var(--s-card);box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
         </div>
 
         <!-- CANAL GLOBAL — visible sur action/territoire/promo -->
@@ -1933,7 +1934,8 @@
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" data-col="ancien" data-tooltip="MIN/MAX actuels dans l'ERP (avant recalcul PRISME)">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')" data-col="nouveauMin" data-tooltip="MIN recalculé par PRISME (sécurité + consommation)">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')" data-col="nouveauMax" data-tooltip="MAX recalculé par PRISME (capacité réappro optimale)">MAX ↕</th>
-              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-col="canalWeb" data-tooltip="Clients zone achetant cet article hors agence (Web/Rep/DCS)">🌐 ↕</th>
+              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('nbClientsWeb')" data-col="canalWeb" data-tooltip="Clients zone achetant cet article hors agence (Web/Rep/DCS)">🌐 ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('pullIndex')" data-col="pullIndex" data-tooltip="Pull % = clients uniques ÷ fréquence × 100. Élevé = l'article s'achète tout seul. Bas = poussé par peu de clients.">Pull % ↕</th>
               <th class="px-2 py-3 w-8"></th>
             </tr>
           </thead>

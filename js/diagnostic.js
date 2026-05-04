@@ -14,7 +14,7 @@ function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange } from './sales.js';
-import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -451,10 +451,10 @@ function _renderClient360(clientCode,source){
   // ── ONGLETS Ici / Ailleurs / Opportunités ────────────────────────
   // Groupe 1 : période filtrée (artMapPeriod, CA > 0)
   const _stockUrgency=([code])=>{const r=DataStore.finalData?.find(f=>f.code===code);if(!r)return 2;const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;if(r.stockActuel<=0&&isSkel)return 0;if(r.stockActuel<=0)return 1;return 2;};
-  const iciArtsPeriod=artMapPeriod?[...artMapPeriod.entries()].filter(([,d])=>(d.sumCA||0)>0).sort((a,b)=>{const ua=_stockUrgency(a),ub=_stockUrgency(b);if(ua!==ub)return ua-ub;return b[1].sumCA-a[1].sumCA;}).slice(0,20):[];
+  const iciArtsPeriod=artMapPeriod?[...artMapPeriod.entries()].filter(([,d])=>(d.sumCA||0)>0).sort((a,b)=>{const ua=_stockUrgency(a),ub=_stockUrgency(b);if(ua!==ub)return ua-ub;return b[1].sumCA-a[1].sumCA;}):[];
   // Groupe 2 : historique hors période (artMapFull, codes absents du période)
   const _periodeSet=new Set(iciArtsPeriod.map(([c])=>c));
-  const iciArtsHisto=artMapFull?[...artMapFull.entries()].filter(([code,d])=>!_periodeSet.has(code)&&(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,30):[];
+  const iciArtsHisto=artMapFull?[...artMapFull.entries()].filter(([code,d])=>!_periodeSet.has(code)&&(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA):[];
   const iciArts=[...iciArtsPeriod,...iciArtsHisto];
 
   // Livré MAG = commandes passées via Web/DCS/Rep mais dont le BL est dans le consommé local (= passé par l'agence)
@@ -464,13 +464,13 @@ function _renderClient360(clientCode,source){
   if(horsMag)for(const[code,d]of horsMag.entries()){if((d.sumCAE||0)<=0)continue;if(!livreMagMap.has(code))livreMagMap.set(code,{ca:0,canal:d.canal});livreMagMap.get(code).ca+=d.sumCAE;}
   const _blLocal=_S.blCanalMap;
   if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(!l.bl||!_blLocal.has(l.bl))continue;if(!livreMagMap.has(l.code))livreMagMap.set(l.code,{ca:0,canal:l.canal||'—'});livreMagMap.get(l.code).ca+=l.ca||0;}
-  const livreMagArts=[...livreMagMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
+  const livreMagArts=[...livreMagMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   // Ailleurs = hors agence uniquement : BL NON présent dans le consommé local
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
   if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
-  const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
+  const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
     if(artMap?.has(code))return false;
@@ -706,8 +706,8 @@ function _renderClient360(clientCode,source){
     tabsHtml=`<p class="t-disabled text-sm text-center py-4">Aucun historique d'achat disponible pour ce client.</p>`;
   }
 
-  // ── COPIER RÉSUMÉ ────────────────────────────────────────────────
-  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button data-cc="${escapeHtml(clientCode)}" onclick="_c360CopyResume(this.dataset.cc)" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
+  // ── COPIER RÉSUMÉ + EXPORT RADIOGRAPHIE ─────────────────────────
+  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end gap-2"><button data-cc="${escapeHtml(clientCode)}" onclick="_c360ExportRadio(this.dataset.cc)" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📥 Radiographie CSV</button><button data-cc="${escapeHtml(clientCode)}" onclick="_c360CopyResume(this.dataset.cc)" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
 
   return header+actionBar+summaryBar+tabsHtml+copyBtn;
 }
@@ -779,6 +779,48 @@ function _c360CopyResume(clientCode){
     .catch(()=>showToast('❌ Erreur copie','error'));
 }
 
+function _c360ExportRadio(clientCode){
+  const info=_S.chalandiseData?.get(clientCode)||{};
+  const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
+  const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
+  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  // Agréger CA par famille — Ici (PDV 12MG)
+  const famIci={};
+  if(artMapFull)for(const[code,d]of artMapFull){
+    const fam=_S.articleFamille?.[code]||'???';
+    if(!famIci[fam])famIci[fam]={ca:0,arts:0};
+    famIci[fam].ca+=(d.sumCA||0);famIci[fam].arts++;
+  }
+  // Agréger CA par famille — Ailleurs (hors-magasin)
+  const famAilleurs={};
+  if(horsMag)for(const[code,d]of horsMag){
+    const fam=_S.articleFamille?.[code]||'???';
+    if(!famAilleurs[fam])famAilleurs[fam]={ca:0,arts:0};
+    famAilleurs[fam].ca+=(d.sumCA||0);famAilleurs[fam].arts++;
+  }
+  // Union des familles
+  const allFams=new Set([...Object.keys(famIci),...Object.keys(famAilleurs)]);
+  const rows=[];
+  for(const fam of allFams){
+    const label=famLib(fam)||fam;
+    const caIci=famIci[fam]?.ca||0;
+    const artsIci=famIci[fam]?.arts||0;
+    const caAilleurs=famAilleurs[fam]?.ca||0;
+    const artsAilleurs=famAilleurs[fam]?.arts||0;
+    rows.push({fam,label,caIci,artsIci,caAilleurs,artsAilleurs,total:caIci+caAilleurs});
+  }
+  rows.sort((a,b)=>b.total-a.total);
+  const sep=';';
+  const header=['Famille','Libelle Famille','CA Agence','Articles Agence','CA Ailleurs','Articles Ailleurs','CA Total'].join(sep);
+  const csvRows=rows.map(r=>[r.fam,`"${r.label}"`,r.caIci.toFixed(2),r.artsIci,r.caAilleurs.toFixed(2),r.artsAilleurs,r.total.toFixed(2)].join(sep));
+  const csv='\uFEFF'+header+'\n'+csvRows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`PRISME_Radio_${(nom||clientCode).replace(/[^a-zA-Z0-9]/g,'_').slice(0,25)}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
 function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
@@ -835,41 +877,19 @@ function openArticlePanel(code,source){
     const nbAg = agRows.length;
     for(const l of (_S.ventesTerrain||[])) if(l.code===code) nbBL++;
     const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
-    // ── Kit de démarrage — Algorithme Vitesse Réseau ──
-    // Formule : qté prélevée Top 3 / nb BL Top 3 = vitesse (pièces/BL)
-    // Écrêtage : qté/BL par agence capée à 3× la médiane réseau (même esprit que MIN/MAX standard)
-    // MIN = vitesse arrondie, MAX = vitesse × 2
+    // ── Kit de démarrage — Algorithme Vitesse Réseau (centralisé engine.js) ──
     let kitHtml='';
     if(kitRows.length){
-      const top3=kitRows.slice(0,3);
-      // Calculer la médiane qté/BL sur tout le réseau pour l'écrêtage
-      const allQtePerBL=[];
-      for(const a of kitRows){
-        const v=_S.ventesParAgence?.[a.ag]?.[code];
-        if(v&&v.countBL>0&&v.sumPrelevee>0) allQtePerBL.push((v.sumPrelevee)/v.countBL);
-      }
-      allQtePerBL.sort((a,b)=>a-b);
-      const medQBL=allQtePerBL.length?allQtePerBL[Math.floor(allQtePerBL.length/2)]:Infinity;
-      const capQBL=Math.max(medQBL*3,1); // cap à 3× la médiane
-      let totQte=0,totBL=0,totCA=0;
-      for(const a of top3){
-        const v=_S.ventesParAgence?.[a.ag]?.[code];
-        if(v&&v.countBL>0){
-          const rawQBL=(v.sumPrelevee||0)/v.countBL;
-          const clippedQBL=Math.min(rawQBL,capQBL);
-          totQte+=clippedQBL*v.countBL;
-          totBL+=v.countBL;
-          totCA+=v.sumCA||0;
-        }
-      }
-      let vitesse=totBL>0?totQte/totBL:0;
-      // Plafond : ne pas dépasser 2× la médiane MIN réseau ERP (ou 20 max)
+      const _pu=r?.prixUnitaire||(kitRows[0]?.ca/Math.max(kitRows[0]?.bl,1))||0;
       const _medMins=kitRows.map(a=>a.min).filter(v=>typeof v==='number'&&v>0);
       const _medMinR=_medMins.length?_medMins.sort((a,b)=>a-b)[Math.floor(_medMins.length/2)]:0;
-      const capVit=_medMinR>0?_medMinR*2:20;
-      vitesse=Math.min(vitesse,capVit);
-      const sugMin=Math.max(Math.ceil(vitesse),1);
-      const sugMax=Math.max(Math.ceil(vitesse*2),sugMin+1);
+      const vr=computeVitesseReseau(code,_pu,_medMinR);
+      const sugMin=vr?vr.min:1;
+      const sugMax=vr?vr.max:2;
+      const vitesse=vr?vr.vitesse:0;
+      const totBL=vr?vr.totalBL:0;
+      const totCA=vr?vr.totalCA:0;
+      const _isRareKit=vr?vr.isRare:true;
       // Indice de confiance
       const confidence=nbAgKit>=8?'haute':nbAgKit>=4?'moyenne':'faible';
       const confColor=nbAgKit>=8?'#22c55e':nbAgKit>=4?'#f59e0b':'#ef4444';
@@ -880,7 +900,7 @@ function openArticlePanel(code,source){
       const medMin=mins.length?mins.sort((a,b)=>a-b)[Math.floor(mins.length/2)]:null;
       const medMax=maxs.length?maxs.sort((a,b)=>a-b)[Math.floor(maxs.length/2)]:null;
       const medLine=medMin!=null&&medMax!=null?`<div class="text-[10px] t-disabled mt-1">Méd. réseau MIN/MAX : ${medMin} / ${medMax} <span class="text-[9px]">(info ERP)</span></div>`:'';
-      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Vitesse réseau (MAGASIN · pleine période) : ${vitesse.toFixed(1)} pièces/BL (Top ${top3.length} agences, ${totBL} BL, ${formatEuro(totCA)})</div>`:'';
+      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Rotation réseau : ${vitesse.toFixed(1)} pièces/mois (Top ${vr?.nbAgTop||0} agences, ${totBL} BL, ${formatEuro(totCA)}${_isRareKit?' · ⚠ fréquence rare':''})</div>`:'';
       kitHtml=`<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)">
         <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAgKit} agences)</span></div>
         <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Réseau)</span></div>
@@ -920,7 +940,7 @@ function openArticlePanel(code,source){
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
     const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
-    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
+    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
   const _today=new Date();
@@ -1116,7 +1136,7 @@ function openArticlePanel(code,source){
   };
   const tabNav=`<div class="flex gap-1 border-b b-dark mb-0"><button onclick="_artPanelTab('perf')" id="artTab-perf" class="px-3 py-2 text-xs font-semibold border-b-2 c-action" style="border-color:var(--c-action)">📊 Performance</button><button onclick="_artPanelTab('clients')" id="artTab-clients" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">👥 Acheteurs</button><button onclick="_artPanelTab('coachats')" id="artTab-coachats" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">🔗 Co-achats</button></div>`;
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-3"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${tabNav}<div id="artPanel-perf"><div class="grid grid-cols-2 gap-3 mt-3">${perfHtml}${stockHtml}</div>${commanderHtml}${reseauHtml}${canalHtml}</div><div id="artPanel-clients" class="hidden">${buyersHtml}</div><div id="artPanel-coachats" class="hidden">${coAchatHtml}</div>`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-3"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${_legallaisArticleLink(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${tabNav}<div id="artPanel-perf"><div class="grid grid-cols-2 gap-3 mt-3">${perfHtml}${stockHtml}</div>${commanderHtml}${reseauHtml}${canalHtml}</div><div id="artPanel-clients" class="hidden">${buyersHtml}</div><div id="artPanel-coachats" class="hidden">${coAchatHtml}</div>`;
   const _apTrigger=document.activeElement;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap=window.focusTrap?.(panel,_apTrigger);
@@ -2365,4 +2385,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume };
+export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio };

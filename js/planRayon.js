@@ -172,7 +172,7 @@ const VERDICT_MATRIX = {
   implanter: {
     incontournable: { name: 'Le Trou Critique',  icon: '🕳️', color: '#3b82f6', tip: 'Priorité absolue. C\'est une autoroute de CA que tu ignores. ACTION : On implante SANS DISCUTER.' },
     nouveaute:      { name: 'Le Pari du Réseau', icon: '🎲', color: '#3b82f6', tip: 'Opportunité de capter les early adopters. ACTION : On implante si ça correspond à ta clientèle cible.' },
-    specialiste:    { name: 'La Conquête / Fidélisation', icon: '🧲', color: '#8b5cf6', tip: 'Produit pour aller chercher un client strat. ou compléter la gamme de ceux que tu as déjà. ACTION : On implante pour envoyer un signal fort.' },
+    specialiste:    { name: 'La Conquête', icon: '🧲', color: '#8b5cf6', tip: 'Produit pour aller chercher un client strat. ou compléter la gamme de ceux que tu as déjà. ACTION : On implante pour envoyer un signal fort.' },
     standard:       { name: "L'Opportunité Locale", icon: '📡', color: '#94a3b8', tip: 'Produit standard avec forte demande prouvée sur ta zone (données livraison). ACTION : Analyser le couple produit/métier et implanter si potentiel validé.' },
   },
   bruit: {
@@ -255,6 +255,22 @@ function _prComputeRoles(codeFam) {
     }
   }
 
+  // Pré-index clients réseau par article (toutes agences consommé)
+  const _cliResMap = new Map(); // code → nb clients distincts réseau
+  const _vrAll = _S.ventesReseauTousCanaux;
+  if (_vrAll?.size) {
+    const _sets = new Map();
+    for (const [cc, artMap] of _vrAll) {
+      for (const [code, d] of artMap) {
+        if (!allCodes.has(code) || (d.sumCA || 0) <= 0) continue;
+        let s = _sets.get(code);
+        if (!s) { s = new Set(); _sets.set(code, s); }
+        s.add(cc);
+      }
+    }
+    for (const [code, s] of _sets) _cliResMap.set(code, s.size);
+  }
+
   for (const code of allCodes) {
     const fd = fdMap.get(code);
     const sf = catFam?.get(code);
@@ -262,6 +278,7 @@ function _prComputeRoles(codeFam) {
     for (const s of stores) { if (vpm[s]?.[code]?.countBL > 0) nbSt++; }
     const detention = nbSt / nbStores;
     const W = fd?.W || (vpm[myStore]?.[code]?.countBL || 0);
+    const nbCliReseau = _cliResMap.get(code) || 0;
 
     // Clients métiers stratégiques — comptoir + livraisons
     const allBuyers = new Set();
@@ -280,17 +297,15 @@ function _prComputeRoles(codeFam) {
 
     let role = 'standard';
     // Priorité : le comportement d'achat écrase l'âge du produit
-    if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    if ((detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) && nbCliReseau >= 3) role = 'incontournable';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
-    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (fd?.isNouveaute) role = 'nouveaute';
 
     // Fix : un article référencé avec 0 vente locale mais de la demande réseau/zone
-    // n'est ni un Poids Mort ni une Erreur de Casting — le marché parle
-    // Référencé = en stock, OU emplacement, OU MIN/MAX ERP, OU Vitesse Réseau
     const _isRef = (fd?.stockActuel || 0) > 0 || !!(fd?.emplacement) || (fd?.ancienMin || 0) > 0 || !!fd?._vitesseReseau;
     if ((role === 'standard' || role === 'nouveaute') && W === 0 && _isRef) {
-      if (nbSt >= 3) role = 'incontournable'; // vendu dans 3+ agences → Réf Schizo
-      else if (nbCli >= 1) role = 'specialiste'; // clients zone l'achètent hors PDV → Trahison
+      if (detention >= 0.5 && nbCliReseau >= 3) role = 'incontournable';
+      else if (nbCli >= 1) role = 'specialiste';
     }
 
     roles.set(code, role);
@@ -505,12 +520,16 @@ function computePlanStock() {
         if (stratClients.has(cc)) nbCliMetierStrat++;
       }
     }
-    if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    // Clients réseau pour ce code
+    let _nbCliRes2 = 0;
+    const _vr2 = _S.ventesReseauTousCanaux;
+    if (_vr2?.size) { for (const [, artMap] of _vr2) { if (artMap.has(code) && (artMap.get(code).sumCA || 0) > 0) _nbCliRes2++; } }
+    if ((detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) && _nbCliRes2 >= 3) role = 'incontournable';
     else if (nbCli >= 2 && (nbCliMetierStrat / nbCli) >= 0.5) role = 'specialiste';
-    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (fd?.isNouveaute) role = 'nouveaute';
     const _isRef = (fd?.stockActuel || 0) > 0 || !!(fd?.emplacement) || (fd?.ancienMin || 0) > 0 || !!fd?._vitesseReseau;
     if ((role === 'standard' || role === 'nouveaute') && W === 0 && _isRef) {
-      if (nbSt >= 3) role = 'incontournable';
+      if (detention >= 0.5 && _nbCliRes2 >= 3) role = 'incontournable';
       else if (nbCli >= 1) role = 'specialiste';
     }
 
@@ -977,6 +996,41 @@ function _prBuildCompactList(data) {
       <span class="t-primary">${escapeHtml(f.libFam)}</span>
       <span class="text-[9px]" style="color:#64748b;margin-left:4px">${f.socle + f.implanter + f.challenger + f.surveiller}</span>
     </div>`;
+    // Sous-familles dépliables sous la famille active
+    if (active) {
+      const catFam = _S.catalogueFamille;
+      if (catFam) {
+        const sfMap = new Map(); // codeSousFam → {lib, nbStock, nbCat}
+        for (const [code, entry] of catFam) {
+          if (entry.codeFam !== f.codeFam || !entry.codeSousFam) continue;
+          const sf = sfMap.get(entry.codeSousFam);
+          if (sf) { sf.nbCat++; } else { sfMap.set(entry.codeSousFam, { lib: entry.sousFam || entry.codeSousFam, nbCat: 1, nbStock: 0 }); }
+        }
+        for (const r of (_S.finalData || [])) {
+          const cf = catFam.get(r.code);
+          if (cf?.codeFam === f.codeFam && cf.codeSousFam && (r.stockActuel || 0) > 0) {
+            const sf = sfMap.get(cf.codeSousFam);
+            if (sf) sf.nbStock++;
+          }
+        }
+        const sfList = [...sfMap.entries()].sort((a, b) => b[1].nbCat - a[1].nbCat);
+        // "Toutes" en premier pour reset
+        const allActive = !_prOpenSousFam;
+        html += `<div onclick="window._prFilterSousFam('')" class="pl-6 pr-2 py-1 cursor-pointer text-[10px] mb-0.5 rounded ${allActive ? 'font-bold text-sky-400' : 't-secondary hover:s-panel-inner'}">
+          Toutes <span class="text-[9px]" style="color:#64748b">${f.socle + f.implanter + f.challenger + f.surveiller}</span>
+        </div>`;
+        for (const [csf, sf] of sfList) {
+          const sfActive = _prOpenSousFam === csf;
+          const safeCSF = csf.replace(/'/g, "\\'");
+          html += `<div onclick="event.stopPropagation();window._prFilterSousFam('${safeCSF}')"
+            class="pl-6 pr-2 py-1 cursor-pointer text-[10px] mb-0.5 rounded truncate ${sfActive ? 'font-bold text-sky-400' : 't-secondary hover:s-panel-inner'}"
+            title="${escapeHtml(sf.lib)}">
+            ${escapeHtml(sf.lib)}
+            <span class="text-[9px]" style="color:#64748b">${sf.nbStock}/${sf.nbCat}</span>
+          </div>`;
+        }
+      }
+    }
   }
   return html || '<div class="text-[10px] t-disabled p-2">Aucune famille.</div>';
 }
@@ -1867,7 +1921,7 @@ function _prRenderPhysigamme(fam) {
     // Priorité : le comportement d'achat écrase l'âge du produit
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
-    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (fd?.isNouveaute) role = 'nouveaute';
 
     // Classification squelette (O(1) lookup via cached Map)
     const sqClassif = _sqClassifMap.get(code) || '';
@@ -2048,6 +2102,49 @@ function _prRenderPilotage(fam) {
   // Pré-calcul index zone si nécessaire
   if (_hasDist) computeArticleZoneIndex();
 
+  // ── Pré-index CA Zone = BL livraisons (filtré distance + période) ──
+  const _caLivMap = new Map();
+  if (_S.territoireReady && _S.ventesTerrain?.length) {
+    const _pS = _S.periodFilterStart ? _S.periodFilterStart.getTime() : null;
+    const _pE = _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null;
+    for (const l of _S.ventesTerrain) {
+      if (l.isSpecial || !l.clientCode) continue;
+      if (!/^\d{6}$/.test(l.code)) continue;
+      if (_distFn && !_distFn(l.clientCode)) continue;
+      if (_pS && l.dateExp && l.dateExp < _pS) continue;
+      if (_pE && l.dateExp && l.dateExp > _pE) continue;
+      _caLivMap.set(l.code, (_caLivMap.get(l.code) || 0) + (+(l.ca || 0)));
+    }
+  }
+
+  // ── Pré-index CA Réseau total (toutes agences, myStore inclus) ──
+  const _caResTotalMap = new Map();
+  const _vpmAll = _S.ventesParAgence || {};
+  for (const s in _vpmAll) {
+    const arts = _vpmAll[s];
+    for (const code in arts) {
+      _caResTotalMap.set(code, (_caResTotalMap.get(code) || 0) + (arts[code].sumCA || 0));
+    }
+  }
+
+  // ── Pré-index Cli MAG + Pull% (toutes agences consommé) ──
+  const _cliMagMap = new Map(); // code → nb clients distincts
+  const _blMagMap  = new Map(); // code → nb BL total
+  const _vrtc = _S.ventesReseauTousCanaux;
+  if (_vrtc?.size) {
+    const _cliSets = new Map(); // code → Set<cc>
+    for (const [cc, artMap] of _vrtc) {
+      for (const [code, d] of artMap) {
+        if ((d.sumCA || 0) <= 0) continue;
+        let s = _cliSets.get(code);
+        if (!s) { s = new Set(); _cliSets.set(code, s); }
+        s.add(cc);
+        _blMagMap.set(code, (_blMagMap.get(code) || 0) + (d.countBL || 0));
+      }
+    }
+    for (const [code, s] of _cliSets) _cliMagMap.set(code, s.size);
+  }
+
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   // Vérifier si le filtre SF a des matches dans le squelette (sinon l'ignorer)
@@ -2087,7 +2184,7 @@ function _prRenderPilotage(fam) {
         const role = roles.get(a.code) || 'standard';
         const verdict = _prVerdict(g, role, a.code);
         const _zf = _distFn ? articleZoneFiltered(a.code, _distFn) : null;
-        const _caZ = _zf ? _zf.caZone : (a.caClientsZone || 0);
+        const _caZ = _caLivMap.get(a.code) || 0;
         const _clZ = _zf ? _zf.cliZone : (a.nbClientsZone || 0);
         const _caAg = _zf ? _zf.caAgence : (a.caAgence || 0);
         arts.push({
@@ -2096,32 +2193,12 @@ function _prRenderPilotage(fam) {
           prix: fd?.prixUnitaire || 0,
           sf: sf?.sousFam || '',
           codeSF: sf?.codeSousFam || '',
-          cliPDV: a.nbClientsPDV || 0,
+          cliPDV: _cliMagMap.get(a.code) || 0,
+          pull: (() => { const cl = _cliMagMap.get(a.code) || 0; const bl = _blMagMap.get(a.code) || 0; return bl > 0 ? Math.round(cl / bl * 100) : null; })(),
           caZone: _caZ,
           cliZone: _clZ,
-          pdm: _caZ > 0 ? Math.min(100, Math.round(_caAg / _caZ * 100)) : null,
+          caReseau: _caResTotalMap.get(a.code) || 0,
         });
-      }
-    }
-  }
-
-  // ── Potentiel Zone pour IMPLANTER ──
-  {
-    const _vpm = _S.ventesParAgence || {};
-    const _myStore = _S.selectedMyStore;
-    const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
-    if (_storeKeys.length > 0) {
-      for (const a of arts) {
-        if (a._g !== 'implanter') continue;
-        const casReseau = _storeKeys.map(s => _vpm[s]?.[a.code]?.sumCA || 0).filter(v => v > 0);
-        if (casReseau.length >= 2) {
-          casReseau.sort((x, y) => x - y);
-          const n = casReseau.length;
-          const medianCA = n % 2 === 0 ? (casReseau[n / 2 - 1] + casReseau[n / 2]) / 2 : casReseau[Math.floor(n / 2)];
-          const nbCliZone = a.nbClientsZone || 0;
-          const penFactor = nbCliZone >= 5 ? 1.5 : nbCliZone >= 2 ? 1.2 : 1;
-          a._potentielZone = Math.round(medianCA * penFactor);
-        }
       }
     }
   }
@@ -2154,7 +2231,7 @@ function _prRenderPilotage(fam) {
           cliPDV: bruitArt.nbClientsPDV || 0,
           caZone: bruitArt.caClientsZone || 0,
           cliZone: bruitArt.nbClientsZone || 0,
-          pdm: null,
+          caReseau: _caResTotalMap.get(bruitArt.code) || (bruitArt.caReseau || 0),
         }];
       } else {
         return _refPill + '<div class="t-disabled text-sm text-center py-4">Article introuvable dans les données.</div>';
@@ -2186,10 +2263,10 @@ function _prRenderPilotage(fam) {
     stock:   (a, b) => (b.stockActuel || 0) - (a.stockActuel || 0),
     w:       (a, b) => (b.W || 0) - (a.W || 0),
     cliPDV:  (a, b) => (b.cliPDV || 0) - (a.cliPDV || 0),
+    pull:    (a, b) => (b.pull ?? -1) - (a.pull ?? -1),
     caZone:  (a, b) => (b.caZone || 0) - (a.caZone || 0),
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
-    pdm:     (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
-    potentiel: (a, b) => (b._potentielZone || 0) - (a._potentielZone || 0),
+    caReseau: (a, b) => (b.caReseau || 0) - (a.caReseau || 0),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
     verdict: (a, b) => {
       const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
@@ -2279,7 +2356,7 @@ function _prRenderPilotage(fam) {
     // Séparateur implanter
     let sep = '';
     if (a._g === 'implanter' && lastGroup !== 'implanter' && !_prPilotFilter) {
-      sep = `<tr><td colspan="9" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
+      sep = `<tr><td colspan="10" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
         🔵 À implanter — ${implanter.length} réf${implanter.length > 1 ? 's' : ''} avec signal fort
       </td></tr>`;
     }
@@ -2295,15 +2372,14 @@ function _prRenderPilotage(fam) {
       : `${a.stockActuel}`;
     const lib = a.libelle || articleLib(a.code);
 
-    return `${sep}<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
-      onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
-      <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
+    return `${sep}<tr class="border-b b-light hover:s-hover text-[11px]" style="${rowBg}">
+      <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100 cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">🔍</span></td>
       <td class="py-1.5 px-2 t-primary" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-right">${stockCell}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
+      <td class="py-1.5 px-2 text-right" style="color:${a.pull == null ? 'var(--t-disabled)' : a.pull >= 60 ? '#22c55e' : a.pull >= 30 ? '#f59e0b' : '#3b82f6'}">${a.pull != null ? a.pull + '%' : '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
-      <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
-      ${_prPilotFilter === 'implanter' ? `<td class="py-1.5 px-2 text-right font-bold" style="color:${a._potentielZone ? '#22c55e' : 'var(--t-disabled)'}">${a._potentielZone ? formatEuro(a._potentielZone) : '—'}</td>` : ''}
+      <td class="py-1.5 px-2 text-right t-secondary">${a.caReseau ? formatEuro(a.caReseau) : '—'}</td>
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>${_isLocalIncont(a.code, a.role) ? '<span class="text-[7px] px-1 py-0.5 rounded font-bold ml-1" style="background:rgba(139,92,246,0.15);color:#a78bfa">LOCAL</span>' : ''}
       </td>
@@ -2326,10 +2402,10 @@ function _prRenderPilotage(fam) {
         ${_thSort('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         ${_thSort('stock', 'Stock', 'text-right')}
-        ${_thSort('cliPDV', 'Cli PDV', 'text-right', 'Clients distincts agence sur la période')}
-        ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
-        ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
-        ${_prPilotFilter === 'implanter' ? _thSort('potentiel', '💰 Potentiel', 'text-right', 'CA médian réseau × pénétration zone') : ''}
+        ${_thSort('cliPDV', 'Cli MAG', 'text-right', 'Clients distincts toutes agences consommé')}
+        ${_thSort('pull', 'Pull%', 'text-right', 'Clients ÷ BL — élevé = comptoir (pull), bas = chantier (push)')}
+        ${_thSort('caZone', 'CA Zone', 'text-right', 'CA BL livraisons (filtré distance + période)')}
+        ${_thSort('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences inclus myStore (12MG)')}
         ${_thSort('verdict', 'Verdict', 'text-left')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -2417,6 +2493,27 @@ function _prBuildConqueteKit(codeFam) {
   const p123Set = new Set([...p12Set, ...p3.map(a => a.code)]);
   const p4 = notInStock.filter(a => a.role === 'nouveaute' && !p123Set.has(a.code))
     .sort((a, b) => b.caReseau - a.caReseau).slice(0, 3);
+  const p1234Set = new Set([...p123Set, ...p4.map(a => a.code)]);
+
+  // P5 — 🚀 Étoiles Montantes : détention < 40% ET CA/agence > médiane ET BL/agence > médiane
+  const _p5candidates = notInStock
+    .filter(a => a.nbAgences >= 2 && a.caReseau > 0 && !p1234Set.has(a.code))
+    .map(a => {
+      let blTotal = 0;
+      for (const s of stores) { if (vpm[s]?.[a.code]) blTotal += vpm[s][a.code].countBL || 0; }
+      return { ...a, caParAgence: a.caReseau / a.nbAgences, blParAgence: blTotal / a.nbAgences };
+    });
+  let p5 = [];
+  if (_p5candidates.length >= 3) {
+    const _sortedCA = _p5candidates.map(a => a.caParAgence).sort((a, b) => a - b);
+    const _medCA = _sortedCA[Math.floor(_sortedCA.length / 2)];
+    const _sortedBL = _p5candidates.map(a => a.blParAgence).sort((a, b) => a - b);
+    const _medBL = _sortedBL[Math.floor(_sortedBL.length / 2)];
+    p5 = _p5candidates
+      .filter(a => a.detention < 40 && a.caParAgence > _medCA && a.blParAgence > _medBL)
+      .sort((a, b) => b.caParAgence - a.caParAgence)
+      .slice(0, 10);
+  }
 
   const _isConquete = p1.length === 0 && _p3zone.length === 0 && p3.length > 0;
   return {
@@ -2425,8 +2522,9 @@ function _prBuildConqueteKit(codeFam) {
       { key: 'p2', label: '🎯 La Conquête',          color: '#8b5cf6', desc: 'Spécialistes à forte demande zone',          items: p2 },
       { key: 'p3', label: _isConquete ? '📡 Signal Réseau' : '📦 Opportunité Locale', color: '#3b82f6', desc: _isConquete ? 'Les plus vendus du réseau — pas encore de demande locale' : 'Standards avec demande zone prouvée', items: p3 },
       { key: 'p4', label: '🆕 Pari du Réseau',       color: '#f59e0b', desc: 'Nouveautés à tester',                        items: p4 },
+      { key: 'p5', label: '🚀 Étoiles Montantes',    color: '#ff6b35', desc: 'Faible détention × fort CA/agence — pépites en émergence', items: p5 },
     ],
-    totalKit: p1.length + p2.length + p3.length + p4.length,
+    totalKit: p1.length + p2.length + p3.length + p4.length + p5.length,
     alreadyInStock: articles.filter(a => a.inStock),
     allArticles: articles,
   };
@@ -2472,6 +2570,7 @@ function _prRenderConquete(fam) {
             <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Libellé</th>
             <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Marque</th>
             <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Réseau</th>
+            ${p.key === 'p5' ? '<th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA/Ag</th>' : ''}
             <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Zone</th>
             <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Cli Zone</th>
             <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Détention</th>
@@ -2483,6 +2582,7 @@ function _prRenderConquete(fam) {
         <td class="py-1 px-2 truncate max-w-[220px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
         <td class="py-1 px-2 text-[10px] t-secondary">${escapeHtml(a.marque || '—')}</td>
         <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caReseau)}</td>
+        ${p.key === 'p5' ? `<td class="py-1 px-2 text-right font-bold" style="color:#ff6b35">${a.caParAgence ? formatEuro(Math.round(a.caParAgence)) : '—'}</td>` : ''}
         <td class="py-1 px-2 text-right" style="color:#3b82f6">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
         <td class="py-1 px-2 text-right">${a.nbClientsZone || '—'}</td>
         <td class="py-1 px-2 text-right font-bold" style="color:${detColor}">${a.detention}%</td>
@@ -2718,6 +2818,70 @@ function _prRenderReseau(fam) {
       </table></div>
       ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article socle/implanter identifié — squelette indisponible.</div>`}
     </div>
+
+    ${(() => {
+      // Étoiles Montantes : détention < 40%, CA/agence > médiane, BL/agence > médiane, pas en stock
+      const _vpm = _S.ventesParAgence || {};
+      const _myS = _S.selectedMyStore;
+      const _sts = Object.keys(_vpm).filter(s => s !== _myS);
+      const _nbSt = _sts.length;
+      if (_nbSt < 2) return '';
+      const _localCodes = new Set((_S.finalData || []).filter(r => (r.stockActuel || 0) > 0).map(r => r.code));
+      const cands = [];
+      for (const code of incontCodes) { /* incontournables déjà affichés */ }
+      // Tous les articles de cette famille vendus dans le réseau
+      const famCodes = new Set();
+      for (const s of _sts) {
+        for (const code in _vpm[s]) {
+          if (!/^\d{6}$/.test(code)) continue;
+          const cf = _S.catalogueFamille?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+          if (cf === fam.codeFam && !_localCodes.has(code) && _passFilters(code)) famCodes.add(code);
+        }
+      }
+      const enriched = [];
+      for (const code of famCodes) {
+        let nb = 0, ca = 0, bl = 0;
+        for (const s of _sts) {
+          const d = _vpm[s]?.[code];
+          if (d && d.countBL > 0) { nb++; ca += d.sumCA || 0; bl += d.countBL || 0; }
+        }
+        if (nb < 2) continue;
+        const det = Math.round(nb / _nbSt * 100);
+        if (det >= 40) continue;
+        enriched.push({ code, caAg: ca / nb, blAg: bl / nb, det, caTot: ca, blTot: bl, nb });
+      }
+      if (enriched.length < 3) return '';
+      const sortedCA = enriched.map(a => a.caAg).sort((a, b) => a - b);
+      const medCA = sortedCA[Math.floor(sortedCA.length / 2)];
+      const sortedBL = enriched.map(a => a.blAg).sort((a, b) => a - b);
+      const medBL = sortedBL[Math.floor(sortedBL.length / 2)];
+      const stars = enriched.filter(a => a.caAg > medCA && a.blAg > medBL).sort((a, b) => b.caAg - a.caAg).slice(0, 15);
+      if (!stars.length) return '';
+      const _loupe = (code) => `<span class="opacity-50 hover:opacity-100 cursor-pointer" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','planRayon')">🔍</span>`;
+      const rows = stars.map(a => {
+        const lib = _S.libelleLookup?.[a.code] || _S.catalogueDesignation?.get(a.code) || a.code;
+        const shortLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib;
+        return `<tr class="border-b border-white/5 hover:bg-white/5">
+          <td class="py-1.5 px-2 text-[11px] font-mono">${a.code} ${_loupe(a.code)}</td>
+          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(shortLib)}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${a.nb}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right font-bold" style="color:#ff6b35">${a.det}%</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${Math.round(a.blAg)}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right font-bold" style="color:#ff6b35">${formatEuro(Math.round(a.caAg))}</td>
+        </tr>`;
+      }).join('');
+      return `<div>
+        <h4 class="text-sm font-semibold mb-2" style="color:#ff6b35">🚀 Étoiles Montantes <span class="text-xs font-normal t-disabled">(${stars.length} articles — faible détention × fort CA × forte rotation)</span></h4>
+        <div class="overflow-x-auto"><table class="w-full text-left">
+          <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+            <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
+            <th class="pb-1 px-2 text-right">Agences</th><th class="pb-1 px-2 text-right">Détention</th>
+            <th class="pb-1 px-2 text-right">BL/Ag</th><th class="pb-1 px-2 text-right">CA/Ag</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    })()}
 
     ${!pepites.length && !boulets.length ? '<div class="py-4 text-center t-disabled text-sm italic">Aucune pépite ni boulet identifié dans cette famille — données benchmark insuffisantes.</div>' : ''}
   </div>`;
@@ -2985,7 +3149,7 @@ function _renderPlanRayonContent(data) {
     </details>
   </div>
   ${_prOpenFam ? `<div class="grid grid-cols-[280px_1fr] gap-3" style="min-height:400px;overflow:hidden">
-    <div style="max-height:calc(100vh - 200px);overflow-y:auto;min-width:0" class="border-r b-light pr-2">
+    <div id="prCompactList" style="max-height:calc(100vh - 200px);overflow-y:auto;min-width:0" class="border-r b-light pr-2">
       ${_prBuildCompactList(data)}
     </div>
     <div style="min-width:0">${_prRenderDetail(_prOpenFam)}</div>
@@ -3000,9 +3164,13 @@ function _renderPlanRayonContent(data) {
 function _prRerender() {
   const el = document.getElementById('planRayonBlock');
   if (!el || !_S._prData) return;
+  const listEl = document.getElementById('prCompactList');
+  const savedScroll = listEl ? listEl.scrollTop : 0;
   el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _prTopView === 'palmares' ? _renderPalmaresContent() : _renderPlanRayonContent(_S._prData));
   if (_prTopView === 'famille') _initPrSearch();
   if (_prTopView === 'metier') _initPrMetierInput();
+  const newListEl = document.getElementById('prCompactList');
+  if (newListEl && savedScroll) newListEl.scrollTop = savedScroll;
 }
 
 function _initPrMetierInput() {
@@ -3228,6 +3396,14 @@ window._prSelectEmp = function(emp) {
   _prRerender();
 };
 
+window._prFilterSousFam = function(codeSousFam) {
+  _prOpenSousFam = codeSousFam;
+  _prSqPage = 50;
+  _prSelectedSFs.clear();
+  if (codeSousFam) _prSelectedSFs.add(codeSousFam);
+  _prRerender();
+};
+
 window._prCloseDetail = function() {
   _prOpenFam = null;
   _prConqueteMode = false;
@@ -3363,8 +3539,6 @@ window._prPilotFilterFn = function(key) {
   _prPilotFilter = _prPilotFilter === key ? '' : key;
   _prPilotVerdict = ''; // reset verdict filter on classif change
   _prPilotRole = '';    // reset role filter on classif change
-  // Auto-tri par potentiel quand on filtre "implanter"
-  if (_prPilotFilter === 'implanter') _prPilotSort = 'potentiel';
   _prPilotPage = 60;
   _prRerenderDetail();
 };
@@ -4409,69 +4583,170 @@ function _prDownloadDiag(txt, codeFam) {
 // Génère un bloc texte structuré : prompt merchandiseur + contexte agence
 // + TOP métiers + demande réelle par métier + données rayon. Conçu pour être
 // collé tel quel dans n'importe quel LLM (Gemini, Grok, ChatGPT, Claude).
-const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincaillerie pro).
+const _LLM_PROMPT = `Tu es un chef de rayon qui agit, pas un expert qui réfléchit. Distribution B2B quincaillerie pro.
 
-[PHYSIGAMME — Rôles stratégiques]
-Chaque article a un RÔLE :
-🏆 Incontournable = présent chez ≥60% du réseau OU ABC-A forte rotation. OBJECTIF : 98% en stock.
-🆕 Nouveauté = <90 jours, signal réseau. Renouvellement qui garde le rayon vivant.
-🎯 Spécialiste = acheté par les métiers stratégiques (menuisiers, serruriers, plombiers…). Fidélisation métier.
-📦 Standard = le reste.
+Mission : plan d'action exécutable dès lundi matin. Pas de diagnostic mou.
 
-[SQUELETTE — Statut agence]
-Chaque article a un STATUT calculé :
-🔴 Challenger = en stock ET 0 vente 90 jours.
-🔵 Socle = en stock + ≥3 clients distincts + ≥3 BL.
-🟡 À surveiller = en stock, ni Socle ni Challenger.
-🟢 À implanter = pas en stock + signal fort (🏆/🆕 OU ≥5 clients zone OU ≥1000€ CA zone).
+Style : coach terrain autour d'un café. Direct, concret, utile. Chaque recommandation = "Qu'est-ce que je fais physiquement en rayon ou commercialement ?"
 
-[MATRICE VERDICT — Rôle × Statut]
-Le croisement donne un VERDICT actionnable :
-SOCLE × 🏆 = Le Capitaine (protéger) · SOCLE × 🆕 = La Bonne Pioche (observer) · SOCLE × 🎯 = Le Lien Fort (maintenir) · SOCLE × 📦 = Le Bon Soldat (maintenir)
-SURVEILLER × 🏆 = L'Alerte Rouge (agir vite) · SURVEILLER × 🆕 = Le Stagiaire (patience) · SURVEILLER × 🎯 = Le Point de Rupture (contacter client) · SURVEILLER × 📦 = Le Déclinant (réduire)
-CHALLENGER × 🏆 = La Réf Schizo (divorce confiance) · CHALLENGER × 🆕 = L'Erreur de Casting (sortir) · CHALLENGER × 🎯 = La Trahison (sortir + appeler) · CHALLENGER × 📦 = Le Poids Mort (sortir)
-IMPLANTER × 🏆 = Le Trou Critique (implanter sans discuter) · IMPLANTER × 🆕 = Le Pari du Réseau (tester) · IMPLANTER × 🎯 = La Conquête (signal fort) · IMPLANTER × 📦 = L'Opportunité Locale (évaluer)
+---
 
-[SCANNER DE RAYON V2 — KPIs famille]
-Score de Santé Interne (0-100) = détention Incontournables ×50 + (100 - % pathologique) ×30 + détention Spécialistes ×20, le tout ÷100.
-  ROUGE (< 50) = À retravailler — problème structurel, refonte nécessaire.
-  ORANGE (50-79) = À surveiller — optimisation ciblée, réparer ce qui est cassé.
-  VERT (≥ 80) = Bien couverte — maintenir l'excellence.
-Indice Performance Réseau (100=médiane) = CA/ref agence vs CA/ref réseau.
-Potentiel Externe (€) = CA zone total des articles À IMPLANTER.
-Part de Marché famille (PdM%) = CA Magasin ÷ CA Zone Total. C'est la taille de ta part du gâteau.
-  PdM > 70% = leader, défendre. PdM 40-70% = challenger, conquérir. PdM < 40% = suiveur, rattraper.
-Captation famille = CA Magasin ÷ CA Zone Total (même formule que PdM, appliquée au niveau famille).
-Tag Axe Spécialiste = si >30% du CA famille est porté par des clients métiers stratégiques, la famille a une vocation pro forte. Ce tag est CUMULABLE avec tout statut.
+# FILTRE DE PRIORITÉ OBLIGATOIRE
 
-[COLONNES PILOTAGE — par article]
-- Cli PDV = clients distincts dans TON agence sur la période (diffusion interne)
-- CA Zone = CA total TOUS CANAUX confondus, clients zone de chalandise (taille du marché)
-- Cli Zone = clients distincts zone, tous canaux (largeur du marché)
-- PdM% = CA Magasin ÷ CA Zone (ta part de marché sur cet article)
+Avant toute analyse, classe les sujets :
+- CA réseau élevé + captation faible = PRIORITÉ 1
+- Incontournables manquants = PRIORITÉ 1
+- Rayon pathologique (>30%) = PRIORITÉ 2
+- Benchmark faible = PRIORITÉ 2
+- Reste = PRIORITÉ 3
 
-[RÈGLE DE DÉROGATION : L'ANCRE MÉTIER]
-Un Challenger peut être sauvé si c'est un 🎯 Spécialiste qui ancre un métier clé, stock=1, max 5 Ancres par rayon.
+Tu traites TOUJOURS les PRIORITÉ 1 en premier dans le plan.
 
-Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
+---
 
-1. **La phrase à retenir** — UNE phrase qui frappe (image mentale + diagnostic + direction)
-2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI (utilise PdM% et captation)
-3. **Le piège mental à éviter** — le réflexe à ne PAS avoir face à ces données
-4. **Ce que je vois vraiment dans les données** — patterns cachés, croisements (verdicts × métiers × PdM% × benchmark)
-5. **Le plan Physigamme** — "Je vide / J'optimise / Je remplis" en 5 gestes max. Chaque geste cite le RÔLE (🏆/🆕/🎯/📦) ET le VERDICT MATRICE (ex: "Le Trou Critique", "La Réf Schizo")
-6. **Prédiction chiffrée** — détention incontournables, Score Santé, PdM% APRÈS le plan
-7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
+# MÉTHODE (VERSION EXÉCUTABLE)
 
-Règles dures :
-- Chaque recommandation DOIT citer le VERDICT MATRICE, pas juste le rôle ou le statut isolément
-- PdM% est le KPI roi : un produit avec PdM 95% = défendre, PdM 0% = opportunité pure
-- Section [BENCHMARK RÉSEAU VS MOI] = ton miroir. Écart >20% = signal fort
-- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Distingue :
-  1. CONSOLIDER : renforcer pour les métiers qui viennent déjà (captation >20%)
-  2. DÉVELOPPER : capter les métiers à 0% — qu'est-ce qu'on implante pour les attirer ?
-- Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
-- Parler comme un coach autour d'un café, pas comme un consultant en costume
+Analyse dans cet ordre :
+1. Où est le CA ? (CA réseau famille — signal de demande)
+2. Est-ce que je le capte ? (captation métier — ce que l'agence laisse filer)
+3. Suis-je en retard ? (benchmark réseau — écart à la médiane)
+4. Mon rayon bloque-t-il ? (santé — dormants, challengers, incontournables manquants)
+5. Mon rayon est-il vendable ? (cohérence physique — lisibilité, trous de gamme, doublons)
+
+Ne dis jamais "il faut implanter" ou "il faut sortir" sans expliquer quel problème business ça corrige.
+
+---
+
+# LOGIQUE PRODUIT
+
+Chaque produit = 1 rôle + 1 statut = 1 verdict.
+
+## Rôles
+- 🏆 Incontournable : ≥60% du réseau OU ABC-A. Jamais en rupture (objectif 98%).
+- 🎯 Spécialiste : sert à capter ou fidéliser un métier stratégique.
+- 🆕 Nouveauté : signal réseau, renouvelle le rayon.
+- 📦 Standard : fond de rayon, sert le volume.
+
+## Statuts
+- Socle : en stock + ≥3 clients + ≥3 BL = garder.
+- Surveiller : en stock, ni Socle ni Challenger = corriger.
+- Challenger : en stock + 0 vente 90j = décider (sauver ou sortir).
+- Absent : pas en stock + signal fort = choisir (implanter ou ignorer).
+
+## Verdicts (croisement rôle × statut)
+
+Socle : Capitaine (🏆), Bonne Pioche (🆕), Lien Fort (🎯), Bon Soldat (📦) — protéger/maintenir.
+Surveiller : Alerte Rouge (🏆), Stagiaire (🆕), Point de Rupture (🎯), Déclinant (📦) — agir/corriger.
+Challenger : Réf Schizo (🏆), Erreur de Casting (🆕), Trahison (🎯), Poids Mort (📦) — traiter/sortir.
+Absent : Trou Critique (🏆), Pari du Réseau (🆕), Conquête (🎯), Opportunité Locale (📦) — implanter/évaluer.
+
+---
+
+# RÈGLES DE DÉCISION
+
+1. CA Réseau = signal de demande.
+   Fort CA réseau + faible CA agence = potentiel de conquête.
+   Fort CA réseau + fort CA agence = défendre.
+   Faible CA réseau = niche, ne pas surpondérer.
+
+2. Écart benchmark >20% = obligatoirement commenté.
+
+3. Demande métier > intuition rayon.
+   Captation >20% : consolider. Captation ~0% : développer. Captation 0% + CA zone élevé : fuite prioritaire.
+
+4. Ne réimplante pas mécaniquement. Choisis les refs qui structurent l'offre.
+
+5. Poids Mort : tous sortis. Si >15, Top 15 par valeur stock puis résumé du reste.
+
+6. Réf Schizo : 3 paquets — sauver / déplacer / sortir malgré rôle réseau.
+
+7. Ancre Métier : un Challenger 🎯 peut être sauvé s'il ancre un métier stratégique. Stock=1. Max 5 par rayon.
+
+8. Opportunités Locales : 5 à 8 meilleures seulement (CA zone + clients zone + cohérence métier).
+
+9. Incohérence compteurs vs détail article : le détail fait foi.
+
+---
+
+# RÈGLES ANTI-HALLUCINATION
+
+- Ne devine jamais conditionnement, taille, lot. Déduis uniquement si le libellé est explicite (B6=boîte 6, C100M=couronne 100m, T9=taille 9). Sinon : "conditionnement à vérifier".
+- Ne navigue pas sauf demande explicite.
+- Chaque article cité : \`[libellé](https://www.legallais.com/article/{CODE})\`
+- Emplacement non fourni : "emplacement à vérifier".
+
+---
+
+# FORMAT DE RÉPONSE — 8 SECTIONS STRICTES
+
+## 1. La phrase à retenir
+Une seule phrase forte : image mentale + diagnostic + direction.
+
+## 2. Les signaux qui crient fort
+2 à 4 chiffres max. Obligatoire : CA Réseau, benchmark si écart >20%, captation métier si signal, santé si pathologie.
+Pour chaque chiffre : pourquoi il change la décision.
+
+## 3. Le piège mental à éviter
+Le mauvais réflexe que le chef d'agence pourrait avoir.
+
+## 4. Ce que je vois vraiment dans les données
+OBLIGATION : identifier au moins 1 fuite de CA, 1 famille dominante, 1 incohérence.
+Patterns cachés : familles qui tournent/dorment, métiers perdus, trous de gamme, doublons, produits qui masquent le problème.
+
+## 5. Le plan Physigamme
+Maximum 5 gestes. Structure obligatoire :
+
+### Je vide
+Sorties prioritaires. Rôle + verdict + action.
+
+### J'optimise
+Protéger, réduire, repositionner. Rôle + verdict + action.
+
+### Je remplis
+Implantations prioritaires. Rôle + verdict + action.
+
+RÈGLE PLAN D'ACTION : minimum 1 purge + 1 implantation critique + 1 action sur un Capitaine. Sinon = réponse invalide.
+
+RÈGLE DE SÉQUENÇAGE :
+- L'ordre du plan = ordre business : je remplis > j'optimise > je vide (la stratégie d'abord).
+- L'ordre d'exécution terrain = inverse : je vide > je remplis > j'optimise (la réalité magasin).
+Indique clairement les deux séquences. Le chef d'agence lit le plan (business), puis exécute dans l'ordre terrain.
+
+## 6. Prédiction chiffrée
+Estimation réaliste : détention Incontournables, Score Santé, CA Réseau captable, captation métier. Fourchettes OK. Pas de miracle.
+
+## 7. La leçon qui dépasse ce rayon
+Ce que cette famille enseigne pour le reste du magasin.
+
+## 8. Plan merchandising opérationnel
+
+### Zoning
+Zones logiques par usage/métier.
+
+### Facing
+1 facing par défaut. 2 facings = hyper-Capitaines seulement (Pull% élevé + clients + CA zone). Jamais 3.
+
+### Sens de lecture
+Capitaines à hauteur des yeux. Spécialistes en haut/bas. Familles métiers regroupées.
+
+### Purge physique
+CODE — libellé — verdict — emplacement — lien. Si >15 : Top 15 + "+ X à sortir."
+
+### Commande d'implantation
+8-12 refs max. CODE — libellé — verdict — conditionnement — quantité — raison — lien.
+Priorisation : 1. Trou critique (CA direct). 2. Produit métier captation 0%. 3. Produit volume réseau. 4. Complément gamme.
+
+---
+
+# STYLE
+
+Direct. Phrases courtes. Pas de tableau si une liste suffit. Pas de blabla. Écris pour un chef d'agence qui agit lundi matin.
+
+---
+
+# DONNÉES À ANALYSER
+
+Analyse maintenant les données suivantes. Applique le filtre de priorité, puis les 8 sections.
 
 `;
 
@@ -4500,9 +4775,17 @@ function _prBuildLLMPack(codeFam) {
     const roleTag = ROLE_EMOJI[role] || '';
     const v = _prVerdict(classif, role, a.code);
     const verdictTag = v.name !== '—' ? ` → ${v.name}` : '';
-    const pdmStr = a.pdm != null ? ` PdM:${a.pdm}%` : '';
     const cliStr = a.nbClientsPDV ? ` cli:${a.nbClientsPDV}` : '';
-    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${verdictTag}${pdmStr}${cliStr}${m ? ' · ' + m : ''}${score}`;
+    const _fd = _fdMap2.get(a.code);
+    const _W = _fd?.W || 0;
+    const pullStr = (_W >= 4 && a.nbClientsPDV > 0) ? ` Pull:${Math.round(a.nbClientsPDV / _W * 100)}%` : '';
+    const caZStr = a.caClientsZone > 0 ? ` CAzone:${formatEuro(a.caClientsZone)}` : '';
+    const clZStr = a.nbClientsZone > 0 ? ` cliZone:${a.nbClientsZone}` : '';
+    // CA réseau = somme CA toutes agences hors myStore
+    let _caRes = 0;
+    for (const s of _stores) { _caRes += _vpm[s]?.[a.code]?.sumCA || 0; }
+    const caResStr = _caRes > 0 ? ` CAréseau:${formatEuro(_caRes)}` : '';
+    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${verdictTag}${pullStr}${cliStr}${caZStr}${clZStr}${caResStr}${m ? ' · ' + m : ''}${score}`;
   };
 
   const topMetStr = ctx.topMetiers
@@ -4525,7 +4808,6 @@ function _prBuildLLMPack(codeFam) {
   pack += `- 📊 Indice Perf Réseau : ${hasBench ? fam.perfReseau : 'n/a'}${hasBench && fam.perfReseau < 80 ? ' ⚠ SOUS-PERFORMANT' : hasBench && fam.perfReseau >= 100 ? ' ✅' : ''} (100=médiane)\n`;
   pack += `- 💰 Potentiel Externe : ${formatEuro(fam.potentielExterne)} (CA zone des IMPLANTER)\n`;
   pack += `- 🎯 % CA strat : ${fam.pctStrat}% porté par métiers stratégiques${fam.tagSpecialiste ? ' · TAG AXE SPÉCIALISTE' : ''}\n`;
-  pack += `- 📈 PdM famille : ${fam.captation != null ? fam.captation + '%' : 'n/a'} (CA agence / CA zone total)\n`;
   pack += `- 🌍 CA Zone total : ${formatEuro(fam.caZoneTotal)} (tous canaux, tous clients zone)\n\n`;
 
   pack += `[KPIs RAYON]\n`;
@@ -4542,6 +4824,13 @@ function _prBuildLLMPack(codeFam) {
   const _stores = Object.keys(_vpm).filter(s => s !== _myS);
   const _nbSt = _stores.length || 1;
   const _fdMap2 = _prGetFdMap();
+
+  // CA Réseau famille = somme CA toutes agences hors myStore
+  let _caResFam = 0;
+  for (const s of _stores) {
+    for (const [code] of _roles) { _caResFam += _vpm[s]?.[code]?.sumCA || 0; }
+  }
+  pack += `- 📈 CA Réseau famille : ${formatEuro(_caResFam)} (somme CA ${_stores.length} agences)\n`;
 
   // Compteurs par rôle
   const _rc = {}, _ri = {};
@@ -4592,37 +4881,58 @@ function _prBuildLLMPack(codeFam) {
   pack += `- CA : ${formatEuro(_myCA)} vs ${formatEuro(_medCA)} (${_ecart(_myCA, _medCA)})\n`;
   pack += `- BL : ${_myBL} vs ${_medBL} (${_ecart(_myBL, _medBL)})\n\n`;
 
-  if (fam.nbSchizo > 0) {
-    pack += `[REFS SCHIZO — ${fam.nbSchizo} refs incontournables réseau MAIS dormantes/ruptures chez toi]\n`;
-    pack += `(Signal 'rayon échantillonné' : commandées à la demande sans stock fiable → divorce de confiance client)\n`;
-    for (const s of fam.schizoItems.slice(0, 15)) {
-      pack += `  - ${s.code} ${s.libelle} (${s.statut}, ${s.ageJours}j, ${formatEuro(s.valeur)})\n`;
+  // ── ARTICLES GROUPÉS PAR VERDICT ──
+  const _allClassifs = ['socle', 'implanter', 'challenger', 'surveiller'];
+  const _verdictGroups = {};
+  for (const classif of _allClassifs) {
+    for (const a of items[classif]) {
+      const role = _roles.get(a.code) || 'standard';
+      const v = _prVerdict(classif, role, a.code);
+      const vn = v.name || '—';
+      if (!_verdictGroups[vn]) _verdictGroups[vn] = { verdict: v, items: [] };
+      _verdictGroups[vn].items.push({ ...a, _classif: classif });
     }
-    pack += `\n`;
+  }
+  const _VERDICT_ORDER = [
+    'Le Capitaine', 'La Bonne Pioche', 'Le Lien Fort', 'Le Bon Soldat',
+    'Le Trou Critique', 'La Conquête', 'Le Pari du Réseau', "L'Opportunité Locale",
+    "L'Alerte Rouge", 'Le Stagiaire', 'Le Point de Rupture', 'Le Déclinant',
+    'La Réf Schizo', 'Le Poids Mort', "L'Erreur de Casting", 'La Trahison',
+    'Ancre Métier',
+  ];
+  const _SECTION_HEADERS = {
+    'Le Capitaine':    '\n[SOCLE — À protéger]\n',
+    'Le Trou Critique': '\n[À IMPLANTER — Opportunités]\n',
+    "L'Alerte Rouge":  '\n[SURVEILLER — À arbitrer]\n',
+    'La Réf Schizo':   '\n[CHALLENGER — À traiter]\n',
+  };
+  for (const vn of _VERDICT_ORDER) {
+    const g = _verdictGroups[vn];
+    if (!g || !g.items.length) continue;
+    if (_SECTION_HEADERS[vn]) pack += _SECTION_HEADERS[vn];
+    const v = g.verdict;
+    const tipShort = v.tip.split('ACTION')[0].replace(/\.\s*$/, '').trim();
+    pack += `${v.icon} ${vn} (${g.items.length}) — ${tipShort}\n`;
+    // Cap Opportunités Locales à top 10 par CAzone
+    let _vitems = g.items;
+    if (vn === "L'Opportunité Locale" && _vitems.length > 10) {
+      const sorted = [..._vitems].sort((a, b) => (b.caClientsZone || 0) - (a.caClientsZone || 0));
+      const rest = sorted.length - 10;
+      _vitems = sorted.slice(0, 10);
+      for (const a of _vitems) pack += fmtItem(a, a._classif, a._classif === 'implanter') + '\n';
+      pack += `  (+ ${rest} autres Opportunités Locales mineures)\n`;
+    } else {
+      for (const a of _vitems) pack += fmtItem(a, a._classif, a._classif === 'implanter') + '\n';
+    }
+    pack += '\n';
   }
 
+  // Purge : résumé compact (les détails sont déjà dans les verdicts Poids Mort / Schizo)
   if (patho.length) {
-    pack += `[À SORTIR — ${patho.length} refs pathologiques, top 20 par € libérable]\n`;
-    for (const p of patho.slice(0, 20)) {
-      pack += `  - ${p.code} ${p.libelle}${p.marque ? ' · ' + p.marque : ''} (${p.statut}, ${formatEuro(p.valeurLib)})\n`;
-    }
-    pack += `\n`;
-  }
-
-  if (items.socle.length) {
-    pack += `[INCONTOURNABLES — ${items.socle.length} refs qui marchent]\n`;
-    for (const a of items.socle.slice(0, 25)) pack += fmtItem(a, 'socle') + '\n';
-    pack += `\n`;
-  }
-  if (items.implanter.length) {
-    pack += `[À IMPLANTER (suggéré par PRISME) — ${items.implanter.length} refs]\n`;
-    for (const a of items.implanter.slice(0, 25)) pack += fmtItem(a, 'implanter', true) + '\n';
-    pack += `\n`;
-  }
-  if (items.challenger.length) {
-    pack += `[CHALLENGER — ${items.challenger.length} refs en rayon mais sous-performantes]\n`;
-    for (const a of items.challenger.slice(0, 15)) pack += fmtItem(a, 'challenger') + '\n';
-    pack += `\n`;
+    const totalLib = patho.reduce((s, p) => s + (p.valeurLib || 0), 0);
+    const nbDorm = patho.filter(p => p.statut === 'dormant').length;
+    const nbFin = patho.filter(p => p.statut === 'fin').length;
+    pack += `[PURGE — ${patho.length} refs pathologiques, ${formatEuro(totalLib)} libérables (${nbDorm} dormants, ${nbFin} fin de série)]\n\n`;
   }
 
   // Emplacements observés
@@ -4662,8 +4972,9 @@ function _prBuildLLMPack(codeFam) {
     pack += `\n`;
   }
 
+  pack += `[LIENS ARTICLES]\nPattern : https://www.legallais.com/article/{CODE}\nNe navigue pas sauf demande explicite. Si conditionnement incertain : "conditionnement à vérifier".\n\n`;
   pack += `═══════════════════════════════════════════════════\n`;
-  pack += `Maintenant, applique le prompt en 7 sections.\n`;
+  pack += `Maintenant, applique le prompt en 8 sections.\n`;
   return pack;
 }
 
