@@ -939,6 +939,17 @@ async function _handleParseMessage(data) {
             if (_rqe > 0) ventesParAgence[_storeKey_h][codeArt_h].sumEnleve += _rqe;
             ventesParAgence[_storeKey_h][codeArt_h].countBL++;
             ventesParAgence[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
+            // byCanal hors-MAGASIN (pour % comptoir dans Plan)
+            if (!lowMem && canal) {
+              var _bckH = ventesParAgence[_storeKey_h][codeArt_h];
+              if (!_bckH.byCanal) _bckH.byCanal = {};
+              if (!_bckH.byCanal[canal]) _bckH.byCanal[canal] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+              var _bcH = _bckH.byCanal[canal];
+              _bcH.sumCA += caLigne_h;
+              if (_rqp > 0) _bcH.sumPrelevee += _rqp;
+              _bcH.countBL++;
+              _bcH.sumVMB += _rvp + _rve;
+            }
           }
           // commandesPerStoreCanal — hors-MAGASIN
           if (_rncb) {
