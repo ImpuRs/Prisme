@@ -885,6 +885,49 @@ async function _handleParseMessage(data) {
             if (!byMonthFull[_cc_bm_h][codeArt_h][_midxBmf]) byMonthFull[_cc_bm_h][codeArt_h][_midxBmf] = { sumCA: 0 };
             byMonthFull[_cc_bm_h][codeArt_h][_midxBmf].sumCA += caLigne_h;
           }
+          // ventesParAgence + ventesParAgenceByCanal + byCanal — AVANT filtre période (pleine période 12MG, comme MAGASIN)
+          if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
+            var _storeKey_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
+            if (!ventesParAgenceByCanal[_storeKey_h]) ventesParAgenceByCanal[_storeKey_h] = {};
+            if (!ventesParAgenceByCanal[_storeKey_h][canal]) ventesParAgenceByCanal[_storeKey_h][canal] = {};
+            if (!ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h]) ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            var _vpmc_h = ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h];
+            _vpmc_h.sumCA += caLigne_h;
+            _vpmc_h.sumPrelevee += _rcp;
+            _vpmc_h.countBL++;
+            _vpmc_h.sumVMB += _rvp + _rve;
+            _vpmc_h.sumVMBPrel += _rvp;
+            // ventesParAgence — accumuler hors-MAGASIN aussi (cohérence tous canaux)
+            if (!ventesParAgence[_storeKey_h]) ventesParAgence[_storeKey_h] = {};
+            if (!ventesParAgence[_storeKey_h][codeArt_h]) ventesParAgence[_storeKey_h][codeArt_h] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+            ventesParAgence[_storeKey_h][codeArt_h].sumCA += caLigne_h;
+            if (_rqp > 0) ventesParAgence[_storeKey_h][codeArt_h].sumPrelevee += _rqp;
+            if (_rqe > 0) ventesParAgence[_storeKey_h][codeArt_h].sumEnleve += _rqe;
+            ventesParAgence[_storeKey_h][codeArt_h].countBL++;
+            ventesParAgence[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
+            // byCanal hors-MAGASIN (pour % comptoir dans Plan)
+            if (!lowMem && canal) {
+              var _bckH = ventesParAgence[_storeKey_h][codeArt_h];
+              if (!_bckH.byCanal) _bckH.byCanal = {};
+              if (!_bckH.byCanal[canal]) _bckH.byCanal[canal] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+              var _bcH = _bckH.byCanal[canal];
+              _bcH.sumCA += caLigne_h;
+              if (_rqp > 0) _bcH.sumPrelevee += _rqp;
+              _bcH.countBL++;
+              _bcH.sumVMB += _rvp + _rve;
+            }
+          }
+          // commandesPerStoreCanal — hors-MAGASIN (pleine période)
+          if (_rncb) {
+            if (!commandesPerStoreCanal[skHors]) commandesPerStoreCanal[skHors] = {};
+            if (!commandesPerStoreCanal[skHors][canal]) commandesPerStoreCanal[skHors][canal] = new Set();
+            commandesPerStoreCanal[skHors][canal].add(_rncb);
+          }
+          // ventesClientAutresAgences — CA client dans autres agences (pleine période)
+          if (_cc_bm_h && codeArt_h && selectedStore && skHors !== 'INCONNU' && skHors !== selectedStore) {
+            var _caAutH = _rcp + _rce;
+            if (_caAutH > 0) ventesClientAutresAgences.set(_cc_bm_h, (ventesClientAutresAgences.get(_cc_bm_h) || 0) + _caAutH);
+          }
           // Filtre période — le reste est period-sensitive
           if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
           if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
@@ -918,49 +961,6 @@ async function _handleParseMessage(data) {
             } else if (codeArt_h) {
               _cbuDeferred.push({ store: _skCli_h, cc: _cc_bm_h, code: codeArt_h });
             }
-          }
-          // ventesParAgenceByCanal
-          if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
-            var _storeKey_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
-            if (!ventesParAgenceByCanal[_storeKey_h]) ventesParAgenceByCanal[_storeKey_h] = {};
-            if (!ventesParAgenceByCanal[_storeKey_h][canal]) ventesParAgenceByCanal[_storeKey_h][canal] = {};
-            if (!ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h]) ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
-            var _vpmc_h = ventesParAgenceByCanal[_storeKey_h][canal][codeArt_h];
-            _vpmc_h.sumCA += caLigne_h;
-            _vpmc_h.sumPrelevee += _rcp;
-            _vpmc_h.countBL++;
-            _vpmc_h.sumVMB += _rvp + _rve;
-            _vpmc_h.sumVMBPrel += _rvp;
-            // ventesParAgence — accumuler hors-MAGASIN aussi (cohérence tous canaux)
-            if (!ventesParAgence[_storeKey_h]) ventesParAgence[_storeKey_h] = {};
-            if (!ventesParAgence[_storeKey_h][codeArt_h]) ventesParAgence[_storeKey_h][codeArt_h] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-            ventesParAgence[_storeKey_h][codeArt_h].sumCA += caLigne_h;
-            if (_rqp > 0) ventesParAgence[_storeKey_h][codeArt_h].sumPrelevee += _rqp;
-            if (_rqe > 0) ventesParAgence[_storeKey_h][codeArt_h].sumEnleve += _rqe;
-            ventesParAgence[_storeKey_h][codeArt_h].countBL++;
-            ventesParAgence[_storeKey_h][codeArt_h].sumVMB += _rvp + _rve;
-            // byCanal hors-MAGASIN (pour % comptoir dans Plan)
-            if (!lowMem && canal) {
-              var _bckH = ventesParAgence[_storeKey_h][codeArt_h];
-              if (!_bckH.byCanal) _bckH.byCanal = {};
-              if (!_bckH.byCanal[canal]) _bckH.byCanal[canal] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-              var _bcH = _bckH.byCanal[canal];
-              _bcH.sumCA += caLigne_h;
-              if (_rqp > 0) _bcH.sumPrelevee += _rqp;
-              _bcH.countBL++;
-              _bcH.sumVMB += _rvp + _rve;
-            }
-          }
-          // commandesPerStoreCanal — hors-MAGASIN
-          if (_rncb) {
-            if (!commandesPerStoreCanal[skHors]) commandesPerStoreCanal[skHors] = {};
-            if (!commandesPerStoreCanal[skHors][canal]) commandesPerStoreCanal[skHors][canal] = new Set();
-            commandesPerStoreCanal[skHors][canal].add(_rncb);
-          }
-          // ventesClientAutresAgences — CA client dans autres agences (hors-MAGASIN)
-          if (_cc_bm_h && codeArt_h && selectedStore && skHors !== 'INCONNU' && skHors !== selectedStore) {
-            var _caAutH = _rcp + _rce;
-            if (_caAutH > 0) ventesClientAutresAgences.set(_cc_bm_h, (ventesClientAutresAgences.get(_cc_bm_h) || 0) + _caAutH);
           }
         }
         continue;
