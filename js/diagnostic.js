@@ -285,7 +285,7 @@ function _renderClient360(clientCode,source){
         ${classifBadge}
       </div>
       <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
-      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
+      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}${info.secteur?' ('+escapeHtml(info.secteur)+')':''}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
     </div>
     <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;

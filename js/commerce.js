@@ -543,27 +543,27 @@ window._ccc = (di,mi,ci) => {
           if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
         }
         // ── Top clients par canal ──
-        let caPDV=0,caHors=0,caTotal=rec.caTotal||0;
+        let caPDV=0,caHors=0;
         if(!_gCanal){
-          // Tous canaux
-          caPDV=caTotal;caHors=0;
+          // Tous canaux — CA agence uniquement (exclut caAutresAgences)
+          caPDV=(rec.caPDV||0)+(rec.caHors||0);caHors=0;
         }else if(_gCanal==='MAGASIN'){
           caPDV=rec.caPDV||0;caHors=rec.caHors||0;
         }else{
           // Canal spécifique hors-MAGASIN — besoin du détail par canal
           const horsMap=_S.ventesLocalHorsMag?.get(rec.cc);
           if(horsMap){let ca=0;for(const v of horsMap.values())if(v.canal===_gCanal)ca+=v.sumCA||0;caPDV=ca;}
-          caHors=0;caTotal=caPDV;
+          caHors=0;
         }
         if(caPDV>=100){
-          topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caTotal||0,commercial:rec.commercial,caPDV,caHors,caTotal,lastDate:rec.lastOrderPDV});
+          topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.ca2026||rec.caTotal||0,commercial:rec.commercial,caPDV,caHors,caTotal:caPDV,lastDate:rec.lastOrderPDV});
         }
         // ── Nouveaux / Réactivés (≤3 BL, dernière commande <60j) ──
         if(rec.isPDVActif&&(rec.nbBLPDV||0)<=3&&(rec.caPDV||0)>=100){
           const daysSince=rec.lastOrderPDV?Math.round((Date.now()-rec.lastOrderPDV)/86400000):null;
           if(daysSince!==null&&daysSince<60){
             const isReactive=(rec.caLegallaisN1||0)>0;
-            nouveaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caTotal||0,commercial:rec.commercial,caPDV,nbBL:rec.nbBLPDV||0,lastDate:rec.lastOrderPDV,type:isReactive?'reactive':'nouveau'});
+            nouveaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.ca2026||rec.caTotal||0,commercial:rec.commercial,caPDV,nbBL:rec.nbBLPDV||0,lastDate:rec.lastOrderPDV,type:isReactive?'reactive':'nouveau'});
           }
         }
         // ── Hors zone (PDV sans chalandise) ──
@@ -897,7 +897,7 @@ window._ccc = (di,mi,ci) => {
       };
       const top20=rows.slice(0,20);
       const _gc=_S._globalCanal||'';
-      const _caLbl=_gc===''?'CA Total':_gc==='MAGASIN'?'CA PDV':_gc==='INTERNET'?'CA Internet':_gc==='REPRESENTANT'?'CA Représentant':_gc==='DCS'?'CA DCS':'CA';
+      const _caLbl=_gc===''?'CA Agence':_gc==='MAGASIN'?'CA PDV':_gc==='INTERNET'?'CA Internet':_gc==='REPRESENTANT'?'CA Représentant':_gc==='DCS'?'CA DCS':'CA';
       const _horsLbl=_gc==='MAGASIN'?'Hors agence':'';
       const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">${_caLbl}</th><th class="py-2 px-2 text-right">CA Zone</th>${_horsLbl?`<th class="py-2 px-2 text-right">${_horsLbl}</th>`:''}<th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
       const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
@@ -1665,7 +1665,7 @@ function _computeOverviewUniversKpi(capteSet){
   for(const[cc]of entries){
     if(!capteSet?.has(cc))continue;
     captes++;
-    const ca=getUniversFilteredCA(cc)||0;
+    const ca=getUniversFilteredCA(cc,{periodFiltered:true})||0;
     caUnivers+=ca;
     if(ca>0)acheteurs++;
   }

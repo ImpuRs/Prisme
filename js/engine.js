@@ -444,10 +444,10 @@ export function clientMatchesUniversFilter(cc) {
  * Utilisé dans le Cockpit Commercial : le filtre univers ne cache pas les clients,
  * il filtre les MONTANTS. Un client à 0€ dans l'univers = cible de conquête.
  */
-export function getUniversFilteredCA(cc) {
+export function getUniversFilteredCA(cc, {periodFiltered=false}={}) {
   const au = _S.articleUnivers || {};
   const sel = _S._selectedUnivers;
-  const artMap = _S.ventesLocalMag12MG?.get(cc);
+  const artMap = (periodFiltered ? _S.ventesLocalMagPeriode : _S.ventesLocalMag12MG)?.get(cc);
 
   // Pas de filtre univers → CA brut
   if (!sel.size) {
