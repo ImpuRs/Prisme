@@ -2152,13 +2152,17 @@ function _prRenderPilotage(fam) {
     }
   }
 
-  // ── Pré-index CA Réseau total (toutes agences, myStore inclus) ──
+  // ── Pré-index CA Réseau total + CA Magasin réseau (toutes agences, myStore inclus) ──
   const _caResTotalMap = new Map();
+  const _caResMagMap = new Map();
   const _vpmAll = _getVpmPlan();
+  const _vpmRaw = _S.ventesParAgence || {};
   for (const s in _vpmAll) {
     const arts = _vpmAll[s];
     for (const code in arts) {
       _caResTotalMap.set(code, (_caResTotalMap.get(code) || 0) + (arts[code].sumCA || 0));
+      const magCA = _vpmRaw[s]?.[code]?.byCanal?.MAGASIN?.sumCA || 0;
+      if (magCA > 0) _caResMagMap.set(code, (_caResMagMap.get(code) || 0) + magCA);
     }
   }
 
@@ -2233,6 +2237,7 @@ function _prRenderPilotage(fam) {
           caZone: _caZ,
           cliZone: _clZ,
           caReseau: _caResTotalMap.get(a.code) || 0,
+          caResMag: _caResMagMap.get(a.code) || 0,
         });
       }
     }
@@ -2267,6 +2272,7 @@ function _prRenderPilotage(fam) {
           caZone: bruitArt.caClientsZone || 0,
           cliZone: bruitArt.nbClientsZone || 0,
           caReseau: _caResTotalMap.get(bruitArt.code) || (bruitArt.caReseau || 0),
+          caResMag: _caResMagMap.get(bruitArt.code) || 0,
         }];
       } else {
         return _refPill + '<div class="t-disabled text-sm text-center py-4">Article introuvable dans les données.</div>';
@@ -2414,7 +2420,7 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right" style="color:${a.pull == null ? 'var(--t-disabled)' : a.pull >= 60 ? '#22c55e' : a.pull >= 30 ? '#f59e0b' : '#3b82f6'}">${a.pull != null ? a.pull + '%' : '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.caReseau ? formatEuro(a.caReseau) : '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.caReseau ? `${formatEuro(a.caReseau)}${a.caReseau > 0 ? ` <span class="text-[9px]" style="color:${(a.caResMag/a.caReseau)>=0.7?'#4ade80':(a.caResMag/a.caReseau)>=0.4?'#fbbf24':'#f87171'}">(${Math.round(a.caResMag/a.caReseau*100)}%)</span>` : ''}` : '—'}</td>
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>${_isLocalIncont(a.code, a.role) ? '<span class="text-[7px] px-1 py-0.5 rounded font-bold ml-1" style="background:rgba(139,92,246,0.15);color:#a78bfa">LOCAL</span>' : ''}
       </td>
@@ -2440,7 +2446,7 @@ function _prRenderPilotage(fam) {
         ${_thSort('cliPDV', 'Cli MAG', 'text-right', 'Clients distincts toutes agences consommé')}
         ${_thSort('pull', 'Pull%', 'text-right', 'Clients ÷ BL — élevé = comptoir (pull), bas = chantier (push)')}
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA BL livraisons (filtré distance + période)')}
-        ${_thSort('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences inclus myStore (12MG)')}
+        ${_thSort('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences (12MG) — % = part comptoir (Magasin)')}
         ${_thSort('verdict', 'Verdict', 'text-left')}
       </tr></thead>
       <tbody>${rows}</tbody>
