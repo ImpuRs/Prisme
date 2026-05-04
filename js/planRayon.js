@@ -3418,6 +3418,12 @@ window._prOpenDetail = function(codeFam) {
   _prMetierDist = 0;
   _prSelectedSFs.clear();
   _prSelectedEmps.clear();
+  // Reset filtre classif si la famille n'est pas dans le filtre actif
+  if (_prFilterClassif && _S._prData) {
+    const fam = _S._prData.families.find(f => f.codeFam === codeFam)
+             || (_S._prData.inactiveFamilies || []).find(f => f.codeFam === codeFam);
+    if (fam && fam.classifGlobal !== _prFilterClassif) _prFilterClassif = '';
+  }
   // Detect if this is an inactive family → force conquest mode
   const isInactive = _S._prData?.inactiveFamilies?.some(f => f.codeFam === codeFam);
   _prConqueteMode = !!isInactive;
@@ -3793,6 +3799,12 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   _prSearchText  = '';
   _prOpenFam     = codeFam;
   _prOpenSousFam = codeSousFam || '';
+  // Reset filtre classif si la famille n'est pas dans le filtre actif
+  if (_prFilterClassif && _S._prData) {
+    const fam = _S._prData.families.find(f => f.codeFam === codeFam)
+             || (_S._prData.inactiveFamilies || []).find(f => f.codeFam === codeFam);
+    if (fam && fam.classifGlobal !== _prFilterClassif) _prFilterClassif = '';
+  }
   if (!_prHighlightRef) _prDetailTab = 'pilotage';  // ne pas écraser si navigation ref
   _prGridVisible  = true;
   if (!_prHighlightRef) { _prRayonFilter = ''; _S._prSqFilter = ''; }
