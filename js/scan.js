@@ -603,8 +603,8 @@ function _liveSearch(q) {
       return;
     }
   }
-  // Lookup ref fournisseur exact
-  if (_refMap) {
+  // Lookup ref fournisseur exact — seulement si ≥5 caractères (évite auto-validation sur saisie partielle)
+  if (_refMap && q.trim().length >= 5) {
     const artCode = _refMap.get(q.trim()) || _refMap.get(q.trim().toUpperCase());
     if (artCode && _articles.has(artCode)) {
       _clearSuggestions();
