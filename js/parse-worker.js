@@ -1147,6 +1147,22 @@ async function _handleParseMessage(data) {
         }
       }
 
+      // ventesReseauTousCanaux — TOUTES agences, pleine période 12MG (pour Tronc Commun Réseau + CLI MAG)
+      if (cc2 && code) {
+        if (!ventesReseauTousCanaux.has(cc2)) ventesReseauTousCanaux.set(cc2, new Map());
+        var artMapR = ventesReseauTousCanaux.get(cc2);
+        if (!artMapR.has(code)) artMapR.set(code, { sumCA: 0, countBL: 0 });
+        var eR = artMapR.get(code);
+        eR.sumCA += caP + caE;
+        if (qteP > 0 || qteE > 0) eR.countBL++;
+      }
+
+      // ventesClientAutresAgences — CA client dans autres agences (MAGASIN, pleine période)
+      if (cc2 && code && selectedStore && sk !== 'INCONNU' && sk !== selectedStore) {
+        var _caAutM = caP + caE;
+        if (_caAutM > 0) ventesClientAutresAgences.set(cc2, (ventesClientAutresAgences.get(cc2) || 0) + _caAutM);
+      }
+
       // Filtre période (s'applique aux agrégats client/temps en aval)
       if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
       if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
@@ -1180,22 +1196,6 @@ async function _handleParseMessage(data) {
         if (qteP > 0) { e_vca.sumPrelevee += qteP; e_vca.sumCAPrelevee += caP; }
         e_vca.sumCA += caP + caE;
         if (qteP > 0 || qteE > 0) e_vca.countBL++;
-      }
-
-      // ventesReseauTousCanaux — TOUTES agences (pour Tronc Commun Réseau)
-      if (cc2 && code) {
-        if (!ventesReseauTousCanaux.has(cc2)) ventesReseauTousCanaux.set(cc2, new Map());
-        var artMapR = ventesReseauTousCanaux.get(cc2);
-        if (!artMapR.has(code)) artMapR.set(code, { sumCA: 0, countBL: 0 });
-        var eR = artMapR.get(code);
-        eR.sumCA += caP + caE;
-        if (qteP > 0 || qteE > 0) eR.countBL++;
-      }
-
-      // ventesClientAutresAgences — CA client dans autres agences (MAGASIN)
-      if (cc2 && code && selectedStore && sk !== 'INCONNU' && sk !== selectedStore) {
-        var _caAutM = caP + caE;
-        if (_caAutM > 0) ventesClientAutresAgences.set(cc2, (ventesClientAutresAgences.get(cc2) || 0) + _caAutM);
       }
 
       // commandesPDV + passagesUniques
