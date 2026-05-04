@@ -26,6 +26,41 @@ const _prDistOk = (cc) => {
   if (!info || info.distanceKm == null) return true;
   return info.distanceKm <= _prMetierDist;
 };
+// ── Helper : ventesParAgence filtré canal MAGASIN si toggle actif ──
+let _vpmMagCache = null;
+let _vpmMagCacheKey = '';
+function _getVpmPlan() {
+  if (!_S._planCanalMagOnly) return _S.ventesParAgence || {};
+  // Projeter byCanal.MAGASIN → structure plate compatible
+  const key = `${Object.keys(_S.ventesParAgence||{}).length}_mag`;
+  if (_vpmMagCache && _vpmMagCacheKey === key) return _vpmMagCache;
+  const vpm = _S.ventesParAgence || {};
+  const out = {};
+  for (const store in vpm) {
+    out[store] = {};
+    for (const code in vpm[store]) {
+      const bc = vpm[store][code].byCanal?.MAGASIN;
+      if (bc && bc.countBL > 0) {
+        out[store][code] = { sumPrelevee: bc.sumPrelevee, sumCA: bc.sumCA, countBL: bc.countBL, sumVMB: bc.sumVMB, sumEnleve: 0 };
+      }
+    }
+  }
+  _vpmMagCache = out;
+  _vpmMagCacheKey = key;
+  return out;
+}
+function _invalidateVpmMagCache() { _vpmMagCache = null; _vpmMagCacheKey = ''; }
+
+// ── Handler toggle Comptoir uniquement ──
+window._onPlanCanalMagToggle = function() {
+  const cb = document.getElementById('planCanalMagToggle');
+  _S._planCanalMagOnly = cb?.checked || false;
+  _invalidateVpmMagCache();
+  const st = document.getElementById('planCanalMagStatus');
+  if (st) { st.classList.toggle('hidden', !_S._planCanalMagOnly); }
+  renderPlanRayon();
+};
+
 // Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
 const _prLivMonthRange = () => {
   const dMin = _S.livraisonsDateMin, dMax = _S.livraisonsDateMax;
@@ -197,7 +232,7 @@ function _prVerdict(classif, role, code) {
 const _isLocalIncont = (code, roleOrMap) => {
   const role = typeof roleOrMap === 'string' ? roleOrMap : roleOrMap?.get(code);
   if (role !== 'incontournable') return false;
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const myStore = _S.selectedMyStore;
   const myCA = vpm[myStore]?.[code]?.sumCA || 0;
   if (!myCA) return false;
@@ -222,7 +257,7 @@ const _isLocalIncont = (code, roleOrMap) => {
 
 // ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
 function _prComputeRoles(codeFam) {
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
@@ -478,7 +513,7 @@ function computePlanStock() {
   };
 
   const fdMap = _prGetFdMap();
-  const vpmPlan = _S.ventesParAgence || {};
+  const vpmPlan = _getVpmPlan();
   const myStorePlan = _S.selectedMyStore;
   let nbStoresPlan = 0;
   for (const s in vpmPlan) if (s !== myStorePlan) nbStoresPlan++;
@@ -735,7 +770,7 @@ function computePlanStock() {
   for (const o of [...obsLose, ...obsWin]) obsIdx.set(o.fam, o);
 
   // Rang agence par famille : CA par store par codeFam → classement
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const bassin = _S.selectedBenchBassin?.size > 0 ? _S.selectedBenchBassin : null;
   const stores = [...(_S.storesIntersection || [])].filter(s => !bassin || s === _S.selectedMyStore || bassin.has(s));
   const myStore = _S.selectedMyStore;
@@ -1423,7 +1458,7 @@ function _prRenderSquelette(fam) {
   }
   // Potentiel Zone : CA médian réseau article × nb clients métier dominant sur la zone
   const _benchM = _S.chalandiseReady ? (typeof computeBenchMetier === 'function' ? computeBenchMetier() : null) : null;
-  const _vpm = _S.ventesParAgence || {};
+  const _vpm = _getVpmPlan();
   const _myStore = _S.selectedMyStore;
   const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
   const artsWithW = arts.map(a => {
@@ -1844,7 +1879,7 @@ function _prRenderAnalyse(fam) {
 
 // ── Onglet Physigamme ────────────────────────────────────────────────
 function _prRenderPhysigamme(fam) {
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const spm = _S.stockParMagasin || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
@@ -2119,7 +2154,7 @@ function _prRenderPilotage(fam) {
 
   // ── Pré-index CA Réseau total (toutes agences, myStore inclus) ──
   const _caResTotalMap = new Map();
-  const _vpmAll = _S.ventesParAgence || {};
+  const _vpmAll = _getVpmPlan();
   for (const s in _vpmAll) {
     const arts = _vpmAll[s];
     for (const code in arts) {
@@ -2420,7 +2455,7 @@ function _prRenderPilotage(fam) {
 
 // ── Mode Conquête — Kit de Démarrage ─────────────────────────────────
 function _prBuildConqueteKit(codeFam) {
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
@@ -2721,7 +2756,8 @@ function _prRenderReseau(fam) {
   }
   // Enrichir incontournables avec données réseau
   const myStore = _S.selectedMyStore;
-  const myV = _S.ventesParAgence?.[myStore] || {};
+  const _vpmInc = _getVpmPlan();
+  const myV = _vpmInc[myStore] || {};
   const incont = [];
   for (const code of incontCodes) {
     const myData = myV[code];
@@ -2729,7 +2765,7 @@ function _prRenderReseau(fam) {
     const myCA   = myData?.sumCA || 0;
     // Médiane réseau
     const csFreqs = [];
-    for (const [st, arts] of Object.entries(_S.ventesParAgence || {})) {
+    for (const [st, arts] of Object.entries(_vpmInc)) {
       if (st === myStore || !_S.storesIntersection?.has(st)) continue;
       if (arts[code]) csFreqs.push(arts[code].countBL || 0);
     }
@@ -2821,7 +2857,7 @@ function _prRenderReseau(fam) {
 
     ${(() => {
       // Étoiles Montantes : détention < 40%, CA/agence > médiane, BL/agence > médiane, pas en stock
-      const _vpm = _S.ventesParAgence || {};
+      const _vpm = _getVpmPlan();
       const _myS = _S.selectedMyStore;
       const _sts = Object.keys(_vpm).filter(s => s !== _myS);
       const _nbSt = _sts.length;
@@ -4301,7 +4337,7 @@ function _prBuildDiagText(codeFam) {
           if (!_otherStores.length) return null;
           const computed = [];
           for (const s of _otherStores) {
-            const v = _S.ventesParAgence?.[s]?.[code];
+            const v = _getVpmPlan()[s]?.[code];
             if (!v || !v.countBL || v.countBL <= 1) continue;
             const W = v.countBL;
             const V = v.sumPrelevee || 0;
@@ -4818,7 +4854,7 @@ function _prBuildLLMPack(codeFam) {
   pack += `- Spécialistes : ${fam.nbSpecEnStock}/${fam.nbSpecialistes} en stock (${fam.nbSpecialistes > 0 ? Math.round(fam.nbSpecEnStock / fam.nbSpecialistes * 100) : 100}%)\n\n`;
 
   // ── PHYSIGAMME ──
-  const _vpm = _S.ventesParAgence || {};
+  const _vpm = _getVpmPlan();
   const _spm = _S.stockParMagasin || {};
   const _myS = _S.selectedMyStore;
   const _stores = Object.keys(_vpm).filter(s => s !== _myS);
@@ -5025,7 +5061,7 @@ let _palSort = 'ecart'; // 'fam'|'ecart'|'rang'
 let _palSortAsc = false;
 let _palSearch = '';
 function _renderPalmaresContent() {
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const myStore = _S.selectedMyStore;
   const stores = Object.keys(vpm).filter(s => s !== myStore).sort();
   if (!stores.length) return '<div class="t-disabled text-sm text-center py-12">Chargez le fichier Terrain pour activer le Palmarès Réseau.</div>';
@@ -5349,7 +5385,7 @@ function _prComputeMetierFull(metier) {
   }
 
   // ── Enrichir avec données réseau (articles vendus par d'autres agences, mêmes familles) ──
-  const vpm = _S.ventesParAgence || {};
+  const vpm = _getVpmPlan();
   const myStore = _S.selectedMyStore;
 
   // Enrichir articles existants avec données réseau (nb agences + CA réseau filtré métier)
@@ -6163,6 +6199,11 @@ export function renderPlanRayon() {
   buildSqLookup();
   // Peupler les checkboxes "Comparer avec" dans la sidebar Plan
   _buildPlanBenchCheckboxes();
+  // Synchroniser toggle Comptoir uniquement
+  const _mcb = document.getElementById('planCanalMagToggle');
+  if (_mcb) _mcb.checked = !!_S._planCanalMagOnly;
+  const _mst = document.getElementById('planCanalMagStatus');
+  if (_mst) _mst.classList.toggle('hidden', !_S._planCanalMagOnly);
 }
 
 function _updatePlanBenchStatus(nbChecked, nbTotal) {

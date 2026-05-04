@@ -1698,6 +1698,11 @@
               <p class="text-[10px] t-disabled mb-1">Cocher les agences à inclure dans la médiane</p>
               <div id="planBenchCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
               <div id="planBenchStatus" class="text-[10px] mt-1.5 hidden"></div>
+              <label class="flex items-center gap-2 mt-3 pt-3 border-t border-white/10 text-[10px] t-secondary cursor-pointer hover:t-primary select-none">
+                <input type="checkbox" id="planCanalMagToggle" onchange="window._onPlanCanalMagToggle()">
+                <span>🏪 Comptoir uniquement</span>
+              </label>
+              <div id="planCanalMagStatus" class="text-[9px] t-disabled mt-0.5 hidden">CA Réseau filtré canal Magasin</div>
             </div>
           </details>
         </div>
