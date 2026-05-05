@@ -752,11 +752,12 @@ function _renderPickList() {
     let artCode = clean;
     if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) { r = _articles?.get(c); artCode = c; } }
     const lib = r ? r.libelle : '?';
-    const eanSuffix = (r && code !== artCode) ? '...' + code.slice(-4) : '';
+    const fmt = (info.format || '').replace('Linear-', '');
+    const eanHint = (code !== artCode) ? ' ....' + code.slice(-4) : '';
     const badge = r ? '<span class="pi-badge" style="color:var(--green)">✓</span>' : '<span class="pi-badge" style="color:var(--red)">?</span>';
     html += `<div class="pick-item">
       <div class="pi-info" onclick="window._camPick('${code}')" style="cursor:pointer;flex:1">
-        <div class="pi-code">${r ? artCode : code}${eanSuffix ? '<span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:6px">' + eanSuffix + '</span>' : ''}</div>
+        <div class="pi-code">${r ? artCode : code}<span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:6px">${fmt}${eanHint}</span></div>
         <div class="pi-lib">${lib}</div>
       </div>
       ${badge}
