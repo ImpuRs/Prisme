@@ -740,22 +740,27 @@ function _renderPickList() {
   const header = sheet.querySelector('.pick-header');
   header.innerHTML = `<span>${n} scanne${n>1?'s':''}</span><button onclick="window._camClearList()">EFFACER</button>`;
 
-  // Items
+  // Items — dernier scanné en haut
   const items = sheet.querySelector('.pick-items');
   let html = '';
-  for (const [code, info] of _detectedCodes) {
+  const entries = [..._detectedCodes.entries()].reverse();
+  for (const [code, info] of entries) {
     const clean = code.replace(/\D/g, '');
     let r = _articles?.get(clean);
     let artCode = clean;
     if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) { r = _articles?.get(c); artCode = c; } }
     const lib = r ? r.libelle : '?';
+    const eanSuffix = (r && code !== artCode) ? '...' + code.slice(-4) : '';
     const badge = r ? '<span class="pi-badge" style="color:var(--green)">✓</span>' : '<span class="pi-badge" style="color:var(--red)">?</span>';
-    html += `<div class="pick-item" onclick="window._camPick('${code}')">
-      <div class="pi-info"><div class="pi-code">${r ? artCode : code}</div><div class="pi-lib">${lib}</div></div>
+    html += `<div class="pick-item">
+      <div class="pi-info" onclick="window._camPick('${code}')" style="cursor:pointer;flex:1">
+        <div class="pi-code">${r ? artCode : code}${eanSuffix ? '<span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:6px">' + eanSuffix + '</span>' : ''}</div>
+        <div class="pi-lib">${lib}</div>
+      </div>
       ${badge}
+      <button onclick="event.stopPropagation();window._camRemove('${code}')" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px 0 4px 10px">✕</button>
     </div>`;
   }
-  // Bouton "Reprendre le scan" quand expanded
   html += '<button class="resume-btn" onclick="document.getElementById(\'camSheet\').classList.remove(\'expanded\')">REPRENDRE LE SCAN</button>';
   items.innerHTML = html;
 }
@@ -770,6 +775,21 @@ window._camClearList = function() {
   _detectedCodes.clear();
   const sheet = document.getElementById('camSheet');
   if (sheet) { sheet.style.display = 'none'; sheet.classList.remove('expanded'); }
+};
+window._camRemove = function(code) {
+  _detectedCodes.delete(code);
+  // Aussi retirer de _actionMap si c'était un scan auto
+  const clean = code.replace(/\D/g, '');
+  let artCode = clean;
+  const r = _articles?.get(clean);
+  if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) artCode = c; }
+  const action = _actionMap.get(artCode);
+  if (action && action.scanne && !action.retour && !action.commander && !action.corriger_erp && !action.nouvelEmplacement && !action.inventaire) {
+    _actionMap.delete(artCode);
+    _saveActions();
+    _updateActionBadge();
+  }
+  _renderPickList();
 };
 
 function _stopCamera() {
