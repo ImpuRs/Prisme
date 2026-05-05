@@ -631,6 +631,14 @@ async function _startCamera() {
   closeBtn.onclick = () => _stopCamera();
   reader.appendChild(closeBtn);
 
+  // Overlay viseur
+  const ov = document.createElement('div');
+  ov.id = 'camOverlay';
+  ov.innerHTML = `<div class="dim dim-top"></div><div class="dim dim-bot"></div><div class="dim dim-left"></div><div class="dim dim-right"></div><div class="frame"><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div></div><div class="scan-line"></div>`;
+  reader.appendChild(ov);
+  // Positionner les zones sombres autour du cadre
+  _layoutOverlay(ov);
+
   await _camVideo.play();
 
   // Liste des codes détectés (overlay en bas)
@@ -651,15 +659,36 @@ async function _startCamera() {
   _scanLoop();
 }
 
+// Viewfinder zone (% du flux vidéo) — correspond au CSS .frame
+const _VF = { left: 0.10, top: 0.30, right: 0.90, bottom: 0.55 };
+
+function _layoutOverlay(ov) {
+  if (!ov) return;
+  const t = ov.querySelector('.dim-top');
+  const b = ov.querySelector('.dim-bot');
+  const l = ov.querySelector('.dim-left');
+  const r = ov.querySelector('.dim-right');
+  const top = '30%', bot = '55%', lf = '10%', rt = '10%';
+  if (t) t.style.cssText = `height:${top}`;
+  if (b) b.style.cssText = `top:${bot}`;
+  if (l) l.style.cssText = `top:${top};bottom:calc(100% - ${bot});width:${lf}`;
+  if (r) r.style.cssText = `top:${top};bottom:calc(100% - ${bot});width:${rt}`;
+}
+
 async function _scanLoop() {
   if (!_camActive || !_camVideo) return;
   const vw = _camVideo.videoWidth;
   const vh = _camVideo.videoHeight;
   if (vw && vh) {
-    _camCanvas.width = vw;
-    _camCanvas.height = vh;
-    _camCtx.drawImage(_camVideo, 0, 0, vw, vh);
-    const imageData = _camCtx.getImageData(0, 0, vw, vh);
+    // Crop au viewfinder pour accélérer la détection
+    const cx = Math.round(vw * _VF.left);
+    const cy = Math.round(vh * _VF.top);
+    const cw = Math.round(vw * (_VF.right - _VF.left));
+    const ch = Math.round(vh * (_VF.bottom - _VF.top));
+    _camCanvas.width = cw;
+    _camCanvas.height = ch;
+    _camCtx.drawImage(_camVideo, cx, cy, cw, ch, 0, 0, cw, ch);
+    const imageData = _camCtx.getImageData(0, 0, cw, ch);
 
     try {
       const results = await ZXingWASM.readBarcodes(imageData, {
