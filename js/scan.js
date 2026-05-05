@@ -615,27 +615,33 @@ async function _startCamera() {
     return;
   }
 
-  // Créer <video> + liste résultats dans le container
+  // Créer <video> + bouton fermer dans le container
   const reader = document.getElementById('camReader');
   reader.innerHTML = '';
   _camVideo = document.createElement('video');
   _camVideo.setAttribute('playsinline', '');
   _camVideo.setAttribute('autoplay', '');
-  _camVideo.style.cssText = 'width:100%;border-radius:10px';
   _camVideo.srcObject = _camStream;
   reader.appendChild(_camVideo);
+
+  // Bouton fermer
+  const closeBtn = document.createElement('button');
+  closeBtn.id = 'camClose';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = () => _stopCamera();
+  reader.appendChild(closeBtn);
+
   await _camVideo.play();
 
-  // Liste des codes détectés
+  // Liste des codes détectés (overlay en bas)
   _detectedCodes.clear();
   let pickList = document.getElementById('camPickList');
   if (!pickList) {
     pickList = document.createElement('div');
     pickList.id = 'camPickList';
-    pickList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 4px';
   }
   pickList.innerHTML = '';
-  reader.after(pickList);
+  reader.appendChild(pickList);
 
   // Canvas offscreen pour capturer les frames
   _camCanvas = document.createElement('canvas');
@@ -682,30 +688,27 @@ async function _scanLoop() {
 function _renderPickList() {
   const el = document.getElementById('camPickList');
   if (!el) return;
-  el.innerHTML = '';
+  const n = _detectedCodes.size;
+  let html = `<div class="pick-header"><span>${n} code${n>1?'s':''} detecte${n>1?'s':''}</span><button onclick="document.getElementById('camPickList').innerHTML='';window._camDetectedCodes.clear()">EFFACER</button></div>`;
   for (const [code, info] of _detectedCodes) {
-    const btn = document.createElement('button');
-    btn.textContent = code;
-    btn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid var(--act);background:rgba(96,165,250,.15);color:var(--act);font-size:14px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums';
-    btn.onclick = () => {
-      _stopCamera();
-      input.value = code;
-      lookup(code);
-    };
-    el.appendChild(btn);
+    html += `<div style="display:flex;align-items:center;padding:8px 0;border-top:1px solid rgba(255,255,255,.1);cursor:pointer" onclick="window._camPick('${code}')">
+      <div style="flex:1"><div style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff">${code}</div><div style="font-size:11px;color:var(--t3)">${info.format||'Code'}</div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--act)">VOIR →</div>
+    </div>`;
   }
+  el.innerHTML = html;
 }
 
-function _pickCode(code) {
+window._camDetectedCodes = _detectedCodes;
+window._camPick = function(code) {
   _stopCamera();
   input.value = code;
   lookup(code);
-}
+};
 
 function _stopCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
-  const pickList = document.getElementById('camPickList');
   if (_camRAF) { clearTimeout(_camRAF); _camRAF = 0; }
   if (_camStream) {
     _camStream.getTracks().forEach(t => t.stop());
@@ -713,8 +716,9 @@ function _stopCamera() {
   }
   if (_camVideo) { _camVideo.srcObject = null; _camVideo = null; }
   _camCanvas = null; _camCtx = null;
-  if (pickList) pickList.remove();
   _detectedCodes.clear();
+  const reader = document.getElementById('camReader');
+  if (reader) reader.innerHTML = '';
   if (zone) zone.classList.remove('open');
   if (btn) btn.classList.remove('active');
   _camActive = false;
