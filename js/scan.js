@@ -704,6 +704,7 @@ async function _scanLoop() {
         if (prev && now - prev.ts < 2000) continue; // anti-doublon 2s
         _detectedCodes.set(code, { format: r.format, ts: now });
         _vibrate();
+        _addScanToActions(code);
         _renderPickList();
       }
     } catch(e) {
@@ -714,15 +715,48 @@ async function _scanLoop() {
   _camRAF = setTimeout(() => _scanLoop(), 80);
 }
 
+// Résout un code-barre scanné → ajoute dans _actionMap comme "scanné"
+function _addScanToActions(barcode) {
+  const clean = barcode.replace(/\D/g, '');
+  if (!clean || !_articles) return;
+  // Résoudre : code article direct, EAN, ou ref fournisseur
+  let r = _articles.get(clean);
+  let artCode = clean;
+  if (!r && _eanMap) {
+    const c = _eanMap.get(clean) || _customEanMap.get(clean);
+    if (c) { r = _articles.get(c); artCode = c; }
+  }
+  if (!r && _refMap) {
+    const c = _refMap.get(barcode) || _refMap.get(barcode.toUpperCase());
+    if (c) { r = _articles.get(c); artCode = c; }
+  }
+  if (!r) return; // article inconnu — pas d'ajout
+  if (_actionMap.has(artCode)) return; // déjà dans les actions
+  _actionMap.set(artCode, {
+    code: artCode, libelle: r.libelle || '', famille: r.famille || '',
+    emplacement: r.emplacement || '', scanne: true, ts: new Date().toISOString()
+  });
+  _saveActions();
+  _updateActionBadge();
+}
+
 function _renderPickList() {
   const el = document.getElementById('camPickList');
   if (!el) return;
   const n = _detectedCodes.size;
-  let html = `<div class="pick-header"><span>${n} code${n>1?'s':''} detecte${n>1?'s':''}</span><button onclick="document.getElementById('camPickList').innerHTML='';window._camDetectedCodes.clear()">EFFACER</button></div>`;
+  if (!n) { el.innerHTML = ''; return; }
+  let html = `<div class="pick-header"><span>${n} scanne${n>1?'s':''}</span><button onclick="document.getElementById('camPickList').innerHTML='';window._camDetectedCodes.clear()">EFFACER</button></div>`;
   for (const [code, info] of _detectedCodes) {
-    html += `<div style="display:flex;align-items:center;padding:8px 0;border-top:1px solid rgba(255,255,255,.1);cursor:pointer" onclick="window._camPick('${code}')">
-      <div style="flex:1"><div style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff">${code}</div><div style="font-size:11px;color:var(--t3)">${info.format||'Code'}</div></div>
-      <div style="font-size:13px;font-weight:700;color:var(--act)">VOIR →</div>
+    // Résoudre le libellé
+    const clean = code.replace(/\D/g, '');
+    let r = _articles?.get(clean);
+    let artCode = clean;
+    if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) { r = _articles?.get(c); artCode = c; } }
+    const lib = r ? r.libelle : '?';
+    const color = r ? 'var(--green)' : 'var(--red)';
+    html += `<div style="display:flex;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.1);cursor:pointer" onclick="window._camPick('${code}')">
+      <div style="flex:1"><div style="font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff">${r ? artCode : code}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw">${lib}</div></div>
+      <div style="font-size:11px;font-weight:700;color:${color}">${r ? '✓' : '?'}</div>
     </div>`;
   }
   el.innerHTML = html;
@@ -1414,12 +1448,33 @@ function showActions() {
     }
     html += '</div>';
   }
-  if (entries.length) {
+  // Séparer scannés (sans action) vs articles avec actions
+  const scanned = entries.filter(a => a.scanne && !a.retour && !a.commander && !a.corriger_erp && !a.nouvelEmplacement && !a.inventaire);
+  const withActions = entries.filter(a => !scanned.includes(a));
+
+  // Section scannés
+  if (scanned.length) {
+    html += '<div style="margin-bottom:12px;padding:12px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-radius:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      + '<strong style="font-size:14px;color:var(--act)">📷 ' + scanned.length + ' scanne' + (scanned.length > 1 ? 's' : '') + '</strong>'
+      + '<button onclick="window._clearScanned()" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(239,68,68,.2);color:var(--red);font-size:11px;font-weight:600;cursor:pointer">Effacer</button>'
+      + '</div>';
+    for (const a of scanned) {
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);cursor:pointer" onclick="input.value=\'' + a.code + '\';lookup(\'' + a.code + '\')">'
+        + '<span style="font-size:14px;font-weight:800;color:var(--t1);letter-spacing:1px;font-variant-numeric:tabular-nums">' + _esc(a.code) + '</span>'
+        + '<span style="font-size:12px;color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(a.libelle) + '</span>'
+        + '<button onclick="event.stopPropagation();removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer;padding:2px">✕</button>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (withActions.length) {
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-    + '<strong style="font-size:15px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong>'
+    + '<strong style="font-size:15px">' + withActions.length + ' article' + (withActions.length > 1 ? 's' : '') + ' à corriger</strong>'
     + '<button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>'
     + '</div>';
-  for (const a of entries) {
+  for (const a of withActions) {
     // Ligne 1 : CODE en géant + bouton supprimer
     // Ligne 2 : Libellé en gris (souffleur de vérification)
     // Ligne 3 : Actions dans l'ordre ERP : Emplacement → MIN/MAX → Stock
@@ -1466,7 +1521,7 @@ function showActions() {
       + (badges.length ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' + badges.join('') + '</div>' : '')
       + '</div>';
   }
-  } // end if entries.length
+  } // end if withActions.length
   html += '</div>';
   el.innerHTML = html;
 }
@@ -1479,6 +1534,17 @@ function removeAction(code) {
   showActions();
 }
 window.removeAction = removeAction;
+
+window._clearScanned = function() {
+  for (const [code, a] of _actionMap) {
+    if (a.scanne && !a.retour && !a.commander && !a.corriger_erp && !a.nouvelEmplacement && !a.inventaire) {
+      _actionMap.delete(code);
+    }
+  }
+  _saveActions();
+  _updateActionBadge();
+  showActions();
+};
 
 function exportActions() {
   if (!_actionMap.size) return;
