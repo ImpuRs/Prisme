@@ -2985,6 +2985,45 @@ window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
 
 // ── Export Scan — fichier léger pour mobile ──────────────────────────
+// ── Rafraichir stock depuis ZZAT018 CSV ──────────────────────────────
+window.refreshFromZZAT018 = function(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  fileInput.value = ''; // reset pour pouvoir reimporter
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      // Lire CSV en ISO-8859-1 (encodage Legallais)
+      const text = reader.result;
+      const rows = text.split('\n');
+      let updated = 0, notFound = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].split(';').map(c => c.trim());
+        if (cols.length < 12) continue;
+        const code = cols[3];
+        if (!/^\d{6}$/.test(code)) continue;
+        const r = _S.finalData.find(a => a.code === code);
+        if (!r) { notFound++; continue; }
+        r.stockActuel = parseInt(cols[9]) || 0;
+        r.emplacement = cols[10] || r.emplacement;
+        r.ancienMin = parseInt(cols[7]) || 0;
+        r.ancienMax = parseInt(cols[8]) || 0;
+        const statut = cols[11] || '';
+        if (statut) r.statut = statut;
+        updated++;
+      }
+      // Re-render
+      renderTable();
+      renderAll();
+      _saveSessionToIDB();
+      showToast(`Stock rafraichi : ${updated} articles mis a jour` + (notFound ? ` (${notFound} non trouves)` : ''), 'success');
+    } catch (e) {
+      showToast('Erreur lecture ZZAT018 : ' + e.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'ISO-8859-1');
+};
+
 window.exportScanData = function() {
   if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
   const myStore = _S.selectedMyStore || '';
