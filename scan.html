@@ -86,19 +86,12 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 #camPickList .pick-header button{background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer}
 #camClose{position:absolute;top:12px;left:12px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:20px;cursor:pointer;z-index:2}
 #camOverlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1}
-#camOverlay .dim{position:absolute;background:rgba(0,0,0,.45)}
-#camOverlay .dim-top{top:0;left:0;right:0}
-#camOverlay .dim-bot{bottom:0;left:0;right:0}
-#camOverlay .dim-left{left:0}
-#camOverlay .dim-right{right:0}
-#camOverlay .frame{position:absolute;left:10%;right:10%;top:30%;height:25%;border:2px solid rgba(255,255,255,.7);border-radius:12px}
-#camOverlay .corner{position:absolute;width:24px;height:24px;border-color:#fff;border-style:solid;border-width:0}
-#camOverlay .c-tl{top:-2px;left:-2px;border-top-width:4px;border-left-width:4px;border-top-left-radius:12px}
-#camOverlay .c-tr{top:-2px;right:-2px;border-top-width:4px;border-right-width:4px;border-top-right-radius:12px}
-#camOverlay .c-bl{bottom:-2px;left:-2px;border-bottom-width:4px;border-left-width:4px;border-bottom-left-radius:12px}
-#camOverlay .c-br{bottom:-2px;right:-2px;border-bottom-width:4px;border-right-width:4px;border-bottom-right-radius:12px}
-#camOverlay .scan-line{position:absolute;left:10%;right:10%;height:2px;background:var(--act);box-shadow:0 0 8px var(--act);animation:scanLine 2s ease-in-out infinite}
-@keyframes scanLine{0%,100%{top:32%}50%{top:53%}}
+#camOverlay .frame{position:absolute;left:50%;top:50%;width:76%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.5);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+#camOverlay .corner{position:absolute;width:28px;height:28px;border-color:#fff;border-style:solid;border-width:0}
+#camOverlay .c-tl{top:-2px;left:-2px;border-top-width:4px;border-left-width:4px;border-top-left-radius:16px}
+#camOverlay .c-tr{top:-2px;right:-2px;border-top-width:4px;border-right-width:4px;border-top-right-radius:16px}
+#camOverlay .c-bl{bottom:-2px;left:-2px;border-bottom-width:4px;border-left-width:4px;border-bottom-left-radius:16px}
+#camOverlay .c-br{bottom:-2px;right:-2px;border-bottom-width:4px;border-right-width:4px;border-bottom-right-radius:16px}
 </style>
 </head>
 <body>
@@ -139,6 +132,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 
 <div class="scan-count" id="scanCount"></div>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
-<script src="js/scan.js?v=20260505x"></script>
+<script src="js/scan.js?v=20260505y"></script>
 </body>
 </html>

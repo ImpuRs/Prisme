@@ -634,10 +634,8 @@ async function _startCamera() {
   // Overlay viseur
   const ov = document.createElement('div');
   ov.id = 'camOverlay';
-  ov.innerHTML = `<div class="dim dim-top"></div><div class="dim dim-bot"></div><div class="dim dim-left"></div><div class="dim dim-right"></div><div class="frame"><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div></div><div class="scan-line"></div>`;
+  ov.innerHTML = `<div class="frame"><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div></div>`;
   reader.appendChild(ov);
-  // Positionner les zones sombres autour du cadre
-  _layoutOverlay(ov);
 
   await _camVideo.play();
 
@@ -659,32 +657,21 @@ async function _startCamera() {
   _scanLoop();
 }
 
-// Viewfinder zone (% du flux vidéo) — correspond au CSS .frame
-const _VF = { left: 0.10, top: 0.30, right: 0.90, bottom: 0.55 };
-
-function _layoutOverlay(ov) {
-  if (!ov) return;
-  const t = ov.querySelector('.dim-top');
-  const b = ov.querySelector('.dim-bot');
-  const l = ov.querySelector('.dim-left');
-  const r = ov.querySelector('.dim-right');
-  const top = '30%', bot = '55%', lf = '10%', rt = '10%';
-  if (t) t.style.cssText = `height:${top}`;
-  if (b) b.style.cssText = `top:${bot}`;
-  if (l) l.style.cssText = `top:${top};bottom:calc(100% - ${bot});width:${lf}`;
-  if (r) r.style.cssText = `top:${top};bottom:calc(100% - ${bot});width:${rt}`;
-}
+// Viewfinder carré centré — 76% largeur, aspect-ratio 1:1
+// Crop relatif au flux vidéo (object-fit:cover peut décaler)
+const _VF_SIZE = 0.76; // 76% de la largeur
 
 async function _scanLoop() {
   if (!_camActive || !_camVideo) return;
   const vw = _camVideo.videoWidth;
   const vh = _camVideo.videoHeight;
   if (vw && vh) {
-    // Crop au viewfinder pour accélérer la détection
-    const cx = Math.round(vw * _VF.left);
-    const cy = Math.round(vh * _VF.top);
-    const cw = Math.round(vw * (_VF.right - _VF.left));
-    const ch = Math.round(vh * (_VF.bottom - _VF.top));
+    // Crop au viewfinder carré centré
+    const side = Math.round(Math.min(vw, vh) * _VF_SIZE);
+    const cx = Math.round((vw - side) / 2);
+    const cy = Math.round((vh - side) / 2);
+    const cw = side;
+    const ch = side;
     _camCanvas.width = cw;
     _camCanvas.height = ch;
     _camCtx.drawImage(_camVideo, cx, cy, cw, ch, 0, 0, cw, ch);
