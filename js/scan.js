@@ -513,9 +513,10 @@ function _applyScanMode() {
 _applyScanMode();
 window.toggleScanMode = toggleScanMode;
 
-// ── Caméra scan (html5-qrcode) ───────────────────────────────────────
-let _camScanner = null;
+// ── Caméra scan (Quagga2) ─────────────────────────────────────────────
 let _camActive = false;
+let _lastDetected = '';
+let _lastDetectedTime = 0;
 
 function toggleCamera() {
   if (_camActive) { _stopCamera(); return; }
@@ -526,7 +527,7 @@ window.toggleCamera = toggleCamera;
 function _startCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
-  if (!zone || typeof Html5Qrcode === 'undefined') {
+  if (!zone || typeof Quagga === 'undefined') {
     alert('Librairie caméra non chargée. Vérifiez la connexion.');
     return;
   }
@@ -534,48 +535,64 @@ function _startCamera() {
   btn.classList.add('active');
   _camActive = true;
 
-  _camScanner = new Html5Qrcode('camReader');
-  // Résolution haute + focus continu pour iPhone (ZXing fallback)
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const videoConstraints = {
-    facingMode: 'environment',
-    width: { ideal: isIOS ? 1920 : 1280 },
-    height: { ideal: isIOS ? 1080 : 720 },
-  };
-  // iPhone : focus continu aide la netteté sur barcodes linéaires
-  if (isIOS) videoConstraints.focusMode = { ideal: 'continuous' };
-  _camScanner.start(
-    videoConstraints,
-    { fps: isIOS ? 5 : 15, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ]
+  Quagga.init({
+    inputStream: {
+      type: 'LiveStream',
+      target: document.getElementById('camReader'),
+      constraints: {
+        facingMode: 'environment',
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
     },
-    (code) => {
-      // Scan réussi — vibration + lookup
-      _vibrate();
+    locator: { patchSize: 'medium', halfSample: true },
+    frequency: 10,
+    decoder: {
+      readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader'],
+      multiple: false,
+    },
+    locate: true,
+  }, function(err) {
+    if (err) {
+      console.warn('Caméra:', err);
       _stopCamera();
-      input.value = code;
-      lookup(code);
-    },
-    () => {} // scan en cours, pas de match
-  ).catch(err => {
-    console.warn('Caméra:', err);
-    _stopCamera();
-    alert('Impossible d\'ouvrir la caméra.\nVérifiez les permissions.');
+      alert('Impossible d\'ouvrir la caméra.\nVérifiez les permissions.');
+      return;
+    }
+    Quagga.start();
   });
+
+  Quagga.onDetected(function(result) {
+    const code = result?.codeResult?.code;
+    if (!code) return;
+    // Anti-doublon : même code dans les 2s → ignorer
+    const now = Date.now();
+    if (code === _lastDetected && now - _lastDetectedTime < 2000) return;
+    // Validation EAN-13 : vérifier checksum pour éviter les faux positifs
+    if (code.length === 13 && !_validateEAN13(code)) return;
+    _lastDetected = code;
+    _lastDetectedTime = now;
+    _vibrate();
+    _stopCamera();
+    input.value = code;
+    lookup(code);
+  });
+}
+
+function _validateEAN13(code) {
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
+  }
+  return (10 - (sum % 10)) % 10 === parseInt(code[12]);
 }
 
 function _stopCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
-  if (_camScanner) {
-    _camScanner.stop().then(() => { _camScanner.clear(); }).catch(() => {});
-    _camScanner = null;
+  if (_camActive && typeof Quagga !== 'undefined') {
+    try { Quagga.stop(); } catch(e) {}
+    Quagga.offDetected();
   }
   if (zone) zone.classList.remove('open');
   if (btn) btn.classList.remove('active');
