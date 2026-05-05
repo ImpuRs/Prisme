@@ -535,9 +535,18 @@ function _startCamera() {
   _camActive = true;
 
   _camScanner = new Html5Qrcode('camReader');
+  // Résolution haute + focus continu pour iPhone (ZXing fallback)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const videoConstraints = {
+    facingMode: 'environment',
+    width: { ideal: isIOS ? 1920 : 1280 },
+    height: { ideal: isIOS ? 1080 : 720 },
+  };
+  // iPhone : focus continu aide la netteté sur barcodes linéaires
+  if (isIOS) videoConstraints.focusMode = { ideal: 'continuous' };
   _camScanner.start(
-    { facingMode: 'environment' },
-    { fps: 20, qrbox: { width: 350, height: 150 }, aspectRatio: 1.5,
+    videoConstraints,
+    { fps: isIOS ? 5 : 15, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
