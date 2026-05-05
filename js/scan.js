@@ -485,10 +485,6 @@ function _renderCard(code) {
         <span class="d-val d-erp">${erpMin} / ${erpMax}</span>
       </div>` : ''}
       <div class="d-cell">
-        <span class="d-label">Marge réseau</span>
-        <span class="d-val">${txMarge}</span>
-      </div>
-      <div class="d-cell">
         <span class="d-label">ABC/FMR</span>
         <span class="d-val">${r.abcClass || '—'}-${r.fmrClass || '—'}${r.matriceVerdict ? ' · ' + _esc(r.matriceVerdict) : ''}</span>
       </div>
