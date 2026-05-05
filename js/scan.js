@@ -600,7 +600,6 @@ function _startCamera() {
         width: { ideal: 1280 },
         height: { ideal: 720 },
       },
-      area: { top: '25%', right: '5%', bottom: '25%', left: '5%' },
     },
     locator: { patchSize: 'large', halfSample: true },
     numOfWorkers: navigator.hardwareConcurrency ? Math.min(navigator.hardwareConcurrency, 2) : 1,
@@ -609,7 +608,7 @@ function _startCamera() {
       readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader'],
       multiple: false,
     },
-    locate: false,
+    locate: true,
   }, function(err) {
     if (err) {
       console.warn('Caméra:', err);
