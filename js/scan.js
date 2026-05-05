@@ -597,17 +597,19 @@ function _startCamera() {
       target: document.getElementById('camReader'),
       constraints: {
         facingMode: 'environment',
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       },
+      area: { top: '25%', right: '5%', bottom: '25%', left: '5%' },
     },
-    locator: { patchSize: 'medium', halfSample: true },
-    frequency: 10,
+    locator: { patchSize: 'large', halfSample: true },
+    numOfWorkers: navigator.hardwareConcurrency ? Math.min(navigator.hardwareConcurrency, 2) : 1,
+    frequency: 15,
     decoder: {
       readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader'],
       multiple: false,
     },
-    locate: true,
+    locate: false,
   }, function(err) {
     if (err) {
       console.warn('Caméra:', err);
