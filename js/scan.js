@@ -693,6 +693,8 @@ async function _scanLoop() {
         if (prev && now - prev.ts < 2000) continue; // anti-doublon 2s
         _detectedCodes.set(code, { format: r.format, ts: now });
         _vibrate();
+        _beep();
+        _flashFrame();
         _addScanToActions(code);
         _renderPickList();
       }
@@ -1268,6 +1270,36 @@ if (_scanMode) {
 }
 
 function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
+
+// Bip sonore via Web Audio API
+let _audioCtx = null;
+function _beep() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 1200;
+    osc.type = 'square';
+    gain.gain.value = 0.15;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.12);
+    osc.stop(_audioCtx.currentTime + 0.12);
+  } catch(_){}
+}
+
+// Flash vert sur le cadre de visée
+function _flashFrame() {
+  const frame = document.querySelector('#camOverlay .frame');
+  if (!frame) return;
+  frame.style.borderColor = 'var(--green)';
+  frame.style.boxShadow = '0 0 0 9999px rgba(0,0,0,.45), 0 0 20px var(--green)';
+  setTimeout(() => {
+    frame.style.borderColor = 'rgba(255,255,255,.5)';
+    frame.style.boxShadow = '0 0 0 9999px rgba(0,0,0,.45)';
+  }, 250);
+}
 
 function _updateActionBadge() {
   const badge = document.getElementById('actionBadge');
