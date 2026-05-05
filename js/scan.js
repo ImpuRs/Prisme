@@ -380,7 +380,12 @@ function _renderCard(code) {
   const verdict = _verdict(r);
   const stock = r.stockActuel ?? 0;
   const prixMoyen = r.prixMoyenReseau ? _euro(r.prixMoyenReseau) : '—';
-  const txMarge = r.txMargeReseau != null ? r.txMargeReseau.toFixed(0) + '%' : '—';
+  // Marge calculée au prix moyen avec le coût unitaire réel
+  const cout = r._coutUnitaire || r.prixUnitaire || 0;
+  const txMargeCalc = (r.prixMoyenReseau && cout > 0)
+    ? Math.round((1 - cout / r.prixMoyenReseau) * 1000) / 10
+    : r.txMargeReseau;
+  const txMarge = txMargeCalc != null ? txMargeCalc.toFixed(0) + '%' : '—';
   const emp = r.emplacement || '—';
   const min = r.nouveauMin || 0;
   const max = r.nouveauMax || 0;
