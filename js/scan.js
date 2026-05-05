@@ -10,6 +10,7 @@ const IDB_STORE = 'session';
 let _articles = null;   // Map<code, article>
 let _eanMap = null;     // Map<ean, code>
 let _refMap = null;     // Map<refFournisseur, code>
+let _catData = null;    // catalogue-marques.json brut {M, F, S, A, E}
 let _scanCount = 0;
 let _actionMap = new Map();  // Map<code, {code, libelle, famille, emplacement, retour?, commander?, corriger_erp?, nouvelEmplacement?, ts}>
 const _AQ_KEY = 'prisme_scan_actions';
@@ -286,7 +287,38 @@ function lookup(code) {
     if (artCode) r = _articles.get(artCode);
   }
   if (!r) {
-    el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(raw)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire</span></p></div>`;
+    // Fallback catalogue : article pas en agence mais existe chez Legallais
+    const catCode = clean.length === 6 ? clean : (_eanMap?.get(clean) || null);
+    const catEntry = catCode && _catData?.A?.[catCode];
+    if (catEntry) {
+      const marque = _catData.M[catEntry[0]] || '—';
+      const fam = _catData.F[catEntry[1]];
+      const designation = catEntry[2] || '—';
+      const statut = _catData.S?.[catEntry[3]] || '';
+      const libFam = fam ? fam[1] : '—';
+      const libSF = fam ? fam[3] : '';
+      _scanCount++;
+      document.getElementById('scanCount').textContent = _scanCount + ' scan' + (_scanCount > 1 ? 's' : '');
+      el.innerHTML = `<div class="card" style="border-color:var(--amber)">
+        <div class="card-head">
+          <div class="code">${_esc(catCode)}</div>
+          <div class="lib">${_esc(designation)}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(251,191,36,0.08)">
+          <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px">⚠ Article hors agence</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.8">
+            <div><span style="color:var(--t3)">Marque</span> <strong>${_esc(marque)}</strong></div>
+            <div><span style="color:var(--t3)">Famille</span> ${_esc(libFam)}${libSF ? ' › ' + _esc(libSF) : ''}</div>
+            ${statut ? `<div><span style="color:var(--t3)">Statut</span> ${_esc(statut)}</div>` : ''}
+            <div style="margin-top:8px;font-size:11px;color:var(--t3)">Cet article existe au catalogue Legallais mais n'est pas référencé dans votre agence.</div>
+          </div>
+        </div>
+      </div>`;
+      input.value = '';
+      clearBtn.style.display = 'none';
+      return;
+    }
+    el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(raw)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire · ${_catData?.A ? Object.keys(_catData.A).length.toLocaleString() : 0} au catalogue</span></p></div>`;
     return;
   }
 
@@ -614,8 +646,8 @@ function _liveSearch(q) {
   if (!_articles || q.length < 3) { _clearSuggestions(); return; }
   const el = document.getElementById('content');
   const clean = q.replace(/\D/g, '');
-  // Code exact → lookup direct
-  if (clean.length === 6 && _articles.has(clean)) {
+  // Code exact → lookup direct (agence ou catalogue)
+  if (clean.length === 6 && (_articles.has(clean) || _catData?.A?.[clean])) {
     _clearSuggestions();
     lookup(clean);
     return;
@@ -623,7 +655,7 @@ function _liveSearch(q) {
   // Lookup EAN direct (8-14 chiffres)
   if (_eanMap && clean.length >= 8 && clean.length <= 14) {
     const artCode = _eanMap.get(clean);
-    if (artCode && _articles.has(artCode)) {
+    if (artCode) {
       _clearSuggestions();
       lookup(artCode);
       return;
@@ -632,7 +664,7 @@ function _liveSearch(q) {
   // Lookup ref fournisseur exact — seulement si ≥5 caractères (évite auto-validation sur saisie partielle)
   if (_refMap && q.trim().length >= 5) {
     const artCode = _refMap.get(q.trim()) || _refMap.get(q.trim().toUpperCase());
-    if (artCode && _articles.has(artCode)) {
+    if (artCode) {
       _clearSuggestions();
       lookup(artCode);
       return;
@@ -791,6 +823,7 @@ loadData();
 // Charger EAN + refs fournisseur depuis le catalogue (indépendant de l'IDB)
 fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
   if (!data) return;
+  _catData = data;
   if (data.E && !_eanMap) {
     _eanMap = new Map();
     for (const [ean, code] of Object.entries(data.E)) _eanMap.set(ean, code);
