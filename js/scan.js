@@ -659,7 +659,7 @@ async function _startCamera() {
   // Overlay viseur
   const ov = document.createElement('div');
   ov.id = 'camOverlay';
-  ov.innerHTML = `<div class="frame"><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div></div>`;
+  ov.innerHTML = `<div class="frame"><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div><div class="laser"></div></div>`;
   reader.appendChild(ov);
 
   await _camVideo.play();
