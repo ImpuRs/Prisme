@@ -702,7 +702,16 @@ async function _scanLoop() {
     _camCanvas.width = cw;
     _camCanvas.height = ch;
     _camCtx.drawImage(_camVideo, cx, cy, cw, ch, 0, 0, cw, ch);
+    // Boost contraste pour étiquettes abîmées/pâles
     const imageData = _camCtx.getImageData(0, 0, cw, ch);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      // Grayscale + contraste fort (factor 1.8)
+      const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+      const c2 = ((g - 128) * 1.8 + 128) | 0;
+      const v = c2 < 0 ? 0 : c2 > 255 ? 255 : c2;
+      d[i] = d[i+1] = d[i+2] = v;
+    }
 
     try {
       const results = await ZXingWASM.readBarcodes(imageData, {
