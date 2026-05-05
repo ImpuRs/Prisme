@@ -717,15 +717,33 @@ async function _scanLoop() {
     const imageData = _camCtx.getImageData(0, 0, cw, ch);
 
     try {
-      const results = await ZXingWASM.readBarcodes(imageData, {
+      // Course ZXing vs ZBar — le premier qui décode gagne (approche eBay)
+      const hasZbar = typeof zbarWasm !== 'undefined';
+      const zxingP = ZXingWASM.readBarcodes(imageData, {
         tryHarder: true,
         formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
         maxNumberOfSymbols: 4,
-      });
+      }).then(res => res.map(r => ({ text: r.text, format: r.format })));
+
+      const zbarP = hasZbar
+        ? zbarWasm.scanImageData(imageData).then(symbols =>
+            symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
+          ).catch(() => [])
+        : Promise.resolve([]);
+
+      const [zxingRes, zbarRes] = await Promise.all([zxingP, zbarP]);
+      // Fusionner : zbar en priorité (meilleur sur codes abîmés), puis zxing
+      const seen = new Set();
+      const merged = [];
+      for (const r of [...zbarRes, ...zxingRes]) {
+        if (!r.text || seen.has(r.text)) continue;
+        seen.add(r.text);
+        merged.push(r);
+      }
+
       const now = Date.now();
-      for (const r of results) {
+      for (const r of merged) {
         const code = r.text;
-        if (!code) continue;
         // Filtrer les faux positifs : garder seulement codes numériques 5-13 chiffres
         if (!/^\d{5,13}$/.test(code)) continue;
         const prev = _detectedCodes.get(code);
