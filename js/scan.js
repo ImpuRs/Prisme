@@ -576,8 +576,8 @@ let _camVideo = null;
 let _camCanvas = null;
 let _camCtx = null;
 let _camRAF = 0;
-let _lastDetected = '';
 let _lastDetectedTime = 0;
+let _detectedCodes = new Map(); // Map<code, {format, ts}> — codes détectés en cours
 let _zxingReady = false;
 
 // Pré-charger le WASM au boot
@@ -615,7 +615,7 @@ async function _startCamera() {
     return;
   }
 
-  // Créer <video> dans le container
+  // Créer <video> + liste résultats dans le container
   const reader = document.getElementById('camReader');
   reader.innerHTML = '';
   _camVideo = document.createElement('video');
@@ -625,6 +625,17 @@ async function _startCamera() {
   _camVideo.srcObject = _camStream;
   reader.appendChild(_camVideo);
   await _camVideo.play();
+
+  // Liste des codes détectés
+  _detectedCodes.clear();
+  let pickList = document.getElementById('camPickList');
+  if (!pickList) {
+    pickList = document.createElement('div');
+    pickList.id = 'camPickList';
+    pickList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 4px';
+  }
+  pickList.innerHTML = '';
+  reader.after(pickList);
 
   // Canvas offscreen pour capturer les frames
   _camCanvas = document.createElement('canvas');
@@ -648,32 +659,53 @@ async function _scanLoop() {
       const results = await ZXingWASM.readBarcodes(imageData, {
         tryHarder: true,
         formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39', 'QRCode'],
-        maxNumberOfSymbols: 1,
+        maxNumberOfSymbols: 4,
       });
-      if (results.length > 0) {
-        const code = results[0].text;
-        const now = Date.now();
-        if (code && (code !== _lastDetected || now - _lastDetectedTime > 2000)) {
-          _lastDetected = code;
-          _lastDetectedTime = now;
-          _vibrate();
-          _stopCamera();
-          input.value = code;
-          lookup(code);
-          return;
-        }
+      const now = Date.now();
+      for (const r of results) {
+        const code = r.text;
+        if (!code) continue;
+        const prev = _detectedCodes.get(code);
+        if (prev && now - prev.ts < 2000) continue; // anti-doublon 2s
+        _detectedCodes.set(code, { format: r.format, ts: now });
+        _vibrate();
+        _renderPickList();
       }
     } catch(e) {
       console.warn('[Scan] zxing-wasm erreur:', e);
     }
   }
-  // ~12 fps — bon compromis perf/réactivité
+  // ~12 fps
   _camRAF = setTimeout(() => _scanLoop(), 80);
+}
+
+function _renderPickList() {
+  const el = document.getElementById('camPickList');
+  if (!el) return;
+  el.innerHTML = '';
+  for (const [code, info] of _detectedCodes) {
+    const btn = document.createElement('button');
+    btn.textContent = code;
+    btn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid var(--act);background:rgba(96,165,250,.15);color:var(--act);font-size:14px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums';
+    btn.onclick = () => {
+      _stopCamera();
+      input.value = code;
+      lookup(code);
+    };
+    el.appendChild(btn);
+  }
+}
+
+function _pickCode(code) {
+  _stopCamera();
+  input.value = code;
+  lookup(code);
 }
 
 function _stopCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
+  const pickList = document.getElementById('camPickList');
   if (_camRAF) { clearTimeout(_camRAF); _camRAF = 0; }
   if (_camStream) {
     _camStream.getTracks().forEach(t => t.stop());
@@ -681,6 +713,8 @@ function _stopCamera() {
   }
   if (_camVideo) { _camVideo.srcObject = null; _camVideo = null; }
   _camCanvas = null; _camCtx = null;
+  if (pickList) pickList.remove();
+  _detectedCodes.clear();
   if (zone) zone.classList.remove('open');
   if (btn) btn.classList.remove('active');
   _camActive = false;
