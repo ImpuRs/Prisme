@@ -639,15 +639,17 @@ async function _startCamera() {
 
   await _camVideo.play();
 
-  // Liste des codes détectés (overlay en bas)
+  // Bottom sheet pour les codes détectés
   _detectedCodes.clear();
-  let pickList = document.getElementById('camPickList');
-  if (!pickList) {
-    pickList = document.createElement('div');
-    pickList.id = 'camPickList';
-  }
-  pickList.innerHTML = '';
-  reader.appendChild(pickList);
+  let sheet = document.getElementById('camSheet');
+  if (sheet) sheet.remove();
+  sheet = document.createElement('div');
+  sheet.id = 'camSheet';
+  sheet.innerHTML = '<div class="sheet-handle"></div><div class="pick-header"><span></span></div><div class="pick-items"></div>';
+  // Tap sur le handle/header → toggle expand
+  sheet.querySelector('.sheet-handle').addEventListener('click', () => sheet.classList.toggle('expanded'));
+  sheet.querySelector('.pick-header').addEventListener('click', () => sheet.classList.toggle('expanded'));
+  zone.appendChild(sheet);
 
   // Canvas offscreen pour capturer les frames
   _camCanvas = document.createElement('canvas');
@@ -728,25 +730,34 @@ function _addScanToActions(barcode) {
 }
 
 function _renderPickList() {
-  const el = document.getElementById('camPickList');
-  if (!el) return;
+  const sheet = document.getElementById('camSheet');
+  if (!sheet) return;
   const n = _detectedCodes.size;
-  if (!n) { el.innerHTML = ''; return; }
-  let html = `<div class="pick-header"><span>${n} scanne${n>1?'s':''}</span><button onclick="document.getElementById('camPickList').innerHTML='';window._camDetectedCodes.clear()">EFFACER</button></div>`;
+  if (!n) { sheet.style.display = 'none'; return; }
+  sheet.style.display = '';
+
+  // Header
+  const header = sheet.querySelector('.pick-header');
+  header.innerHTML = `<span>${n} scanne${n>1?'s':''}</span><button onclick="window._camClearList()">EFFACER</button>`;
+
+  // Items
+  const items = sheet.querySelector('.pick-items');
+  let html = '';
   for (const [code, info] of _detectedCodes) {
-    // Résoudre le libellé
     const clean = code.replace(/\D/g, '');
     let r = _articles?.get(clean);
     let artCode = clean;
     if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) { r = _articles?.get(c); artCode = c; } }
     const lib = r ? r.libelle : '?';
-    const color = r ? 'var(--green)' : 'var(--red)';
-    html += `<div style="display:flex;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.1);cursor:pointer" onclick="window._camPick('${code}')">
-      <div style="flex:1"><div style="font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff">${r ? artCode : code}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw">${lib}</div></div>
-      <div style="font-size:11px;font-weight:700;color:${color}">${r ? '✓' : '?'}</div>
+    const badge = r ? '<span class="pi-badge" style="color:var(--green)">✓</span>' : '<span class="pi-badge" style="color:var(--red)">?</span>';
+    html += `<div class="pick-item" onclick="window._camPick('${code}')">
+      <div class="pi-info"><div class="pi-code">${r ? artCode : code}</div><div class="pi-lib">${lib}</div></div>
+      ${badge}
     </div>`;
   }
-  el.innerHTML = html;
+  // Bouton "Reprendre le scan" quand expanded
+  html += '<button class="resume-btn" onclick="document.getElementById(\'camSheet\').classList.remove(\'expanded\')">REPRENDRE LE SCAN</button>';
+  items.innerHTML = html;
 }
 
 window._camDetectedCodes = _detectedCodes;
@@ -754,6 +765,11 @@ window._camPick = function(code) {
   _stopCamera();
   input.value = code;
   lookup(code);
+};
+window._camClearList = function() {
+  _detectedCodes.clear();
+  const sheet = document.getElementById('camSheet');
+  if (sheet) { sheet.style.display = 'none'; sheet.classList.remove('expanded'); }
 };
 
 function _stopCamera() {
@@ -769,6 +785,8 @@ function _stopCamera() {
   _detectedCodes.clear();
   const reader = document.getElementById('camReader');
   if (reader) reader.innerHTML = '';
+  const sheet = document.getElementById('camSheet');
+  if (sheet) sheet.remove();
   if (zone) zone.classList.remove('open');
   if (btn) btn.classList.remove('active');
   _camActive = false;
