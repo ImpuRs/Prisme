@@ -816,7 +816,10 @@ function _renderPickList() {
     let artCode = clean;
     if (!r && _eanMap) { const c = _eanMap.get(clean) || _customEanMap.get(clean); if (c) { r = _articles?.get(c); artCode = c; } }
     const lib = r ? r.libelle : '?';
-    const fmt = (info.format || '').replace('Linear-', '');
+    const rawFmt = (info.format || '');
+    const isZbar = rawFmt.startsWith('ZBar-');
+    const fmtName = rawFmt.replace('ZBar-ZBAR_', '').replace('Linear-', '').replace('EAN-', 'EAN').replace('Code', 'C');
+    const fmt = fmtName + (isZbar ? ' zb' : '');
     const eanHint = (code !== artCode) ? ' ....' + code.slice(-4) : '';
     const badge = r ? '<span class="pi-badge" style="color:var(--green)">✓</span>' : '<span class="pi-badge" style="color:var(--red)">?</span>';
     html += `<div class="pick-item">
