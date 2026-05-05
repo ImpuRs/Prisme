@@ -498,6 +498,9 @@ function _renderCard(code) {
       </div>
     </div>
     ${actionHtml ? `<div class="action-zone">${actionHtml}</div>` : ''}
+    <div style="padding:8px 12px 12px">
+      <button onclick="toggleCamera()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--card);border:1px solid var(--border);color:var(--t1);font-size:15px;font-weight:700;cursor:pointer">📷 Scanner</button>
+    </div>
   </div>`;
 }
 
