@@ -622,11 +622,16 @@ function _startCamera() {
   Quagga.onDetected(function(result) {
     const code = result?.codeResult?.code;
     if (!code) return;
+    // Confiance minimale — rejeter les lectures floues
+    const errors = result.codeResult.decodedCodes?.filter(d => d.error != null).map(d => d.error) || [];
+    const avgError = errors.length ? errors.reduce((a, b) => a + b, 0) / errors.length : 1;
+    if (avgError > 0.12) return;
+    // Validation checksum EAN-13 et EAN-8
+    if (code.length === 13 && !_validateEAN13(code)) return;
+    if (code.length === 8 && !_validateEAN8(code)) return;
     // Anti-doublon : même code dans les 2s → ignorer
     const now = Date.now();
     if (code === _lastDetected && now - _lastDetectedTime < 2000) return;
-    // Validation EAN-13 : vérifier checksum pour éviter les faux positifs
-    if (code.length === 13 && !_validateEAN13(code)) return;
     _lastDetected = code;
     _lastDetectedTime = now;
     _vibrate();
@@ -638,10 +643,13 @@ function _startCamera() {
 
 function _validateEAN13(code) {
   let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
-  }
+  for (let i = 0; i < 12; i++) sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
   return (10 - (sum % 10)) % 10 === parseInt(code[12]);
+}
+function _validateEAN8(code) {
+  let sum = 0;
+  for (let i = 0; i < 7; i++) sum += parseInt(code[i]) * (i % 2 === 0 ? 3 : 1);
+  return (10 - (sum % 10)) % 10 === parseInt(code[7]);
 }
 
 function _stopCamera() {
