@@ -569,10 +569,22 @@ function _applyScanMode() {
 _applyScanMode();
 window.toggleScanMode = toggleScanMode;
 
-// ── Caméra scan (Quagga2) ─────────────────────────────────────────────
+// ── Caméra scan (zxing-wasm — ZXing C++ compilé en WebAssembly) ────────
 let _camActive = false;
+let _camStream = null;
+let _camVideo = null;
+let _camCanvas = null;
+let _camCtx = null;
+let _camRAF = 0;
 let _lastDetected = '';
 let _lastDetectedTime = 0;
+let _zxingReady = false;
+
+// Pré-charger le WASM au boot
+if (typeof ZXingWASM !== 'undefined') {
+  // Le WASM se charge au premier appel de readBarcodes, mais on peut préchauffer
+  _zxingReady = true;
+}
 
 function toggleCamera() {
   if (_camActive) { _stopCamera(); return; }
@@ -580,10 +592,10 @@ function toggleCamera() {
 }
 window.toggleCamera = toggleCamera;
 
-function _startCamera() {
+async function _startCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
-  if (!zone || typeof Quagga === 'undefined') {
+  if (!zone || typeof ZXingWASM === 'undefined') {
     alert('Librairie caméra non chargée. Vérifiez la connexion.');
     return;
   }
@@ -591,74 +603,84 @@ function _startCamera() {
   btn.classList.add('active');
   _camActive = true;
 
-  Quagga.init({
-    inputStream: {
-      type: 'LiveStream',
-      target: document.getElementById('camReader'),
-      constraints: {
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-    },
-    locator: { patchSize: 'large', halfSample: true },
-    numOfWorkers: navigator.hardwareConcurrency ? Math.min(navigator.hardwareConcurrency, 2) : 1,
-    frequency: 15,
-    decoder: {
-      readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader'],
-      multiple: false,
-    },
-    locate: true,
-  }, function(err) {
-    if (err) {
-      console.warn('Caméra:', err);
-      _stopCamera();
-      alert('Impossible d\'ouvrir la caméra.\nVérifiez les permissions.');
-      return;
-    }
-    Quagga.start();
-  });
-
-  Quagga.onDetected(function(result) {
-    const code = result?.codeResult?.code;
-    if (!code) return;
-    // Confiance minimale — rejeter les lectures floues
-    const errors = result.codeResult.decodedCodes?.filter(d => d.error != null).map(d => d.error) || [];
-    const avgError = errors.length ? errors.reduce((a, b) => a + b, 0) / errors.length : 1;
-    if (avgError > 0.12) return;
-    // Validation checksum EAN-13 et EAN-8
-    if (code.length === 13 && !_validateEAN13(code)) return;
-    if (code.length === 8 && !_validateEAN8(code)) return;
-    // Anti-doublon : même code dans les 2s → ignorer
-    const now = Date.now();
-    if (code === _lastDetected && now - _lastDetectedTime < 2000) return;
-    _lastDetected = code;
-    _lastDetectedTime = now;
-    _vibrate();
+  try {
+    _camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+  } catch(err) {
+    console.warn('Caméra:', err);
     _stopCamera();
-    input.value = code;
-    lookup(code);
-  });
+    alert('Impossible d\'ouvrir la caméra.\nVérifiez les permissions.');
+    return;
+  }
+
+  // Créer <video> dans le container
+  const reader = document.getElementById('camReader');
+  reader.innerHTML = '';
+  _camVideo = document.createElement('video');
+  _camVideo.setAttribute('playsinline', '');
+  _camVideo.setAttribute('autoplay', '');
+  _camVideo.style.cssText = 'width:100%;border-radius:10px';
+  _camVideo.srcObject = _camStream;
+  reader.appendChild(_camVideo);
+  await _camVideo.play();
+
+  // Canvas offscreen pour capturer les frames
+  _camCanvas = document.createElement('canvas');
+  _camCtx = _camCanvas.getContext('2d', { willReadFrequently: true });
+
+  // Boucle de scan
+  _scanLoop();
 }
 
-function _validateEAN13(code) {
-  let sum = 0;
-  for (let i = 0; i < 12; i++) sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
-  return (10 - (sum % 10)) % 10 === parseInt(code[12]);
-}
-function _validateEAN8(code) {
-  let sum = 0;
-  for (let i = 0; i < 7; i++) sum += parseInt(code[i]) * (i % 2 === 0 ? 3 : 1);
-  return (10 - (sum % 10)) % 10 === parseInt(code[7]);
+async function _scanLoop() {
+  if (!_camActive || !_camVideo) return;
+  const vw = _camVideo.videoWidth;
+  const vh = _camVideo.videoHeight;
+  if (vw && vh) {
+    _camCanvas.width = vw;
+    _camCanvas.height = vh;
+    _camCtx.drawImage(_camVideo, 0, 0, vw, vh);
+    const imageData = _camCtx.getImageData(0, 0, vw, vh);
+
+    try {
+      const results = await ZXingWASM.readBarcodes(imageData, {
+        tryHarder: true,
+        formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39', 'QRCode'],
+        maxNumberOfSymbols: 1,
+      });
+      if (results.length > 0) {
+        const code = results[0].text;
+        const now = Date.now();
+        if (code && (code !== _lastDetected || now - _lastDetectedTime > 2000)) {
+          _lastDetected = code;
+          _lastDetectedTime = now;
+          _vibrate();
+          _stopCamera();
+          input.value = code;
+          lookup(code);
+          return;
+        }
+      }
+    } catch(e) {
+      console.warn('[Scan] zxing-wasm erreur:', e);
+    }
+  }
+  // ~12 fps — bon compromis perf/réactivité
+  _camRAF = setTimeout(() => _scanLoop(), 80);
 }
 
 function _stopCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
-  if (_camActive && typeof Quagga !== 'undefined') {
-    try { Quagga.stop(); } catch(e) {}
-    Quagga.offDetected();
+  if (_camRAF) { clearTimeout(_camRAF); _camRAF = 0; }
+  if (_camStream) {
+    _camStream.getTracks().forEach(t => t.stop());
+    _camStream = null;
   }
+  if (_camVideo) { _camVideo.srcObject = null; _camVideo = null; }
+  _camCanvas = null; _camCtx = null;
   if (zone) zone.classList.remove('open');
   if (btn) btn.classList.remove('active');
   _camActive = false;
