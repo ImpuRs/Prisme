@@ -1540,6 +1540,7 @@
                 <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
                 <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
                 <label class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">🔄 Rafraichir stock (ZZAT018)<input type="file" accept=".csv" onchange="refreshFromZZAT018(this)" style="display:none"></label>
+                <label class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">📎 Importer codes-barres (CSV)<input type="file" accept=".csv" onchange="importEanCSV(this)" style="display:none"></label>
                 <button onclick="exportScanData()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-blue-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter pour Scan</button>
               </div>
             </details>

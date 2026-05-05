@@ -3024,6 +3024,38 @@ window.refreshFromZZAT018 = function(fileInput) {
   reader.readAsText(file, 'ISO-8859-1');
 };
 
+// ── Importer associations EAN depuis CSV scan ───────────────────────
+window.importEanCSV = function(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  fileInput.value = '';
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = reader.result;
+      const rows = text.split('\n');
+      if (!_S.catalogueEAN) _S.catalogueEAN = new Map();
+      let added = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length < 2) continue;
+        const code = cols[0].replace(/\D/g, '');
+        const ean = cols[1].replace(/\D/g, '');
+        if (code.length !== 6 || ean.length < 8) continue;
+        if (!_S.catalogueEAN.has(ean)) {
+          _S.catalogueEAN.set(ean, code);
+          added++;
+        }
+      }
+      _saveSessionToIDB();
+      showToast(`${added} code${added > 1 ? 's' : ''}-barre${added > 1 ? 's' : ''} importe${added > 1 ? 's' : ''} (${_S.catalogueEAN.size} total)`, 'success');
+    } catch (e) {
+      showToast('Erreur lecture CSV : ' + e.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
 window.exportScanData = function() {
   if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
   const myStore = _S.selectedMyStore || '';
