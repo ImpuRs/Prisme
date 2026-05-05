@@ -922,7 +922,15 @@ window._associateEan = function(ean) {
   // Injecter aussi dans _eanMap pour usage immédiat
   if (_eanMap) _eanMap.set(ean, raw);
   _saveCustomEan();
+  _updateActionBadge();
   lookup(raw);
+};
+window._clearCustomEan = function() {
+  if (!confirm(_customEanMap.size + ' association(s) EAN seront supprimées. Continuer ?')) return;
+  _customEanMap.clear();
+  _saveCustomEan();
+  _updateActionBadge();
+  showActions();
 };
 window._exportCustomEan = function() {
   if (!_customEanMap.size) return;
@@ -1107,7 +1115,7 @@ function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
 function _updateActionBadge() {
   const badge = document.getElementById('actionBadge');
   if (!badge) return;
-  const n = _actionMap.size;
+  const n = _actionMap.size + _customEanMap.size;
   badge.textContent = n;
   badge.style.display = n > 0 ? 'flex' : 'none';
 }
@@ -1282,16 +1290,36 @@ function _qrGenerate(text) {
 
 function showActions() {
   const el = document.getElementById('content');
-  if (!_actionMap.size) {
+  if (!_actionMap.size && !_customEanMap.size) {
     el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Aucune action en file.<br><span style="font-size:11px;color:var(--t3)">Scannez des articles pour ajouter des actions.</span></p></div>';
     return;
   }
   const entries = [..._actionMap.values()].sort((a, b) => a.code.localeCompare(b.code));
-  let html = '<div style="padding:8px 0">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+  let html = '<div style="padding:8px 0">';
+  // Section associations EAN terrain
+  if (_customEanMap.size) {
+    html += '<div style="margin-bottom:12px;padding:12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<strong style="font-size:14px;color:var(--violet)">📎 ' + _customEanMap.size + ' code' + (_customEanMap.size > 1 ? 's' : '') + '-barre' + (_customEanMap.size > 1 ? 's' : '') + ' associé' + (_customEanMap.size > 1 ? 's' : '') + '</strong>'
+      + '<div style="display:flex;gap:6px">'
+      + '<button onclick="window._exportCustomEan()" style="padding:5px 12px;border-radius:8px;border:none;background:var(--violet);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button>'
+      + '<button onclick="window._clearCustomEan()" style="padding:5px 8px;border-radius:8px;border:none;background:rgba(239,68,68,.2);color:var(--red);font-size:12px;cursor:pointer">✕</button>'
+      + '</div></div>';
+    for (const [ean, code] of _customEanMap) {
+      const name = _articles?.get(code)?.libelle || _catData?.A?.[code]?.[2] || '';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">'
+        + '<span style="color:var(--t3);font-variant-numeric:tabular-nums;letter-spacing:1px">' + _esc(ean) + '</span>'
+        + '<span style="color:var(--t3)">→</span>'
+        + '<span style="color:var(--t1);font-weight:700">' + _esc(code) + '</span>'
+        + '<span style="color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(name) + '</span>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+  if (entries.length) {
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     + '<strong style="font-size:15px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong>'
     + '<button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>'
-    + (_customEanMap.size ? ' <button onclick="window._exportCustomEan()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--violet);color:#fff;font-size:13px;font-weight:600;cursor:pointer">' + _customEanMap.size + ' EAN</button>' : '')
     + '</div>';
   for (const a of entries) {
     // Ligne 1 : CODE en géant + bouton supprimer
@@ -1340,6 +1368,7 @@ function showActions() {
       + (badges.length ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' + badges.join('') + '</div>' : '')
       + '</div>';
   }
+  } // end if entries.length
   html += '</div>';
   el.innerHTML = html;
 }
