@@ -570,6 +570,31 @@ _applyScanMode();
 window.toggleScanMode = toggleScanMode;
 
 // ── Caméra scan (zxing-wasm — ZXing C++ compilé en WebAssembly) ────────
+let _camModeContinuous = JSON.parse(localStorage.getItem('prisme_scan_continuous') ?? 'true');
+_applyScanCamMode();
+
+function toggleScanCamMode() {
+  _camModeContinuous = !_camModeContinuous;
+  localStorage.setItem('prisme_scan_continuous', JSON.stringify(_camModeContinuous));
+  _applyScanCamMode();
+}
+function _applyScanCamMode() {
+  const btn = document.getElementById('scanModeToggle');
+  if (!btn) return;
+  if (_camModeContinuous) {
+    btn.textContent = 'Continu';
+    btn.style.background = 'rgba(96,165,250,.2)';
+    btn.style.color = 'var(--act)';
+    btn.style.borderColor = 'var(--act)';
+  } else {
+    btn.textContent = 'Direct';
+    btn.style.background = 'transparent';
+    btn.style.color = 'var(--t2)';
+    btn.style.borderColor = 'var(--border)';
+  }
+}
+window.toggleScanCamMode = toggleScanCamMode;
+
 let _camActive = false;
 let _camStream = null;
 let _camVideo = null;
@@ -695,6 +720,13 @@ async function _scanLoop() {
         _vibrate();
         _beep();
         _flashFrame();
+        // Mode direct : 1 scan → fiche immédiate
+        if (!_camModeContinuous) {
+          _stopCamera();
+          input.value = code;
+          lookup(code);
+          return;
+        }
         _addScanToActions(code);
         _renderPickList();
       }

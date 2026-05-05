@@ -106,7 +106,8 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 <body>
 
 <div class="header">
-  <h1>PRISME Scan</h1>
+  <h1>Scan</h1>
+  <button id="scanModeToggle" onclick="toggleScanCamMode()" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:11px;font-weight:700;cursor:pointer">Continu</button>
   <span class="badge" id="refCount">&mdash;</span>
   <button class="action-badge" id="actionBadge" onclick="showActions()">0</button>
   <button id="invBtn" onclick="toggleInventaire()" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:11px;font-weight:700;cursor:pointer">Inventaire</button>
@@ -141,6 +142,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 
 <div class="scan-count" id="scanCount"></div>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
-<script src="js/scan.js?v=20260506e"></script>
+<script src="js/scan.js?v=20260506f"></script>
 </body>
 </html>
