@@ -714,6 +714,8 @@ async function _scanLoop() {
       for (const r of results) {
         const code = r.text;
         if (!code) continue;
+        // Filtrer les faux positifs : garder seulement codes numériques 5-13 chiffres
+        if (!/^\d{5,13}$/.test(code)) continue;
         const prev = _detectedCodes.get(code);
         if (prev && now - prev.ts < 2000) continue; // anti-doublon 2s
         _detectedCodes.set(code, { format: r.format, ts: now });
