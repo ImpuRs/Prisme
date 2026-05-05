@@ -98,7 +98,16 @@ async function loadData() {
             }
             r._reseauAgences = reseauCount;
             r.prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
-            r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
+            // Coût unitaire = (CA - VMB) / Qté → marge réelle au prix moyen
+            if (totalQte > 0 && totalCA > 0) {
+              const coutUnit = (totalCA - totalVMB) / totalQte;
+              r._coutUnitaire = Math.round(coutUnit * 100) / 100;
+              r.txMargeReseau = r.prixMoyenReseau > 0
+                ? Math.round((1 - coutUnit / r.prixMoyenReseau) * 10000) / 100
+                : null;
+            } else {
+              r.txMargeReseau = null;
+            }
           }
         }
         _applyCorrections();
