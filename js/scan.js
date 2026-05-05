@@ -688,25 +688,36 @@ async function _startCamera() {
 // Crop relatif au flux vidéo (object-fit:cover peut décaler)
 const _VF_SIZE = 0.76; // 76% de la largeur
 
+let _scanPass = 0; // alterne carré plein / bande laser
+
 async function _scanLoop() {
   if (!_camActive || !_camVideo) return;
   const vw = _camVideo.videoWidth;
   const vh = _camVideo.videoHeight;
   if (vw && vh) {
-    // Crop au viewfinder carré centré
     const side = Math.round(Math.min(vw, vh) * _VF_SIZE);
     const cx = Math.round((vw - side) / 2);
     const cy = Math.round((vh - side) / 2);
-    const cw = side;
-    const ch = side;
+
+    // Alterner : passe paire = carré plein, passe impaire = bande laser horizontale
+    _scanPass++;
+    let cw, ch, sy;
+    if (_scanPass % 2 === 0) {
+      // Carré plein
+      cw = side; ch = side; sy = cy;
+    } else {
+      // Bande laser : 15% de hauteur centrée (passe mieux les pliures)
+      const bandH = Math.round(side * 0.15);
+      cw = side; ch = bandH; sy = cy + Math.round((side - bandH) / 2);
+    }
+
     _camCanvas.width = cw;
     _camCanvas.height = ch;
-    _camCtx.drawImage(_camVideo, cx, cy, cw, ch, 0, 0, cw, ch);
+    _camCtx.drawImage(_camVideo, cx, sy, cw, ch, 0, 0, cw, ch);
     // Boost contraste pour étiquettes abîmées/pâles
     const imageData = _camCtx.getImageData(0, 0, cw, ch);
     const d = imageData.data;
     for (let i = 0; i < d.length; i += 4) {
-      // Grayscale + contraste fort (factor 1.8)
       const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
       const c2 = ((g - 128) * 1.8 + 128) | 0;
       const v = c2 < 0 ? 0 : c2 > 255 ? 255 : c2;
