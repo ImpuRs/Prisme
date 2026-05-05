@@ -79,7 +79,8 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 #camZone{display:none;padding:0 16px 12px}
 #camZone.open{display:block}
 #camReader{width:100%;border-radius:12px;overflow:hidden;border:2px solid var(--act);position:relative}
-#camReader video{width:100%;border-radius:10px}
+#camReader{max-height:35vh}
+#camReader video{width:100%;border-radius:10px;max-height:35vh;object-fit:cover}
 </style>
 </head>
 <body>
@@ -120,6 +121,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 
 <div class="scan-count" id="scanCount"></div>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
-<script src="js/scan.js?v=20260505t"></script>
+<script src="js/scan.js?v=20260505u"></script>
 </body>
 </html>
