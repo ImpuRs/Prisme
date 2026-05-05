@@ -11,6 +11,8 @@ let _articles = null;   // Map<code, article>
 let _eanMap = null;     // Map<ean, code>
 let _refMap = null;     // Map<refFournisseur, code>
 let _catData = null;    // catalogue-marques.json brut {M, F, S, A, E}
+let _customEanMap = new Map(); // Map<ean, code> — associations terrain
+const _CUSTOM_EAN_KEY = 'prisme_custom_ean';
 let _scanCount = 0;
 let _actionMap = new Map();  // Map<code, {code, libelle, famille, emplacement, retour?, commander?, corriger_erp?, nouvelEmplacement?, ts}>
 const _AQ_KEY = 'prisme_scan_actions';
@@ -276,10 +278,10 @@ function lookup(code) {
   const clean = raw.replace(/\D/g, '');
   if (!raw) return;
 
-  // Lookup : code article → EAN → ref fournisseur
+  // Lookup : code article → EAN catalogue → EAN terrain → ref fournisseur
   let r = clean ? _articles.get(clean) : null;
   if (!r && _eanMap && clean) {
-    const artCode = _eanMap.get(clean);
+    const artCode = _eanMap.get(clean) || _customEanMap.get(clean);
     if (artCode) r = _articles.get(artCode);
   }
   if (!r && _refMap) {
@@ -288,7 +290,7 @@ function lookup(code) {
   }
   if (!r) {
     // Fallback catalogue : article pas en agence mais existe chez Legallais
-    const catCode = clean.length === 6 ? clean : (_eanMap?.get(clean) || null);
+    const catCode = clean.length === 6 ? clean : (_eanMap?.get(clean) || _customEanMap.get(clean) || null);
     const catEntry = catCode && _catData?.A?.[catCode];
     if (catEntry) {
       const marque = _catData.M[catEntry[0]] || '—';
@@ -316,6 +318,28 @@ function lookup(code) {
       </div>`;
       input.value = '';
       clearBtn.style.display = 'none';
+      return;
+    }
+    // EAN inconnu (8-14 chiffres) → proposer association
+    if (clean.length >= 8 && clean.length <= 14) {
+      el.innerHTML = `<div class="card" style="border-color:var(--violet)">
+        <div style="padding:14px;text-align:center">
+          <div style="font-size:14px;font-weight:700;color:var(--violet);margin-bottom:4px">📎 Code-barre non associé</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:2px;margin:8px 0;color:var(--t1)">${_esc(clean)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Ce code-barre n'est pas dans la base. Saisissez le code article à 6 chiffres pour l'associer.</div>
+          <div style="display:flex;gap:8px;justify-content:center;align-items:center">
+            <input id="eanAssocInput" type="text" inputmode="numeric" maxlength="6" placeholder="Code article"
+              style="width:120px;padding:8px 12px;font-size:16px;font-weight:700;text-align:center;border-radius:8px;border:2px solid var(--border);background:var(--card);color:var(--t1);letter-spacing:2px"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();window._associateEan('${_esc(clean)}');}">
+            <button onclick="window._associateEan('${_esc(clean)}')"
+              style="padding:8px 16px;border-radius:8px;border:none;background:var(--violet);color:#fff;font-weight:700;font-size:13px;cursor:pointer">Associer</button>
+          </div>
+          ${_customEanMap.size ? `<div style="margin-top:12px;font-size:10px;color:var(--t3)">${_customEanMap.size} association${_customEanMap.size > 1 ? 's' : ''} enregistrée${_customEanMap.size > 1 ? 's' : ''}</div>` : ''}
+        </div>
+      </div>`;
+      input.value = '';
+      clearBtn.style.display = 'none';
+      setTimeout(() => document.getElementById('eanAssocInput')?.focus(), 100);
       return;
     }
     el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(raw)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire · ${_catData?.A ? Object.keys(_catData.A).length.toLocaleString() : 0} au catalogue</span></p></div>`;
@@ -818,6 +842,7 @@ if ('serviceWorker' in navigator) {
 
 // ── Init ───────────────────────────────────────────────────────────────
 _loadActions();
+_loadCustomEan();
 loadData();
 
 // Charger EAN + refs fournisseur depuis le catalogue (indépendant de l'IDB)
@@ -864,6 +889,54 @@ function _loadActions() {
     }
   } catch(e) { console.error('[Scan] ❌ Erreur load actions:', e); }
 }
+
+// ── Associations EAN terrain ──────────────────────────────────────────
+function _saveCustomEan() {
+  try {
+    const obj = Object.fromEntries(_customEanMap);
+    localStorage.setItem(_CUSTOM_EAN_KEY, JSON.stringify(obj));
+  } catch(e) { console.error('[Scan] Erreur save EAN:', e); }
+}
+function _loadCustomEan() {
+  try {
+    const s = localStorage.getItem(_CUSTOM_EAN_KEY);
+    if (s) {
+      const obj = JSON.parse(s);
+      for (const [ean, code] of Object.entries(obj)) _customEanMap.set(ean, code);
+      console.log('[Scan] ' + _customEanMap.size + ' associations EAN terrain restaurées');
+    }
+  } catch(e) {}
+}
+window._associateEan = function(ean) {
+  const codeInput = document.getElementById('eanAssocInput');
+  if (!codeInput) return;
+  const raw = codeInput.value.trim().replace(/\D/g, '');
+  if (raw.length !== 6) { codeInput.style.borderColor = 'var(--red)'; return; }
+  // Vérifier que l'article existe (agence ou catalogue)
+  if (!_articles?.has(raw) && !_catData?.A?.[raw]) {
+    codeInput.style.borderColor = 'var(--red)';
+    codeInput.placeholder = 'Code introuvable';
+    return;
+  }
+  _customEanMap.set(ean, raw);
+  // Injecter aussi dans _eanMap pour usage immédiat
+  if (_eanMap) _eanMap.set(ean, raw);
+  _saveCustomEan();
+  lookup(raw);
+};
+window._exportCustomEan = function() {
+  if (!_customEanMap.size) return;
+  let csv = 'Code_Article;Code_EAN\n';
+  for (const [ean, code] of _customEanMap) {
+    const name = _articles?.get(code)?.libelle || _catData?.A?.[code]?.[2] || '';
+    csv += code + ';' + ean + ';' + name + '\n';
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ean-associations-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+};
 
 function addAction(code, type, detail) {
   const r = _articles?.get(code);
@@ -1218,6 +1291,7 @@ function showActions() {
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     + '<strong style="font-size:15px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong>'
     + '<button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>'
+    + (_customEanMap.size ? ' <button onclick="window._exportCustomEan()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--violet);color:#fff;font-size:13px;font-weight:600;cursor:pointer">' + _customEanMap.size + ' EAN</button>' : '')
     + '</div>';
   for (const a of entries) {
     // Ligne 1 : CODE en géant + bouton supprimer
