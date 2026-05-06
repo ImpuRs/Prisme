@@ -3101,7 +3101,7 @@ window.exportScanData = function() {
       _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '',
       medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
-      _reseauAgences: reseauAgences, isParent: r.isParent
+      _reseauAgences: reseauAgences, isParent: r.isParent, _refFourn: r._refFourn || ''
     };
   });
   // ── Ajouter les articles squelette "implanter" absents de finalData ──
