@@ -853,6 +853,22 @@ export async function loadCatalogueMarques() {
       for (const [ean, code] of Object.entries(data.E)) _S.catalogueEAN.set(ean, code);
     }
 
+    // Ref fournisseur → enrichir finalData
+    if (data.R) {
+      _S.catalogueRefFourn = new Map();
+      for (const [rawCode, ref] of Object.entries(data.R)) {
+        const code = rawCode.replace(/^0+/, '').padStart(6, '0');
+        _S.catalogueRefFourn.set(code, ref);
+      }
+      // Enrichir finalData si déjà chargé
+      if (_S.finalData?.length) {
+        for (const r of _S.finalData) {
+          const ref = _S.catalogueRefFourn.get(r.code);
+          if (ref) r._refFourn = ref;
+        }
+      }
+    }
+
     _S.marquesList = [..._S.marqueArticles.keys()].filter(m => typeof m === 'string' && m.length > 0).sort();
     console.log(`[PRISME] Catalogue marques : ${_S.catalogueMarques.size} articles, ${_S.marquesList.length} marques, ${_S.catalogueEAN.size} EAN`);
   } catch (e) {
