@@ -488,10 +488,6 @@ function _renderCard(code) {
       <div class="lib">${_esc(r.libelle || '—')}</div>
     </div>
     <div class="hero">
-      <div class="hero-cell">
-        <div class="hero-val">${prixMoyen}</div>
-        <div class="hero-label">PRIX MOY.<span style="color:var(--t3);font-size:8px;margin-left:3px">${txMarge}</span></div>
-      </div>
       <div class="hero-cell" onclick="_editStock('${r.code}',${stock})" style="cursor:pointer">
         <div class="hero-val" id="stockVal" style="color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
         <div class="hero-label">STOCK <span style="color:var(--t3)">${couv}</span> ✏️</div>
