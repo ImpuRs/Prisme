@@ -997,13 +997,13 @@ function _liveSearch(q) {
     return `<div onclick="selectArticle('${r.code}')" style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px"
       class="hover-row">
       <div style="flex:1;min-width:0">
-        <div style="font-size:10px;color:var(--border);letter-spacing:.5px">${_esc(r.code)}</div>
+        <div style="font-size:11px;color:var(--t2);letter-spacing:.5px">${_esc(r.code)}</div>
         <div style="font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(r.libelle || '—')}</div>
-        <div style="font-size:11px;color:#7dd3fc;font-weight:600;margin-top:1px">${_esc(r.emplacement || '—')}<span style="color:var(--border);font-weight:400;margin-left:6px">${r.famille ? _esc(r.famille) : ''}</span></div>
+        <div style="font-size:11px;color:#7dd3fc;font-weight:600;margin-top:1px">${_esc(r.emplacement || '—')}<span style="color:var(--t3);font-weight:400;margin-left:6px">${r.famille ? _esc(r.famille) : ''}</span></div>
       </div>
       <div style="text-align:right;flex-shrink:0;min-width:44px">
         <div style="font-size:18px;font-weight:900;color:${stock > 0 ? 'var(--green)' : 'var(--red)'}; line-height:1">${stock}</div>
-        <div style="font-size:9px;color:var(--border);margin-top:2px">${mm}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:2px">${mm}</div>
       </div>
       <div class="verdict" style="background:${v.bg};color:${v.color};font-size:9px;padding:2px 6px;white-space:nowrap;min-width:52px;text-align:center">${vLabel}</div>
     </div>`;
