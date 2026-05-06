@@ -3164,6 +3164,39 @@ window.exportScanData = function() {
   URL.revokeObjectURL(url);
   showToast('📱 Fichier Scan exporté — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
 };
+window.exportScanDataAG = function() {
+  // Export allégé pour collègues : sans prix moyen ni marge réseau
+  if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
+  const myStore = _S.selectedMyStore || '';
+  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+  const articles = DataStore.finalData.map(r => {
+    const mKey = (r.abcClass || '') + (r.fmrClass || '');
+    return {
+      code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
+      emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
+      prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
+      ancienMin: r.ancienMin, ancienMax: r.ancienMax,
+      nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
+      couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
+      matriceVerdict: _mLabels[mKey] || '',
+      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '',
+      _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
+      isParent: r.isParent, _refFourn: r._refFourn || ''
+    };
+  });
+  const eanMap = {};
+  if (_S.catalogueEAN?.size) {
+    for (const [ean, code] of _S.catalogueEAN) eanMap[ean] = code;
+  }
+  const payload = { version: 2, store: myStore, timestamp: Date.now(), count: articles.length, articles, ean: eanMap };
+  const json = JSON.stringify(payload);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'prisme-scan-' + myStore + '.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📱 Scan AG exporté (sans prix) — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
+};
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 function renderSidebarAgenceSelector() {
   // Navbar: static agence code display (no dropdown)
