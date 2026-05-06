@@ -591,7 +591,10 @@ function _renderAnimTabBar() {
 // ═══════════════════════════════════════════════════════════════
 
 let _pepStoreFilter = ''; // '' = toutes agences, 'AGxx' = filtre une agence
-const _PEP_TOP = 10;
+let _pepSort = 'ca'; // 'ca' ou 'bl'
+let _pepPage = 0;
+let _exclPage = 0;
+const _PEP_PAGE_SIZE = 20;
 
 function _buildPeriodFilteredStoreCA() {
   // Pépites = comptoir (MAGASIN prélevé) uniquement
@@ -686,7 +689,7 @@ function _renderPepitesReseauContent() {
     if (!exclusifs.has(store)) exclusifs.set(store, []);
     exclusifs.get(store).push({ code, lib, fam, caStore: ca, blStore: d.countBL || 0 });
   }
-  for (const [, arts] of exclusifs) arts.sort((a, b) => b.caStore - a.caStore);
+  for (const [, arts] of exclusifs) arts.sort(_pepSort === 'bl' ? (a, b) => b.blStore - a.blStore : (a, b) => b.caStore - a.caStore);
 
   // Pour chaque agence, top articles vs médiane réseau
   const storeList = _pepStoreFilter ? allStores.filter(s => s === _pepStoreFilter) : allStores;
@@ -709,11 +712,10 @@ function _renderPepitesReseauContent() {
       const fam = famLib(cf) || cf;
       candidates.push({ code, lib, fam, caStore, blStore, median: Math.round(med), ratio: Math.round(ratio * 10) / 10, ecart: Math.round(caStore - med) });
     }
-    candidates.sort((a, b) => b.ecart - a.ecart);
-    const top = candidates.slice(0, _PEP_TOP);
-    if (top.length) {
-      const totalEcart = top.reduce((s, a) => s + a.ecart, 0);
-      sections.push({ store, top, totalEcart, totalCandidates: candidates.length, isMe: store === myStore });
+    candidates.sort(_pepSort === 'bl' ? (a, b) => b.blStore - a.blStore : (a, b) => b.ecart - a.ecart);
+    if (candidates.length) {
+      const totalEcart = candidates.reduce((s, a) => s + a.ecart, 0);
+      sections.push({ store, candidates, totalEcart, totalCandidates: candidates.length, isMe: store === myStore });
     }
   }
 
@@ -740,11 +742,17 @@ function _renderPepitesReseauContent() {
     class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${allActive ? 'font-bold' : 'hover:t-primary'}"
     style="border-color:${allActive ? 'var(--c-action)' : 'var(--b-default)'};${allActive ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}">Toutes</button>`;
 
+  const sortCA = _pepSort === 'ca';
+  const sortBtnStyle = (active) => `text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}`;
+  const sortBtnBg = (active) => `border-color:${active ? 'var(--c-action)' : 'var(--b-default)'};${active ? 'background:rgba(139,92,246,0.15);color:var(--c-action)' : ''}`;
   let html = `<div class="mb-3">
     <div class="flex items-center gap-2 mb-2 flex-wrap">
       <span class="text-[11px] t-secondary font-semibold">Agence :</span>
       ${allBtn} ${filterBtns}
       <span class="ml-2">${periodLabel}</span>
+      <span class="ml-auto text-[11px] t-secondary font-semibold">Tri :</span>
+      <button onclick="window._pepSetSort('ca')" class="${sortBtnStyle(sortCA)}" style="${sortBtnBg(sortCA)}">CA</button>
+      <button onclick="window._pepSetSort('bl')" class="${sortBtnStyle(!sortCA)}" style="${sortBtnBg(!sortCA)}">BL</button>
     </div>
     <p class="text-[10px] t-disabled">Spécialités de chaque agence : articles où le CA dépasse ≥ 2× la médiane réseau. ${isPeriodFiltered ? 'Filtré par la période sélectionnée.' : 'Utilisez le filtre période pour cibler un mois.'}</p>
   </div>`;
@@ -776,7 +784,7 @@ function _renderPepitesReseauContent() {
             <th class="py-1.5 px-3 text-right">Méd. réseau</th>
             <th class="py-1.5 px-3 text-right">×</th>
           </tr></thead>
-          <tbody>${sec.top.map(a => {
+          <tbody>${sec.candidates.slice(_pepPage * _PEP_PAGE_SIZE, (_pepPage + 1) * _PEP_PAGE_SIZE).map(a => {
             return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
               <td class="py-1.5 px-3 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
               <td class="py-1.5 px-3 t-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.lib)}</td>
@@ -788,6 +796,11 @@ function _renderPepitesReseauContent() {
             </tr>`;
           }).join('')}</tbody>
         </table>
+        ${sec.totalCandidates > _PEP_PAGE_SIZE ? `<div class="flex items-center justify-center gap-3 py-2 text-[10px]">
+          <button onclick="window._pepNav(-1)" class="px-2 py-1 rounded border b-light cursor-pointer hover:s-hover" ${_pepPage === 0 ? 'disabled style="opacity:.3"' : ''}>← Préc.</button>
+          <span class="t-secondary">${_pepPage + 1} / ${Math.ceil(sec.totalCandidates / _PEP_PAGE_SIZE)} (${sec.totalCandidates} articles)</span>
+          <button onclick="window._pepNav(1)" class="px-2 py-1 rounded border b-light cursor-pointer hover:s-hover" ${(_pepPage + 1) * _PEP_PAGE_SIZE >= sec.totalCandidates ? 'disabled style="opacity:.3"' : ''}>Suiv. →</button>
+        </div>` : ''}
       </div>
     </details>`;
   }
@@ -824,7 +837,7 @@ function _renderPepitesReseauContent() {
               <th class="py-1.5 px-3 text-right">CA</th>
               <th class="py-1.5 px-3 text-right">BL</th>
             </tr></thead>
-            <tbody>${arts.slice(0, _PEP_TOP).map(a => {
+            <tbody>${arts.slice(_exclPage * _PEP_PAGE_SIZE, (_exclPage + 1) * _PEP_PAGE_SIZE).map(a => {
               return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
                 <td class="py-1.5 px-3 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
                 <td class="py-1.5 px-3 t-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.lib)}</td>
@@ -834,6 +847,11 @@ function _renderPepitesReseauContent() {
               </tr>`;
             }).join('')}</tbody>
           </table>
+          ${arts.length > _PEP_PAGE_SIZE ? `<div class="flex items-center justify-center gap-3 py-2 text-[10px]">
+            <button onclick="window._exclNav(-1)" class="px-2 py-1 rounded border b-light cursor-pointer hover:s-hover" ${_exclPage === 0 ? 'disabled style="opacity:.3"' : ''}>← Préc.</button>
+            <span class="t-secondary">${_exclPage + 1} / ${Math.ceil(arts.length / _PEP_PAGE_SIZE)} (${arts.length} articles)</span>
+            <button onclick="window._exclNav(1)" class="px-2 py-1 rounded border b-light cursor-pointer hover:s-hover" ${(_exclPage + 1) * _PEP_PAGE_SIZE >= arts.length ? 'disabled style="opacity:.3"' : ''}>Suiv. →</button>
+          </div>` : ''}
         </div>
       </details>`;
     }
@@ -844,6 +862,23 @@ function _renderPepitesReseauContent() {
 
 window._pepFilterStore = function(store) {
   _pepStoreFilter = store;
+  _pepPage = 0; _exclPage = 0;
+  const content = document.getElementById('animContent');
+  if (content) content.innerHTML = _renderPepitesReseauContent();
+};
+window._pepSetSort = function(sort) {
+  _pepSort = sort;
+  _pepPage = 0; _exclPage = 0;
+  const content = document.getElementById('animContent');
+  if (content) content.innerHTML = _renderPepitesReseauContent();
+};
+window._pepNav = function(dir) {
+  _pepPage = Math.max(0, _pepPage + dir);
+  const content = document.getElementById('animContent');
+  if (content) content.innerHTML = _renderPepitesReseauContent();
+};
+window._exclNav = function(dir) {
+  _exclPage = Math.max(0, _exclPage + dir);
   const content = document.getElementById('animContent');
   if (content) content.innerHTML = _renderPepitesReseauContent();
 };
