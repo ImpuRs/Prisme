@@ -3174,7 +3174,7 @@ window.exportScanDataAG = function() {
     return {
       code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
       emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
-      prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
+      W: r.W, V: r.V,
       ancienMin: r.ancienMin, ancienMax: r.ancienMax,
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
