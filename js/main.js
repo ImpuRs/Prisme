@@ -2996,14 +2996,28 @@ window.refreshFromZZAT018 = function(fileInput) {
       // Lire CSV en ISO-8859-1 (encodage Legallais)
       const text = reader.result;
       const rows = text.split('\n');
-      let updated = 0, notFound = 0;
+      let updated = 0, added = 0;
       for (let i = 1; i < rows.length; i++) {
         const cols = rows[i].split(';').map(c => c.trim());
         if (cols.length < 12) continue;
         const code = cols[3];
         if (!/^\d{6}$/.test(code)) continue;
-        const r = _S.finalData.find(a => a.code === code);
-        if (!r) { notFound++; continue; }
+        let r = _S.finalData.find(a => a.code === code);
+        if (!r) {
+          // Article absent du consommé → l'ajouter dans finalData
+          r = {
+            code, libelle: cols[4] || '', famille: cols[1] || '', sousFamille: cols[2] || '',
+            emplacement: cols[10] || '', statut: cols[11] || '',
+            stockActuel: parseInt(cols[9]) || 0,
+            ancienMin: parseInt(cols[7]) || 0, ancienMax: parseInt(cols[8]) || 0,
+            nouveauMin: 0, nouveauMax: 0, W: 0, V: 0, enleveTotal: 0,
+            couvertureJours: 9999, ageJours: 9999,
+            abcClass: '', fmrClass: '', prixUnitaire: 0, caAnnuel: 0
+          };
+          _S.finalData.push(r);
+          added++;
+          continue;
+        }
         r.stockActuel = parseInt(cols[9]) || 0;
         r.emplacement = cols[10] || r.emplacement;
         r.ancienMin = parseInt(cols[7]) || 0;
@@ -3016,7 +3030,7 @@ window.refreshFromZZAT018 = function(fileInput) {
       renderTable();
       renderAll();
       _saveSessionToIDB();
-      showToast(`Stock rafraichi : ${updated} articles mis a jour` + (notFound ? ` (${notFound} non trouves)` : ''), 'success');
+      showToast(`Stock rafraichi : ${updated} mis a jour` + (added ? ` + ${added} ajoutes` : ''), 'success');
     } catch (e) {
       showToast('Erreur lecture ZZAT018 : ' + e.message, 'error');
     }
