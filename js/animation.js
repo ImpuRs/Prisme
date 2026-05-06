@@ -671,6 +671,23 @@ function _renderPepitesReseauContent() {
     articleMedian.set(code, mid);
   }
 
+  // Exclusifs : articles vendus par 1 seule agence (CA > 50€)
+  const exclusifs = new Map(); // store → [{code, lib, fam, ca, bl}]
+  for (const code of allCodes) {
+    const sellers = allStores.filter(s => (storeCA[s]?.[code]?.sumCA || 0) > 0);
+    if (sellers.length !== 1) continue;
+    const store = sellers[0];
+    const d = storeCA[store][code];
+    const ca = d.sumCA || 0;
+    if (ca <= 50) continue;
+    const cf = catFam?.get(code)?.codeFam || artFam[code] || '';
+    const lib = _S.libelleLookup?.[code] || code;
+    const fam = famLib(cf) || cf;
+    if (!exclusifs.has(store)) exclusifs.set(store, []);
+    exclusifs.get(store).push({ code, lib, fam, caStore: ca, blStore: d.countBL || 0 });
+  }
+  for (const [, arts] of exclusifs) arts.sort((a, b) => b.caStore - a.caStore);
+
   // Pour chaque agence, top articles vs médiane réseau
   const storeList = _pepStoreFilter ? allStores.filter(s => s === _pepStoreFilter) : allStores;
   const sections = [];
@@ -773,6 +790,53 @@ function _renderPepitesReseauContent() {
         </table>
       </div>
     </details>`;
+  }
+
+  // Section Exclusifs
+  const exclStores = _pepStoreFilter ? storeList.filter(s => exclusifs.has(s)) : [...exclusifs.keys()].sort((a,b) => {
+    if (a === myStore) return -1; if (b === myStore) return 1;
+    return (exclusifs.get(b)?.length || 0) - (exclusifs.get(a)?.length || 0);
+  });
+  if (exclStores.length) {
+    html += `<div class="mt-6 mb-3">
+      <p class="text-[11px] t-secondary font-semibold">🏅 Exclusifs — articles vendus par une seule agence</p>
+      <p class="text-[10px] t-disabled">Articles avec CA > 50 € vendus par aucune autre agence du réseau.</p>
+    </div>`;
+    for (const store of exclStores) {
+      const arts = exclusifs.get(store);
+      if (!arts?.length) continue;
+      const storeColor = store === myStore ? '#3b82f6' : '#22c55e';
+      const storeLabel = store === myStore ? `${store} (moi)` : store;
+      html += `<details class="mb-3 s-card rounded-lg overflow-hidden" ${_pepStoreFilter ? 'open' : ''}>
+        <summary class="px-4 py-3 cursor-pointer select-none flex items-center justify-between hover:s-hover" style="background:${storeColor}0a">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-[13px]" style="color:${storeColor}">🏅 ${storeLabel}</span>
+            <span class="text-[10px] t-disabled">${arts.length} exclusif${arts.length > 1 ? 's' : ''} · ${formatEuro(arts.reduce((s,a) => s + a.caStore, 0))} CA</span>
+          </div>
+          <span class="acc-arrow" style="color:${storeColor}">▶</span>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="w-full text-[11px] border-collapse">
+            <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+              <th class="py-1.5 px-3 text-left">Code</th>
+              <th class="py-1.5 px-3 text-left">Libellé</th>
+              <th class="py-1.5 px-3 text-left">Famille</th>
+              <th class="py-1.5 px-3 text-right">CA</th>
+              <th class="py-1.5 px-3 text-right">BL</th>
+            </tr></thead>
+            <tbody>${arts.slice(0, _PEP_TOP).map(a => {
+              return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+                <td class="py-1.5 px-3 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
+                <td class="py-1.5 px-3 t-primary" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.lib)}</td>
+                <td class="py-1.5 px-3 t-secondary text-[10px]">${escapeHtml(a.fam)}</td>
+                <td class="py-1.5 px-3 text-right font-bold" style="color:${storeColor}">${formatEuro(a.caStore)}</td>
+                <td class="py-1.5 px-3 text-right t-secondary">${a.blStore}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </details>`;
+    }
   }
 
   return html;
