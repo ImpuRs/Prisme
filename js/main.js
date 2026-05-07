@@ -2653,7 +2653,7 @@ _S.articleMonthlySales=monthlySales;
       }
       invalidateCache('tab','terr');buildPeriodFilter();
       _mc('pré-render');
-      renderCanalAgence();renderCurrentTab();
+      renderCanalAgence();
       _mc('renderCurrentTab');
 
       initColSelector();
