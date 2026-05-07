@@ -832,7 +832,7 @@ function openArticlePanel(code,source){
     let nbBL=0;
     const kitRows=[];
     for(const [ag,arts] of Object.entries(_S.ventesParAgence||{})){
-      if(arts[code]){const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];kitRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
+      if(arts[code]){const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];kitRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,qteP:d.sumPrelevee||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
     }
     kitRows.sort((a,b)=>b.ca-a.ca);
     const nbAgKit = kitRows.length;
@@ -853,7 +853,7 @@ function openArticlePanel(code,source){
       for (const ag of stores) {
         const canalMap = bmsac?.[ag];
         if (!canalMap) continue;
-        let ca = 0, bl = 0;
+        let ca = 0, bl = 0, qteP = 0;
         for (const canal in canalMap) {
           const months = canalMap?.[canal]?.[code];
           if (!months) continue;
@@ -864,11 +864,12 @@ function openArticlePanel(code,source){
             if (!d) continue;
             ca += d.sumCA || 0;
             bl += d.countBL || 0;
+            qteP += d.sumPrelevee || d.sumQteP || 0;
           }
         }
         if (!ca && !bl) continue;
         const stk=_S.stockParMagasin?.[ag]?.[code];
-        agRows.push({ ag, ca, bl, min:stk?.qteMin??'—', max:stk?.qteMax??'—', stock:stk?.stockActuel??'—' });
+        agRows.push({ ag, ca, bl, qteP, min:stk?.qteMin??'—', max:stk?.qteMax??'—', stock:stk?.stockActuel??'—' });
       }
       agRows.sort((a,b)=>b.ca-a.ca);
       reseauTitle = '🏪 Réseau (période PRISME · tous canaux)';
@@ -876,7 +877,7 @@ function openArticlePanel(code,source){
 
     const nbAg = agRows.length;
     for(const l of (_S.ventesTerrain||[])) if(l.code===code) nbBL++;
-    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
+    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">PRÉL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary font-bold">${a.qteP||'—'}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau (centralisé engine.js) ──
     let kitHtml='';
     if(kitRows.length){
@@ -1023,7 +1024,7 @@ function openArticlePanel(code,source){
         if(ag===_S.selectedMyStore)continue;
         const canalMap=bmsac?.[ag];
         if(!canalMap)continue;
-        let ca=0,bl=0;
+        let ca=0,bl=0,qteP=0;
         for(const canal in canalMap){
           const months=canalMap?.[canal]?.[code];
           if(!months)continue;
@@ -1034,13 +1035,14 @@ function openArticlePanel(code,source){
             if(!d)continue;
             ca+=d.sumCA||0;
             bl+=d.countBL||0;
+            qteP+=d.sumPrelevee||d.sumQteP||0;
           }
         }
         if(!ca&&!bl)continue;
         const stockAg=_S.stockParMagasin?.[ag]?.[code];
         const minAg=stockAg?.qteMin??'—';
         const maxAg=stockAg?.qteMax??'—';
-        rows.push({ag,ca,bl,min:minAg,max:maxAg});
+        rows.push({ag,ca,bl,qteP,min:minAg,max:maxAg});
       }
       title='🏪 Réseau (période PRISME · tous canaux)';
     }else if(_S.ventesParAgence){
@@ -1052,15 +1054,15 @@ function openArticlePanel(code,source){
         const stockAg=_S.stockParMagasin?.[ag]?.[code];
         const minAg=stockAg?.qteMin??'—';
         const maxAg=stockAg?.qteMax??'—';
-        rows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:minAg,max:maxAg});
+        rows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,qteP:d.sumPrelevee||0,min:minAg,max:maxAg});
       }
     }
     rows.sort((a,b)=>b.ca-a.ca);
     if(rows.length){
       const medMin=(()=>{const vals=rows.map(r=>r.min).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
       const medMax=(()=>{const vals=rows.map(r=>r.max).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
-      const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-[10px]" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
-      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">${title}</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+      const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-[10px]" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs font-bold" style="color:var(--t-secondary)">${r.qteP||'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
+      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">${title}</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">PRÉL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
   }
   let canalHtml='';
