@@ -459,9 +459,9 @@ function computePlanStock() {
   });
   const filteredCodes = new Set(filteredData.map(r => r.code));
 
-  const sqData = computeSquelette();
+  const sqData = _S._prSqData || computeSquelette();
   if (!sqData) return null;
-  _S._prSqData = sqData; // cache pour onglet squelette
+  _S._prSqData = sqData;
 
   const catFam = _S.catalogueFamille;
   const catCount = new Map();
