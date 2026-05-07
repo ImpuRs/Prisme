@@ -76,7 +76,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 /* Camera scan overlay */
 .cam-btn{position:absolute;right:56px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:var(--border);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t1)}
 .cam-btn.active{background:var(--act);color:#fff;filter:drop-shadow(0 0 4px var(--act))}
-.scan-fab{display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:var(--border);border:none;cursor:pointer;margin:24px auto;color:var(--t1);box-shadow:0 4px 16px rgba(0,0,0,.4);transition:transform .15s}
+.scan-fab{display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:var(--border);border:none;cursor:pointer;margin:10px auto;color:var(--t1);box-shadow:0 4px 16px rgba(0,0,0,.4);transition:transform .15s}
 .scan-fab:active{transform:scale(.92)}
 @media(max-height:600px){.scan-fab{width:52px;height:52px;margin:12px auto}.scan-fab svg{width:24px;height:24px}}
 #camZone{display:none;padding:0}
@@ -145,6 +145,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 <div class="scan-count" id="scanCount"></div>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
-<script src="js/scan.js?v=202605070828"></script>
+<script src="js/scan.js?v=202605070829"></script>
 </body>
 </html>
