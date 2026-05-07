@@ -78,6 +78,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 .cam-btn.active{background:var(--act);color:#fff;filter:drop-shadow(0 0 4px var(--act))}
 .scan-fab{display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:var(--border);border:none;cursor:pointer;margin:24px auto;color:var(--t1);box-shadow:0 4px 16px rgba(0,0,0,.4);transition:transform .15s}
 .scan-fab:active{transform:scale(.92)}
+@media(max-height:600px){.scan-fab{width:52px;height:52px;margin:12px auto}.scan-fab svg{width:24px;height:24px}}
 #camZone{display:none;padding:0}
 #camZone.open{display:flex;flex-direction:column;position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;background:#000}
 #camReader{flex:1;position:relative;overflow:hidden}
@@ -144,6 +145,6 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 <div class="scan-count" id="scanCount"></div>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
-<script src="js/scan.js?v=202605070810"></script>
+<script src="js/scan.js?v=202605070828"></script>
 </body>
 </html>
