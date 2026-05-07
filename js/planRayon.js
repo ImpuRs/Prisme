@@ -531,6 +531,19 @@ function computePlanStock() {
     }
   }
 
+  // Pré-index : nbClients réseau par code article (une seule passe O(stores×clients×articles))
+  const _nbCliReseauByCode = new Map();
+  const _vr2g = _S.ventesReseauTousCanaux;
+  if (_vr2g?.size) {
+    for (const [, clientMap] of _vr2g) {
+      for (const [, artMap] of clientMap) {
+        for (const [code2, d2] of artMap) {
+          if ((d2.sumCA || 0) > 0) _nbCliReseauByCode.set(code2, (_nbCliReseauByCode.get(code2) || 0) + 1);
+        }
+      }
+    }
+  }
+
   // Rôle Physigamme par code — priorité au bouclier (fd._sqRole), fallback léger pour codes hors finalData
   const _roleCache = new Map();
   const _getRole = (a) => {
@@ -555,10 +568,8 @@ function computePlanStock() {
         if (stratClients.has(cc)) nbCliMetierStrat++;
       }
     }
-    // Clients réseau pour ce code
-    let _nbCliRes2 = 0;
-    const _vr2 = _S.ventesReseauTousCanaux;
-    if (_vr2?.size) { for (const [, artMap] of _vr2) { if (artMap.has(code) && (artMap.get(code).sumCA || 0) > 0) _nbCliRes2++; } }
+    // Clients réseau pour ce code (pré-indexé)
+    const _nbCliRes2 = _nbCliReseauByCode.get(code) || 0;
     if ((detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) && _nbCliRes2 >= 3) role = 'incontournable';
     else if (nbCli >= 2 && (nbCliMetierStrat / nbCli) >= 0.5) role = 'specialiste';
     else if (fd?.isNouveaute) role = 'nouveaute';
