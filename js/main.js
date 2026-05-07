@@ -2658,6 +2658,8 @@ _S.articleMonthlySales=monthlySales;
 
       initColSelector();
       _mc('Prêt');console.table(_pc);
+      // Pré-calcul squelette en idle — alimente Plan Rayon + badges
+      _scheduleIdleSquelette();
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
     } else {
