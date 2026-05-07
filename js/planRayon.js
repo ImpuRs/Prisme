@@ -531,15 +531,14 @@ function computePlanStock() {
     }
   }
 
-  // Pré-index : nbClients réseau par code article (une seule passe O(stores×clients×articles))
+  // Pré-index : nbClients réseau par code article (une seule passe O(clients×articles))
+  // ventesReseauTousCanaux = Map<cc, Map<code, {sumCA, countBL}>>
   const _nbCliReseauByCode = new Map();
   const _vr2g = _S.ventesReseauTousCanaux;
   if (_vr2g?.size) {
-    for (const [, clientMap] of _vr2g) {
-      for (const [, artMap] of clientMap) {
-        for (const [code2, d2] of artMap) {
-          if ((d2.sumCA || 0) > 0) _nbCliReseauByCode.set(code2, (_nbCliReseauByCode.get(code2) || 0) + 1);
-        }
+    for (const [, artMap] of _vr2g) {
+      for (const [code2, d2] of artMap) {
+        if ((d2.sumCA || 0) > 0) _nbCliReseauByCode.set(code2, (_nbCliReseauByCode.get(code2) || 0) + 1);
       }
     }
   }
