@@ -1960,8 +1960,7 @@ _S.articleMonthlySales=monthlySales;
         console.log(`[IDLE] computeSquelette ${performance.now()-t0|0}ms`);
       }catch(e){console.warn('[IDLE] computeSquelette error:',e);}
     };
-    if(typeof requestIdleCallback==='function')requestIdleCallback(fn,{timeout:5000});
-    else setTimeout(fn,2000);
+    setTimeout(fn,100);
   }
 
   // ── Feature D — Recommandations Saisonnières ──────────────────────────────
