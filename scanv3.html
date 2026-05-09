@@ -46,7 +46,6 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script type="text/babel" src="tweaks-panel.jsx"></script>
 </head>
 <body>
 <div id="stage">
@@ -63,15 +62,21 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo, useRef } = React;
 
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "name": "Lucas",
-  "agency": "AG93",
-  "refs": "12 416",
-  "day": "Vendredi",
-  "time": "14:32",
-  "scansToday": 12,
-  "showPrice": false
-}/*EDITMODE-END*/;
+// Agence dérivée du nom de fichier : "Prisme Scan C - AG22.html" → AG22
+const AGENCY = (() => {
+  try {
+    const m = decodeURIComponent(window.location.pathname).match(/AG\d+/i);
+    return m ? m[0].toUpperCase() : 'AG93';
+  } catch (e) { return 'AG93'; }
+})();
+const CTX = {
+  greeting: AGENCY,
+  agency: AGENCY,
+  refs: '12 416',
+  day: 'Vendredi',
+  time: '14:32',
+  scansToday: 12,
+};
 
 // ── Theme ─────────────────────────────────────────────────────
 const T = {
@@ -131,7 +136,7 @@ const ICONS = {
 
 // ── Pages ─────────────────────────────────────────────────────
 function App() {
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const t = CTX;
   const [page, setPage] = useState('home'); // home | search | article | inventaire
   const [articleCode, setArticleCode] = useState(null);
   const [actions, setActions] = useState({}); // {code: ['retour','erp']}
@@ -157,19 +162,6 @@ function App() {
 
   return (
     <>
-      <TweaksPanel title="Tweaks · PRISME">
-        <TweakSection label="Vendeur" />
-        <TweakText label="Prénom" value={t.name} onChange={v=>setTweak('name', v)} placeholder="Lucas" />
-        <TweakText label="Agence" value={t.agency} onChange={v=>setTweak('agency', v)} placeholder="AG93" />
-        <TweakText label="Réfs" value={t.refs} onChange={v=>setTweak('refs', v)} placeholder="12 416" />
-        <TweakSection label="Contexte" />
-        <TweakText label="Jour" value={t.day} onChange={v=>setTweak('day', v)} />
-        <TweakText label="Heure" value={t.time} onChange={v=>setTweak('time', v)} />
-        <TweakNumber label="Scans aujourd'hui" value={t.scansToday} min={0} max={999} onChange={v=>setTweak('scansToday', v)} />
-        <TweakSection label="Affichage" />
-        <TweakToggle label="Prix visible par défaut" value={t.showPrice} onChange={v=>setTweak('showPrice', v)} />
-      </TweaksPanel>
-
       {page === 'home' && <HomeScreen
         t={t}
         onSearch={()=>setPage('search')}
@@ -309,7 +301,7 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCou
       <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
         <div style={{marginBottom:14}}>
           <div style={{fontSize:11,color:T.t3,fontWeight:600}}>{t.day} · {t.time}</div>
-          <div style={{fontSize:22,fontWeight:800,color:T.t1,letterSpacing:-.4,marginTop:1}}>{t.name ? `Bonjour ${t.name}` : 'Bonjour'}</div>
+          <div style={{fontSize:22,fontWeight:800,color:T.t1,letterSpacing:-.4,marginTop:1}}>Bonjour {t.greeting}</div>
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
@@ -473,7 +465,7 @@ function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMo
   const a = ARTICLES.find(x=>x.code===code);
   if (!a) return null;
   const v = VC[a.verdict];
-  const [priceShown, setPriceShown] = useState(t?.showPrice ?? false);
+  const [priceShown, setPriceShown] = useState(false);
   const [invCount, setInvCount] = useState(a.stock);
 
   return (
