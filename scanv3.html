@@ -203,18 +203,54 @@ function hydrateFromIDB() {
       const r = store.get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(null);
     });
     Promise.all([grab('scan'), grab('current')]).then(([scan, current]) => {
-      const rows = (scan?.articles?.length ? scan.articles
-                   : scan?.finalData?.length ? scan.finalData
-                   : current?.finalData?.length ? current.finalData
-                   : null);
-      if (!rows) { console.log('[Prisme] IDB vide → fallback mock'); return; }
-      ARTICLES = loadEngineData(rows);
-      DATA_SOURCE = 'idb';
-      console.log('[Prisme] IDB hydraté · ' + ARTICLES.length + ' articles');
-      window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'idb' } }));
+      const hasLive = current?.finalData?.length > 0;
+      // Si session PRISME live → la préférer
+      if (hasLive) {
+        ARTICLES = loadEngineData(current.finalData);
+        DATA_SOURCE = 'idb';
+        console.log('[Prisme] IDB session live · ' + ARTICLES.length + ' articles');
+        window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'idb' } }));
+        return;
+      }
+      // Sinon essayer le JSON distant
+      if (!hasLive) {
+        _fetchScanJson().then(ok => {
+          if (ok) return;
+          // Fallback IDB scan
+          const rows = (scan?.articles?.length ? scan.articles
+                       : scan?.finalData?.length ? scan.finalData
+                       : null);
+          if (!rows) { console.log('[Prisme] IDB vide → fallback mock'); return; }
+          ARTICLES = loadEngineData(rows);
+          DATA_SOURCE = 'idb';
+          console.log('[Prisme] IDB scan · ' + ARTICLES.length + ' articles');
+          window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'idb' } }));
+        });
+      }
     });
   };
 }
+
+function _fetchScanJson() {
+  return fetch('data/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(files => {
+    if (!files) return false;
+    const f = files.find(n => n.startsWith('prisme-scan-') && n.endsWith('.json'));
+    if (!f) return false;
+    return fetch('data/' + f, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
+      const rows = data?.articles || data?.finalData;
+      if (!rows?.length) return false;
+      ARTICLES = loadEngineData(rows);
+      DATA_SOURCE = 'json';
+      const m = f.match(/prisme-scan-(.+)\.json/);
+      if (m) CTX.agency = m[1];
+      CTX.greeting = CTX.agency;
+      console.log('[Prisme] JSON · ' + ARTICLES.length + ' articles depuis data/' + f);
+      window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'json' } }));
+      return true;
+    });
+  }).catch(() => false);
+}
+
 hydrateFromIDB();
 const findArt = (q) => {
   const c = q.replace(/\D/g,'');
@@ -457,8 +493,8 @@ function App() {
         if (k === 'invStop') { if (confirm("Abandonner l'inventaire en cours ? Les comptages seront perdus.")) cancelInv(); }
         if (k === 'douch') { setPage('douchette'); showToast('Mode Douchette activé'); }
         if (k === 'continu') showToast('Scan continu activé');
-        if (k === 'sync') { setOffline(o => !o); showToast(offline ? 'Reconnecté' : 'Mode hors-ligne'); }
-        if (k === 'purge') showToast('Cache purgé');
+        if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
+        if (k === 'purge') { ARTICLES = loadEngineData(ENGINE_DATA); DATA_SOURCE = 'mock'; window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } })); showToast('Cache purgé'); }
         if (k === 'import') {
           const inp = document.createElement('input');
           inp.type = 'file'; inp.accept = '.json,application/json';
