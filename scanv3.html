@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRISME Scan · prototype C</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  html,body{margin:0;padding:0;background:#1a1d24;font-family:'Inter',-apple-system,system-ui,sans-serif;height:100%;overflow:hidden}
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  .tn{font-variant-numeric:tabular-nums}
+  #stage{height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 800px at 50% 30%,#22262e 0%,#0a0c10 100%)}
+  .phone{position:relative;width:390px;height:780px;border-radius:48px;background:#000;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 2px #1a1d24,0 0 0 6px #2a2f38}
+  .screen{position:relative;width:100%;height:100%;border-radius:38px;overflow:hidden;background:#0a0c10}
+  .notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:96px;height:30px;background:#000;border-radius:20px;z-index:50}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:4px;border-radius:99px;background:rgba(255,255,255,.4);z-index:50}
+  .status{position:absolute;top:0;left:0;right:0;padding:14px 32px 0;display:flex;justify-content:space-between;color:#fff;font-size:14px;font-weight:600;z-index:40;font-variant-numeric:tabular-nums}
+  .app{position:absolute;top:54px;left:0;right:0;bottom:0;display:flex;flex-direction:column}
+  button{font-family:inherit;cursor:pointer}
+  /* Animations */
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  @keyframes scanline{0%{top:10%}50%{top:85%}100%{top:10%}}
+  .sheet-bg{animation:fade .2s ease}
+  .sheet{animation:slideUp .25s cubic-bezier(.2,.8,.3,1)}
+  .pop{animation:pop .15s ease}
+  ::-webkit-scrollbar{display:none}
+  *{scrollbar-width:none}
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="stage">
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="status"><span>9:41</span><span>●●● 􀙇</span></div>
+      <div class="home-ind"></div>
+      <div id="root" class="app"></div>
+    </div>
+  </div>
+</div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ── Theme ─────────────────────────────────────────────────────
+const T = {
+  bg: '#0a0c10', card: '#13171f', card2: '#1a1f29', border: '#252a35',
+  t1: '#f4f6fa', t2: '#9aa3b2', t3: '#5b6473', accent: '#fb923c',
+};
+const VC = {
+  rupture:  { bg:'#3a1518', fg:'#fca5a5', edge:'#ef4444', label:'Rupture' },
+  sousmin:  { bg:'#3a2a14', fg:'#fbbf24', edge:'#f59e0b', label:'Sous min' },
+  ok:       { bg:'#16301f', fg:'#86efac', edge:'#22c55e', label:'OK' },
+  surstock: { bg:'#2c1f4a', fg:'#c4b5fd', edge:'#a78bfa', label:'Sur-stock' },
+};
+
+// ── Data ──────────────────────────────────────────────────────
+const ARTICLES = [
+  { code:'264821', lib:'Foret béton SDS-Plus Ø10 L260', marque:'Bosch Pro', fam:'Outillage électroportatif', empl:'B12-C3', stock:8, prix:14.90, marge:38, min:2, max:4, couv:92, statut:'Actif', verdict:'surstock', sq:'Socle',
+    primary:{kind:'retour', label:'Retour centrale', qty:4, sub:'4 pcs au-dessus du MAX'},
+    secondary:[{kind:'erp', label:'Corriger ERP', sub:'2/6 → 2/4'}] },
+  { code:'108342', lib:'Vis bois Spax Wirox 5×60 T25 (×200)', marque:'Spax', fam:'Visserie › Bois', empl:'A04-B1', stock:0, prix:18.20, marge:42, min:6, max:18, couv:0, statut:'Actif', verdict:'rupture', sq:'À implanter',
+    primary:{kind:'commander', label:'Commander', qty:6, sub:'Stock 0 < MIN 6'}, secondary:[] },
+  { code:'512004', lib:'Robinet d\u2019arrêt droit MF Ø15', marque:'Comap', fam:'Plomberie › Robinetterie', empl:'D08-A2', stock:3, prix:6.40, marge:31, min:2, max:5, couv:24, statut:'Actif', verdict:'ok', sq:'Socle', primary:null, secondary:[] },
+  { code:'264820', lib:'Foret béton SDS-Plus Ø8 L160', marque:'Bosch Pro', fam:'Outillage électroportatif', empl:'B12-C2', stock:4, prix:11.50, marge:36, min:2, max:4, couv:32, statut:'Actif', verdict:'ok', sq:'Socle', primary:null, secondary:[] },
+  { code:'264823', lib:'Foret béton SDS-Plus Ø12 L300', marque:'Bosch Pro', fam:'Outillage électroportatif', empl:'B12-C4', stock:1, prix:18.60, marge:35, min:2, max:4, couv:14, statut:'Actif', verdict:'sousmin', sq:'Surveiller',
+    primary:{kind:'commander', label:'Commander', qty:1, sub:'Stock 1 < MIN 2'}, secondary:[] },
+  { code:'264822', lib:'Foret béton SDS-Plus Ø10 L160', marque:'Bosch Pro', fam:'Outillage électroportatif', empl:'B12-C3', stock:0, prix:13.20, marge:37, min:2, max:4, couv:0, statut:'Actif', verdict:'rupture', sq:'Socle',
+    primary:{kind:'commander', label:'Commander', qty:2, sub:'Stock 0 < MIN 2'}, secondary:[] },
+  { code:'264850', lib:'Coffret 7 forets béton SDS+', marque:'Bosch Pro', fam:'Outillage électroportatif', empl:'B12-A1', stock:2, prix:42.80, marge:29, min:1, max:3, couv:48, statut:'Actif', verdict:'ok', sq:'Socle', primary:null, secondary:[] },
+];
+const findArt = (q) => {
+  const c = q.replace(/\D/g,'');
+  if (ARTICLES.find(a=>a.code===c)) return c;
+  return null;
+};
+
+// ── Atoms ─────────────────────────────────────────────────────
+const Dot = ({c, s=8}) => <span style={{display:'inline-block',width:s,height:s,borderRadius:99,background:c}} />;
+const Ico = ({d, s=16, sw=2.5}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:d}} />
+);
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  scan:'<line x1="2" y1="4" x2="2" y2="20"/><line x1="6" y1="4" x2="6" y2="20"/><line x1="9" y1="4" x2="9" y2="20"/><line x1="13" y1="4" x2="13" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/><line x1="22" y1="4" x2="22" y2="20"/>',
+  back:'<path d="M15 6l-6 6 6 6"/>',
+  fwd:'<path d="M9 6l6 6-6 6"/>',
+  more:'<circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/>',
+  check:'<path d="M5 12l5 5L20 7"/>',
+  checkb:'<path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="18" height="14" rx="2"/>',
+  cart:'<path d="M3 3h2l3 12h12l2-9H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>',
+  trash:'<path d="M3 6h18M19 6l-1.4 14a2 2 0 0 1-2 1.8H8.4a2 2 0 0 1-2-1.8L5 6"/><path d="M10 11v6M14 11v6"/>',
+  sync:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>',
+  close:'<path d="M6 6l12 12M6 18L18 6"/>',
+  flash:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+};
+
+// ── Pages ─────────────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState('home'); // home | search | article | inventaire
+  const [articleCode, setArticleCode] = useState(null);
+  const [actions, setActions] = useState({}); // {code: ['retour','erp']}
+  const [invMode, setInvMode] = useState(false);
+  const [invDone, setInvDone] = useState([ARTICLES[1].code, ARTICLES[3].code]);
+  const [sheet, setSheet] = useState(null); // null | 'actions' | 'menu' | 'camera' | 'todo'
+  const [toast, setToast] = useState(null);
+  const [recents, setRecents] = useState(['264821','108342','512004']);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1800); };
+
+  const openArticle = (code) => {
+    setArticleCode(code);
+    setRecents(r => [code, ...r.filter(x=>x!==code)].slice(0,6));
+    setPage('article');
+  };
+  const goHome = () => { setPage('home'); setArticleCode(null); };
+  const addAction = (code, kind, label) => {
+    setActions(a => ({...a, [code]: [...(a[code]||[]), {kind, label, ts:Date.now()}]}));
+    showToast('✓ ' + label);
+  };
+  const totalActions = Object.values(actions).reduce((n,a)=>n+a.length,0);
+
+  return (
+    <>
+      {page === 'home' && <HomeScreen
+        onSearch={()=>setPage('search')}
+        onScan={()=>setSheet('camera')}
+        onArticle={openArticle}
+        onInv={()=>{ setInvMode(true); showToast('Mode Inventaire activé'); }}
+        invMode={invMode}
+        onInvExit={()=>{ setInvMode(false); showToast('Inventaire suspendu'); }}
+        invDoneCount={invDone.length}
+        recents={recents}
+        actionsCount={totalActions}
+        onActions={()=>setSheet('todo')}
+        onMenu={()=>setSheet('menu')}
+      />}
+      {page === 'search' && <SearchScreen
+        onClose={goHome}
+        onPick={openArticle}
+        onScan={()=>setSheet('camera')}
+      />}
+      {page === 'article' && <ArticleScreen
+        code={articleCode}
+        onBack={goHome}
+        onActions={()=>setSheet('actions')}
+        onScan={()=>setSheet('camera')}
+        addedActions={actions[articleCode]||[]}
+        invMode={invMode}
+        invDoneCount={invDone.length}
+        onInvExit={()=>{ setInvMode(false); showToast('Inventaire suspendu'); }}
+        onInvCount={(n)=>{ setInvDone(d=>[...d, articleCode]); showToast('Compté : ' + n); setTimeout(goHome, 400); }}
+        onActionsCount={totalActions}
+        onTodo={()=>setSheet('todo')}
+      />}
+
+      {sheet === 'actions' && articleCode && <ActionsSheet
+        code={articleCode}
+        existing={actions[articleCode]||[]}
+        onClose={()=>setSheet(null)}
+        onAdd={(k,l)=>{ addAction(articleCode,k,l); setSheet(null); }}
+      />}
+      {sheet === 'menu' && <MenuSheet onClose={()=>setSheet(null)} onItem={(k)=>{
+        setSheet(null);
+        if (k === 'inv') { setInvMode(true); showToast('Mode Inventaire activé'); }
+        if (k === 'douch') showToast('Mode Douchette activé');
+        if (k === 'continu') showToast('Scan continu activé');
+        if (k === 'purge') showToast('Cache purgé');
+      }} />}
+      {sheet === 'camera' && <CameraSheet onClose={()=>setSheet(null)} onPick={(c)=>{ setSheet(null); openArticle(c); }} />}
+      {sheet === 'todo' && <TodoSheet onClose={()=>setSheet(null)} actions={actions} onPick={(c)=>{ setSheet(null); openArticle(c); }} />}
+
+      {toast && <Toast msg={toast} />}
+    </>
+  );
+}
+
+// ── Top + bottom bar ──────────────────────────────────────────
+function TopBar({ title='PRISME', sub='AG93 · 12 416 réfs', back, onBack, onMenu }) {
+  return (
+    <div style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:52}}>
+      {back && <button onClick={onBack} style={btnIcon()}><Ico d={ICONS.back} /></button>}
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:14,fontWeight:800,color:T.t1,letterSpacing:-.2,lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</div>
+        <div style={{fontSize:10,color:T.t3,marginTop:2}} className="tn">{sub}</div>
+      </div>
+      <button onClick={onMenu} style={{...btnIcon(true)}}><Ico d={ICONS.more} /></button>
+    </div>
+  );
+}
+
+function BottomBar({ onSearch, onScan, onActions, count=0, primary }) {
+  return (
+    <div style={{padding:'8px 16px 16px',display:'flex',alignItems:'center',gap:10,background:T.bg,borderTop:`1px solid ${T.border}`,position:'relative'}}>
+      <button onClick={onSearch} style={pillBtn()}>
+        <Ico d={ICONS.search} s={14} />
+        <span style={{color:T.t2,fontWeight:500}}>Recherche</span>
+      </button>
+      <button onClick={onScan} style={{
+        width:60,height:60,borderRadius:99,border:'none',background:T.accent,color:'#1a0e05',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        boxShadow:'0 8px 24px rgba(251,146,60,.4),0 2px 0 rgba(0,0,0,.2)',
+        marginTop:-14,flexShrink:0,
+      }}>
+        <Ico d={ICONS.scan} s={24} sw={2.5} />
+      </button>
+      <button onClick={onActions} style={{...pillBtn(),justifyContent:'flex-end',position:'relative'}}>
+        <span style={{color:T.t2,fontWeight:500}}>{primary ? 'Faire' : 'Actions'}</span>
+        {count > 0 && <span style={badge('#fbbf24','#000')}>{count}</span>}
+      </button>
+    </div>
+  );
+}
+
+const btnIcon = (out) => ({
+  width:32,height:32,borderRadius:9,border: out ? `1px solid ${T.border}` : 'none',
+  background: out ? 'transparent' : T.card, color:T.t1,padding:0,
+  display:'flex',alignItems:'center',justifyContent:'center',
+});
+const pillBtn = () => ({
+  flex:1,height:46,borderRadius:14,border:`1px solid ${T.border}`,
+  background:T.card,color:T.t1,fontSize:13,fontWeight:700,
+  display:'flex',alignItems:'center',gap:8,padding:'0 14px',
+});
+const badge = (bg,fg) => ({
+  minWidth:18,height:18,padding:'0 5px',borderRadius:99,background:bg,color:fg,
+  fontSize:10,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',
+});
+
+// ── Inventaire banner (sticky en haut) ────────────────────────
+function InvBanner({ doneCount, total=14, onExit }) {
+  const pct = (doneCount/total)*100;
+  return (
+    <div style={{padding:'8px 14px',background:'#16301f',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{width:36,height:36,borderRadius:10,background:'rgba(34,197,94,.2)',color:'#86efac',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <Ico d={ICONS.checkb} s={18} />
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+          <span style={{fontSize:9,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
+          <span style={{fontSize:12,fontWeight:800,color:T.t1}}>B12-C3</span>
+        </div>
+        <div style={{marginTop:4,height:4,background:'rgba(0,0,0,.3)',borderRadius:99}}>
+          <div style={{height:'100%',width:pct+'%',background:'#22c55e',borderRadius:99,transition:'width .3s'}} />
+        </div>
+        <div style={{fontSize:10,color:T.t2,marginTop:3}} className="tn">{doneCount}/{total} · {total-doneCount} restants</div>
+      </div>
+      <button onClick={onExit} style={{padding:'5px 9px',borderRadius:8,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
+    </div>
+  );
+}
+
+// ── HOME ──────────────────────────────────────────────────────
+function HomeScreen({ onSearch, onScan, onArticle, onInv, invMode, invDoneCount, onInvExit, recents, actionsCount, onActions, onMenu }) {
+  return (
+    <>
+      <TopBar onMenu={onMenu} />
+      {invMode && <InvBanner doneCount={invDoneCount} onExit={onInvExit} />}
+      <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:T.t3,fontWeight:600}}>Vendredi · 14:32</div>
+          <div style={{fontSize:22,fontWeight:800,color:T.t1,letterSpacing:-.4,marginTop:1}}>Bonjour Lucas</div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+          <button onClick={onSearch} style={statCard()}>
+            <div style={{fontSize:26,fontWeight:900,color:T.t1,lineHeight:1}} className="tn">12</div>
+            <div style={{fontSize:11,color:T.t2,marginTop:4}}>scans aujourd'hui</div>
+          </button>
+          <button onClick={onActions} style={{...statCard(), borderColor:actionsCount>0?'rgba(251,191,36,.3)':T.border}}>
+            <div style={{fontSize:26,fontWeight:900,color:actionsCount>0?'#fbbf24':T.t1,lineHeight:1}} className="tn">{actionsCount}</div>
+            <div style={{fontSize:11,color:T.t2,marginTop:4}}>actions à pousser</div>
+          </button>
+        </div>
+
+        <div style={sectionLabel}>Modes</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          <ModeBtn dot="#22c55e" l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
+          <ModeBtn dot="#60a5fa" l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
+          <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={()=>{}} />
+        </div>
+
+        <div style={{...sectionLabel, marginTop:14}}>Récents</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6,paddingBottom:12}}>
+          {recents.slice(0,4).map(c => {
+            const a = ARTICLES.find(x=>x.code===c); if (!a) return null;
+            const v = VC[a.verdict];
+            return (
+              <button key={c} onClick={()=>onArticle(c)} style={{
+                display:'flex',alignItems:'center',gap:10,padding:'10px 12px 10px 14px',
+                background:T.card,borderRadius:12,border:`1px solid ${T.border}`,
+                borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',
+              }}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</div>
+                  <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                  <div style={{fontSize:11,color:T.accent,fontWeight:600,marginTop:1}}>{a.empl}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
+                  <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <BottomBar onSearch={onSearch} onScan={onScan} onActions={onActions} count={actionsCount} />
+    </>
+  );
+}
+
+const sectionLabel = {fontSize:10,color:T.t3,fontWeight:700,letterSpacing:1,textTransform:'uppercase',margin:'4px 4px 6px'};
+const statCard = () => ({padding:'14px 14px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`,textAlign:'left',color:T.t1});
+
+function ModeBtn({ dot, l, s, onClick, active }) {
+  return (
+    <button onClick={onClick} style={{
+      display:'flex',alignItems:'center',gap:12,padding:'11px 14px',
+      background: active ? '#16301f' : T.card,borderRadius:12,
+      border:`1px solid ${active ? 'rgba(34,197,94,.3)' : T.border}`,
+      color:T.t1,textAlign:'left',
+    }}>
+      <div style={{width:32,height:32,borderRadius:9,background:dot+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <Dot c={dot} s={10} />
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700}}>{l}{active && ' · actif'}</div>
+        <div style={{fontSize:11,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</div>
+      </div>
+      <Ico d={ICONS.fwd} s={14} sw={2.5} />
+    </button>
+  );
+}
+
+// ── SEARCH ────────────────────────────────────────────────────
+function SearchScreen({ onClose, onPick, onScan }) {
+  const [q, setQ] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(()=>inputRef.current?.focus(), 50); }, []);
+
+  const results = useMemo(() => {
+    if (!q.trim()) return [];
+    const words = q.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
+    if (!words.length) return [];
+    return ARTICLES.filter(a => {
+      const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque}`.toLowerCase();
+      return words.every(w => hay.includes(w));
+    }).slice(0,8);
+  }, [q]);
+
+  return (
+    <>
+      <div style={{padding:'8px 12px 6px',display:'flex',alignItems:'center',gap:8,background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+        <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.back} /></button>
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:8,padding:'0 6px 0 12px',background:T.card,borderRadius:12,border:`1.5px solid ${q?T.accent:T.border}`,height:42}}>
+          <Ico d={ICONS.search} s={16} />
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Code, libellé, empl..."
+            style={{flex:1,background:'none',border:'none',color:T.t1,fontSize:15,fontWeight:q?700:400,outline:'none',letterSpacing:q?.5:0}} className="tn" />
+          {q && <button onClick={()=>setQ('')} style={{background:'none',border:'none',color:T.t3,fontSize:18,cursor:'pointer',padding:'4px 8px'}}>✕</button>}
+        </div>
+        <button onClick={onScan} style={{...btnIcon(),background:T.accent,color:'#1a0e05',width:40,height:40,borderRadius:11}}>
+          <Ico d={ICONS.scan} s={18} sw={2.5} />
+        </button>
+      </div>
+
+      <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
+        {!q.trim() && (
+          <>
+            <div style={sectionLabel}>Suggestions</div>
+            {['foret béton', 'spax 5x60', 'B12-C3'].map(s => (
+              <button key={s} onClick={()=>setQ(s)} style={chipRow()}>
+                <Ico d={ICONS.search} s={14} sw={2} />
+                <span style={{flex:1,textAlign:'left',fontSize:13}}>{s}</span>
+              </button>
+            ))}
+          </>
+        )}
+        {q.trim() && results.length === 0 && (
+          <div style={{textAlign:'center',padding:'40px 20px',color:T.t2}}>
+            <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+            <div style={{fontSize:13}}>Aucun résultat pour « {q} »</div>
+          </div>
+        )}
+        {q.trim() && results.length > 0 && (
+          <>
+            <div style={sectionLabel}>{results.length} résultat{results.length>1?'s':''}</div>
+            {results.map(a => {
+              const v = VC[a.verdict];
+              return (
+                <button key={a.code} onClick={()=>onPick(a.code)} className="pop" style={{
+                  width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px 11px 14px',
+                  background:T.card,borderRadius:12,border:`1px solid ${T.border}`,
+                  borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',marginBottom:6,
+                }}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</div>
+                    <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                    <div style={{fontSize:11,color:T.accent,fontWeight:600,marginTop:1}}>{a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
+                    <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+const chipRow = () => ({
+  width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 14px',
+  background:T.card,borderRadius:12,border:`1px solid ${T.border}`,
+  color:T.t2,textAlign:'left',marginBottom:6,
+});
+
+// ── ARTICLE ───────────────────────────────────────────────────
+function ArticleScreen({ code, onBack, onActions, onScan, addedActions, invMode, invDoneCount, onInvExit, onInvCount, onActionsCount, onTodo }) {
+  const a = ARTICLES.find(x=>x.code===code);
+  if (!a) return null;
+  const v = VC[a.verdict];
+  const [priceShown, setPriceShown] = useState(false);
+  const [invCount, setInvCount] = useState(a.stock);
+
+  return (
+    <>
+      <TopBar title={a.code} sub={a.lib} back onBack={onBack} onMenu={()=>{}} />
+      {invMode && <InvBanner doneCount={invDoneCount} onExit={onInvExit} />}
+
+      <div style={{flex:1,padding:'12px 14px',overflow:'auto'}}>
+        {/* Hero card */}
+        <div className="pop" style={{background:T.card,borderRadius:18,border:`1px solid ${T.border}`,padding:'14px 16px 12px',position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',top:-40,right:-40,width:160,height:160,borderRadius:99,background:v.edge,opacity:.12,filter:'blur(40px)',pointerEvents:'none'}} />
+          <div style={{display:'flex',alignItems:'center',gap:8,position:'relative'}}>
+            <span style={{fontSize:11,color:T.t2,fontWeight:700,letterSpacing:.6}} className="tn">{a.code}</span>
+            <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {v.label}</span>
+            <span style={{marginLeft:'auto',fontSize:10,color:T.t3,fontWeight:600}}>{a.sq}</span>
+          </div>
+          <div style={{fontSize:15,fontWeight:700,color:T.t1,marginTop:5,lineHeight:1.25,position:'relative'}}>{a.lib}</div>
+          <div style={{fontSize:11,color:T.t3,marginTop:3,position:'relative'}}>{a.marque} · {a.fam}</div>
+
+          {/* Stock hero */}
+          <div style={{marginTop:14,padding:'12px 16px',background:'#0a0c10',borderRadius:14,position:'relative'}}>
+            <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>En stock</div>
+                <div style={{display:'flex',alignItems:'baseline',gap:6,marginTop:2}}>
+                  <span style={{fontSize:52,fontWeight:900,color:v.fg,lineHeight:.9,letterSpacing:-2}} className="tn">{a.stock}</span>
+                  <span style={{fontSize:13,color:T.t2,fontWeight:600}}>pcs</span>
+                </div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Couverture</div>
+                <div style={{fontSize:13,fontWeight:700,color:T.t1,marginTop:4}} className="tn">{a.couv}j</div>
+              </div>
+            </div>
+            <div style={{marginTop:10,height:6,background:T.border,borderRadius:99,position:'relative'}}>
+              <div style={{position:'absolute',left:0,top:0,height:'100%',width:`${Math.min(100,(a.stock/Math.max(a.max*1.5,a.stock,1))*100)}%`,background:v.edge,borderRadius:99}} />
+              <div style={{position:'absolute',left:`${(a.min/Math.max(a.max*1.5,a.stock,1))*100}%`,top:-2,width:1.5,height:10,background:T.t2}} />
+              <div style={{position:'absolute',left:`${(a.max/Math.max(a.max*1.5,a.stock,1))*100}%`,top:-2,width:1.5,height:10,background:T.t2}} />
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:T.t3,fontWeight:600}} className="tn">
+              <span>min {a.min}</span><span>max {a.max}</span>
+            </div>
+          </div>
+
+          {/* Empl + prix */}
+          <div style={{marginTop:6,display:'grid',gridTemplateColumns:'1.4fr 1fr',gap:6}}>
+            <div style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12}}>
+              <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Emplacement</div>
+              <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:2}}>{a.empl}</div>
+            </div>
+            <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
+              <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix moy. <span style={{color:T.t3,fontWeight:500,fontSize:8}}>· {a.marge}%</span></div>
+              <div style={{fontSize:15,fontWeight:700,color:T.t1,marginTop:2,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2)} €</div>
+            </button>
+          </div>
+        </div>
+
+        {/* Inv mode quick count */}
+        {invMode && (
+          <div className="pop" style={{marginTop:10,padding:'12px 14px',background:'#16301f',borderRadius:14,border:'1px solid rgba(34,197,94,.3)'}}>
+            <div style={{fontSize:10,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Compter cet article</div>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8}}>
+              <button onClick={()=>setInvCount(c=>Math.max(0,c-1))} style={{...numBtn(),width:44,height:44}}><Ico d={ICONS.minus} s={18} /></button>
+              <div style={{flex:1,textAlign:'center',padding:'8px',background:'rgba(0,0,0,.3)',borderRadius:10}}>
+                <div style={{fontSize:32,fontWeight:900,color:'#86efac',lineHeight:1}} className="tn">{invCount}</div>
+                <div style={{fontSize:9,color:T.t3,marginTop:2}}>compté · ERP {a.stock}</div>
+              </div>
+              <button onClick={()=>setInvCount(c=>c+1)} style={{...numBtn(),width:44,height:44}}><Ico d={ICONS.plus} s={18} /></button>
+            </div>
+            <button onClick={()=>onInvCount(invCount)} style={{
+              width:'100%',marginTop:8,padding:'12px',borderRadius:11,border:'none',
+              background:'#22c55e',color:'#06200f',fontSize:13,fontWeight:800,
+              display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+            }}>
+              <Ico d={ICONS.check} s={14} sw={3} /> Valider · suivant
+            </button>
+          </div>
+        )}
+
+        {/* Actions déjà ajoutées */}
+        {addedActions.length > 0 && (
+          <div style={{marginTop:10,padding:'10px 12px',background:'rgba(251,191,36,.08)',borderRadius:12,border:'1px solid rgba(251,191,36,.25)'}}>
+            <div style={{fontSize:10,color:'#fbbf24',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',marginBottom:6}}>✓ {addedActions.length} action{addedActions.length>1?'s':''} en attente</div>
+            {addedActions.map((act,i)=>(
+              <div key={i} style={{fontSize:12,color:T.t1,padding:'2px 0'}}>· {act.label}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Primary action */}
+        {!invMode && a.primary && addedActions.length === 0 && (
+          <button onClick={onActions} className="pop" style={{
+            width:'100%',marginTop:12,padding:'14px 16px',borderRadius:16,border:'none',
+            background:v.edge,color:'#0a0c10',textAlign:'left',
+            display:'flex',alignItems:'center',gap:14,
+          }}>
+            <div style={{width:48,height:48,borderRadius:12,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:22,fontWeight:900}} className="tn">{a.primary.qty}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:800}}>{a.primary.label}</div>
+              <div style={{fontSize:11,opacity:.75,marginTop:1}}>{a.primary.sub}</div>
+            </div>
+            <Ico d={ICONS.fwd} s={20} sw={2.8} />
+          </button>
+        )}
+        {!invMode && !a.primary && addedActions.length === 0 && (
+          <div style={{marginTop:12,padding:'12px',textAlign:'center',background:T.card,borderRadius:12,color:T.t2,fontSize:12,border:`1px solid ${T.border}`}}>
+            ✓ Stock conforme · aucune action requise
+          </div>
+        )}
+
+        {/* Détails */}
+        <details style={{marginTop:10}}>
+          <summary style={{listStyle:'none',padding:'10px 14px',background:T.card,borderRadius:10,color:T.t2,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,border:`1px solid ${T.border}`}}>
+            <Ico d="<path d='M6 9l6 6 6-6'/>" s={14} sw={2.5} />Plus de détails
+          </summary>
+          <div style={{padding:'10px 14px',color:T.t2,fontSize:12,lineHeight:1.8}}>
+            <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}}>{a.code === '264821' ? '2608685976' : '—'}</strong></div>
+            <div><span style={{color:T.t3}}>Statut</span> <strong style={{color:T.t1}}>{a.statut}</strong></div>
+            <div><span style={{color:T.t3}}>Squelette</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>
+            <div><span style={{color:T.t3}}>ERP MIN/MAX</span> <strong style={{color:T.t1}}>{a.code === '264821' ? '2/6 (à corriger)' : `${a.min}/${a.max}`}</strong></div>
+          </div>
+        </details>
+      </div>
+
+      <BottomBar onSearch={onBack} onScan={onScan} onActions={onTodo} count={onActionsCount} primary={a.primary && !invMode} />
+    </>
+  );
+}
+
+const numBtn = () => ({
+  borderRadius:10,border:`1px solid ${T.border}`,background:'rgba(0,0,0,.3)',
+  color:T.t1,display:'flex',alignItems:'center',justifyContent:'center',padding:0,
+});
+
+// ── Sheets ────────────────────────────────────────────────────
+function Sheet({ children, onClose, title, h='auto' }) {
+  return (
+    <div onClick={onClose} className="sheet-bg" style={{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',zIndex:100,display:'flex',alignItems:'flex-end'}}>
+      <div onClick={e=>e.stopPropagation()} className="sheet" style={{width:'100%',background:T.card,borderRadius:'20px 20px 0 0',maxHeight:'85%',overflow:'auto',paddingBottom:18}}>
+        <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:'8px auto 0'}} />
+        {title && <div style={{padding:'10px 18px 4px',display:'flex',alignItems:'center'}}>
+          <div style={{flex:1,fontSize:14,fontWeight:800,color:T.t1}}>{title}</div>
+          <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.close} s={16} /></button>
+        </div>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ActionsSheet({ code, existing, onClose, onAdd }) {
+  const a = ARTICLES.find(x=>x.code===code);
+  const v = VC[a.verdict];
+  const all = [];
+  if (a.primary) all.push({...a.primary, primary:true, color:v.edge});
+  if (a.verdict === 'surstock') all.push({kind:'erp', label:'Corriger ERP', sub:'2/6 → 2/4'});
+  all.push({kind:'emp', label:'Modifier emplacement', sub:`Actuel : ${a.empl}`});
+  all.push({kind:'photo', label:'Ajouter une photo', sub:'État, étiquetage, packaging'});
+  all.push({kind:'note', label:'Note libre', sub:'Visible par l\u2019équipe'});
+  if (a.verdict === 'rupture') all.push({kind:'asso', label:'Associer un code-barre', sub:'EAN supplier non reconnu'});
+
+  return (
+    <Sheet onClose={onClose} title="Que veux-tu faire ?">
+      <div style={{padding:'4px 14px 0'}}>
+        <div style={{fontSize:11,color:T.t3,padding:'0 4px 8px'}} className="tn">Article {a.code} · {a.lib}</div>
+        {all.map((x,i)=>(
+          <button key={i} onClick={()=>onAdd(x.kind, x.label + (x.qty?` (${x.qty} pcs)`:''))} style={{
+            width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
+            background: x.primary ? x.color : 'rgba(255,255,255,.03)',
+            color: x.primary ? '#0a0c10' : T.t1,
+            borderRadius:12,border: x.primary ? 'none' : `1px solid ${T.border}`,
+            textAlign:'left',marginBottom:6,
+          }}>
+            {x.qty && <div style={{width:40,height:40,borderRadius:10,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,flexShrink:0}} className="tn">{x.qty}</div>}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:800}}>{x.label}</div>
+              <div style={{fontSize:11,opacity:.75,marginTop:1}}>{x.sub}</div>
+            </div>
+            <Ico d={ICONS.fwd} s={16} sw={2.5} />
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+function MenuSheet({ onClose, onItem }) {
+  const items = [
+    { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e' },
+    { k:'continu', l:'Activer scan continu', s:'Plusieurs articles d\u2019affilée', dot:'#60a5fa' },
+    { k:'douch', l:'Mode douchette', s:'Clavier masqué — scanner Zebra', dot:'#a78bfa' },
+    { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#fbbf24' },
+    { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171' },
+  ];
+  return (
+    <Sheet onClose={onClose} title="Menu">
+      <div style={{padding:'4px 14px 0'}}>
+        {items.map(x=>(
+          <button key={x.k} onClick={()=>onItem(x.k)} style={{
+            width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
+            background:'rgba(255,255,255,.03)',color:T.t1,
+            borderRadius:12,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,
+          }}>
+            <div style={{width:32,height:32,borderRadius:9,background:x.dot+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <Dot c={x.dot} s={9} />
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700}}>{x.l}</div>
+              <div style={{fontSize:11,color:T.t2,marginTop:1}}>{x.s}</div>
+            </div>
+            <Ico d={ICONS.fwd} s={14} sw={2.5} />
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+function CameraSheet({ onClose, onPick }) {
+  const [detected, setDetected] = useState([]);
+  // Simuler des détections
+  useEffect(() => {
+    const seq = [
+      { d:600, code:'264821' },
+      { d:1400, code:'264820' },
+      { d:2400, code:'108342' },
+    ];
+    const timers = seq.map(s => setTimeout(() => {
+      const a = ARTICLES.find(x=>x.code===s.code);
+      if (a) setDetected(d => [{...a, ts:Date.now()}, ...d]);
+    }, s.d));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div className="sheet-bg" style={{position:'absolute',inset:0,background:'#000',zIndex:100,display:'flex',flexDirection:'column'}}>
+      {/* Faux flux caméra */}
+      <div style={{flex:1,position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1a1f 0%,#0a0a0d 100%)'}}>
+        {/* simulated camera feed grain */}
+        <div style={{position:'absolute',inset:0,background:'repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(255,255,255,.02) 2px,rgba(255,255,255,.02) 3px)'}} />
+        {/* scan line */}
+        <div style={{position:'absolute',left:'12%',right:'12%',height:2,background:'linear-gradient(90deg,transparent,#fb923c,transparent)',animation:'scanline 2s ease-in-out infinite',boxShadow:'0 0 20px #fb923c'}} />
+        {/* viewfinder */}
+        <div style={{position:'absolute',left:'12%',top:'15%',right:'12%',aspectRatio:1,border:'2px solid rgba(255,255,255,.4)',borderRadius:18,boxShadow:'0 0 0 9999px rgba(0,0,0,.55)'}}>
+          {['tl','tr','bl','br'].map(p => {
+            const s = {position:'absolute',width:24,height:24,borderColor:'#fb923c',borderStyle:'solid',borderWidth:0,
+              ...(p[0]==='t'?{top:-3}:{bottom:-3}), ...(p[1]==='l'?{left:-3,borderTopLeftRadius:18}:{right:-3,borderTopRightRadius:18}),
+              ...(p[0]==='t'?{borderTopWidth:4}:{borderBottomWidth:4}),
+              ...(p[1]==='l'?{borderLeftWidth:4}:{borderRightWidth:4}),
+              ...(p[0]==='b' && p[1]==='l'?{borderTopLeftRadius:0,borderBottomLeftRadius:18}:{}),
+              ...(p[0]==='b' && p[1]==='r'?{borderTopRightRadius:0,borderBottomRightRadius:18}:{}),
+            };
+            return <div key={p} style={s} />;
+          })}
+        </div>
+        {/* close */}
+        <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:38,height:38,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:'#fff',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <Ico d={ICONS.close} s={18} sw={2.5} />
+        </button>
+        {/* mode chip */}
+        <div style={{position:'absolute',top:14,right:14,padding:'6px 12px',background:'rgba(251,146,60,.9)',color:'#1a0e05',borderRadius:99,fontSize:11,fontWeight:800,letterSpacing:.5}}>SCAN CONTINU</div>
+        {/* hint */}
+        <div style={{position:'absolute',bottom:24,left:0,right:0,textAlign:'center',color:'rgba(255,255,255,.7)',fontSize:12,fontWeight:500}}>
+          {detected.length === 0 ? 'Pointez le code-barre dans le cadre…' : `${detected.length} code${detected.length>1?'s':''} détecté${detected.length>1?'s':''}`}
+        </div>
+      </div>
+
+      {/* Bottom sheet of detected codes */}
+      <div className="sheet" style={{background:T.bg,borderRadius:'20px 20px 0 0',maxHeight:'45%',overflow:'auto',paddingBottom:18}}>
+        <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:'8px auto 8px'}} />
+        {detected.length === 0 ? (
+          <div style={{padding:'14px 18px 0',color:T.t2,fontSize:12,textAlign:'center'}}>
+            <div style={{fontSize:11,opacity:.6,fontWeight:600,letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>En attente</div>
+            <div style={{display:'flex',gap:4,justifyContent:'center'}}>
+              {[0,1,2].map(i => <div key={i} style={{width:8,height:8,borderRadius:99,background:T.t3,animation:`pulse 1.4s ease-in-out ${i*.2}s infinite`}} />)}
+            </div>
+          </div>
+        ) : (
+          <div style={{padding:'4px 14px 0'}}>
+            <div style={{display:'flex',alignItems:'center',padding:'4px 4px 8px'}}>
+              <div style={{flex:1,fontSize:13,fontWeight:800,color:T.t1}}>{detected.length} scanné{detected.length>1?'s':''}</div>
+              <button onClick={()=>setDetected([])} style={{background:'none',border:'none',color:'#fca5a5',fontSize:11,fontWeight:800,padding:6}}>EFFACER</button>
+            </div>
+            {detected.map(d => {
+              const v = VC[d.verdict];
+              return (
+                <button key={d.code+d.ts} onClick={()=>onPick(d.code)} className="pop" style={{
+                  width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px 10px 14px',
+                  background:T.card,borderRadius:12,border:`1px solid ${T.border}`,
+                  borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',marginBottom:6,
+                }}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{d.code}</div>
+                    <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.lib}</div>
+                  </div>
+                  <Ico d={ICONS.fwd} s={14} sw={2.5} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TodoSheet({ onClose, actions, onPick }) {
+  const codes = Object.keys(actions).filter(c => actions[c].length > 0);
+  return (
+    <Sheet onClose={onClose} title="Actions à pousser">
+      <div style={{padding:'4px 14px 0'}}>
+        {codes.length === 0 ? (
+          <div style={{textAlign:'center',padding:'30px 20px',color:T.t2}}>
+            <div style={{fontSize:13}}>Aucune action en attente</div>
+            <div style={{fontSize:11,color:T.t3,marginTop:6}}>Scanne un article pour commencer</div>
+          </div>
+        ) : (
+          <>
+            <div style={{fontSize:11,color:T.t3,padding:'0 4px 8px'}}>{codes.length} article{codes.length>1?'s':''} · à synchroniser dans PRISME</div>
+            {codes.map(c => {
+              const a = ARTICLES.find(x=>x.code===c); if (!a) return null;
+              const v = VC[a.verdict];
+              return (
+                <button key={c} onClick={()=>onPick(c)} style={{
+                  width:'100%',display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px 10px 14px',
+                  background:T.card,borderRadius:12,border:`1px solid ${T.border}`,
+                  borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',marginBottom:6,
+                }}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code}</div>
+                    <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                    <div style={{marginTop:4,display:'flex',flexDirection:'column',gap:2}}>
+                      {actions[c].map((x,i)=>(<div key={i} style={{fontSize:11,color:T.t2}}>· {x.label}</div>))}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            <button style={{
+              width:'100%',marginTop:8,padding:'14px',borderRadius:12,border:'none',
+              background:'#fff',color:'#000',fontSize:14,fontWeight:800,letterSpacing:.5,
+            }}>SYNCHRONISER · {codes.length} ARTICLE{codes.length>1?'S':''}</button>
+          </>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function Toast({ msg }) {
+  return (
+    <div style={{position:'absolute',bottom:90,left:'50%',transform:'translateX(-50%)',padding:'10px 16px',background:'rgba(15,17,22,.95)',color:T.t1,fontSize:13,fontWeight:600,borderRadius:99,zIndex:200,border:`1px solid ${T.border}`,backdropFilter:'blur(12px)',animation:'pop .15s ease',whiteSpace:'nowrap'}}>
+      {msg}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
