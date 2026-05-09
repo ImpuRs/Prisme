@@ -46,6 +46,7 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
 </head>
 <body>
 <div id="stage">
@@ -61,6 +62,16 @@
 
 <script type="text/babel">
 const { useState, useEffect, useMemo, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "name": "Lucas",
+  "agency": "AG93",
+  "refs": "12 416",
+  "day": "Vendredi",
+  "time": "14:32",
+  "scansToday": 12,
+  "showPrice": false
+}/*EDITMODE-END*/;
 
 // ── Theme ─────────────────────────────────────────────────────
 const T = {
@@ -120,6 +131,7 @@ const ICONS = {
 
 // ── Pages ─────────────────────────────────────────────────────
 function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [page, setPage] = useState('home'); // home | search | article | inventaire
   const [articleCode, setArticleCode] = useState(null);
   const [actions, setActions] = useState({}); // {code: ['retour','erp']}
@@ -145,7 +157,21 @@ function App() {
 
   return (
     <>
+      <TweaksPanel title="Tweaks · PRISME">
+        <TweakSection label="Vendeur" />
+        <TweakText label="Prénom" value={t.name} onChange={v=>setTweak('name', v)} placeholder="Lucas" />
+        <TweakText label="Agence" value={t.agency} onChange={v=>setTweak('agency', v)} placeholder="AG93" />
+        <TweakText label="Réfs" value={t.refs} onChange={v=>setTweak('refs', v)} placeholder="12 416" />
+        <TweakSection label="Contexte" />
+        <TweakText label="Jour" value={t.day} onChange={v=>setTweak('day', v)} />
+        <TweakText label="Heure" value={t.time} onChange={v=>setTweak('time', v)} />
+        <TweakNumber label="Scans aujourd'hui" value={t.scansToday} min={0} max={999} onChange={v=>setTweak('scansToday', v)} />
+        <TweakSection label="Affichage" />
+        <TweakToggle label="Prix visible par défaut" value={t.showPrice} onChange={v=>setTweak('showPrice', v)} />
+      </TweaksPanel>
+
       {page === 'home' && <HomeScreen
+        t={t}
         onSearch={()=>setPage('search')}
         onScan={()=>setSheet('camera')}
         onArticle={openArticle}
@@ -164,6 +190,7 @@ function App() {
         onScan={()=>setSheet('camera')}
       />}
       {page === 'article' && <ArticleScreen
+        t={t}
         code={articleCode}
         onBack={goHome}
         onActions={()=>setSheet('actions')}
@@ -199,7 +226,7 @@ function App() {
 }
 
 // ── Top + bottom bar ──────────────────────────────────────────
-function TopBar({ title='PRISME', sub='AG93 · 12 416 réfs', back, onBack, onMenu }) {
+function TopBar({ title='PRISME', sub, back, onBack, onMenu }) {
   return (
     <div style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:52}}>
       {back && <button onClick={onBack} style={btnIcon()}><Ico d={ICONS.back} /></button>}
@@ -274,20 +301,20 @@ function InvBanner({ doneCount, total=14, onExit }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────
-function HomeScreen({ onSearch, onScan, onArticle, onInv, invMode, invDoneCount, onInvExit, recents, actionsCount, onActions, onMenu }) {
+function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCount, onInvExit, recents, actionsCount, onActions, onMenu }) {
   return (
     <>
-      <TopBar onMenu={onMenu} />
+      <TopBar onMenu={onMenu} sub={`${t.agency} · ${t.refs} réfs`} />
       {invMode && <InvBanner doneCount={invDoneCount} onExit={onInvExit} />}
       <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:T.t3,fontWeight:600}}>Vendredi · 14:32</div>
-          <div style={{fontSize:22,fontWeight:800,color:T.t1,letterSpacing:-.4,marginTop:1}}>Bonjour Lucas</div>
+          <div style={{fontSize:11,color:T.t3,fontWeight:600}}>{t.day} · {t.time}</div>
+          <div style={{fontSize:22,fontWeight:800,color:T.t1,letterSpacing:-.4,marginTop:1}}>{t.name ? `Bonjour ${t.name}` : 'Bonjour'}</div>
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
           <button onClick={onSearch} style={statCard()}>
-            <div style={{fontSize:26,fontWeight:900,color:T.t1,lineHeight:1}} className="tn">12</div>
+            <div style={{fontSize:26,fontWeight:900,color:T.t1,lineHeight:1}} className="tn">{t.scansToday}</div>
             <div style={{fontSize:11,color:T.t2,marginTop:4}}>scans aujourd'hui</div>
           </button>
           <button onClick={onActions} style={{...statCard(), borderColor:actionsCount>0?'rgba(251,191,36,.3)':T.border}}>
@@ -442,11 +469,11 @@ const chipRow = () => ({
 });
 
 // ── ARTICLE ───────────────────────────────────────────────────
-function ArticleScreen({ code, onBack, onActions, onScan, addedActions, invMode, invDoneCount, onInvExit, onInvCount, onActionsCount, onTodo }) {
+function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMode, invDoneCount, onInvExit, onInvCount, onActionsCount, onTodo }) {
   const a = ARTICLES.find(x=>x.code===code);
   if (!a) return null;
   const v = VC[a.verdict];
-  const [priceShown, setPriceShown] = useState(false);
+  const [priceShown, setPriceShown] = useState(t?.showPrice ?? false);
   const [invCount, setInvCount] = useState(a.stock);
 
   return (
