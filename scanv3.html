@@ -2,22 +2,34 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0a0c10" />
 <title>PRISME Scan · prototype C</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <style>
-  html,body{margin:0;padding:0;background:#1a1d24;font-family:'Inter',-apple-system,system-ui,sans-serif;height:100%;overflow:hidden}
+  html,body{margin:0;padding:0;background:#0a0c10;font-family:'Inter',-apple-system,system-ui,sans-serif;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
   *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
   .tn{font-variant-numeric:tabular-nums}
-  #stage{height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 800px at 50% 30%,#22262e 0%,#0a0c10 100%)}
+  /* Stage: fake bezel for desktop preview only */
+  #stage{height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 800px at 50% 30%,#22262e 0%,#0a0c10 100%)}
   .phone{position:relative;width:390px;height:780px;border-radius:48px;background:#000;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 2px #1a1d24,0 0 0 6px #2a2f38}
   .screen{position:relative;width:100%;height:100%;border-radius:38px;overflow:hidden;background:#0a0c10}
   .notch{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:96px;height:30px;background:#000;border-radius:20px;z-index:50}
   .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:4px;border-radius:99px;background:rgba(255,255,255,.4);z-index:50}
   .status{position:absolute;top:0;left:0;right:0;padding:14px 32px 0;display:flex;justify-content:space-between;color:#fff;font-size:14px;font-weight:600;z-index:40;font-variant-numeric:tabular-nums}
   .app{position:absolute;top:54px;left:0;right:0;bottom:0;display:flex;flex-direction:column}
+  .safe-bottom{padding-bottom:max(16px, env(safe-area-inset-bottom))}
+  /* On touch / small screen: drop the fake bezel, fill viewport, respect safe-areas */
+  @media (max-width: 500px), (pointer: coarse){
+    #stage{background:#0a0c10;align-items:stretch;justify-content:stretch}
+    .phone{width:100%;height:100vh;height:100dvh;border-radius:0;background:#0a0c10;padding:0;box-shadow:none}
+    .screen{border-radius:0;height:100%}
+    .notch,.home-ind,.status{display:none}
+    .app{top:env(safe-area-inset-top);left:0;right:0;bottom:0}
+  }
   button{font-family:inherit;cursor:pointer}
   /* Animations */
   @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -202,7 +214,7 @@ function TopBar({ title='PRISME', sub='AG93 · 12 416 réfs', back, onBack, onMe
 
 function BottomBar({ onSearch, onScan, onActions, count=0, primary }) {
   return (
-    <div style={{padding:'8px 16px 16px',display:'flex',alignItems:'center',gap:10,background:T.bg,borderTop:`1px solid ${T.border}`,position:'relative'}}>
+    <div style={{padding:'8px 16px calc(16px + env(safe-area-inset-bottom))',display:'flex',alignItems:'center',gap:10,background:T.bg,borderTop:`1px solid ${T.border}`,position:'relative'}}>
       <button onClick={onSearch} style={pillBtn()}>
         <Ico d={ICONS.search} s={14} />
         <span style={{color:T.t2,fontWeight:500}}>Recherche</span>
