@@ -47,6 +47,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
 </head>
 <body>
 <div id="stage">
@@ -203,6 +205,12 @@ function hydrateFromIDB() {
       const r = store.get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(null);
     });
     Promise.all([grab('scan'), grab('current')]).then(([scan, current]) => {
+      // Charger la table EAN si disponible
+      const eanData = scan?.ean || current?.ean;
+      if (eanData && typeof eanData === 'object') {
+        window._eanMap = new Map(Object.entries(eanData));
+        console.log('[Prisme] EAN map · ' + window._eanMap.size + ' entrées');
+      }
       const hasLive = current?.finalData?.length > 0;
       // Si session PRISME live → la préférer
       if (hasLive) {
@@ -239,6 +247,10 @@ function _fetchScanJson() {
     return fetch('data/' + f, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
       const rows = data?.articles || data?.finalData;
       if (!rows?.length) return false;
+      if (data?.ean && typeof data.ean === 'object') {
+        window._eanMap = new Map(Object.entries(data.ean));
+        console.log('[Prisme] EAN map JSON · ' + window._eanMap.size + ' entrées');
+      }
       ARTICLES = loadEngineData(rows);
       DATA_SOURCE = 'json';
       const m = f.match(/prisme-scan-(.+)\.json/);
@@ -1114,6 +1126,31 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
   const [dupNotice, setDupNotice] = useState(null);
   const [batchOpen, setBatchOpen] = useState(false);
 
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+  const ctxRef = useRef(null);
+  const scanTimer = useRef(null);
+  const scanPassRef = useRef(0);
+  const lastCodesRef = useRef(new Map()); // Map<barcode, ts> anti-doublon brut
+
+  // Résoudre un code-barre scanné → code article PRISME
+  const resolveBarcode = (barcode) => {
+    const clean = barcode.replace(/\D/g, '');
+    // 1) Code article direct (6 chiffres)
+    let a = ARTICLES.find(x => x.code === clean);
+    if (a) return a.code;
+    // 2) Ref fournisseur
+    a = ARTICLES.find(x => x.refFourn && (x.refFourn === barcode || x.refFourn === barcode.toUpperCase()));
+    if (a) return a.code;
+    // 3) EAN via IDB eanMap (chargé globalement)
+    if (window._eanMap) {
+      const c = window._eanMap.get(clean);
+      if (c) return c;
+    }
+    return null; // inconnu
+  };
+
   const tryAdd = (code) => {
     const a = ARTICLES.find(x=>x.code===code); if (!a) return;
     const now = Date.now();
@@ -1135,17 +1172,117 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
     if (haptic && navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
   };
 
-  // Simuler des détections (incl. doublon ignoré)
+  // Boucle de scan caméra
+  const scanLoop = async () => {
+    const video = videoRef.current;
+    if (!video || !streamRef.current) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { scanTimer.current = setTimeout(scanLoop, 100); return; }
+
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement('canvas');
+      ctxRef.current = canvasRef.current.getContext('2d', { willReadFrequently: true });
+    }
+    const canvas = canvasRef.current, ctx = ctxRef.current;
+
+    // Viewfinder : carré centré 76% largeur
+    const VF = 0.76;
+    const side = Math.round(Math.min(vw, vh) * VF);
+    const cx = Math.round((vw - side) / 2);
+    const cy = Math.round((vh - side) / 2);
+
+    // Alterner carré plein / bande laser
+    scanPassRef.current++;
+    let cw, ch, sy;
+    if (scanPassRef.current % 2 === 0) {
+      cw = side; ch = side; sy = cy;
+    } else {
+      const bandH = Math.round(side * 0.15);
+      cw = side; ch = bandH; sy = cy + Math.round((side - bandH) / 2);
+    }
+
+    canvas.width = cw; canvas.height = ch;
+    ctx.drawImage(video, cx, sy, cw, ch, 0, 0, cw, ch);
+    const imageData = ctx.getImageData(0, 0, cw, ch);
+
+    try {
+      const hasZbar = typeof zbarWasm !== 'undefined';
+      const zxingP = (typeof ZXingWASM !== 'undefined')
+        ? ZXingWASM.readBarcodes(imageData, {
+            tryHarder: true,
+            formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
+            maxNumberOfSymbols: 4,
+          }).then(res => res.map(r => ({ text: r.text, format: r.format })))
+        : Promise.resolve([]);
+
+      const zbarP = hasZbar
+        ? zbarWasm.scanImageData(imageData).then(symbols =>
+            symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
+          ).catch(() => [])
+        : Promise.resolve([]);
+
+      const [zxingRes, zbarRes] = await Promise.all([zxingP, zbarP]);
+      const seen = new Set();
+      const merged = [];
+      for (const r of [...zbarRes, ...zxingRes]) {
+        if (!r.text || seen.has(r.text)) continue;
+        seen.add(r.text);
+        merged.push(r);
+      }
+
+      const now = Date.now();
+      for (const r of merged) {
+        const barcode = r.text;
+        if (!/^\d{5,13}$/.test(barcode)) continue;
+        // Anti-doublon brut 2s sur le code-barre brut
+        const prev = lastCodesRef.current.get(barcode);
+        if (prev && now - prev < 2000) continue;
+        lastCodesRef.current.set(barcode, now);
+
+        // Résoudre vers un article PRISME
+        const artCode = resolveBarcode(barcode);
+        if (artCode) {
+          tryAdd(artCode);
+        } else {
+          // Code inconnu → notifier le parent
+          if (onUnknown) onUnknown(barcode);
+        }
+      }
+    } catch (e) {
+      console.warn('[Scan] erreur:', e);
+    }
+
+    scanTimer.current = setTimeout(scanLoop, 80); // ~12 fps
+  };
+
+  // Démarrer la caméra au montage
   useEffect(() => {
-    const seq = [
-      { d:700,  fn:() => tryAdd('264821') },
-      { d:1500, fn:() => tryAdd('264820') },
-      { d:2200, fn:() => tryAdd('264821') },
-      { d:3000, fn:() => { setUnreadable(true); setTimeout(()=>setUnreadable(false),1400); } },
-      { d:4000, fn:() => tryAdd('108342') },
-    ];
-    const timers = seq.map(s => setTimeout(s.fn, s.d));
-    return () => timers.forEach(clearTimeout);
+    let cancelled = false;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().then(() => { scanLoop(); });
+        }
+      } catch (err) {
+        console.warn('Camera:', err);
+        setUnreadable(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (scanTimer.current) clearTimeout(scanTimer.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+    };
   }, []);
 
   const counts = detected.reduce((acc, x) => {
@@ -1158,8 +1295,9 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
       {/* Flash on detect */}
       <div key={flash} style={{position:'absolute',inset:0,background:'rgba(34,197,94,.3)',pointerEvents:'none',zIndex:5,animation: flash > 0 ? 'fadeFlash .35s ease-out forwards' : 'none'}} />
 
-      {/* Faux flux caméra */}
-      <div style={{flex:1,position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1a1f 0%,#0a0a0d 100%)'}}>
+      {/* Flux caméra */}
+      <div style={{flex:1,position:'relative',overflow:'hidden',background:'#000'}}>
+        <video ref={videoRef} playsInline autoPlay muted style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
         <div style={{position:'absolute',inset:0,background:'repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(255,255,255,.02) 2px,rgba(255,255,255,.02) 3px)'}} />
         <div style={{position:'absolute',left:'12%',right:'12%',height:2,background:'linear-gradient(90deg,transparent,#fb923c,transparent)',animation:'scanline 2s ease-in-out infinite',boxShadow:'0 0 20px #fb923c'}} />
         <div style={{position:'absolute',left:'12%',top:'15%',right:'12%',aspectRatio:1,border:'2px solid rgba(255,255,255,.4)',borderRadius:18,boxShadow:'0 0 0 9999px rgba(0,0,0,.55)'}}>
