@@ -363,18 +363,6 @@ function App() {
     const entry = { id, kind, label, dest, eta, ts:Date.now(), status:'pending' };
     setActions(a => ({...a, [code]: [...(a[code]||[]), entry]}));
     setSheet({ type:'confirm', code, id, label, dest, eta });
-    // Simulate ERP roundtrip after 9s
-    setTimeout(() => {
-      setActions(prev => {
-        if (!prev[code]) return prev;
-        const list = prev[code].map(x => {
-          if (x.id !== id) return x;
-          if (x.status !== 'pending') return x; // user undid
-          return { ...x, status: Math.random() < 0.85 ? 'validee' : 'refusee', reason: Math.random() < 0.85 ? null : 'Refusé par centrale — voir détail' };
-        });
-        return {...prev, [code]: list};
-      });
-    }, 9000);
   };
   const undoAction = (code, id) => {
     setActions(a => {
