@@ -658,8 +658,8 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, onDouchette, invMod
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
           <button onClick={onSearch} style={statCard()}>
-            <div style={{fontSize:26,fontWeight:900,color:T.t1,lineHeight:1}} className="tn">{t.scansToday}</div>
-            <div style={{fontSize:11,color:T.t2,marginTop:4}}>scans aujourd'hui</div>
+            <div style={{fontSize:26,fontWeight:900,color:T.t1,lineHeight:1}} className="tn">{recents.length}</div>
+            <div style={{fontSize:11,color:T.t2,marginTop:4}}>articles consultés</div>
           </button>
           <button onClick={onActions} style={{...statCard(), borderColor:actionsCount>0?'rgba(251,191,36,.3)':T.border}}>
             <div style={{fontSize:26,fontWeight:900,color:actionsCount>0?'#fbbf24':T.t1,lineHeight:1}} className="tn">{actionsCount}</div>
