@@ -1168,8 +1168,9 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     return null; // inconnu
   };
 
-  const tryAdd = (code) => {
+  const tryAdd = (code, barcode) => {
     const a = ARTICLES.find(x=>x.code===code); if (!a) return;
+    const barHint = (barcode && barcode !== code) ? '....' + barcode.slice(-4) : '';
     const now = Date.now();
     setDetected(d => {
       const i = d.findIndex(x => x.code === code);
@@ -1183,7 +1184,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         next[i] = {...next[i], count: next[i].count + 1, lastTs: now};
         return next;
       }
-      return [{...a, count:1, firstTs:now, lastTs:now}, ...d];
+      return [{...a, count:1, firstTs:now, lastTs:now, barHint}, ...d];
     });
     setFlash(f => f + 1);
     if (haptic && navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
@@ -1265,7 +1266,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
             onPick(artCode);
             return; // stop scan loop
           }
-          tryAdd(artCode);
+          tryAdd(artCode, barcode);
         } else {
           // Code inconnu → notifier le parent
           if (onUnknown) onUnknown(barcode);
@@ -1408,6 +1409,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <span style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{d.code}</span>
+                      {d.barHint && <span style={{fontSize:10,color:T.t3,opacity:.6}} className="tn">{d.barHint}</span>}
                       <span style={{padding:'1px 6px',borderRadius:99,background:v.bg,color:v.fg,fontSize:9,fontWeight:800,letterSpacing:.3,textTransform:'uppercase'}}>{v.label}</span>
                     </div>
                     <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{d.lib}</div>
