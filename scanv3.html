@@ -1687,7 +1687,6 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
   all.sort((a,b)=>b.ts-a.ts);
   const pending = all.filter(x=>x.status==='pending');
   const validated = all.filter(x=>x.status==='validee');
-  const refused = all.filter(x=>x.status==='refusee');
   const fmt = (ts) => {
     const d = (Date.now()-ts)/1000;
     if (d < 60) return 'à l\u2019instant';
@@ -1699,8 +1698,6 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
     const a = ARTICLES.find(y=>y.code===x.code);
     const sty = x.status==='validee'
       ? { dot:'#22c55e', bg:'rgba(34,197,94,.08)', border:'rgba(34,197,94,.25)', txt:'Validée' }
-      : x.status==='refusee'
-      ? { dot:'#ef4444', bg:'rgba(239,68,68,.08)', border:'rgba(239,68,68,.25)', txt:'Refusée' }
       : { dot:'#fbbf24', bg:'rgba(251,191,36,.08)', border:'rgba(251,191,36,.3)', txt:'En attente' };
     const undoable = x.status==='pending' || (x.status!=='pending' && Date.now()-x.ts < 5*60000);
     return (
@@ -1719,7 +1716,6 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
             <button onClick={()=>onUndo(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'transparent',color:T.t2,fontSize:11,fontWeight:700}}>Annuler</button>
           </div>
         )}
-        {x.reason && <div style={{marginTop:6,fontSize:10,color:'#fca5a5'}}>⚠ {x.reason}</div>}
       </div>
     );
   };
@@ -1741,7 +1737,7 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
           </div>
         ) : (
           <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,marginBottom:12}}>
               <div style={{padding:'8px 10px',background:'rgba(251,191,36,.08)',borderRadius:10,border:'1px solid rgba(251,191,36,.3)'}}>
                 <div style={{fontSize:18,fontWeight:900,color:'#fbbf24'}} className="tn">{pending.length}</div>
                 <div style={{fontSize:9,color:T.t2,marginTop:1}}>en attente</div>
@@ -1750,14 +1746,9 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
                 <div style={{fontSize:18,fontWeight:900,color:'#86efac'}} className="tn">{validated.length}</div>
                 <div style={{fontSize:9,color:T.t2,marginTop:1}}>validées</div>
               </div>
-              <div style={{padding:'8px 10px',background:'rgba(239,68,68,.08)',borderRadius:10,border:'1px solid rgba(239,68,68,.25)'}}>
-                <div style={{fontSize:18,fontWeight:900,color:'#fca5a5'}} className="tn">{refused.length}</div>
-                <div style={{fontSize:9,color:T.t2,marginTop:1}}>refusées</div>
-              </div>
             </div>
             <Section title="En attente" items={pending} color="#fbbf24" />
             <Section title="Validées" items={validated} color="#86efac" />
-            <Section title="Refusées" items={refused} color="#fca5a5" />
             {pending.length > 0 && (
               <button onClick={onPush} style={{
                 width:'100%',marginTop:8,padding:'14px',borderRadius:12,border:'none',
