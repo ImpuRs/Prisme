@@ -892,6 +892,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, addedA
   const [priceShown, setPriceShown] = useState(false);
   const [flip, setFlip] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [editQty, setEditQty] = useState(null);
   const a = ARTICLES.find(x=>x.code===code);
   const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : (a?.stock ?? 0));
   if (!a) return null;
@@ -965,10 +966,24 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, addedA
               <div style={{fontSize:17,fontWeight:800,color:T.t1,marginTop:8,lineHeight:1.3}}>{a.primary.label} maintenant</div>
               <div style={{fontSize:12,color:T.t2,marginTop:4,lineHeight:1.5}}>{a.primary.sub}</div>
             </div>
-            <div style={{padding:'12px 14px 0',display:'grid',gridTemplateColumns:'2fr 1fr',gap:8}}>
-              <button onClick={()=>{const p=a.primary;const dest=p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='retour'?'Demain 9h':'48h ouvrées';onAddAction(p.kind,p.label+(p.qty?' ('+p.qty+' pcs)':''),dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>VALIDER · {a.primary.qty} pcs</button>
-              <button onClick={onActions} style={{padding:'17px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Modifier</button>
-            </div>
+            {editQty != null ? (
+              <div style={{padding:'12px 14px 0'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginBottom:10}}>
+                  <button onClick={()=>setEditQty(Math.max(0,editQty-1))} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:28,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
+                  <span style={{fontSize:48,fontWeight:900,color:v.fg,minWidth:80,textAlign:'center'}} className="tn">{editQty}</span>
+                  <button onClick={()=>setEditQty(editQty+1)} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:28,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                  <button onClick={()=>setEditQty(null)} style={{padding:'14px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Annuler</button>
+                  <button onClick={()=>{const p=a.primary;const dest=p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='retour'?'Demain 9h':'48h ouvrées';onAddAction(p.kind,p.label+(editQty?' ('+editQty+' pcs)':''),dest,eta);setEditQty(null);}} style={{padding:'14px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:14,fontWeight:900,cursor:'pointer'}}>VALIDER · {editQty} pcs</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{padding:'12px 14px 0',display:'grid',gridTemplateColumns:'2fr 1fr',gap:8}}>
+                <button onClick={()=>{const p=a.primary;const dest=p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='retour'?'Demain 9h':'48h ouvrées';onAddAction(p.kind,p.label+(p.qty?' ('+p.qty+' pcs)':''),dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>VALIDER · {a.primary.qty} pcs</button>
+                <button onClick={()=>setEditQty(a.primary.qty)} style={{padding:'17px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Modifier</button>
+              </div>
+            )}
           </div>
         )}
 
