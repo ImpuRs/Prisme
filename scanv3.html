@@ -333,7 +333,6 @@ function App() {
   useEffect(() => { try { localStorage.setItem('prisme_inv_extras', JSON.stringify(invExtras)); } catch(e){} }, [invExtras]);
   const [sheet, setSheet] = useState(null); // null | 'actions' | 'menu' | 'camera' | 'todo' | {type:'confirm'|'unknown'|...}
   const [scanContinu, setScanContinu] = useState(false);
-  const [scanQueue, setScanQueue] = useState([]); // codes restants à traiter
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState(['264821','108342','512004']);
 
@@ -344,16 +343,7 @@ function App() {
     setRecents(r => [code, ...r.filter(x=>x!==code)].slice(0,6));
     setPage('article');
   };
-  const goHome = () => {
-    if (scanQueue.length > 0) {
-      const [next, ...rest] = scanQueue;
-      setScanQueue(rest);
-      showToast(`${rest.length + 1} restant${rest.length > 0 ? 's' : ''}`);
-      openArticle(next);
-      return;
-    }
-    setPage('home'); setArticleCode(null);
-  };
+  const goHome = () => { setPage('home'); setArticleCode(null); };
   const addAction = (code, kind, label, dest, eta) => {
     const id = 'a' + Math.random().toString(36).slice(2,8);
     const entry = { id, kind, label, dest, eta, ts:Date.now(), status:'pending' };
@@ -435,7 +425,6 @@ function App() {
         t={t}
         code={articleCode}
         onBack={articleInInv ? ()=>setPage('invList') : goHome}
-        queueRemaining={scanQueue.length}
         onActions={()=>setSheet('actions')}
         onScan={()=>{ setScanContinu(false); setSheet('camera'); }}
         addedActions={actions[articleCode]||[]}
@@ -553,13 +542,24 @@ function App() {
           showToast(`📍 Hors zone : ${c} ajouté aux extras`);
           setPage('invList');
         } else { openArticle(c); }
-      }} onBatch={(codes)=>{
+      }} onBatch={(items)=>{
         setSheet(null);
-        if (codes.length === 0) return;
-        const [first, ...rest] = codes;
-        setScanQueue(rest);
-        showToast(`${codes.length} articles à traiter`);
-        openArticle(first);
+        if (items.length === 0) return;
+        let added = 0;
+        setActions(prev => {
+          const next = {...prev};
+          for (const d of items) {
+            const a = ARTICLES.find(x=>x.code===d.code);
+            if (!a || !a.primary) continue;
+            if (next[d.code]?.some(x=>x.kind===a.primary.kind && x.status==='pending')) continue;
+            const id = 'a' + Math.random().toString(36).slice(2,8);
+            next[d.code] = [...(next[d.code]||[]), { id, kind:a.primary.kind, label:a.primary.label + (a.primary.qty ? ` ×${a.primary.qty}` : ''), dest:'ERP', eta:'Immédiat', ts:Date.now(), status:'pending' }];
+            added++;
+          }
+          return next;
+        });
+        showToast(`${added || items.length} article${added!==1?'s':''} ajouté${added!==1?'s':''} aux actions`);
+        setSheet('todo');
       }} onUnknown={(code)=>setSheet({type:'unknown', code})} />}
       {sheet?.type === 'unknown' && <UnknownSheet code={sheet.code} onClose={()=>setSheet(null)} onRetry={()=>setSheet('camera')} onAssoc={()=>{ setSheet(null); showToast('Association → à brancher ERP'); }} />}
       {sheet === 'todo' && <JournalSheet
@@ -832,7 +832,7 @@ const chipRow = () => ({
 });
 
 // ── ARTICLE ───────────────────────────────────────────────────
-function ArticleScreen({ t, code, onBack, queueRemaining=0, onActions, onScan, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
+function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
   const a = ARTICLES.find(x=>x.code===code);
   if (!a) return null;
   const v = VC[a.verdict];
@@ -975,16 +975,6 @@ function ArticleScreen({ t, code, onBack, queueRemaining=0, onActions, onScan, a
         </details>
       </div>
 
-      {queueRemaining > 0 && (
-        <button onClick={onBack} style={{
-          margin:'0 14px 6px',padding:'12px',borderRadius:12,border:'none',
-          background:T.accent,color:'#1a0e05',fontSize:13,fontWeight:800,
-          display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'calc(100% - 28px)',
-        }}>
-          Article suivant ({queueRemaining} restant{queueRemaining>1?'s':''})
-          <Ico d={ICONS.fwd} s={14} sw={3} />
-        </button>
-      )}
       <BottomBar onSearch={onBack} onScan={onScan} onActions={onTodo} count={onActionsCount} primary={a.primary && !invMode} />
     </>
   );
@@ -1431,7 +1421,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
               );
             })}
             {detected.length >= 2 && (
-              <button onClick={()=> onBatch ? onBatch(detected.map(d=>d.code)) : onPick(detected[0].code)} style={{
+              <button onClick={()=> onBatch ? onBatch(detected) : onPick(detected[0].code)} style={{
                 width:'100%',marginTop:6,marginBottom:8,padding:'13px',borderRadius:12,border:'none',
                 background:T.accent,color:'#1a0e05',fontSize:13,fontWeight:800,letterSpacing:.3,
                 display:'flex',alignItems:'center',justifyContent:'center',gap:8,
