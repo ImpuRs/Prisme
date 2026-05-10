@@ -508,6 +508,7 @@ function App() {
         setSheet(null);
         if (k === 'inv') { enterInv(); }
         if (k === 'invStop') { if (confirm("Abandonner l'inventaire en cours ? Les comptages seront perdus.")) cancelInv(); }
+        if (k === 'ean') { setSheet('ean'); return; }
         if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
         if (k === 'purge') { ARTICLES = loadEngineData(ENGINE_DATA); DATA_SOURCE = 'mock'; window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } })); showToast('Cache purgé'); }
         if (k === 'import') {
@@ -563,6 +564,7 @@ function App() {
         showToast(`${added || items.length} article${added!==1?'s':''} ajouté${added!==1?'s':''} aux actions`);
         setSheet('todo');
       }} onUnknown={(code)=>setSheet({type:'unknown', code})} />}
+      {sheet === 'ean' && <EanSheet onClose={()=>setSheet(null)} onPick={(c)=>{ setSheet(null); openArticle(c); }} />}
       {sheet?.type === 'unknown' && <UnknownSheet code={sheet.code} onClose={()=>setSheet(null)} onRetry={()=>setSheet('camera')} onAssoc={(artCode)=>{ setSheet(null); showToast(`EAN associé à ${artCode}`); openArticle(artCode); }} />}
       {sheet === 'todo' && <JournalSheet
         onClose={()=>setSheet(null)}
@@ -1123,6 +1125,7 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
       ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24' }
       : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e' },
     ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171' }] : []),
+    { k:'ean', l:`Codes-barres associés (${_customEanMap.size})`, s:'Voir et gérer les associations EAN', dot:'#fb923c' },
     { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#fbbf24' },
     { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171' },
   ];
@@ -1575,6 +1578,54 @@ function DouchetteScreen({ onBack, onArticle }) {
         )}
       </div>
     </>
+  );
+}
+
+function EanSheet({ onClose, onPick }) {
+  const [flip, setFlip] = useState(0);
+  const entries = [..._customEanMap.entries()];
+  const exportCsv = () => {
+    if (entries.length === 0) return;
+    let csv = 'EAN;Code Article;Libelle\n';
+    for (const [ean, code] of entries) {
+      const a = ARTICLES.find(x => x.code === code);
+      csv += `${ean};${code};${(a?.lib || '').replace(/;/g, ',')}\n`;
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'associations-ean.csv'; link.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <Sheet onClose={onClose} title={`Associations EAN (${entries.length})`}>
+      <div style={{padding:'4px 14px 0'}}>
+        {entries.length === 0 ? (
+          <div style={{padding:'20px',color:T.t2,fontSize:12,textAlign:'center'}}>Aucune association enregistree</div>
+        ) : (
+          <>
+            <div style={{maxHeight:'50vh',overflowY:'auto'}}>
+              {entries.map(([ean, code]) => {
+                const a = ARTICLES.find(x => x.code === code);
+                return (
+                  <div key={ean} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:4}}>
+                    <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>onPick(code)}>
+                      <div style={{fontSize:12,fontWeight:700,color:T.accent,fontFamily:'ui-monospace,monospace'}} className="tn">{ean}</div>
+                      <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{code} <span style={{color:T.t2,fontFamily:'inherit'}}>{a?.lib || '?'}</span></div>
+                    </div>
+                    <button onClick={()=>{ removeCustomEan(ean); setFlip(f=>f+1); }} style={{background:'none',border:'none',color:'#fca5a5',fontSize:16,fontWeight:800,padding:'4px 8px',cursor:'pointer'}}>x</button>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={exportCsv} style={{width:'100%',marginTop:8,padding:'12px',borderRadius:12,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.03)',color:T.t1,fontSize:13,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+              Exporter CSV
+              <Ico d={ICONS.fwd} s={14} sw={2.5} />
+            </button>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
 
