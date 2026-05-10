@@ -2646,8 +2646,8 @@ function PCApp() {
   const [, bump] = useState(0);
   useEffect(() => {
     const h = () => bump(v => v + 1);
-    document.addEventListener('prisme-data', h);
-    return () => document.removeEventListener('prisme-data', h);
+    window.addEventListener('prisme-data', h);
+    return () => window.removeEventListener('prisme-data', h);
   }, []);
   const [code, setCode] = useState(null);
   const [q, setQ] = useState('');
