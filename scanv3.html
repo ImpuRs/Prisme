@@ -132,7 +132,7 @@ function _verdict(stock, min, max) {
 function _primary(verdict, stock, min, max, statut) {
   const finDeVie = /fin de (s[ée]rie|stock|catalogue)/i.test(statut||'');
   // Stock négatif → corriger le stock ERP, vider MIN/MAX
-  if (stock < 0) return { kind:'corriger_stock', label:'Corriger stock ERP', qty: 0, sub:`Stock ${stock} aberrant · passer MIN/MAX à 0/0` };
+  if (stock < 0) return { kind:'corriger_stock', label:'Corriger stock ERP', qty: 0, sub:`Stock négatif (${stock}) à remettre à 0` };
   // Fin de série → ne pas commander, retourner si stock > 0
   if (finDeVie && stock > 0) return { kind:'retour', label:'Retour centrale', qty: stock, sub:`Fin de série · solder le stock` };
   if (finDeVie) return null; // fin de série + stock 0 → rien à faire
