@@ -548,20 +548,22 @@ function App() {
       }} onBatch={(items)=>{
         setSheet(null);
         if (items.length === 0) return;
-        let added = 0;
+        // Ajouter tous les articles scannés (pas seulement ceux avec action primaire)
         setActions(prev => {
           const next = {...prev};
           for (const d of items) {
             const a = ARTICLES.find(x=>x.code===d.code);
-            if (!a || !a.primary) continue;
-            if (next[d.code]?.some(x=>x.kind===a.primary.kind && x.status==='pending')) continue;
+            if (!a) continue;
+            // Si déjà en attente pour cet article, skip
+            if (next[d.code]?.some(x=>x.status==='pending')) continue;
             const id = 'a' + Math.random().toString(36).slice(2,8);
-            next[d.code] = [...(next[d.code]||[]), { id, kind:a.primary.kind, label:a.primary.label + (a.primary.qty ? ` ×${a.primary.qty}` : ''), dest:'ERP', eta:'Immédiat', ts:Date.now(), status:'pending' }];
-            added++;
+            const label = a.primary ? a.primary.label + (a.primary.qty ? ` x${a.primary.qty}` : '') : 'A verifier';
+            const kind = a.primary ? a.primary.kind : 'check';
+            next[d.code] = [...(next[d.code]||[]), { id, kind, label, dest:'', eta:'', ts:Date.now(), status:'pending' }];
           }
           return next;
         });
-        showToast(`${added || items.length} article${added!==1?'s':''} ajouté${added!==1?'s':''} aux actions`);
+        showToast(`${items.length} article${items.length>1?'s':''} ajouté${items.length>1?'s':''} aux actions`);
         setSheet('todo');
       }} onUnknown={(code)=>setSheet({type:'unknown', code})} />}
       {sheet === 'ean' && <EanSheet onClose={()=>setSheet(null)} onPick={(c)=>{ setSheet(null); openArticle(c); }} />}
