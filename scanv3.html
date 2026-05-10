@@ -1529,7 +1529,7 @@ function DouchetteScreen({ onBack, onArticle }) {
               <Ico d={ICONS.scan} s={42} sw={2} />
             </div>
             <div style={{fontSize:16,fontWeight:800,color:T.t1}}>En attente de scan</div>
-            <div style={{fontSize:12,color:T.t2,marginTop:6,maxWidth:240,lineHeight:1.5}}>Pointe la douchette Zebra et appuie sur la gâchette. Le clavier ne s’affichera pas.</div>
+            <div style={{fontSize:12,color:T.t2,marginTop:6,maxWidth:240,lineHeight:1.5}}>Pointe la douchette Zebra et appuie sur la gâchette. Le clavier ne s'affichera pas.</div>
             <div style={{marginTop:18,display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
               {[ARTICLES[0],ARTICLES[1],ARTICLES[2]].map(x=>(
                 <button key={x.code} onClick={()=>fakeScan(x.code)} style={{padding:'6px 10px',borderRadius:99,background:'rgba(255,255,255,.04)',border:`1px solid ${T.border}`,color:T.t2,fontSize:11,fontWeight:600}} className="tn">simuler {x.code}</button>
@@ -1591,48 +1591,48 @@ function DouchetteScreen({ onBack, onArticle }) {
 }
 
 function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
-  const [search, setSearch] = useState(‘’);
+  const [search, setSearch] = useState('');
   const [picking, setPicking] = useState(false);
   const q = search.trim().toLowerCase();
   const results = picking && q.length >= 2
-    ? ARTICLES.filter(a => a.code.includes(q) || a.lib.toLowerCase().includes(q) || (a.empl||’’).toLowerCase().includes(q)).slice(0, 8)
+    ? ARTICLES.filter(a => a.code.includes(q) || a.lib.toLowerCase().includes(q) || (a.empl||'').toLowerCase().includes(q)).slice(0, 8)
     : [];
   return (
     <Sheet onClose={onClose} title="Code non reconnu">
-      <div style={{padding:’4px 14px 0’}}>
-        <div style={{padding:’14px 16px’,background:’rgba(239,68,68,.08)’,border:’1px solid rgba(239,68,68,.25)’,borderRadius:12,marginBottom:10}}>
-          <div style={{fontSize:10,color:’#fca5a5’,fontWeight:800,letterSpacing:.6,textTransform:’uppercase’}}>EAN scanné</div>
-          <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,fontFamily:’ui-monospace,monospace’}} className="tn">{code}</div>
-          <div style={{fontSize:11,color:T.t2,marginTop:4}}>Ce code n’existe pas dans le catalogue PRISME.</div>
+      <div style={{padding:'4px 14px 0'}}>
+        <div style={{padding:'14px 16px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',borderRadius:12,marginBottom:10}}>
+          <div style={{fontSize:10,color:'#fca5a5',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>EAN scanné</div>
+          <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,fontFamily:'ui-monospace,monospace'}} className="tn">{code}</div>
+          <div style={{fontSize:11,color:T.t2,marginTop:4}}>Ce code n'existe pas dans le catalogue PRISME.</div>
         </div>
         {!picking ? (
           <>
-            <button onClick={()=>setPicking(true)} style={{width:’100%’,padding:’13px 14px’,background:T.accent,color:’#1a0e05’,borderRadius:12,border:’none’,textAlign:’left’,marginBottom:6,fontSize:13,fontWeight:800}}>Associer à un article</button>
-            <button onClick={onRetry} style={{width:’100%’,padding:’13px 14px’,background:’rgba(255,255,255,.03)’,color:T.t1,borderRadius:12,border:`1px solid ${T.border}`,textAlign:’left’,marginBottom:6,fontSize:13,fontWeight:700}}>Réessayer</button>
-            <button onClick={onClose} style={{width:’100%’,padding:’12px’,background:’transparent’,color:T.t2,border:’none’,fontSize:12,fontWeight:600}}>Ignorer</button>
+            <button onClick={()=>setPicking(true)} style={{width:'100%',padding:'13px 14px',background:T.accent,color:'#1a0e05',borderRadius:12,border:'none',textAlign:'left',marginBottom:6,fontSize:13,fontWeight:800}}>Associer à un article</button>
+            <button onClick={onRetry} style={{width:'100%',padding:'13px 14px',background:'rgba(255,255,255,.03)',color:T.t1,borderRadius:12,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,fontSize:13,fontWeight:700}}>Réessayer</button>
+            <button onClick={onClose} style={{width:'100%',padding:'12px',background:'transparent',color:T.t2,border:'none',fontSize:12,fontWeight:600}}>Ignorer</button>
           </>
         ) : (
           <>
             <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Code, libellé ou emplacement..." style={{
-              width:’100%’,padding:’11px 14px’,background:T.card,color:T.t1,border:`1px solid ${T.border}`,borderRadius:10,fontSize:13,marginBottom:6,outline:’none’,
+              width:'100%',padding:'11px 14px',background:T.card,color:T.t1,border:`1px solid ${T.border}`,borderRadius:10,fontSize:13,marginBottom:6,outline:'none',
             }} />
-            <div style={{maxHeight:’35vh’,overflowY:’auto’}}>
+            <div style={{maxHeight:'35vh',overflowY:'auto'}}>
               {results.map(a=>(
                 <button key={a.code} onClick={()=>{ addCustomEan(code, a.code); onAssoc(a.code); }} style={{
-                  width:’100%’,display:’flex’,alignItems:’center’,gap:10,padding:’10px 12px’,
-                  background:T.card,borderRadius:10,border:`1px solid ${T.border}`,color:T.t1,textAlign:’left’,marginBottom:4,
+                  width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
+                  background:T.card,borderRadius:10,border:`1px solid ${T.border}`,color:T.t1,textAlign:'left',marginBottom:4,
                 }}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code}</div>
-                    <div style={{fontSize:12,fontWeight:600,whiteSpace:’nowrap’,overflow:’hidden’,textOverflow:’ellipsis’}}>{a.lib}</div>
+                    <div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     <div style={{fontSize:10,color:T.accent}}>{a.empl}</div>
                   </div>
                   <Ico d={ICONS.fwd} s={14} sw={2.5} />
                 </button>
               ))}
-              {q.length >= 2 && results.length === 0 && <div style={{padding:12,color:T.t3,fontSize:12,textAlign:’center’}}>Aucun article trouvé</div>}
+              {q.length >= 2 && results.length === 0 && <div style={{padding:12,color:T.t3,fontSize:12,textAlign:'center'}}>Aucun article trouvé</div>}
             </div>
-            <button onClick={()=>setPicking(false)} style={{width:’100%’,padding:’10px’,background:’transparent’,color:T.t2,border:’none’,fontSize:12,fontWeight:600,marginTop:4}}>Annuler</button>
+            <button onClick={()=>setPicking(false)} style={{width:'100%',padding:'10px',background:'transparent',color:T.t2,border:'none',fontSize:12,fontWeight:600,marginTop:4}}>Annuler</button>
           </>
         )}
       </div>
