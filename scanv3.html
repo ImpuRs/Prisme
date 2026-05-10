@@ -671,7 +671,7 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCou
         <div style={sectionLabel}>Modes</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
           <ModeBtn dot="#22c55e" l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
-          <ModeBtn dot="#60a5fa" l="Scanner" s="Ouvrir la caméra" onClick={()=>onScan()} />
+          <ModeBtn dot="#60a5fa" l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
           <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={()=>{}} />
         </div>
 
