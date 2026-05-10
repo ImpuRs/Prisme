@@ -129,7 +129,13 @@ function _verdict(stock, min, max) {
   if (max > 0 && stock > max) return 'surstock';
   return 'ok';
 }
-function _primary(verdict, stock, min, max) {
+function _primary(verdict, stock, min, max, statut) {
+  const finDeVie = /fin de (s[ée]rie|stock|catalogue)/i.test(statut||'');
+  // Stock négatif → corriger le stock ERP, vider MIN/MAX
+  if (stock < 0) return { kind:'corriger_stock', label:'Corriger stock ERP', qty: 0, sub:`Stock ${stock} aberrant · passer MIN/MAX à 0/0` };
+  // Fin de série → ne pas commander, retourner si stock > 0
+  if (finDeVie && stock > 0) return { kind:'retour', label:'Retour centrale', qty: stock, sub:`Fin de série · solder le stock` };
+  if (finDeVie) return null; // fin de série + stock 0 → rien à faire
   if (verdict === 'rupture')  return { kind:'commander', label:'Commander', qty: Math.max(min, 1), sub:`Stock ${stock} < MIN ${min}` };
   if (verdict === 'sousmin')  return { kind:'commander', label:'Commander', qty: min - stock,     sub:`Stock ${stock} < MIN ${min}` };
   if (verdict === 'surstock') return { kind:'retour',    label:'Retour centrale', qty: stock - max, sub:`${stock - max} pcs au-dessus du MAX` };
@@ -171,7 +177,7 @@ function loadEngineData(engine) {
       statut:  it.statut || 'Actif',
       verdict,
       sq:      SQ_LABEL[it._sqClassif] || (it._sqVerdict || 'Socle'),
-      primary: _primary(verdict, stock, min, max),
+      primary: _primary(verdict, stock, min, max, it.statut),
       secondary: _secondary(it),
       _raw:    it, // garde l'original sous le coude pour passes futures (W, vitesse, ABC…)
     };
