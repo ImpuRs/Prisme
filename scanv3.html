@@ -415,6 +415,7 @@ function App() {
         invTotal={INV_CODES.length}
         invZone={INV_ZONE}
         recents={recents}
+        treatedCodes={actions}
         actionsCount={pendingActions}
         validatedCount={Object.values(actions).reduce((n,a)=>n+a.filter(x=>x.status==='validee').length,0)}
         onActions={()=>setSheet('todo')}
@@ -689,9 +690,9 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────
-function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
+function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, treatedCodes, actionsCount, validatedCount, onActions, onMenu }) {
   const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
-  const todos = ARTICLES.filter(a => a.primary).sort((a,b)=>{
+  const todos = ARTICLES.filter(a => a.primary && !(treatedCodes[a.code]?.length > 0)).sort((a,b)=>{
     const pa = a.stock < 0 ? -1 : (verdictPrio[a.verdict]??9);
     const pb = b.stock < 0 ? -1 : (verdictPrio[b.verdict]??9);
     return pa - pb;
