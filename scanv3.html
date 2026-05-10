@@ -847,12 +847,12 @@ const chipRow = () => ({
 
 // ── ARTICLE ───────────────────────────────────────────────────
 function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
+  const [priceShown, setPriceShown] = useState(false);
+  const [flip, setFlip] = useState(0);
   const a = ARTICLES.find(x=>x.code===code);
+  const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : (a?.stock ?? 0));
   if (!a) return null;
   const v = VC[a.verdict];
-  const [priceShown, setPriceShown] = useState(false);
-  const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : a.stock);
-  const [flip, setFlip] = useState(0);
 
   return (
     <>
