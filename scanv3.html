@@ -1690,75 +1690,55 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
 }
 
 function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onPurge }) {
-  // Grouper par article, compiler les actions
-  const byCode = {};
-  Object.keys(actions).forEach(c => {
-    actions[c].forEach(x => {
-      if (!byCode[c]) byCode[c] = { code:c, actions:[] };
-      byCode[c].actions.push({...x, code:c});
-    });
-  });
+  const all = [];
+  Object.keys(actions).forEach(c => actions[c].forEach(x => all.push({...x, code:c})));
   // Trier par emplacement croissant
-  const groups = Object.values(byCode).map(g => {
-    const a = ARTICLES.find(x=>x.code===g.code);
-    return {...g, article:a, empl: a?.empl || 'ZZZ' };
-  }).sort((a,b) => a.empl.localeCompare(b.empl));
+  all.sort((a,b) => {
+    const ea = ARTICLES.find(x=>x.code===a.code)?.empl || 'ZZZ';
+    const eb = ARTICLES.find(x=>x.code===b.code)?.empl || 'ZZZ';
+    return ea.localeCompare(eb);
+  });
+  const pending = all.filter(x=>x.status==='pending');
+  const validated = all.filter(x=>x.status==='validee');
 
-  const allActions = groups.flatMap(g => g.actions);
-  const pendingCount = allActions.filter(x=>x.status==='pending').length;
-  const validatedCount = allActions.filter(x=>x.status==='validee').length;
-  const pendingGroups = groups.filter(g => g.actions.some(x=>x.status==='pending'));
-  const validatedGroups = groups.filter(g => g.actions.every(x=>x.status==='validee'));
-
-  const fmt = (ts) => {
-    const d = (Date.now()-ts)/1000;
-    if (d < 60) return 'a l\'instant';
-    if (d < 3600) return Math.floor(d/60) + ' min';
-    if (d < 86400) return Math.floor(d/3600) + ' h';
-    return Math.floor(d/86400) + ' j';
-  };
-  const GroupRow = ({ g, statusFilter }) => {
-    const a = g.article;
+  const Row = ({ x }) => {
+    const a = ARTICLES.find(y=>y.code===x.code);
     const v = a ? VC[a.verdict] : null;
-    const acts = statusFilter ? g.actions.filter(x=>x.status===statusFilter) : g.actions;
+    const sty = x.status==='validee'
+      ? { dot:'#22c55e', bg:'rgba(34,197,94,.08)', border:'rgba(34,197,94,.25)' }
+      : { dot:'#fbbf24', bg:'rgba(251,191,36,.08)', border:'rgba(251,191,36,.3)' };
     return (
-      <div style={{padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft: v ? `3px solid ${v.edge}` : undefined,marginBottom:6}}>
-        <button onClick={()=>onPick(g.code)} style={{display:'block',width:'100%',background:'transparent',border:'none',color:T.t1,textAlign:'left',padding:0,cursor:'pointer'}}>
+      <div style={{padding:'10px 12px',background:sty.bg,borderRadius:12,border:`1px solid ${sty.border}`,borderLeft: v ? `3px solid ${v.edge}` : undefined,marginBottom:6}}>
+        <button onClick={()=>onPick(x.code)} style={{display:'block',width:'100%',background:'transparent',border:'none',color:T.t1,textAlign:'left',padding:0,cursor:'pointer'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontSize:15,fontWeight:900,color:T.t1,fontFamily:'ui-monospace,monospace'}} className="tn">{g.code}</span>
+            <span style={{fontSize:15,fontWeight:900,color:T.t1,fontFamily:'ui-monospace,monospace'}} className="tn">{x.code}</span>
             <span style={{fontSize:11,color:T.accent,fontWeight:700}}>{a?.empl || '—'}</span>
             {v && <span style={{padding:'1px 5px',borderRadius:99,background:v.bg,color:v.fg,fontSize:8,fontWeight:800,textTransform:'uppercase',marginLeft:'auto'}}>{v.label}</span>}
           </div>
-          <div style={{fontSize:11,fontWeight:600,color:T.t2,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.lib || '?'}</div>
+          <div style={{fontSize:13,fontWeight:700,marginTop:2}}>{x.label}</div>
+          {a && <div style={{fontSize:11,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>}
         </button>
-        <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:3}}>
-          {acts.map(x=>(
-            <div key={x.id} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
-              <Dot c={x.status==='validee'?'#22c55e':'#fbbf24'} s={5} />
-              <span style={{flex:1,color:T.t2}}>{x.label}</span>
-              <span style={{color:T.t3,fontSize:10}} className="tn">{fmt(x.ts)}</span>
-              {x.status==='pending' && <>
-                <button onClick={(e)=>{e.stopPropagation();onValidate(g.code,x.id)}} style={{background:'none',border:'none',color:'#86efac',fontSize:10,fontWeight:800,padding:'2px 4px'}}>Fait</button>
-                <button onClick={(e)=>{e.stopPropagation();onUndo(g.code,x.id)}} style={{background:'none',border:'none',color:'#fca5a5',fontSize:10,fontWeight:700,padding:'2px 4px'}}>x</button>
-              </>}
-            </div>
-          ))}
-        </div>
+        {x.status==='pending' && (
+          <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid rgba(255,255,255,.05)',display:'flex',justifyContent:'flex-end',gap:6}}>
+            <button onClick={()=>onValidate(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(34,197,94,.25)',background:'rgba(34,197,94,.08)',color:'#86efac',fontSize:11,fontWeight:800}}>Fait</button>
+            <button onClick={()=>onUndo(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'transparent',color:T.t2,fontSize:11,fontWeight:700}}>Annuler</button>
+          </div>
+        )}
       </div>
     );
   };
-  const Section = ({ title, items, color, statusFilter }) => items.length === 0 ? null : (
+  const Section = ({ title, items, color }) => items.length === 0 ? null : (
     <div style={{marginBottom:10}}>
       <div style={{fontSize:10,color:color,fontWeight:800,letterSpacing:.8,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
-        <span>{title}</span><span style={{color:T.t3,fontWeight:600}}>· {items.length} article{items.length>1?'s':''}</span>
+        <span>{title}</span><span style={{color:T.t3,fontWeight:600}}>· {items.length}</span>
       </div>
-      {items.map(g => <GroupRow key={g.code} g={g} statusFilter={statusFilter} />)}
+      {items.map(x => <Row key={x.id} x={x} />)}
     </div>
   );
   return (
     <Sheet onClose={onClose} title="Journal du jour">
       <div style={{padding:'4px 14px 0'}}>
-        {allActions.length === 0 ? (
+        {all.length === 0 ? (
           <div style={{textAlign:'center',padding:'30px 20px',color:T.t2}}>
             <div style={{fontSize:13}}>Rien aujourd'hui</div>
             <div style={{fontSize:11,color:T.t3,marginTop:6}}>Scanne un article pour commencer</div>
@@ -1767,16 +1747,16 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
           <>
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,marginBottom:12}}>
               <div style={{padding:'8px 10px',background:'rgba(251,191,36,.08)',borderRadius:10,border:'1px solid rgba(251,191,36,.3)'}}>
-                <div style={{fontSize:18,fontWeight:900,color:'#fbbf24'}} className="tn">{pendingCount}</div>
+                <div style={{fontSize:18,fontWeight:900,color:'#fbbf24'}} className="tn">{pending.length}</div>
                 <div style={{fontSize:9,color:T.t2,marginTop:1}}>en attente</div>
               </div>
               <div style={{padding:'8px 10px',background:'rgba(34,197,94,.08)',borderRadius:10,border:'1px solid rgba(34,197,94,.25)'}}>
-                <div style={{fontSize:18,fontWeight:900,color:'#86efac'}} className="tn">{validatedCount}</div>
+                <div style={{fontSize:18,fontWeight:900,color:'#86efac'}} className="tn">{validated.length}</div>
                 <div style={{fontSize:9,color:T.t2,marginTop:1}}>validees</div>
               </div>
             </div>
-            <Section title="En attente" items={pendingGroups} color="#fbbf24" statusFilter="pending" />
-            <Section title="Validees" items={validatedGroups} color="#86efac" statusFilter="validee" />
+            <Section title="En attente" items={pending} color="#fbbf24" />
+            <Section title="Validees" items={validated} color="#86efac" />
             <button onClick={()=>{ if (confirm('Purger le journal du jour ? Cette action est définitive.')) onPurge(); }} style={{
               width:'100%',marginTop:8,padding:'12px',borderRadius:12,
               background:'transparent',color:'#fca5a5',fontSize:12,fontWeight:700,
