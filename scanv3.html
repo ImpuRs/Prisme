@@ -1225,7 +1225,7 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
       <div style={{padding:'4px 14px 0'}}>
         <div style={{fontSize:11,color:T.t3,padding:'0 4px 8px'}} className="tn">Article {a.code} · {a.lib}</div>
         {all.map((x,i)=>(
-          <button key={i} onClick={()=>onAdd(x.kind, x.label + (x.qty?` (${x.qty} pcs)`:''), x.dest, x.eta)} style={{
+          <button key={i} onClick={()=>onAdd(x.kind, x.label + (x.sub&&x.kind==='erp'?' · '+x.sub:'') + (x.qty?` (${x.qty} pcs)`:''), x.dest, x.eta)} style={{
             width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
             background: x.primary ? x.color : 'rgba(255,255,255,.03)',
             color: x.primary ? '#0a0c10' : T.t1,
