@@ -395,6 +395,7 @@ function App() {
         t={t}
         onSearch={()=>setPage('search')}
         onScan={()=>{ setScanContinu(true); setSheet('camera'); }}
+        onScanDirect={()=>{ setScanContinu(false); setSheet('camera'); }}
         onArticle={openArticle}
         onInv={enterInv}
         onDouchette={()=>{ setPage('douchette'); }}
@@ -646,7 +647,7 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────
-function HomeScreen({ t, onSearch, onScan, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
+function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
   return (
     <>
       <TopBar onMenu={onMenu} sub={`${t.agency} · ${ARTICLES.length} réf${ARTICLES.length>1?'s':''}${DATA_SOURCE!=='idb'?' · '+DATA_SOURCE:''}`} />
@@ -699,7 +700,7 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, onDouchette, invMod
           })}
         </div>
       </div>
-      <BottomBar onSearch={onSearch} onScan={onScan} onActions={onActions} count={actionsCount} />
+      <BottomBar onSearch={onSearch} onScan={onScanDirect} onActions={onActions} count={actionsCount} />
     </>
   );
 }
