@@ -1,0 +1,283 @@
+Tu es un expert merchandiser B2B avec 20 ans d'expérience en distribution professionnelle de quincaillerie (Legallais, Rexel, Würth, Pointp…). Tu accompagnes des chefs d'agence de tout niveau, du débutant au vétéran.
+
+Je vais te coller ci-dessous un diagnostic de rayon généré par PRISME, un outil d'analyse BI offline. Le diagnostic contient :
+- Une classification globale (bien couverte, à développer, à retravailler, à surveiller, potentiel)
+- Un score d'hygiène (% de refs pathologiques : dormants + fin série/stock + ruptures)
+- Un rendement base 100 (CA/ref vs médiane réseau)
+- 4 étapes d'action (sortir, implanter, incontournables, standards)
+- Un squelette réseau (socle, implanter, challenger…)
+- Le catalogue Legallais disponible et les métiers clients
+
+Ta mission : produire une ANALYSE NARRATIVE d'expert, pas un résumé.
+
+Structure imposée :
+1. **La phrase à retenir** — le diagnostic en une ligne franche, même si c'est dur.
+2. **Les signaux qui crient fort** — les chiffres qui racontent une histoire (pas une liste, une lecture).
+3. **Le piège mental à éviter** — ce que le chef d'agence risque de faire en lisant PRISME littéralement.
+4. **Ce que je vois vraiment dans les données** — 3 à 5 observations argumentées en croisant plusieurs sections (emplacements, sous-familles, métiers clients, noms de produits, marques). Cherche les patterns cachés : rayon "cimetière de promos", spécialisation possible, produits père/fils ERP, ruptures concentrées sur un fournisseur, sous-famille qui masque le reste.
+5. **Le plan que tu ferais** — 4 à 6 priorités dans un ordre CHALLENGE celui de PRISME si nécessaire. Chaque priorité a un budget temps et un geste concret.
+6. **Prédiction chiffrée** — impact estimé sur nb refs, valeur stock, hygiène, rendement, sensation vendeur.
+7. **La leçon qui dépasse ce rayon** — ce que ce cas apprend au chef d'agence pour ses autres rayons.
+
+Règles de ton :
+- Parle au chef d'agence directement ("tu", "ton rayon")
+- Pas de jargon data. Vocabulaire terrain concret.
+- Sois franc : si PRISME se trompe d'orientation, dis-le.
+- Les décisions d'assortiment prévalent sur les règles mathématiques.
+- Rappelle qu'un rayon cohérent < un rayon large mal choisi.
+- Croise les métiers clients avec les produits pour déduire la vocation réelle du rayon.
+- Ton rôle est de faire VOIR des patterns, pas de paraphraser les chiffres.
+
+Voici le diagnostic :
+╔══════════════════════════════════════════════╗
+  DIAGNOSTIC RAYON — ECLAIRAGE
+  Agence : AG22
+  Emplacements : 0, A, A PLACER, C9, DESTOCK, ECLAIRAGE, N, NEW, PILE, PROMO OCT, RALLONGE, W, X
+╚══════════════════════════════════════════════╝
+
+Action recommandée par PRISME : À développer
+🧹 **PRIORITÉ HYGIÈNE** : 79% du rayon est pathologique (26 dormants · 31 fin série/stock · 0 ruptures). **Nettoie avant d'implanter** — le rendement remontera mécaniquement.
+
+📖 **LECTURE EXPERT**
+─────────────────────
+⚠ **Hygiène critique (79%)** : près de la moitié de ton rayon ne vend rien (dormants, fin de stock) ou ne peut pas vendre (ruptures). Ton rendement (94) est **mécaniquement plafonné** — impossible de remonter sans nettoyer d'abord. Ne dépense pas d'énergie à implanter tant que tu n'as pas dégagé.
+
+⚠ **Rayon échantillonné (3% du catalogue)** : 72 refs sur 2126 au catalogue. C'est un rayon où personne n'a jamais vraiment *choisi* l'assortiment — tu as pris des morceaux sans logique. Un rayon de cette famille doit soit se spécialiser (une sous-famille à fond), soit s'élargir sur les pépites du réseau.
+
+
+═══ MON RAYON AUJOURD'HUI ═══
+77 articles en stock · 4% couverture (77/2126) · 3454€ valeur stock
+
+═══ ÉTAPE 1 — SORTIR DU RAYON (43 refs · ~1926€ libérables · 10 emplacements rendus) ═══
+⏱ Budget : ~20 min  ·  Geste : retire physiquement, met en retour fournisseur ou solde.
+⚠ **RÈGLE DE SÉCURITÉ** : même si dormant, ne jette JAMAIS un ⭐ (pépite) ni un 💤 (socle réseau). Ces marqueurs apparaissent à l'ÉTAPE 3.
+
+**Dormants (12) — triés par € libérable**
+      ☐ [630918] LAMPE LED E27 29W 4000K HQL — stock 4, 163€  @DESTOCK
+      ☐ [556329] BANDE LED COB CCT 5MM L=5M — stock 2, 63€  @X
+      ☐ [668391] SPOT SOL ROND NU GU10 IK10 — stock 3, 56€  @ECLAIRAGE
+      ☐ [668405] SPOT A PIQUET EXT NU GU10 — stock 3, 54€  @ECLAIRAGE
+      ☐ [549151] SPOT ORIENTABLE 4/6/8W 3000K — stock 3, 48€  @X
+      ☐ [586153] PROFIL ALU MEC-3 3 ML — stock 4, 39€  @C9
+      ☐ [666620] LAMPE BUREAU DELICATO 7W CCT — stock 1, 28€  @NEW
+      ☐ [694054] APPLIQUE MURALE SOLAIRE 1000LM — stock 1, 24€  @N
+      ☐ [649597] DYNAMO LED X3 28LM — stock 1, 15€  @PILE
+      ☐ [357226] LAMPE BATON FILAIRE WL550 7,1W — stock 1, 15€  @PILE
+      ☐ [667698] PRISE CABLEE 5M — stock 1, 4€  @A PLACER
+      ☐ [667705] CONNECTEUR BANDE LED 24V 15CM — stock 1, 1€  @A PLACER
+
+**Fin de stock (31) — à dégager même si pépite**
+**▸ Accessoires d'éclairage**
+  **· ORBITEC**
+      ☐ [541941] DOUILLE CLIPSABLE+START.P/G13 — stock 2, 5€  @W
+
+**▸ Eclairage de chantier**
+  **· BRICODEALTORRO SAS**
+      ☐ [625556] TORCHE USB NIGHT CUTTER F30R — stock 1, 48€  @PILE
+
+  **· H. BRENNENSTUHL S.A.S**
+      ☐ [357156] LAMPE DE POCHE FOCUS TL800 — stock 1, 38€  @PILE
+      ☐ [357233] PROJECTEUR PORT DINORA 45W — stock 2, 140€  @PILE
+
+**▸ Luminaires d'extérieur**
+  **· CENTRAL LOBAO**
+      ☐ [668363] APPLIQUE ENC ROND 3W 840 BLC — stock 2, 35€  @W
+      ☐ [668482] APPLIQUE EXT 2X6W 4000K BLANC — stock 1, 23€  @W
+      ☐ [668503] APPLIQUE EXT ROND 6W 840 GRAPH — stock 2, 48€  @W
+
+  **· KOSNIC LIGHTING FRANCE**
+      ☐ [661881] APPLIQUE EXT PPORTAGE 7W 830 — stock 2, 66€  @W
+
+  **· SLV GMBH**
+      ☐ [169563] BOITIER CONNEX T IP68 3 POLES — stock 3, 57€  @DESTOCK
+
+**▸ Luminaires pour ERP & ERT**
+  **· CENTRAL LOBAO**
+      ☐ [237878] DETECTEUR DE MVT ARMATURE — stock 9, 180€  @DESTOCK
+      ☐ [667901] DOWNLIGHT CARRÉ 225MM 18W 830 — stock 2, 17€  @W
+
+**▸ Luminaires pour résidentiel intérieur**
+  **· ARIC SAS**
+      ☐ [550565] SPOT ORIENT SPEED70 NICKE GU10 — stock 2, 20€  @W
+
+  **· CENTRAL LOBAO**
+      ☐ [237647] SPOT PHAROS CARRE 10W 927 BLC — stock 2, 61€  @W
+      ☐ [237654] SPOT PHAROS CARRE 10W 940 BLC — stock 2, 61€  @W
+      ☐ [237668] SPOT PHAROS CARRE 10W 940 NOIR — stock 2, 61€  @W
+      ☐ [237696] SPOT PHAROS CARRE GU10 NOIR — stock 2, 28€  @W
+      ☐ [237619] SPOT PHAROS ROND 10W 927 BLC — stock 2, 58€  @W
+      ☐ [237626] SPOT PHAROS ROND 10W 940 BLC — stock 2, 58€  @W
+      ☐ [237675] SPOT PHAROS ROND GU10 BLANC — stock 2, 24€  @W
+
+  **· L&S ITALIA SRL**
+      ☐ [478207] CABLE ALIM. EU PR MEC DRIVER — stock 0, 0€  @0
+      ☐ [556413] SPOT CORA 12V 2,5W CCT — stock 2, 14€  @W
+      ☐ [210228] SPOT KEY-45 SANS INTER 4W NOIR — stock 2, 23€  @W
+      ☐ [210256] SPOT KEY-T SANS INTER 4W GRIS — stock 2, 33€  @W
+
+  **· LEDVANCE**
+      ☐ [556672] SPOT TWIST 10W 3000K BLC/NOIR — stock 2, 30€  @W
+
+  **· PAULMANN LUMIERE SA**
+      ☐ [544440] REGLETTE LED 3 SPOT A PILE AAA — stock 3, 42€  @W
+      ☐ [658610] SPOT TUBE 3XGU10 MAX 10W — stock 1, 56€  @DESTOCK
+
+**▸ Sources**
+  **· KOSNIC LIGHTING FRANCE**
+      ☐ [210571] LAMPE GLOBE FILA WIZ 7W 950MM — stock 5, 131€  @W
+
+  **· LEDVANCE**
+      ☐ [231907] LAMPE LED HQL 38W 2700K E40 — stock 0, 0€  @W
+      ☐ [231830] LAMPE LED NAV A FIL 35W 7000K — stock 1, 25€  @W
+      ☐ [231774] LAMPE SODIUM OVOIDE E40 400W — stock 2, 33€  @W
+      ☐ [622483] STARTER ST 111 LONGLIFE — stock 9, 3€  @ECLAIRAGE
+
+═══ ÉTAPE 2 — IMPLANTER (23 refs à créer · 419 BL réseau cumulés · 83 présences agences) ═══
+⏱ Budget : ~45 min  ·  Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.
+
+**🎯 TOP 3 prioritaires** (plus fort signal réseau)
+      ☐ [285156] LAMPE FRONTALE H30R RECH 400LM — score 66 · 4 agences · 15 BL · MIN/MAX à paramétrer
+      ☐ [357177] LAMPE FRONTALE KL251AF 250LM — score 66 · 4 agences · 20 BL · MIN 1/MAX 1 (méd. réseau)
+      ☐ [357205] PROJECTEUR RECHARGE JARO 20W — score 66 · 3 agences · 16 BL · MIN 1/MAX 1 (méd. réseau)
+
+**Liste complète** (triée par sous-famille → marque)
+**▸ Eclairage de chantier**
+  **· BRICODEALTORRO SAS**
+      ☐ [285156] LAMPE FRONTALE H30R RECH 400LM — MIN/MAX à paramétrer
+
+  **· H. BRENNENSTUHL S.A.S**
+      ☐ [357177] LAMPE FRONTALE KL251AF 250LM — MIN 1/MAX 1 (méd. réseau)
+      ☐ [357205] PROJECTEUR RECHARGE JARO 20W — MIN 1/MAX 1 (méd. réseau)
+      ☐ [457293] LAMPE POCHE LED FOCUS TL 410A — MIN 1/MAX 2 (méd. réseau)
+
+**▸ Luminaires d'extérieur**
+  **· KOSNIC LIGHTING FRANCE**
+      ☐ [167533] HUBLOT LED HONSHU 2 18W 4000K — MIN 1/MAX 1 (méd. réseau)
+
+**▸ Luminaires pour ERP & ERT**
+  **· KOSNIC LIGHTING FRANCE**
+      ☐ [574374] ETANCHE LED RUGEN 1200MM 36W — MIN/MAX à paramétrer
+      ☐ [574381] ETANCHE LED RUGEN 1500MM 50W — MIN 2/MAX 3 (méd. réseau)
+
+  **· L'EBENOID**
+      ☐ [485600] DALLE LED DUCIE 2 3600LM 840 — MIN/MAX à paramétrer
+
+  **· LEDVANCE**
+      ☐ [660880] PANEL PFM 1200X300 33W 840 — MIN/MAX à paramétrer
+
+**▸ Luminaires pour résidentiel intérieur**
+  **· L&S ITALIA SRL**
+      ☐ [467371] ALIM MEC DRIVER 12/24V 48W — MIN/MAX à paramétrer
+      ☐ [467378] DISTRIBUTEUR 12V PR MEC DRIVER — MIN/MAX à paramétrer
+
+  **· SYNBIOZ**
+      ☐ [667642] TRANSFORMATEUR 230/24V 65W — MIN/MAX à paramétrer
+
+**▸ Sources**
+  **· CENTRAL LOBAO**
+      ☐ [667397] LAMPE LED GU10 6W 3000K — MIN 3/MAX 3 (méd. réseau)
+      ☐ [667411] LAMPE LED G4 12V 1,5W 2700K — MIN/MAX à paramétrer
+      ☐ [667418] LAMPE LED G9 230V 5W 2700K — MIN/MAX à paramétrer
+
+  **· FEILO SYLVANIA FRANCE SAS**
+      ☐ [462218] LAMPE LED GSL 806LM B22 7W — MIN 3/MAX 3 (méd. réseau)
+      ☐ [612494] REFLED GU5,3 4.3W345LM 840 36° — MIN 2/MAX 2 (méd. réseau)
+
+  **· LEDVANCE**
+      ☐ [580763] TUBE LED T8 1500MM 4000K 18,3W — MIN/MAX à paramétrer
+      ☐ [630736] LAMPE LED G9 3,8W 2700K — MIN/MAX à paramétrer
+      ☐ [636602] LAMPE LED CLASS E27 5,9W 4000K — MIN 4/MAX 4 (méd. réseau)
+
+  **· SIGNIFY FRANCE**
+      ☐ [291958] TUBE LED COREPRO T8 HO 18W 840 — MIN/MAX à paramétrer
+      ☐ [292021] LAMPE LED PLC G24D-3 8.9W 840 — MIN 1/MAX 1 (méd. réseau)
+      ☐ [292091] TUBE LED MASTER HF T5 7W 840 — MIN/MAX à paramétrer
+
+═══ ÉTAPE 3 — INCONTOURNABLES (28 refs) — pépites + socle réseau, prio facing ═══
+⏱ Budget : ~25 min  ·  Geste : vérifier facing, MIN/MAX, traiter les ruptures en priorité.
+Légende : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX à paramétrer · [AF] = classe ABC/FMR (A=top CA, F=fréquent).
+**▸ Eclairage de chantier**
+  **· ANSMANN AG**
+      ☐ [548699] ⭐ [AF] BALADEUSE MINI BOOST POWELL II — MIN 6/MAX 13  @PILE
+      ☐ [637137] ⭐ [AF] LAMPE FRONTALE POWEL II 250LM — MIN 1/MAX 4  @PILE
+
+  **· CEBA**
+      ☐ [174339] [AM] BALADEUSE PLIABLE POWEL II — MIN 1/MAX 2  @PILE
+      ☐ [583103] [BR] PROJECTEUR POWEL II 30W RECHA — MIN 1/MAX 1  @PILE
+      ☐ [583110] [BM] PROJECTEUR POWEL II 50W RECHA — MIN 1/MAX 2  @PROMO OCT
+
+  **· CENTRAL LOBAO**
+      ☐ [668069] 🔧 [CR] CABLE D'ALIM RUBAN LED 230V  @0
+      ☐ [668062] 💤🔧 RUBAN LED 230V IP65 15W 4000K  @ECLAIRAGE
+
+  **· H. BRENNENSTUHL S.A.S**
+      ☐ [571203] ⭐ [AF] BALADEUSE RECHARG. PL 200 AC — MIN 4/MAX 8  @PILE
+      ☐ [671283] [AM] BALADEUSE TL 1000 PRO RECHIP54 — MIN 1/MAX 2  @N
+      ☐ [178070] 💤🔧 CASSETTE MULTIPRISES DUMET  @RALLONGE
+      ☐ [661657] 💤🔧 LAMPE CHANTIER HL3000 MULTI  @PILE
+      ☐ [357170] [AM] LAMPE FRONTALE SL401 AF 400LM — MIN 1/MAX 2  @PILE
+      ☐ [554492] [BR] LAMPE POCHE LED RECHARG 350 LM — MIN 1/MAX 1  @NEW
+      ☐ [357163] [BR] LAMPE PORT HL1000 RECHAR — MIN 1/MAX 1  @PILE
+      ☐ [698307] 🔧 [CR] LAMPE PORT SANSA 401 A 400LM  @PILE
+      ☐ [644051] [AR] PROJECTEUR CHANT.RUFUS 1500 MA — MIN 1/MAX 2  @PILE
+      ☐ [622757] [AR] PROJECTEUR HYBRID MULTY 18V — MIN 1/MAX 1  @PILE
+      ☐ [357247] 💤🔧 PROJECTEUR RECHARGEA CLIP 10W  @PILE
+      ☐ [357254] [CR] PROJECTEUR RECHARGEA CLIP 40W — MIN 1/MAX 1  @PILE
+
+**▸ Luminaires pour résidentiel intérieur**
+  **· FEILO SYLVANIA FRANCE SAS**
+      ☐ [576367] 💤 START ECO LED 500LM 4000K IP65 — MIN 1/MAX 1  @NEW
+
+  **· L&S ITALIA SRL**
+      ☐ [556357] 💤 CABLE D'ALIM COB 5MM L=3M — MIN 1/MAX 1  @X
+      ☐ [586160] 💤🔧 DIFFUSEUR OPALE MEC-1/3 3 ML  @C9
+      ☐ [586167] 💤🔧 DIFFUSEUR OPALE MEC-2 3 ML  @C9
+      ☐ [556476] 💤 JUMPER CCT — MIN 1/MAX 1  @X
+      ☐ [586146] 💤🔧 PROFIL ALU MEC-1/MEC-2 3 ML  @C9
+
+**▸ Sources**
+  **· CENTRAL LOBAO**
+      ☐ [667404] 💤🔧 LAMPE LED GU10 6W 4000K  @X
+
+  **· LEDVANCE**
+      ☐ [609757] [CR] LAMPE LED ESSENCE E27 8W 2700K — MIN 1/MAX 1  @ECLAIRAGE
+      ☐ [622490] 💤🔧 STARTER ST 151 LONGLIFE  @ECLAIRAGE
+
+═══ ÉTAPE 4 — STANDARDS (6 refs · 3 ruptures à traiter) — vérification routine ═══
+⏱ Budget : ~30 min  ·  Geste : passage rapide, focus sur les ⚠ ruptures et 🔧 MIN/MAX manquants.
+Légende : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX à paramétrer · [AF] = classe ABC/FMR (A=top CA, F=fréquent).
+**▸ Divers / non catalogué**
+  **· Marque non renseignée**
+      ☐ [120237] ⚠🔧 LAMPE USB C DCL182-XJ  @NEW
+
+**▸ Eclairage de chantier**
+  **· CENTRAL LOBAO**
+      ☐ [668055] [AR] RUBAN LED 230V IP65 15W 2700K — MIN 1/MAX 1  @ECLAIRAGE
+
+  **· H. BRENNENSTUHL S.A.S**
+      ☐ [671276] [BR] LAMPE TORCHELED 1000+380 PRO — MIN 1/MAX 2  @A
+      ☐ [370948] ⚠🔧 PROJECTEUR PORTABL JARO 2M 20W  @NEW
+      ☐ [370955] ⚠🔧 PROJECTEUR PORTABL JARO 3M 30W  @NEW
+
+**▸ Luminaires d'extérieur**
+  **· LEDVANCE**
+      ☐ [556770] [BR] APPLIQUE ENDURA STYLE 380LM — MIN 1/MAX 1  @ECLAIRAGE
+
+═══ SQUELETTE RÉSEAU (4 sources croisées) ═══
+🟢 Socle : 31 articles · 🔵 À implanter : 23 · 🔴 Challenger : 24 · 🟡 Potentiel : 2 · 👁 Surveiller : 17
+Sources actives : Réseau, Chalandise, Hors-zone, Livraisons
+
+═══ CATALOGUE ═══
+2126 références disponibles chez Legallais dans cette famille (couverture actuelle 3%)
+Sous-familles : Luminaires pour résidentiel intérieur (618), Sources (570), Luminaires d'extérieur (397), Luminaires pour ERP & ERT (249), Eclairage de chantier (161), Luminaires pour commerces et hôtellerie (66)
+Marques principales : LEDVANCE (340 réf), CENTRAL LOBAO (298 réf), L&S ITALIA SRL (250 réf), SIGNIFY FRANCE (230 réf), PAULMANN LUMIERE SA (197 réf)
+
+═══ MÉTIERS CLIENTS (chalandise) ═══
+  • Enseignement : 5 clients, 1204€ CA famille
+  • Hors chalandise : 36 clients, 1137€ CA famille
+  • Major : 10 clients, 839€ CA famille
+  • Collectivité / administration : 1 clients, 787€ CA famille
+  • Ent. générale multi-tech : 10 clients, 651€ CA famille
+  • Serrurier, Métallier, Aluminier : 9 clients, 621€ CA famille
+
+
