@@ -690,7 +690,12 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
 
 // ── HOME ──────────────────────────────────────────────────────
 function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
-  const todos = ARTICLES.filter(a => a.primary).slice(0, 6);
+  const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
+  const todos = ARTICLES.filter(a => a.primary).sort((a,b)=>{
+    const pa = a.stock < 0 ? -1 : (verdictPrio[a.verdict]??9);
+    const pb = b.stock < 0 ? -1 : (verdictPrio[b.verdict]??9);
+    return pa - pb;
+  });
   const totalQty = todos.reduce((s,a)=>s+(a.primary?.qty||0),0);
   const ruptures = todos.filter(a=>a.verdict==='rupture').length;
   return (
@@ -706,7 +711,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
               <span style={{fontSize:60,fontWeight:900,color:'#fca5a5',lineHeight:.85,letterSpacing:-3}} className="tn">{todos.length}</span>
               <span style={{fontSize:13,color:T.t1,fontWeight:600}}>article{todos.length>1?'s':''}<br/><span style={{color:T.t3,fontWeight:500,fontSize:11}}>~{todos.length*2+1} min · {totalQty} pcs · {ruptures} rupt</span></span>
             </div>
-            <button onClick={()=>onArticle(todos[0].code)} style={{marginTop:14,width:'100%',padding:'14px',borderRadius:12,background:'#ef4444',color:'#fff',border:'none',fontSize:14,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>COMMENCER LA TOURNÉE →</button>
+            <button onClick={()=>onArticle(todos[0].code)} style={{marginTop:14,width:'100%',padding:'14px',borderRadius:12,background:'#ef4444',color:'#fff',border:'none',fontSize:14,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>C'EST PARTI →</button>
           </div>
         ) : (
           <div style={{padding:'14px 16px',borderRadius:14,background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.25)',marginBottom:14,display:'flex',gap:10,alignItems:'center'}}>
