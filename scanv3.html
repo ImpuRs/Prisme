@@ -182,6 +182,20 @@ function loadEngineData(engine) {
 let ARTICLES = loadEngineData(ENGINE_DATA);
 let DATA_SOURCE = 'mock'; // 'mock' | 'idb'
 
+// ── Associations EAN custom ─────────────────────────────────
+// Map<ean, articleCode> — persisté en localStorage
+const _customEanMap = new Map();
+try {
+  const raw = localStorage.getItem('prisme_custom_ean');
+  if (raw) { for (const [k,v] of Object.entries(JSON.parse(raw))) _customEanMap.set(k,v); }
+} catch(e){}
+function _saveCustomEan() {
+  try { localStorage.setItem('prisme_custom_ean', JSON.stringify(Object.fromEntries(_customEanMap))); } catch(e){}
+}
+function addCustomEan(ean, code) { _customEanMap.set(ean, code); _saveCustomEan(); }
+function removeCustomEan(ean) { _customEanMap.delete(ean); _saveCustomEan(); }
+function getCustomEansForCode(code) { return [..._customEanMap.entries()].filter(([,c])=>c===code).map(([ean])=>ean); }
+
 // ── IDB hydrate ──────────────────────────────────────────────
 // Lit IndexedDB PRISME (clé 'scan' prioritaire, sinon 'current') comme scan.js.
 // Si trouvé : remplace ARTICLES et notifie l'app (custom event 'prisme-data').
@@ -561,7 +575,7 @@ function App() {
         showToast(`${added || items.length} article${added!==1?'s':''} ajouté${added!==1?'s':''} aux actions`);
         setSheet('todo');
       }} onUnknown={(code)=>setSheet({type:'unknown', code})} />}
-      {sheet?.type === 'unknown' && <UnknownSheet code={sheet.code} onClose={()=>setSheet(null)} onRetry={()=>setSheet('camera')} onAssoc={()=>{ setSheet(null); showToast('Association → à brancher ERP'); }} />}
+      {sheet?.type === 'unknown' && <UnknownSheet code={sheet.code} onClose={()=>setSheet(null)} onRetry={()=>setSheet('camera')} onAssoc={(artCode)=>{ setSheet(null); showToast(`EAN associé à ${artCode}`); openArticle(artCode); }} />}
       {sheet === 'todo' && <JournalSheet
         onClose={()=>setSheet(null)}
         actions={actions}
@@ -838,6 +852,7 @@ function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMo
   const v = VC[a.verdict];
   const [priceShown, setPriceShown] = useState(false);
   const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : a.stock);
+  const [flip, setFlip] = useState(0);
 
   return (
     <>
@@ -968,6 +983,17 @@ function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMo
           </summary>
           <div style={{padding:'10px 14px',color:T.t2,fontSize:12,lineHeight:1.8}}>
             <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}}>{(()=>{ if (!window._eanMap) return '—'; for (const [ean,c] of window._eanMap) { if (c===a.code) return ean; } return '—'; })()}</strong></div>
+            {getCustomEansForCode(a.code).length > 0 && (
+              <div style={{marginTop:2,marginBottom:2}}>
+                <span style={{color:T.t3}}>Associations</span>
+                {getCustomEansForCode(a.code).map(ean=>(
+                  <div key={ean} style={{display:'inline-flex',alignItems:'center',gap:4,marginLeft:6,padding:'1px 6px',background:'rgba(251,146,60,.12)',borderRadius:6}}>
+                    <strong style={{color:T.t1,fontFamily:'ui-monospace,monospace',fontSize:11}}>{ean}</strong>
+                    <button onClick={()=>{ removeCustomEan(ean); setFlip(f=>f+1); }} style={{background:'none',border:'none',color:'#fca5a5',fontSize:13,fontWeight:800,padding:'0 2px',cursor:'pointer',lineHeight:1}}>x</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}}>{a.refFourn || '—'}</strong></div>
             <div><span style={{color:T.t3}}>Statut</span> <strong style={{color:T.t1}}>{a.statut}</strong></div>
             <div><span style={{color:T.t3}}>Squelette</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>
@@ -1161,7 +1187,10 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     // 2) Ref fournisseur
     a = ARTICLES.find(x => x.refFourn && (x.refFourn === barcode || x.refFourn === barcode.toUpperCase()));
     if (a) return a.code;
-    // 3) EAN via IDB eanMap (chargé globalement)
+    // 3) Custom EAN (associations terrain)
+    const custom = _customEanMap.get(clean);
+    if (custom) return custom;
+    // 4) EAN via IDB eanMap (chargé globalement)
     if (window._eanMap) {
       const c = window._eanMap.get(clean);
       if (c) return c;
@@ -1562,17 +1591,50 @@ function DouchetteScreen({ onBack, onArticle }) {
 }
 
 function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
+  const [search, setSearch] = useState(‘’);
+  const [picking, setPicking] = useState(false);
+  const q = search.trim().toLowerCase();
+  const results = picking && q.length >= 2
+    ? ARTICLES.filter(a => a.code.includes(q) || a.lib.toLowerCase().includes(q) || (a.empl||’’).toLowerCase().includes(q)).slice(0, 8)
+    : [];
   return (
     <Sheet onClose={onClose} title="Code non reconnu">
-      <div style={{padding:'4px 14px 0'}}>
-        <div style={{padding:'14px 16px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',borderRadius:12,marginBottom:10}}>
-          <div style={{fontSize:10,color:'#fca5a5',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>EAN scanné</div>
-          <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,fontFamily:'ui-monospace,monospace'}} className="tn">{code}</div>
+      <div style={{padding:’4px 14px 0’}}>
+        <div style={{padding:’14px 16px’,background:’rgba(239,68,68,.08)’,border:’1px solid rgba(239,68,68,.25)’,borderRadius:12,marginBottom:10}}>
+          <div style={{fontSize:10,color:’#fca5a5’,fontWeight:800,letterSpacing:.6,textTransform:’uppercase’}}>EAN scanné</div>
+          <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,fontFamily:’ui-monospace,monospace’}} className="tn">{code}</div>
           <div style={{fontSize:11,color:T.t2,marginTop:4}}>Ce code n’existe pas dans le catalogue PRISME.</div>
         </div>
-        <button onClick={onAssoc} style={{width:'100%',padding:'13px 14px',background:T.accent,color:'#1a0e05',borderRadius:12,border:'none',textAlign:'left',marginBottom:6,fontSize:13,fontWeight:800}}>Associer à un article</button>
-        <button onClick={onRetry} style={{width:'100%',padding:'13px 14px',background:'rgba(255,255,255,.03)',color:T.t1,borderRadius:12,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,fontSize:13,fontWeight:700}}>Réessayer</button>
-        <button onClick={onClose} style={{width:'100%',padding:'12px',background:'transparent',color:T.t2,border:'none',fontSize:12,fontWeight:600}}>Ignorer</button>
+        {!picking ? (
+          <>
+            <button onClick={()=>setPicking(true)} style={{width:’100%’,padding:’13px 14px’,background:T.accent,color:’#1a0e05’,borderRadius:12,border:’none’,textAlign:’left’,marginBottom:6,fontSize:13,fontWeight:800}}>Associer à un article</button>
+            <button onClick={onRetry} style={{width:’100%’,padding:’13px 14px’,background:’rgba(255,255,255,.03)’,color:T.t1,borderRadius:12,border:`1px solid ${T.border}`,textAlign:’left’,marginBottom:6,fontSize:13,fontWeight:700}}>Réessayer</button>
+            <button onClick={onClose} style={{width:’100%’,padding:’12px’,background:’transparent’,color:T.t2,border:’none’,fontSize:12,fontWeight:600}}>Ignorer</button>
+          </>
+        ) : (
+          <>
+            <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Code, libellé ou emplacement..." style={{
+              width:’100%’,padding:’11px 14px’,background:T.card,color:T.t1,border:`1px solid ${T.border}`,borderRadius:10,fontSize:13,marginBottom:6,outline:’none’,
+            }} />
+            <div style={{maxHeight:’35vh’,overflowY:’auto’}}>
+              {results.map(a=>(
+                <button key={a.code} onClick={()=>{ addCustomEan(code, a.code); onAssoc(a.code); }} style={{
+                  width:’100%’,display:’flex’,alignItems:’center’,gap:10,padding:’10px 12px’,
+                  background:T.card,borderRadius:10,border:`1px solid ${T.border}`,color:T.t1,textAlign:’left’,marginBottom:4,
+                }}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code}</div>
+                    <div style={{fontSize:12,fontWeight:600,whiteSpace:’nowrap’,overflow:’hidden’,textOverflow:’ellipsis’}}>{a.lib}</div>
+                    <div style={{fontSize:10,color:T.accent}}>{a.empl}</div>
+                  </div>
+                  <Ico d={ICONS.fwd} s={14} sw={2.5} />
+                </button>
+              ))}
+              {q.length >= 2 && results.length === 0 && <div style={{padding:12,color:T.t3,fontSize:12,textAlign:’center’}}>Aucun article trouvé</div>}
+            </div>
+            <button onClick={()=>setPicking(false)} style={{width:’100%’,padding:’10px’,background:’transparent’,color:T.t2,border:’none’,fontSize:12,fontWeight:600,marginTop:4}}>Annuler</button>
+          </>
+        )}
       </div>
     </Sheet>
   );
