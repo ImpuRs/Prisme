@@ -967,6 +967,7 @@ function ArticleScreen({ t, code, onBack, onActions, onScan, addedActions, invMo
             <Ico d="<path d='M6 9l6 6 6-6'/>" s={14} sw={2.5} />Plus de détails
           </summary>
           <div style={{padding:'10px 14px',color:T.t2,fontSize:12,lineHeight:1.8}}>
+            <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}}>{(()=>{ if (!window._eanMap) return '—'; for (const [ean,c] of window._eanMap) { if (c===a.code) return ean; } return '—'; })()}</strong></div>
             <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}}>{a.refFourn || '—'}</strong></div>
             <div><span style={{color:T.t3}}>Statut</span> <strong style={{color:T.t1}}>{a.statut}</strong></div>
             <div><span style={{color:T.t3}}>Squelette</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>
