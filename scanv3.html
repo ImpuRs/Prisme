@@ -1020,12 +1020,12 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                   <button onClick={()=>setEditQty(null)} style={{padding:'14px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Annuler</button>
-                  <button onClick={()=>{const p=a.primary;const dest=p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='retour'?'Demain 9h':'48h ouvrées';onAddAction(p.kind,p.label+(editQty?' ('+editQty+' pcs)':''),dest,eta);setEditQty(null);}} style={{padding:'14px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:14,fontWeight:900,cursor:'pointer'}}>VALIDER · {editQty} pcs</button>
+                  <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → 0, MIN/MAX → 0/0':p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'Demain 9h':'48h ouvrées';const lbl=p.kind==='corriger_stock'?p.label+' · stock → 0, MIN/MAX → 0/0':p.label+(editQty?' ('+editQty+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);setEditQty(null);}} style={{padding:'14px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:14,fontWeight:900,cursor:'pointer'}}>{a.primary.kind==='corriger_stock'?'VALIDER':'VALIDER · '+editQty+' pcs'}</button>
                 </div>
               </div>
             ) : (
               <div style={{padding:'12px 14px 0',display:'grid',gridTemplateColumns:'2fr 1fr',gap:8}}>
-                <button onClick={()=>{const p=a.primary;const dest=p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='retour'?'Demain 9h':'48h ouvrées';onAddAction(p.kind,p.label+(p.qty?' ('+p.qty+' pcs)':''),dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>VALIDER · {a.primary.qty} pcs</button>
+                <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → 0, MIN/MAX → 0/0':p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'Demain 9h':'48h ouvrées';const lbl=p.kind==='corriger_stock'?p.label+' · stock → 0, MIN/MAX → 0/0':p.label+(p.qty?' ('+p.qty+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>{a.primary.kind==='corriger_stock'?'VALIDER':'VALIDER · '+a.primary.qty+' pcs'}</button>
                 <button onClick={()=>setEditQty(a.primary.qty)} style={{padding:'17px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Modifier</button>
               </div>
             )}
@@ -1212,11 +1212,12 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
   const doneKinds = new Set((existing||[]).filter(x=>x.status==='pending'||x.status==='validee').map(x=>x.kind));
   const all = [];
   if (a.primary && !doneKinds.has(a.primary.kind)) {
-    const pdest = a.primary.kind==='retour' ? 'Centrale Lille → AG93' : 'Centrale Lille (commande auto)';
-    const peta = a.primary.kind==='retour' ? 'Demain 9h' : '48h ouvrées';
-    all.push({...a.primary, primary:true, color:v.edge, dest:pdest, eta:peta});
+    const pdest = a.primary.kind==='corriger_stock' ? 'ERP · stock → 0, MIN/MAX → 0/0' : a.primary.kind==='retour' ? 'Centrale Lille → '+AGENCY : 'Centrale Lille (commande auto)';
+    const peta = a.primary.kind==='corriger_stock' ? 'Immédiat' : a.primary.kind==='retour' ? 'Demain 9h' : '48h ouvrées';
+    const plabel = a.primary.kind==='corriger_stock' ? a.primary.label+' · stock → 0, MIN/MAX → 0/0' : a.primary.label;
+    all.push({...a.primary, label:plabel, primary:true, color:v.edge, dest:pdest, eta:peta});
   }
-  (a.secondary || []).filter(s=>!doneKinds.has(s.kind)).forEach(s => all.push({...s, dest:'ERP central · sync', eta:'≤ 5 min'}));
+  (a.secondary || []).filter(s=>!doneKinds.has(s.kind)).forEach(s => all.push({...s, label:s.label+' · '+s.sub, dest:'ERP central · sync', eta:'≤ 5 min'}));
   all.push({kind:'stock', label:'Modifier le stock', sub:`Stock ERP : ${a.stock} pcs`, dest:'ERP central · sync', eta:'≤ 5 min'});
   all.push({kind:'emp', label:'Modifier emplacement', sub:`Actuel : ${a.empl}`, dest:'ERP central', eta:'Immédiat'});
 
