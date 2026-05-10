@@ -1528,32 +1528,51 @@ function OcrSheet({ onClose, onPick }) {
   }, []);
 
   const doOcr = async () => {
-    if (!videoRef.current || scanning) return;
+    const v = videoRef.current;
+    if (!v || scanning || !v.videoWidth) return;
     setScanning(true);
-    setStatus('Lecture en cours...');
+    setStatus('Chargement du moteur OCR...');
     try {
-      const v = videoRef.current;
+      // Capture frame haute resolution
       const c = document.createElement('canvas');
       c.width = v.videoWidth; c.height = v.videoHeight;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(v, 0, 0);
-      if (!workerRef.current) {
-        workerRef.current = await Tesseract.createWorker('fra', 1, { logger: () => {} });
-        await workerRef.current.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ -' });
+      const ctx2 = c.getContext('2d');
+      ctx2.drawImage(v, 0, 0);
+      // Pretraitement : niveaux de gris + contraste fort pour meilleure lecture
+      const imgData = ctx2.getImageData(0, 0, c.width, c.height);
+      const px = imgData.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const g = px[i]*0.299 + px[i+1]*0.587 + px[i+2]*0.114;
+        const v2 = g > 128 ? 255 : 0; // binarisation
+        px[i] = px[i+1] = px[i+2] = v2;
       }
+      ctx2.putImageData(imgData, 0, 0);
+      // Init worker une seule fois
+      if (!workerRef.current) {
+        setStatus('Telechargement modele OCR (~2 Mo)...');
+        workerRef.current = await Tesseract.createWorker('eng');
+        await workerRef.current.setParameters({
+          tessedit_char_whitelist: '0123456789',
+          tessedit_pageseg_mode: '6', // bloc de texte uniforme
+        });
+      }
+      setStatus('Analyse en cours...');
       const { data } = await workerRef.current.recognize(c);
-      // Extraire tous les codes 6 chiffres
-      const codes6 = (data.text.match(/\b\d{6}\b/g) || []);
+      console.log('[OCR] raw:', data.text);
+      // Extraire tous les nombres 6 chiffres
+      const allDigits = data.text.replace(/[^0-9\s]/g, '');
+      const codes6 = (allDigits.match(/\b\d{6}\b/g) || []);
       const unique = [...new Set(codes6)];
       const matched = unique.filter(code => ARTICLES.find(a => a.code === code));
       if (matched.length > 0) {
         setResults(matched);
         setStatus(`${matched.length} code${matched.length>1?'s':''} reconnu${matched.length>1?'s':''}`);
       } else {
-        const allNums = (data.text.match(/\d{4,}/g) || []).slice(0, 5);
-        setStatus(allNums.length ? `Pas de code article trouve. Lu : ${allNums.join(', ')}` : 'Aucun texte lisible. Rapproche la camera.');
+        const allNums = (allDigits.match(/\d{4,}/g) || []).slice(0, 8);
+        setResults([]);
+        setStatus(allNums.length ? `Pas de match article. Lu : ${allNums.join(', ')}` : 'Aucun chiffre lisible. Rapproche et stabilise la camera.');
       }
-    } catch(e) { setStatus('Erreur OCR : ' + e.message); }
+    } catch(e) { console.error('[OCR]', e); setStatus('Erreur OCR : ' + e.message); }
     setScanning(false);
   };
 
