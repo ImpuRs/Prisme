@@ -699,22 +699,58 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   });
   const totalQty = todos.reduce((s,a)=>s+(a.primary?.qty||0),0);
   const ruptures = todos.filter(a=>a.verdict==='rupture').length;
+
+  // Regrouper par emplacement (zone = partie avant le tiret)
+  const emplMap = {};
+  todos.forEach(a => {
+    const zone = (a.empl||'—').split('-')[0] || '—';
+    if (!emplMap[zone]) emplMap[zone] = {neg:0,rupt:0,sousmin:0,surstock:0,total:0,articles:[]};
+    const e = emplMap[zone];
+    e.total++;
+    if (a.stock < 0) e.neg++;
+    if (a.verdict === 'rupture') e.rupt++;
+    else if (a.verdict === 'sousmin') e.sousmin++;
+    else if (a.verdict === 'surstock') e.surstock++;
+    e.articles.push(a);
+  });
+  const emplList = Object.entries(emplMap).sort((a,b) => {
+    const sa = a[1].neg*1000 + a[1].rupt*100 + a[1].sousmin*10 + a[1].surstock;
+    const sb = b[1].neg*1000 + b[1].rupt*100 + b[1].sousmin*10 + b[1].surstock;
+    return sb - sa;
+  });
   return (
     <>
       <TopBar onMenu={onMenu} sub={`${t.agency} · ${t.day} ${t.time}${DATA_SOURCE!=='idb'?' · '+DATA_SOURCE:''}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
 
-        {todos.length > 0 ? (
-          <div className="pop" style={{padding:'18px 18px',borderRadius:18,background:'linear-gradient(135deg,#3a1518 0%, #1c0d10 100%)',border:'1px solid rgba(239,68,68,.25)',marginBottom:14}}>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
-            <div style={{display:'flex',alignItems:'baseline',gap:12,marginTop:8}}>
-              <span style={{fontSize:60,fontWeight:900,color:'#fca5a5',lineHeight:.85,letterSpacing:-3}} className="tn">{todos.length}</span>
-              <span style={{fontSize:13,color:T.t1,fontWeight:600}}>article{todos.length>1?'s':''}<br/><span style={{color:T.t3,fontWeight:500,fontSize:11}}>~{todos.length*2+1} min · {totalQty} pcs · {ruptures} rupt</span></span>
+        {todos.length > 0 ? (<>
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:2}}>{todos.length} article{todos.length>1?'s':''} · {emplList.length} emplacement{emplList.length>1?'s':''}</div>
             </div>
-            <button onClick={()=>onArticle(todos[0].code)} style={{marginTop:14,width:'100%',padding:'14px',borderRadius:12,background:'#ef4444',color:'#fff',border:'none',fontSize:14,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>C'EST PARTI →</button>
+            <span style={{fontSize:36,fontWeight:900,color:'#fca5a5',letterSpacing:-2}} className="tn">{todos.length}</span>
           </div>
-        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:14}}>
+            {emplList.slice(0,8).map(([zone, e]) => (
+              <button key={zone} onClick={()=>onArticle(e.articles[0].code)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft:`3px solid ${e.neg>0?'#f87171':e.rupt>0?'#ef4444':e.sousmin>0?'#fbbf24':'#a78bfa'}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
+                <div style={{minWidth:44,textAlign:'center'}}>
+                  <div style={{fontSize:18,fontWeight:900,color:T.accent}} className="tn">{zone}</div>
+                  <div style={{fontSize:10,color:T.t3}}>{e.total} réf{e.total>1?'s':''}</div>
+                </div>
+                <div style={{flex:1,display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {e.neg > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(248,113,113,.15)',color:'#f87171',fontSize:10,fontWeight:800}}>{e.neg} nég</span>}
+                  {e.rupt > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(239,68,68,.15)',color:'#fca5a5',fontSize:10,fontWeight:800}}>{e.rupt} rupt</span>}
+                  {e.sousmin > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(251,191,36,.12)',color:'#fbbf24',fontSize:10,fontWeight:800}}>{e.sousmin} &lt;min</span>}
+                  {e.surstock > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(167,139,250,.12)',color:'#c4b5fd',fontSize:10,fontWeight:800}}>{e.surstock} sur</span>}
+                </div>
+                <Ico d={ICONS.fwd} s={14} sw={2.5} />
+              </button>
+            ))}
+            {emplList.length > 8 && <div style={{fontSize:11,color:T.t3,textAlign:'center',padding:4}}>+ {emplList.length - 8} autres emplacements</div>}
+          </div>
+        </>) : (
           <div style={{padding:'14px 16px',borderRadius:14,background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.25)',marginBottom:14,display:'flex',gap:10,alignItems:'center'}}>
             <div style={{width:36,height:36,borderRadius:99,background:'rgba(34,197,94,.18)',color:'#86efac',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.check} s={20} sw={3} /></div>
             <div><div style={{fontSize:13,fontWeight:800,color:T.t1}}>Tout est à jour</div><div style={{fontSize:11,color:T.t2,marginTop:2}}>Aucune action en attente · {ARTICLES.length} réfs</div></div>
