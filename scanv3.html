@@ -349,15 +349,25 @@ function App() {
   const [scanContinu, setScanContinu] = useState(false);
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState([]);
+  const [tourZone, setTourZone] = useState(null); // zone emplacement en cours de tournée
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1800); };
 
-  const openArticle = (code) => {
+  const openArticle = (code, zone) => {
     setArticleCode(code);
+    if (zone !== undefined) setTourZone(zone);
     setRecents(r => [code, ...r.filter(x=>x!==code)].slice(0,6));
     setPage('article');
   };
-  const goHome = () => { setPage('home'); setArticleCode(null); };
+  const goHome = () => { setPage('home'); setArticleCode(null); setTourZone(null); };
+  const nextInZone = () => {
+    if (!tourZone) { goHome(); return; }
+    const zoneArts = ARTICLES.filter(a => a.primary && (a.empl||'—').split('-')[0] === tourZone && !(actions[a.code]?.length > 0) && a.code !== articleCode);
+    if (zoneArts.length === 0) { goHome(); showToast(`✓ Zone ${tourZone} terminée`); return; }
+    const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
+    zoneArts.sort((a,b) => ((a.stock<0?-1:verdictPrio[a.verdict]??9)) - ((b.stock<0?-1:verdictPrio[b.verdict]??9)));
+    openArticle(zoneArts[0].code, tourZone);
+  };
   const addAction = (code, kind, label, dest, eta) => {
     const id = 'a' + Math.random().toString(36).slice(2,8);
     const entry = { id, kind, label, dest, eta, ts:Date.now(), status:'pending' };
@@ -438,6 +448,8 @@ function App() {
         onActions={()=>setSheet('actions')}
         onAddAction={(kind,label,dest,eta)=>addAction(articleCode,kind,label,dest,eta)}
         onScan={()=>{ setScanContinu(false); setSheet('camera'); }}
+        onNext={tourZone ? nextInZone : null}
+        tourZone={tourZone}
         addedActions={actions[articleCode]||[]}
         invMode={articleInInv}
         invDoneCount={invDoneCount}
@@ -519,6 +531,8 @@ function App() {
         onClose={()=>setSheet(null)}
         onUndo={()=>{ undoAction(sheet.code, sheet.id); setSheet(null); }}
         onHome={()=>{ setSheet(null); goHome(); }}
+        onNext={tourZone ? ()=>{ setSheet(null); nextInZone(); } : null}
+        tourZone={tourZone}
       />}
       {sheet === 'zone' && <ZonePickerSheet onClose={()=>setSheet(null)} onPick={(z)=>{
         setSheet(null); setInvZone(z); setInvMode(true); setPage('invList'); showToast(`Inventaire · zone ${z}`);
@@ -734,7 +748,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:14}}>
             {emplList.slice(0,8).map(([zone, e]) => (
-              <button key={zone} onClick={()=>onArticle(e.articles[0].code)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft:`3px solid ${e.neg>0?'#f87171':e.rupt>0?'#ef4444':e.sousmin>0?'#fbbf24':'#a78bfa'}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
+              <button key={zone} onClick={()=>onArticle(e.articles[0].code, zone)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft:`3px solid ${e.neg>0?'#f87171':e.rupt>0?'#ef4444':e.sousmin>0?'#fbbf24':'#a78bfa'}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
                 <div style={{minWidth:44,textAlign:'center'}}>
                   <div style={{fontSize:18,fontWeight:900,color:T.accent}} className="tn">{zone}</div>
                   <div style={{fontSize:10,color:T.t3}}>{e.total} réf{e.total>1?'s':''}</div>
@@ -912,7 +926,7 @@ const chipRow = () => ({
 });
 
 // ── ARTICLE ───────────────────────────────────────────────────
-function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
+function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext, tourZone, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
   const [priceShown, setPriceShown] = useState(false);
   const [flip, setFlip] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
@@ -1980,7 +1994,7 @@ function StockEditSheet({ code, onClose, onConfirm }) {
 }
 
 // ── ConfirmSheet (post-action enrichi) ────────────────────────
-function ConfirmSheet({ info, onClose, onUndo, onHome }) {
+function ConfirmSheet({ info, onClose, onUndo, onHome, onNext, tourZone }) {
   const [count, setCount] = useState(10);
   const [undone, setUndone] = useState(false);
   useEffect(() => {
@@ -2010,14 +2024,21 @@ function ConfirmSheet({ info, onClose, onUndo, onHome }) {
             <span style={{fontSize:11,opacity:.75}} className="tn">{count}s</span>
           </button>
         )}
+        {onNext ? (
+          <button onClick={onNext} style={{
+            width:'100%',padding:'14px',borderRadius:12,border:'none',
+            background:T.accent,color:'#1a0e05',fontSize:14,fontWeight:900,letterSpacing:.3,
+          }}>Suivant · zone {tourZone} →</button>
+        ) : (
+          <button onClick={onHome} style={{
+            width:'100%',padding:'14px',borderRadius:12,border:'none',
+            background:'#fff',color:'#000',fontSize:14,fontWeight:800,letterSpacing:.3,
+          }}>{count > 0 ? 'OK · retour à l\u2019accueil' : 'Retour à l\u2019accueil'}</button>
+        )}
         <button onClick={onHome} style={{
-          width:'100%',padding:'14px',borderRadius:12,border:'none',
-          background:'#fff',color:'#000',fontSize:14,fontWeight:800,letterSpacing:.3,
-        }}>{count > 0 ? 'OK · retour à l\u2019accueil' : 'Retour à l\u2019accueil'}</button>
-        <button onClick={onClose} style={{
           width:'100%',marginTop:6,padding:'12px',borderRadius:12,border:'none',
           background:'transparent',color:T.t2,fontSize:12,fontWeight:600,
-        }}>Rester sur la fiche</button>
+        }}>{onNext ? 'Retour à l\u2019accueil' : 'Rester sur la fiche'}</button>
       </div>
     </Sheet>
   );
