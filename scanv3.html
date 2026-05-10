@@ -397,6 +397,7 @@ function App() {
         onScan={()=>{ setScanContinu(true); setSheet('camera'); }}
         onArticle={openArticle}
         onInv={enterInv}
+        onDouchette={()=>{ setPage('douchette'); }}
         invMode={invMode}
         onInvOpen={()=>setPage('invList')}
         onInvExit={exitInv}
@@ -646,7 +647,7 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────
-function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
+function HomeScreen({ t, onSearch, onScan, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, actionsCount, validatedCount, onActions, onMenu }) {
   return (
     <>
       <TopBar onMenu={onMenu} sub={`${t.agency} · ${ARTICLES.length} réf${ARTICLES.length>1?'s':''}${DATA_SOURCE!=='idb'?' · '+DATA_SOURCE:''}`} />
@@ -671,7 +672,7 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCou
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
           <ModeBtn dot="#22c55e" l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
           <ModeBtn dot="#60a5fa" l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
-          <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={()=>{}} />
+          <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={onDouchette} />
         </div>
 
         <div style={{...sectionLabel, marginTop:14}}>Récents</div>
