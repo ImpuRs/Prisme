@@ -395,7 +395,7 @@ function App() {
       {page === 'home' && <HomeScreen
         t={t}
         onSearch={()=>setPage('search')}
-        onScan={()=>setSheet('camera')}
+        onScan={()=>{ setScanContinu(true); setSheet('camera'); }}
         onArticle={openArticle}
         onInv={enterInv}
         invMode={invMode}
