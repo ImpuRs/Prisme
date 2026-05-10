@@ -332,9 +332,11 @@ function App() {
   useEffect(() => { try { localStorage.setItem('prisme_inv_counts', JSON.stringify(invCounts)); } catch(e){} }, [invCounts]);
   useEffect(() => { try { localStorage.setItem('prisme_inv_extras', JSON.stringify(invExtras)); } catch(e){} }, [invExtras]);
   const [sheet, setSheet] = useState(null); // null | 'actions' | 'menu' | 'camera' | 'todo' | {type:'confirm'|'unknown'|...}
+  const [scanContinu, setScanContinu] = useState(() => { try { return localStorage.getItem('prisme_scan_continu') !== 'false'; } catch(e){ return true; } });
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState(['264821','108342','512004']);
 
+  useEffect(() => { try { localStorage.setItem('prisme_scan_continu', scanContinu); } catch(e){} }, [scanContinu]);
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1800); };
 
   const openArticle = (code) => {
@@ -499,12 +501,11 @@ function App() {
       {sheet === 'zone' && <ZonePickerSheet onClose={()=>setSheet(null)} onPick={(z)=>{
         setSheet(null); setInvZone(z); setInvMode(true); setPage('invList'); showToast(`Inventaire · zone ${z}`);
       }} />}
-      {sheet === 'menu' && <MenuSheet invMode={invMode} invZone={invZone} onClose={()=>setSheet(null)} onItem={(k)=>{
+      {sheet === 'menu' && <MenuSheet invMode={invMode} invZone={invZone} scanContinu={scanContinu} onToggleContinu={()=>{ setScanContinu(c=>!c); }} onClose={()=>setSheet(null)} onItem={(k)=>{
         setSheet(null);
         if (k === 'inv') { enterInv(); }
         if (k === 'invStop') { if (confirm("Abandonner l'inventaire en cours ? Les comptages seront perdus.")) cancelInv(); }
         if (k === 'douch') { setPage('douchette'); showToast('Mode Douchette activé'); }
-        if (k === 'continu') showToast('Scan continu activé');
         if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
         if (k === 'purge') { ARTICLES = loadEngineData(ENGINE_DATA); DATA_SOURCE = 'mock'; window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } })); showToast('Cache purgé'); }
         if (k === 'import') {
@@ -532,7 +533,7 @@ function App() {
           inp.click();
         }
       }} />}
-      {sheet === 'camera' && <CameraSheet onClose={()=>setSheet(null)} onPick={(c)=>{
+      {sheet === 'camera' && <CameraSheet continu={scanContinu} onClose={()=>setSheet(null)} onPick={(c)=>{
         setSheet(null);
         const fromInv = invScanFromInvRef.current; invScanFromInvRef.current = false;
         if (fromInv && invMode && invZone && !INV_CODES.includes(c) && ARTICLES.find(x=>x.code===c)) {
@@ -670,7 +671,7 @@ function HomeScreen({ t, onSearch, onScan, onArticle, onInv, invMode, invDoneCou
         <div style={sectionLabel}>Modes</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
           <ModeBtn dot="#22c55e" l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
-          <ModeBtn dot="#60a5fa" l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
+          <ModeBtn dot="#60a5fa" l="Scanner" s="Ouvrir la caméra" onClick={()=>onScan()} />
           <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={()=>{}} />
         </div>
 
@@ -1082,14 +1083,13 @@ function ZonePickerSheet({ onClose, onPick }) {
   );
 }
 
-function MenuSheet({ onClose, onItem, invMode, invZone }) {
+function MenuSheet({ onClose, onItem, invMode, invZone, scanContinu, onToggleContinu }) {
   const items = [
     { k:'import', l:'Importer un export JSON', s:'finalData / articles · remplace les données', dot:'#34d399' },
     invMode
       ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24' }
       : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e' },
     ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171' }] : []),
-    { k:'continu', l:'Activer scan continu', s:'Plusieurs articles d\u2019affilée', dot:'#60a5fa' },
     { k:'douch', l:'Mode douchette', s:'Clavier masqué — scanner Zebra', dot:'#a78bfa' },
     { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#fbbf24' },
     { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171' },
@@ -1097,6 +1097,32 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
   return (
     <Sheet onClose={onClose} title="Menu">
       <div style={{padding:'4px 14px 0'}}>
+        {/* Toggle scan continu / direct */}
+        <button onClick={onToggleContinu} style={{
+          width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
+          background: scanContinu ? 'rgba(96,165,250,.08)' : 'rgba(255,255,255,.03)',color:T.t1,
+          borderRadius:12,border:`1px solid ${scanContinu ? 'rgba(96,165,250,.3)' : T.border}`,textAlign:'left',marginBottom:6,
+        }}>
+          <div style={{width:32,height:32,borderRadius:9,background:'#60a5fa22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <Dot c="#60a5fa" s={9} />
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:700}}>Mode scan</div>
+            <div style={{fontSize:11,color:T.t2,marginTop:1}}>{scanContinu ? 'Continu · plusieurs articles' : 'Direct · 1 scan = 1 fiche'}</div>
+          </div>
+          {/* Toggle switch */}
+          <div style={{
+            width:44,height:26,borderRadius:13,padding:2,
+            background: scanContinu ? '#60a5fa' : 'rgba(255,255,255,.15)',
+            transition:'background .2s',display:'flex',alignItems:'center',flexShrink:0,
+          }}>
+            <div style={{
+              width:22,height:22,borderRadius:11,background:'#fff',
+              transform: scanContinu ? 'translateX(18px)' : 'translateX(0)',
+              transition:'transform .2s',boxShadow:'0 1px 3px rgba(0,0,0,.3)',
+            }} />
+          </div>
+        </button>
         {items.map(x=>(
           <button key={x.k} onClick={()=>onItem(x.k)} style={{
             width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
@@ -1118,7 +1144,7 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
   );
 }
 
-function CameraSheet({ onClose, onPick, onUnknown }) {
+function CameraSheet({ continu=true, onClose, onPick, onUnknown }) {
   const [haptic, setHaptic] = useState(true);
   const [unreadable, setUnreadable] = useState(false);
   const [detected, setDetected] = useState([]); // [{...article, count, lastTs, firstTs}]
@@ -1242,6 +1268,12 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
         // Résoudre vers un article PRISME
         const artCode = resolveBarcode(barcode);
         if (artCode) {
+          if (!continu) {
+            // Mode direct : 1 scan → fiche immédiate
+            if (navigator.vibrate) try { navigator.vibrate(15); } catch(e){}
+            onPick(artCode);
+            return; // stop scan loop
+          }
           tryAdd(artCode);
         } else {
           // Code inconnu → notifier le parent
@@ -1337,7 +1369,7 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
         </button>
 
         {/* mode chip */}
-        <div style={{position:'absolute',top:14,right:14,padding:'6px 10px',background:'rgba(251,146,60,.9)',color:'#1a0e05',borderRadius:99,fontSize:10,fontWeight:800,letterSpacing:.5}}>CONTINU</div>
+        <div style={{position:'absolute',top:14,right:14,padding:'6px 10px',background: continu ? 'rgba(96,165,250,.9)' : 'rgba(251,146,60,.9)',color: continu ? '#fff' : '#1a0e05',borderRadius:99,fontSize:10,fontWeight:800,letterSpacing:.5}}>{continu ? 'CONTINU' : 'DIRECT'}</div>
 
         {/* Dup notice */}
         {unreadable && (
@@ -1349,7 +1381,7 @@ function CameraSheet({ onClose, onPick, onUnknown }) {
 
         {/* hint */}
         <div style={{position:'absolute',bottom:24,left:0,right:0,textAlign:'center',color:'rgba(255,255,255,.7)',fontSize:12,fontWeight:500,padding:'0 20px'}}>
-          {detected.length === 0 ? 'Pointez le code-barre dans le cadre…' : 'Continue · ou tape ↑ pour traiter'}
+          {detected.length === 0 ? 'Pointez le code-barre dans le cadre...' : (continu ? 'Continue · ou tape ↑ pour traiter' : '1 scan effectué')}
         </div>
       </div>
 
