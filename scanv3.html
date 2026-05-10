@@ -147,7 +147,7 @@ function _secondary(it) {
   const eMin = it.ancienMin || 0, eMax = it.ancienMax || 0;
   // Ne pas surfacer "Corriger ERP" tant que PRISME n'a pas calculé un nouveau min/max
   if ((min > 0 || max > 0) && (eMin !== min || eMax !== max)) {
-    sec.push({ kind:'erp', label:'Corriger ERP', sub:`${eMin}/${eMax} → ${min}/${max}` });
+    sec.push({ kind:'erp', label:'Ajuster MIN/MAX', sub:`${eMin}/${eMax} → ${min}/${max}` });
   }
   return sec;
 }
