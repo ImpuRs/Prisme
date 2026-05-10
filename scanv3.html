@@ -334,7 +334,7 @@ function App() {
   const [sheet, setSheet] = useState(null); // null | 'actions' | 'menu' | 'camera' | 'todo' | {type:'confirm'|'unknown'|...}
   const [scanContinu, setScanContinu] = useState(false);
   const [toast, setToast] = useState(null);
-  const [recents, setRecents] = useState(['264821','108342','512004']);
+  const [recents, setRecents] = useState([]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1800); };
 
