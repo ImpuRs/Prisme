@@ -505,7 +505,6 @@ function App() {
         setSheet(null);
         if (k === 'inv') { enterInv(); }
         if (k === 'invStop') { if (confirm("Abandonner l'inventaire en cours ? Les comptages seront perdus.")) cancelInv(); }
-        if (k === 'douch') { setPage('douchette'); showToast('Mode Douchette activé'); }
         if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
         if (k === 'purge') { ARTICLES = loadEngineData(ENGINE_DATA); DATA_SOURCE = 'mock'; window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } })); showToast('Cache purgé'); }
         if (k === 'import') {
@@ -1090,7 +1089,6 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
       ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24' }
       : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e' },
     ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171' }] : []),
-    { k:'douch', l:'Mode douchette', s:'Clavier masqué — scanner Zebra', dot:'#a78bfa' },
     { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#fbbf24' },
     { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171' },
   ];
