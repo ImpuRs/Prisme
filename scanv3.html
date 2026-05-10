@@ -364,6 +364,13 @@ function App() {
     setActions(a => ({...a, [code]: [...(a[code]||[]), entry]}));
     setSheet({ type:'confirm', code, id, label, dest, eta });
   };
+  const validateAction = (code, id) => {
+    setActions(a => {
+      const next = {...a};
+      next[code] = (next[code]||[]).map(x => x.id === id ? {...x, status:'validee'} : x);
+      return next;
+    });
+  };
   const undoAction = (code, id) => {
     setActions(a => {
       const next = {...a};
@@ -573,6 +580,7 @@ function App() {
         actions={actions}
         onPick={(c)=>{ setSheet(null); openArticle(c); }}
         onUndo={undoAction}
+        onValidate={validateAction}
         onPush={()=>{
           setActions(prev => {
             const next = {};
@@ -1681,7 +1689,7 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
   );
 }
 
-function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
+function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onPurge }) {
   // Grouper par article, compiler les actions
   const byCode = {};
   Object.keys(actions).forEach(c => {
@@ -1729,7 +1737,10 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onPush, onPurge }) {
               <Dot c={x.status==='validee'?'#22c55e':'#fbbf24'} s={5} />
               <span style={{flex:1,color:T.t2}}>{x.label}</span>
               <span style={{color:T.t3,fontSize:10}} className="tn">{fmt(x.ts)}</span>
-              {x.status==='pending' && <button onClick={(e)=>{e.stopPropagation();onUndo(g.code,x.id)}} style={{background:'none',border:'none',color:'#fca5a5',fontSize:10,fontWeight:700,padding:'2px 4px'}}>x</button>}
+              {x.status==='pending' && <>
+                <button onClick={(e)=>{e.stopPropagation();onValidate(g.code,x.id)}} style={{background:'none',border:'none',color:'#86efac',fontSize:10,fontWeight:800,padding:'2px 4px'}}>Fait</button>
+                <button onClick={(e)=>{e.stopPropagation();onUndo(g.code,x.id)}} style={{background:'none',border:'none',color:'#fca5a5',fontSize:10,fontWeight:700,padding:'2px 4px'}}>x</button>
+              </>}
             </div>
           ))}
         </div>
