@@ -704,6 +704,7 @@ function App() {
       }} />}
       {sheet === 'camera' && <CameraSheet continu={scanContinu} onClose={()=>setSheet(null)} onPick={(c)=>{
         setSheet(null);
+        if (!ARTICLES.find(x=>x.code===c)) { setSheet({type:'unknown', code:c}); return; }
         const fromInv = invScanFromInvRef.current; invScanFromInvRef.current = false;
         if (fromInv && invMode && invZone && !INV_CODES.includes(c) && ARTICLES.find(x=>x.code===c)) {
           const a = ARTICLES.find(x=>x.code===c);
@@ -730,7 +731,7 @@ function App() {
         });
         showToast(`${items.length} article${items.length>1?'s':''} ajouté${items.length>1?'s':''} aux actions`);
         setSheet('todo');
-      }} onUnknown={(code)=>{ console.log('[UNKNOWN]', code); alert('Code inconnu: ' + code); setSheet({type:'unknown', code}); }} />}
+      }} onUnknown={(code)=>setSheet({type:'unknown', code})} />}
       {sheet === 'ean' && <EanSheet onClose={()=>setSheet(null)} onPick={(c)=>{ setSheet(null); openArticle(c); }} />}
       {sheet?.type === 'unknown' && <UnknownSheet code={sheet.code} onClose={()=>setSheet(null)} onRetry={()=>setSheet('camera')} onAssoc={(artCode)=>{ setSheet(null); showToast(`EAN associé à ${artCode}`); openArticle(artCode); }} />}
       {sheet === 'todo' && <JournalSheet
@@ -1094,7 +1095,17 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const [detailsOpen, setDetailsOpen] = useState(false);
   const a = ARTICLES.find(x=>x.code===code);
   const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : (a?.stock ?? 0));
-  if (!a) return null;
+  if (!a) return (
+    <>
+      <TopBar title="Article introuvable" sub={code} back onBack={onBack} onMenu={()=>{}} />
+      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center'}}>
+        <div style={{fontSize:48,marginBottom:16}}>?</div>
+        <div style={{fontSize:18,fontWeight:900,color:T.t1}}>Code {code}</div>
+        <div style={{fontSize:13,color:T.t2,marginTop:6}}>Cet article n'existe pas dans le catalogue chargé.</div>
+        <button onClick={onBack} style={{marginTop:20,padding:'12px 24px',background:T.accent,color:'#1a0e05',border:'none',borderRadius:10,fontWeight:800,fontSize:14,cursor:'pointer'}}>Retour</button>
+      </div>
+    </>
+  );
   const v = VC[a.verdict];
 
   // ── Écran OK (article sans action requise) — escape hatch via "Détails"
