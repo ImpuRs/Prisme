@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>PRISME — Mise à jour Scan</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--bg:#0b1220;--card:#111b2f;--border:#2b3b5a;--t1:#f8fafc;--t2:#cbd5e1;--t3:#94a3b8;--act:#60a5fa;--ok:#4ade80;--warn:#fbbf24;--err:#f87171}
+    body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(180deg,#0b1220 0%,#0f172a 44%,#0b1220 100%);color:var(--t1);min-height:100dvh}
+    a{color:var(--act);text-decoration:none}
+    .wrap{max-width:720px;margin:0 auto;padding:20px 16px 44px}
+    .title{font-size:22px;font-weight:950;letter-spacing:.2px}
+    .sub{font-size:12px;color:var(--t2);line-height:1.45;margin-top:4px}
+    .pill{font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(96,165,250,0.12);color:var(--act);font-weight:800;white-space:nowrap}
+    .card{background:rgba(17,27,47,0.86);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:12px}
+    .card-h{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .card-h h2{font-size:13px;font-weight:900}
+    .card-b{padding:16px}
+    .dropzone{display:block;cursor:pointer;border:1px dashed rgba(96,165,250,.56);background:linear-gradient(180deg,rgba(96,165,250,.10),rgba(15,23,42,.42));border-radius:10px;padding:16px;transition:border-color .16s,background .16s;margin-bottom:12px}
+    .dropzone:hover,.dropzone.drag{border-color:rgba(74,222,128,.95);background:rgba(74,222,128,.08)}
+    .dropzone input{display:none}
+    .drop-title{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:950;color:var(--t1)}
+    .drop-sub{font-size:11px;color:var(--t3);margin-top:5px}
+    .tag{font-size:10px;font-weight:900;padding:3px 7px;border-radius:999px;white-space:nowrap}
+    .tag-blue{color:var(--act);border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.1)}
+    .tag-green{color:var(--ok);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1)}
+    .tag-orange{color:var(--warn);border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.1)}
+    .loaded{font-size:12px;font-weight:700;padding:10px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .loaded-ok{color:var(--ok);background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25)}
+    .loaded-err{color:var(--err);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25)}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .stat{border:1px solid rgba(96,165,250,.18);background:rgba(15,23,42,.54);border-radius:8px;padding:10px}
+    .stat .k{font-size:10px;text-transform:uppercase;color:var(--t3);font-weight:900;letter-spacing:.5px}
+    .stat .v{font-size:16px;font-weight:950;margin-top:3px;color:var(--t1);font-variant-numeric:tabular-nums}
+    .btn{cursor:pointer;border:none;border-radius:8px;padding:14px 20px;font-weight:900;font-size:14px;letter-spacing:.2px;width:100%}
+    .btn-primary{background:var(--act);color:#081426}
+    .btn:disabled{opacity:.35;cursor:not-allowed}
+    .log{margin-top:12px;background:rgba(15,23,42,0.45);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--t2);white-space:pre-wrap;max-height:200px;overflow:auto;display:none}
+    .hdr{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;margin-bottom:4px}
+    .row{display:flex;gap:10px;align-items:center}
+    .muted{color:var(--t3);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">
+      <div>
+        <div class="title">Mise à jour Scan</div>
+        <div class="sub">Charge le JSON scan existant + un export ZZAT frais → télécharge le JSON mis à jour avec les stocks/emplacements actuels.</div>
+      </div>
+      <div class="row">
+        <span class="pill">Local · Offline</span>
+        <a class="muted" href="conv.html">Convertisseur</a>
+        <a class="muted" href="index.html">PRISME</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>1) Fichier JSON scan existant</h2></div>
+      <div class="card-b">
+        <label class="dropzone" id="dropJson">
+          <input id="fileJson" type="file" accept=".json,application/json">
+          <span class="drop-title">
+            <span>prisme-scan-AGXX.json</span>
+            <span class="tag tag-blue">JSON</span>
+          </span>
+          <span class="drop-sub">Le fichier généré par PRISME (data/prisme-scan-AGXX.json)</span>
+        </label>
+        <div id="jsonStatus"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>2) Export ZZAT frais (état du stock ERP)</h2></div>
+      <div class="card-b">
+        <label class="dropzone" id="dropZzat">
+          <input id="fileZzat" type="file" accept=".csv,.txt">
+          <span class="drop-title">
+            <span>ZZAT018_XX.csv</span>
+            <span class="tag tag-orange">CSV</span>
+          </span>
+          <span class="drop-sub">Export état du stock depuis l'ERP — séparateur point-virgule</span>
+        </label>
+        <div id="zzatStatus"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>3) Résultat</h2></div>
+      <div class="card-b">
+        <div id="resultStats"></div>
+        <button class="btn btn-primary" id="btnMerge" disabled>Fusionner et télécharger</button>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+let SCAN = null;   // parsed JSON
+let ZZAT = null;   // Map<code, {stock,min,max,empl,statut}>
+let jsonFileName = '';
+
+const $  = id => document.getElementById(id);
+const log = (msg) => { const el = $('log'); el.style.display = 'block'; el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; };
+
+// ── Drag & drop helpers ──
+document.querySelectorAll('.dropzone').forEach(dz => {
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    const inp = dz.querySelector('input');
+    inp.files = e.dataTransfer.files;
+    inp.dispatchEvent(new Event('change'));
+  });
+});
+
+// ── JSON loading ──
+$('fileJson').addEventListener('change', function() {
+  const f = this.files?.[0]; if (!f) return;
+  jsonFileName = f.name;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const j = JSON.parse(rd.result);
+      const arts = j.articles || j.finalData || (Array.isArray(j) ? j : null);
+      if (!arts?.length) throw new Error('Pas de tableau articles');
+      SCAN = j;
+      if (!SCAN.articles && SCAN.finalData) { SCAN.articles = SCAN.finalData; delete SCAN.finalData; }
+      if (Array.isArray(SCAN)) SCAN = { articles: SCAN };
+      const n = (SCAN.articles || []).length;
+      $('jsonStatus').innerHTML = '<div class="loaded loaded-ok">✓ ' + n.toLocaleString('fr-FR') + ' articles · ' + (SCAN.store||'?') + '</div>';
+      log('JSON chargé : ' + f.name + ' · ' + n + ' articles · agence ' + (SCAN.store||'?'));
+      checkReady();
+    } catch(e) {
+      SCAN = null;
+      $('jsonStatus').innerHTML = '<div class="loaded loaded-err">✕ ' + e.message + '</div>';
+    }
+  };
+  rd.readAsText(f);
+});
+
+// ── ZZAT CSV loading ──
+$('fileZzat').addEventListener('change', function() {
+  const f = this.files?.[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      let txt = rd.result;
+      const lines = txt.split('\n').filter(l => l.trim());
+      const hdr = lines[0].split(';').map(h => h.trim().toLowerCase());
+      const iArt = hdr.findIndex(h => h === 'article');
+      const iStk = hdr.findIndex(h => h === 'stock');
+      const iMin = hdr.findIndex(h => /qte\s*min/.test(h));
+      const iMax = hdr.findIndex(h => /qte\s*max/.test(h));
+      const iEmpl = hdr.findIndex(h => h === 'emplacement');
+      const iStat = hdr.findIndex(h => h === 'statut');
+      if (iArt < 0 || iStk < 0) throw new Error('Colonnes Article/Stock introuvables');
+      ZZAT = new Map();
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(';').map(c => c.trim());
+        const code = cols[iArt];
+        if (!code || !/^\d{5,6}$/.test(code)) continue;
+        ZZAT.set(code, {
+          stock: parseInt(cols[iStk]) || 0,
+          min: iMin >= 0 ? (parseInt(cols[iMin]) || 0) : null,
+          max: iMax >= 0 ? (parseInt(cols[iMax]) || 0) : null,
+          empl: iEmpl >= 0 ? (cols[iEmpl] || '') : null,
+          statut: iStat >= 0 ? (cols[iStat] || '') : null,
+        });
+      }
+      $('zzatStatus').innerHTML = '<div class="loaded loaded-ok">✓ ' + ZZAT.size.toLocaleString('fr-FR') + ' articles ERP</div>';
+      log('ZZAT chargé : ' + f.name + ' · ' + ZZAT.size + ' lignes');
+      checkReady();
+    } catch(e) {
+      ZZAT = null;
+      $('zzatStatus').innerHTML = '<div class="loaded loaded-err">✕ ' + e.message + '</div>';
+    }
+  };
+  rd.readAsText(f, 'latin1');
+});
+
+function checkReady() {
+  $('btnMerge').disabled = !(SCAN && ZZAT);
+  if (SCAN && ZZAT) {
+    // Preview
+    const arts = SCAN.articles || [];
+    let matched = 0;
+    for (const a of arts) { if (ZZAT.has(a.code)) matched++; }
+    $('resultStats').innerHTML = '<div class="stats">'
+      + '<div class="stat"><div class="k">JSON</div><div class="v">' + arts.length.toLocaleString('fr-FR') + '</div></div>'
+      + '<div class="stat"><div class="k">ZZAT</div><div class="v">' + ZZAT.size.toLocaleString('fr-FR') + '</div></div>'
+      + '<div class="stat"><div class="k">Matchés</div><div class="v">' + matched.toLocaleString('fr-FR') + '</div></div>'
+      + '</div>';
+  }
+}
+
+// ── Merge & download ──
+$('btnMerge').addEventListener('click', () => {
+  if (!SCAN || !ZZAT) return;
+  const arts = SCAN.articles || [];
+  let updated = 0, unchanged = 0;
+  for (const a of arts) {
+    const z = ZZAT.get(a.code);
+    if (!z) continue;
+    let changed = false;
+    if (a.stockActuel !== z.stock) { a.stockActuel = z.stock; changed = true; }
+    if (z.min !== null && a.ancienMin !== z.min) { a.ancienMin = z.min; changed = true; }
+    if (z.max !== null && a.ancienMax !== z.max) { a.ancienMax = z.max; changed = true; }
+    if (z.empl !== null && a.emplacement !== z.empl) { a.emplacement = z.empl; changed = true; }
+    if (z.statut !== null && a.statut !== z.statut) { a.statut = z.statut; changed = true; }
+    if (changed) updated++; else unchanged++;
+  }
+  SCAN.timestamp = Date.now();
+  log('Merge terminé : ' + updated + ' mis à jour, ' + unchanged + ' inchangés');
+
+  // Download
+  const blob = new Blob([JSON.stringify(SCAN)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = jsonFileName || 'prisme-scan-updated.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+
+  $('resultStats').innerHTML += '<div class="loaded loaded-ok" style="margin-top:10px">✓ ' + updated + ' articles mis à jour — fichier téléchargé</div>';
+  log('→ ' + (jsonFileName || 'prisme-scan-updated.json'));
+});
+</script>
+</body>
+</html>
