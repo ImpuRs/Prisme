@@ -653,7 +653,7 @@ let _camRAF = 0;
 let _lastDetectedTime = 0;
 let _detectedCodes = new Map(); // Map<code, {format, ts}> — codes détectés en cours
 let _zxingReady = false;
-const _DIRECT_SCAN_SETTLE_MS = 200;
+const _DIRECT_SCAN_SETTLE_MS = 120;
 let _directScanBuf = null; // {code, format, timer} — mode direct : attendre les lectures concurrentes
 
 function _resetDirectScanBuf() {
