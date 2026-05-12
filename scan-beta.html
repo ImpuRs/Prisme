@@ -75,12 +75,13 @@ try {
   const bgModule = await import('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.js');
   const wasmResp = await fetch('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.wasm');
   const wasmBytes = await wasmResp.arrayBuffer();
-  const imports = bgModule.__wbg_get_imports?.() || {};
-  // Patch imports with the bg module's link functions
-  if (typeof bgModule.__wbg_init_memory === 'function') bgModule.__wbg_init_memory(imports);
-  const { instance } = await WebAssembly.instantiate(wasmBytes, imports);
+  // Build imports object: WASM expects imports from './rxing_wasm_bg.js'
+  const importObj = { './rxing_wasm_bg.js': {} };
+  for (const [key, val] of Object.entries(bgModule)) {
+    if (typeof val === 'function') importObj['./rxing_wasm_bg.js'][key] = val;
+  }
+  const { instance } = await WebAssembly.instantiate(wasmBytes, importObj);
   bgModule.__wbg_set_wasm(instance.exports);
-  if (typeof bgModule.__wbg_finalize_init === 'function') bgModule.__wbg_finalize_init();
   rxing = bgModule;
   rxingReady = true;
   console.log('[Beta] rxing WASM loaded');
