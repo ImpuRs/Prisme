@@ -29,8 +29,13 @@
 <body>
   <h1>Scan Beta — YOLOv8 + ZBar</h1>
 
+  <div class="btn-row" style="display:flex;gap:8px;padding:4px 12px;width:100%;max-width:500px">
+    <button id="btn320" onclick="switchModel('320')" style="flex:1;padding:8px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;background:rgba(96,165,250,.2);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">320px (rapide)</button>
+    <button id="btn640" onclick="switchModel('640')" style="flex:1;padding:8px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;background:rgba(148,163,184,.15);color:#f8fafc;border:1px solid #2b3b5a">640px (precis)</button>
+  </div>
+
   <div class="load-bar" id="loadBar">
-    <div class="load-msg" id="loadMsg">Chargement du modele YOLO (11 Mo)...</div>
+    <div class="load-msg" id="loadMsg">Chargement du modele YOLO...</div>
     <div class="track"><div class="fill" id="loadFill"></div></div>
   </div>
 
@@ -52,9 +57,13 @@
 <script>
 'use strict';
 
-const MODEL_URL = 'models/barcode-yolov8s-q8.onnx';
-const INPUT_SIZE = 640; // YOLOv8 input
-const CONF_THRESHOLD = 0.35;
+const MODELS = {
+  '320': { url: 'models/barcode-yolov8s-320-q8.onnx', size: 320, label: '320px (rapide)' },
+  '640': { url: 'models/barcode-yolov8s-q8.onnx', size: 640, label: '640px (precis)' },
+};
+let currentModel = '320';
+let INPUT_SIZE = 320;
+const CONF_THRESHOLD = 0.25;
 const IOU_THRESHOLD = 0.5;
 
 let session = null;
@@ -65,9 +74,26 @@ const seen = new Map();
 const history = [];
 
 // ── Load model ──
+async function switchModel(key) {
+  if (key === currentModel && session) return;
+  currentModel = key;
+  INPUT_SIZE = MODELS[key].size;
+  document.getElementById('btn320').style.background = key === '320' ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.15)';
+  document.getElementById('btn320').style.color = key === '320' ? '#60a5fa' : '#f8fafc';
+  document.getElementById('btn320').style.borderColor = key === '320' ? 'rgba(96,165,250,.4)' : '#2b3b5a';
+  document.getElementById('btn640').style.background = key === '640' ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.15)';
+  document.getElementById('btn640').style.color = key === '640' ? '#60a5fa' : '#f8fafc';
+  document.getElementById('btn640').style.borderColor = key === '640' ? 'rgba(96,165,250,.4)' : '#2b3b5a';
+  session = null;
+  frameCount = 0; detectCount = 0;
+  document.getElementById('loadBar').style.display = 'block';
+  await loadModel();
+}
+
 async function loadModel() {
   const msg = document.getElementById('loadMsg');
   const fill = document.getElementById('loadFill');
+  const modelConf = MODELS[currentModel];
 
   try {
     // Configure ONNX Runtime for WASM
@@ -77,7 +103,7 @@ async function loadModel() {
     fill.style.width = '20%';
 
     // Fetch model with progress
-    const resp = await fetch(MODEL_URL);
+    const resp = await fetch(modelConf.url);
     const total = parseInt(resp.headers.get('content-length') || '0');
     const reader = resp.body.getReader();
     const chunks = [];
@@ -110,7 +136,7 @@ async function loadModel() {
     fill.style.width = '100%';
     msg.textContent = 'Modele charge ! Demarrage camera...';
 
-    console.log('[Beta] Model loaded, inputs:', session.inputNames, 'outputs:', session.outputNames);
+    console.log('[Beta] Model loaded (' + currentModel + '), inputs:', session.inputNames, 'outputs:', session.outputNames);
 
     setTimeout(() => {
       document.getElementById('loadBar').style.display = 'none';
