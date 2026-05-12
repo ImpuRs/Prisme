@@ -188,18 +188,19 @@ async function scanLoop() {
       // convert_imagedata_to_luma attend un ImageData
       const luma = rxing.convert_imagedata_to_luma(imageData);
       if (frameCount <= 3) console.log('[rxing] luma type:', typeof luma, 'length:', luma?.length, 'side:', side);
-      // Essayer decode_barcode (single) et decode_multi
       let result = null;
       try {
-        result = rxing.decode_multi(luma, side, side);
+        // decode_multi attend (luma, width, height, DecodeHintDictionary)
+        const hints = new rxing.DecodeHintDictionary();
+        result = rxing.decode_multi(luma, side, side, hints);
+        if (frameCount <= 3) console.log('[rxing] decode_multi result:', result?.length, result);
       } catch(e1) {
         if (frameCount <= 3) console.log('[rxing] decode_multi error:', e1.message);
         try {
           const single = rxing.decode_barcode(luma, side, side);
-          if (frameCount <= 3) console.log('[rxing] decode_barcode result:', single);
           if (single) result = [single];
         } catch(e2) {
-          if (frameCount <= 3) console.log('[rxing] decode_barcode error:', e2.message);
+          // no barcode found — normal
         }
       }
       if (result && result.length) {
