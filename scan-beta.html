@@ -185,12 +185,33 @@ async function scanLoop() {
   if (rxingReady) {
     const t0 = performance.now();
     try {
+      // convert_imagedata_to_luma attend un ImageData
       const luma = rxing.convert_imagedata_to_luma(imageData);
-      const result = rxing.decode_multi(luma, side, side);
-      if (result && result.length) {
-        rxingRes = result.map(r => ({ text: String(r.text || r).replace(/\s/g, ''), engine: 'rxing' }));
+      if (frameCount <= 3) console.log('[rxing] luma type:', typeof luma, 'length:', luma?.length, 'side:', side);
+      // Essayer decode_barcode (single) et decode_multi
+      let result = null;
+      try {
+        result = rxing.decode_multi(luma, side, side);
+      } catch(e1) {
+        if (frameCount <= 3) console.log('[rxing] decode_multi error:', e1.message);
+        try {
+          const single = rxing.decode_barcode(luma, side, side);
+          if (frameCount <= 3) console.log('[rxing] decode_barcode result:', single);
+          if (single) result = [single];
+        } catch(e2) {
+          if (frameCount <= 3) console.log('[rxing] decode_barcode error:', e2.message);
+        }
       }
-    } catch(e) {}
+      if (result && result.length) {
+        rxingRes = result.map(r => {
+          const text = String(r.text || r.getText?.() || r).replace(/\s/g, '');
+          if (frameCount <= 3) console.log('[rxing] found:', text, 'format:', r.format || r.getFormat?.());
+          return { text, engine: 'rxing' };
+        });
+      }
+    } catch(e) {
+      if (frameCount <= 3) console.log('[rxing] outer error:', e.message);
+    }
     tRxing = performance.now() - t0;
     addAvg('rxing', tRxing);
   }
