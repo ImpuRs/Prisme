@@ -1759,10 +1759,9 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         merged.push(r);
       }
 
-      if (merged.length) console.log('[Scan]', merged.map(r=>r.format+':'+JSON.stringify(r.text)).join(' '));
       const now = Date.now();
       for (const r of merged) {
-        const barcode = r.text;
+        const barcode = r.text.replace(/\s/g, '');
         if (!/^\d{5,13}$/.test(barcode)) continue;
         // Anti-doublon brut 2s sur le code-barre brut
         const prev = lastCodesRef.current.get(barcode);
