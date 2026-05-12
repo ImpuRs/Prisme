@@ -1619,6 +1619,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         : Promise.resolve([]);
 
       const [zxingRes, zbarRes] = await Promise.all([zxingP, zbarP]);
+      if (zbarRes.length || zxingRes.length) console.log('[Scan]', zbarRes.map(r=>r.format+':'+r.text).join(' '), '|', zxingRes.map(r=>r.format+':'+r.text).join(' '));
       const seen = new Set();
       const merged = [];
       for (const r of [...zbarRes, ...zxingRes]) {
