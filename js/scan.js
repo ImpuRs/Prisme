@@ -653,6 +653,57 @@ let _camRAF = 0;
 let _lastDetectedTime = 0;
 let _detectedCodes = new Map(); // Map<code, {format, ts}> — codes détectés en cours
 let _zxingReady = false;
+const _DIRECT_SCAN_SETTLE_MS = 200;
+let _directScanBuf = null; // {code, format, timer} — mode direct : attendre les lectures concurrentes
+
+function _resetDirectScanBuf() {
+  if (_directScanBuf?.timer) clearTimeout(_directScanBuf.timer);
+  _directScanBuf = null;
+}
+
+function _resolveScannedCode(code) {
+  const clean = String(code || '').replace(/\D/g, '');
+  if (!clean || !_articles) return null;
+  if (_articles.get(clean)) return clean;
+  if (_eanMap) {
+    const c = _eanMap.get(clean) || _customEanMap.get(clean);
+    if (c && _articles.get(c)) return c;
+  }
+  if (_refMap) {
+    const c = _refMap.get(code) || _refMap.get(String(code).toUpperCase());
+    if (c && _articles.get(c)) return c;
+  }
+  return null;
+}
+
+function _queueDirectScan(code, format) {
+  const artCode = _resolveScannedCode(code);
+  if (!_directScanBuf) {
+    _directScanBuf = {
+      code,
+      artCode,
+      format,
+      timer: setTimeout(() => {
+        const best = _directScanBuf;
+        _directScanBuf = null;
+        if (!best || !_camActive) return;
+        if (!best.artCode && best.code.length < 8) return;
+        _stopCamera();
+        input.value = best.artCode || best.code;
+        lookup(best.artCode || best.code);
+      }, _DIRECT_SCAN_SETTLE_MS),
+    };
+    return;
+  }
+
+  // ZBar lit souvent l'EAN complet une frame après un faux positif Code128 court.
+  // Pendant la fenêtre directe, on garde donc le code numérique le plus long.
+  if ((artCode && !_directScanBuf.artCode) || code.length > _directScanBuf.code.length) {
+    _directScanBuf.code = code;
+    _directScanBuf.artCode = artCode;
+    _directScanBuf.format = format;
+  }
+}
 
 // Pré-charger le WASM au boot
 if (typeof ZXingWASM !== 'undefined') {
@@ -801,12 +852,9 @@ async function _scanLoop() {
         _vibrate();
         _beep();
         _flashFrame();
-        // Mode direct : 1 scan → fiche immédiate
         if (!_camModeContinuous) {
-          _stopCamera();
-          input.value = code;
-          lookup(code);
-          return;
+          _queueDirectScan(code, r.format);
+          continue;
         }
         _addScanToActions(code);
         _renderPickList();
@@ -911,6 +959,7 @@ function _stopCamera() {
   const zone = document.getElementById('camZone');
   const btn = document.getElementById('camBtn');
   if (_camRAF) { clearTimeout(_camRAF); _camRAF = 0; }
+  _resetDirectScanBuf();
   if (_camStream) {
     _camStream.getTracks().forEach(t => t.stop());
     _camStream = null;
@@ -1975,4 +2024,3 @@ function resetInventaire() {
   _showEmplPicker();
 }
 window.resetInventaire = resetInventaire;
-
