@@ -47,8 +47,7 @@
   @keyframes fade{from{opacity:0}to{opacity:1}}
   @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
-  @keyframes scanline{0%{top:10%}50%{top:85%}100%{top:10%}}
-  @keyframes fadeFlash{0%{opacity:1}100%{opacity:0}}
+@keyframes fadeFlash{0%{opacity:1}100%{opacity:0}}
   @keyframes scanFlash{0%{background:rgba(251,146,60,.0)}30%{background:rgba(251,146,60,.18)}100%{background:rgba(251,146,60,0)}}
   .scan-flash{animation:scanFlash .35s ease-out}
   @keyframes pulseDot{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
@@ -1707,7 +1706,6 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const scanTimer = useRef(null);
-  const scanPassRef = useRef(0);
   const lastCodesRef = useRef(new Map()); // Map<barcode, ts> anti-doublon brut
   const directBufRef = useRef(null); // buffer mode direct : {barcode, artCode, timer}
   const emptyFramesRef = useRef(0); // compteur frames sans détection
@@ -1777,18 +1775,9 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     const cx = Math.round((vw - side) / 2);
     const cy = Math.round((vh - side) / 2);
 
-    // Alterner carré plein / bande laser
-    scanPassRef.current++;
-    let cw, ch, sy;
-    if (scanPassRef.current % 2 === 0) {
-      cw = side; ch = side; sy = cy;
-    } else {
-      const bandH = Math.round(side * 0.15);
-      cw = side; ch = bandH; sy = cy + Math.round((side - bandH) / 2);
-    }
-
-    canvas.width = cw; canvas.height = ch;
-    ctx.drawImage(video, cx, sy, cw, ch, 0, 0, cw, ch);
+    canvas.width = side; canvas.height = side;
+    ctx.drawImage(video, cx, cy, side, side, 0, 0, side, side);
+    const cw = side, ch = side;
     const imageData = ctx.getImageData(0, 0, cw, ch);
 
     const emptyFrames = emptyFramesRef.current;
@@ -1943,7 +1932,6 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       <div style={{flex:1,position:'relative',overflow:'hidden',background:'#000'}}>
         <video ref={videoRef} playsInline autoPlay muted style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
         <div style={{position:'absolute',inset:0,background:'repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(255,255,255,.02) 2px,rgba(255,255,255,.02) 3px)'}} />
-        <div style={{position:'absolute',left:'12%',right:'12%',height:2,background:'linear-gradient(90deg,transparent,#fb923c,transparent)',animation:'scanline 2s ease-in-out infinite',boxShadow:'0 0 20px #fb923c'}} />
         <div style={{position:'absolute',left:'12%',top:'15%',right:'12%',aspectRatio:1,border:'2px solid rgba(255,255,255,.4)',borderRadius:18,boxShadow:'0 0 0 9999px rgba(0,0,0,.55)'}}>
           {['tl','tr','bl','br'].map(p => {
             const s = {position:'absolute',width:24,height:24,borderColor:'#fb923c',borderStyle:'solid',borderWidth:0,
