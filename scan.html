@@ -1615,7 +1615,8 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       const hasZbar = typeof zbarWasm !== 'undefined';
       const zbarP = hasZbar
         ? zbarWasm.scanImageData(imageData).then(symbols =>
-            symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
+            symbols.filter(s => /EAN|ean/i.test(s.typeName))
+            .map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
           ).catch(() => [])
         : Promise.resolve([]);
 
@@ -1623,7 +1624,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       const zxingP = (typeof ZXingWASM !== 'undefined')
         ? ZXingWASM.readBarcodes(imageData, {
             tryHarder: true,
-            formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
+            formats: ['EAN-13', 'EAN-8'],
             maxNumberOfSymbols: 4,
           }).then(res => res.map(r => ({ text: r.text, format: r.format })))
         : Promise.resolve([]);
