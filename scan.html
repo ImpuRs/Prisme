@@ -1615,8 +1615,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       const hasZbar = typeof zbarWasm !== 'undefined';
       const zbarP = hasZbar
         ? zbarWasm.scanImageData(imageData).then(symbols =>
-            symbols.filter(s => /EAN|ean/i.test(s.typeName))
-            .map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
+            symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
           ).catch(() => [])
         : Promise.resolve([]);
 
@@ -1624,7 +1623,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       const zxingP = (typeof ZXingWASM !== 'undefined')
         ? ZXingWASM.readBarcodes(imageData, {
             tryHarder: true,
-            formats: ['EAN-13', 'EAN-8'],
+            formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
             maxNumberOfSymbols: 4,
           }).then(res => res.map(r => ({ text: r.text, format: r.format })))
         : Promise.resolve([]);
@@ -1638,6 +1637,8 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         seen.add(r.text);
         merged.push(r);
       }
+      // Trier par longueur décroissante — EAN-13 avant codes courts
+      merged.sort((a, b) => b.text.length - a.text.length);
 
       // Prioriser EAN (13/8 chiffres) vs Code128/Code39 (lectures partielles)
       const hasEan = merged.some(r => /^\d{8}$|^\d{13}$/.test(r.text));
