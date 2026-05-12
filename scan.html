@@ -1650,7 +1650,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   };
 
   const tryAdd = (code, barcode) => {
-    const a = ARTICLES.find(x=>x.code===code); if (!a) return;
+    const a = ARTICLES.find(x=>x.code===code) || _catalogArticle(code); if (!a) return;
     const barHint = (barcode && barcode !== code) ? '....' + barcode.slice(-4) : '';
     const now = Date.now();
     setDetected(d => {
