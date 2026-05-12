@@ -68,12 +68,20 @@
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
 
 <script type="module">
-// rxing — ES module
+// rxing — ES module (wasm-bindgen, init manuelle)
 let rxingReady = false;
 let rxing = null;
 try {
-  rxing = await import('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm.js');
-  await rxing.default('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.wasm');
+  const bgModule = await import('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.js');
+  const wasmResp = await fetch('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.wasm');
+  const wasmBytes = await wasmResp.arrayBuffer();
+  const imports = bgModule.__wbg_get_imports?.() || {};
+  // Patch imports with the bg module's link functions
+  if (typeof bgModule.__wbg_init_memory === 'function') bgModule.__wbg_init_memory(imports);
+  const { instance } = await WebAssembly.instantiate(wasmBytes, imports);
+  bgModule.__wbg_set_wasm(instance.exports);
+  if (typeof bgModule.__wbg_finalize_init === 'function') bgModule.__wbg_finalize_init();
+  rxing = bgModule;
   rxingReady = true;
   console.log('[Beta] rxing WASM loaded');
 } catch(e) {
