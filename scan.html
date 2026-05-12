@@ -1861,36 +1861,32 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     }
 
     try {
+      const hasZxing = typeof ZXingWASM !== 'undefined';
       const hasZbar = typeof zbarWasm !== 'undefined';
 
-      // Stage 1 : ZBar seul (ultra-rapide) ; Stage 2-3 : ZBar + ZXing
-      let zbarP, zxingP;
+      // Stage 1 : ZXing seul (5ms, le plus rapide)
+      // Stage 2+ : ZXing + ZBar en parallèle
+      const zxingP = hasZxing
+        ? ZXingWASM.readBarcodes(imageData, {
+            tryHarder: stage >= 3,
+            tryInvert: stage >= 3,
+            formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
+            maxNumberOfSymbols: 4,
+          }).then(res => res.map(r => ({ text: r.text, format: r.format })))
+          .catch(() => [])
+        : Promise.resolve([]);
 
-      zbarP = hasZbar
+      const zbarP = (stage >= 2 && hasZbar)
         ? zbarWasm.scanImageData(imageData).then(symbols =>
             symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
           ).catch(() => [])
         : Promise.resolve([]);
 
-      if (stage === 1) {
-        // Stage 1 : ZBar seul, pas de ZXing
-        zxingP = Promise.resolve([]);
-      } else {
-        // Stage 2-3 : ZXing en parallèle (tryHarder seulement en stage 3)
-        zxingP = (typeof ZXingWASM !== 'undefined')
-          ? ZXingWASM.readBarcodes(imageData, {
-              tryHarder: stage >= 3,
-              tryInvert: stage >= 3,
-              formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
-              maxNumberOfSymbols: 4,
-            }).then(res => res.map(r => ({ text: r.text, format: r.format })))
-          : Promise.resolve([]);
-      }
-
-      const [zbarRes, zxingRes] = await Promise.all([zbarP, zxingP]);
+      const [zxingRes, zbarRes] = await Promise.all([zxingP, zbarP]);
       const seen = new Set();
       const merged = [];
-      for (const r of [...zbarRes, ...zxingRes]) {
+      // ZXing d'abord (plus rapide), ZBar complète
+      for (const r of [...zxingRes, ...zbarRes]) {
         if (!r.text || seen.has(r.text)) continue;
         seen.add(r.text);
         merged.push(r);
@@ -2046,7 +2042,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         {/* Zoom toggle */}
         {zoomMax > 1 && (
           <button onClick={()=>{
-            const next = zoomLevel >= 4 ? 1.5 : zoomLevel >= 2 ? Math.min(4, zoomMax) : Math.min(2, zoomMax);
+            const next = zoomLevel >= 2 ? 1.5 : Math.min(2, zoomMax);
             try { streamRef.current?.getVideoTracks()[0].applyConstraints({ advanced: [{ zoom: next }] }); } catch(e){}
             emptyFramesRef.current = 0; // reset pipeline stage on zoom change
             setZoomLevel(next);
