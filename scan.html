@@ -1769,14 +1769,24 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     }
     const canvas = canvasRef.current, ctx = ctxRef.current;
 
-    // Viewfinder : carré centré 76% largeur
-    const VF = 0.76;
-    const side = Math.round(Math.min(vw, vh) * VF);
-    const cx = Math.round((vw - side) / 2);
-    const cy = Math.round((vh - side) / 2);
+    // Viewfinder : aligner crop canvas sur le carré CSS (left:12%,top:15%,right:12%,aspectRatio:1)
+    // object-fit:cover → la vidéo est scalée pour couvrir le conteneur, puis croppée
+    const vidEl = video;
+    const dw = vidEl.clientWidth, dh = vidEl.clientHeight;
+    // Scale factor cover : max(dw/vw, dh/vh)
+    const scale = Math.max(dw / vw, dh / vh);
+    const rendW = vw * scale, rendH = vh * scale;
+    // Offset du crop cover (centré)
+    const offX = (rendW - dw) / 2, offY = (rendH - dh) / 2;
+    // Carré CSS : left=12% dw, top=15% dh, width=76% dw, height=76% dw (aspectRatio:1)
+    const cssL = 0.12 * dw, cssT = 0.15 * dh, cssSide = 0.76 * dw;
+    // Mapper vers coordonnées vidéo source
+    const sx = Math.round((cssL + offX) / scale);
+    const sy = Math.round((cssT + offY) / scale);
+    const side = Math.round(cssSide / scale);
 
     canvas.width = side; canvas.height = side;
-    ctx.drawImage(video, cx, cy, side, side, 0, 0, side, side);
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
     const cw = side, ch = side;
     const imageData = ctx.getImageData(0, 0, cw, ch);
 
