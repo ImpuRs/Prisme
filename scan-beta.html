@@ -3,390 +3,230 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Scan Beta — YOLO Barcode Detection</title>
+  <title>Scan Beta — Benchmark ZBar vs ZXing vs rxing</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:#0b1220;color:#f8fafc;font-family:-apple-system,system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
     h1{font-size:15px;padding:12px;text-align:center;font-weight:900}
-    .cam-wrap{position:relative;width:100%;max-width:500px;aspect-ratio:1;background:#000;border-radius:12px;overflow:hidden}
+    .cam-wrap{position:relative;width:100%;max-width:500px;aspect-ratio:4/3;background:#000;border-radius:12px;overflow:hidden}
     video{width:100%;height:100%;object-fit:cover}
-    canvas.overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     .badge{position:absolute;top:10px;left:10px;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:800;background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3)}
-    .badge2{position:absolute;top:10px;right:10px;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:800;background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
     .flash{position:absolute;inset:0;background:rgba(74,222,128,.25);opacity:0;pointer-events:none;transition:opacity .1s}
     .flash.on{opacity:1}
-    .stats{padding:8px 12px;color:#94a3b8;font-size:11px;text-align:center;font-variant-numeric:tabular-nums;max-width:500px;width:100%}
+    .bench{width:100%;max-width:500px;padding:8px 12px}
+    .bench-row{display:flex;gap:6px;margin-bottom:6px}
+    .bench-card{flex:1;padding:10px;background:rgba(17,27,47,.86);border:1px solid #2b3b5a;border-radius:8px;text-align:center}
+    .bench-card .name{font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
+    .bench-card .time{font-size:20px;font-weight:950;margin-top:2px;font-variant-numeric:tabular-nums}
+    .bench-card .time.fast{color:#4ade80}
+    .bench-card .time.mid{color:#fbbf24}
+    .bench-card .time.slow{color:#f87171}
+    .bench-card .detail{font-size:10px;color:#64748b;margin-top:2px}
     .results{width:100%;max-width:500px;padding:0 12px}
-    .result{padding:10px 12px;background:rgba(17,27,47,.86);border:1px solid #2b3b5a;border-radius:8px;margin-bottom:6px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
-    .result .code{font-family:ui-monospace,monospace;color:#60a5fa;font-size:15px}
-    .result .meta{color:#94a3b8;font-size:11px;text-align:right}
-    .load-bar{width:100%;max-width:500px;padding:0 12px;margin:8px 0}
-    .load-bar .track{height:6px;background:rgba(148,163,184,.15);border-radius:99px;overflow:hidden}
-    .load-bar .fill{height:100%;background:linear-gradient(90deg,#60a5fa,#4ade80);width:0%;transition:width .3s}
-    .load-msg{text-align:center;color:#94a3b8;font-size:12px;padding:4px}
+    .result{padding:8px 12px;background:rgba(17,27,47,.86);border:1px solid #2b3b5a;border-radius:8px;margin-bottom:4px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+    .result .code{font-family:ui-monospace,monospace;color:#60a5fa;font-size:14px}
+    .result .meta{color:#94a3b8;font-size:10px;text-align:right}
+    .stats{padding:6px 12px;color:#64748b;font-size:11px;text-align:center;font-variant-numeric:tabular-nums;max-width:500px;width:100%}
+    .load-msg{text-align:center;color:#94a3b8;font-size:12px;padding:8px}
   </style>
 </head>
 <body>
-  <h1>Scan Beta — YOLOv8 + ZBar</h1>
-
-  <div class="btn-row" style="display:flex;gap:8px;padding:4px 12px;width:100%;max-width:500px">
-    <button id="btn320" onclick="switchModel('320')" style="flex:1;padding:8px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;background:rgba(96,165,250,.2);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">320px (rapide)</button>
-    <button id="btn640" onclick="switchModel('640')" style="flex:1;padding:8px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;background:rgba(148,163,184,.15);color:#f8fafc;border:1px solid #2b3b5a">640px (precis)</button>
-  </div>
-
-  <div class="load-bar" id="loadBar">
-    <div class="load-msg" id="loadMsg">Chargement du modele YOLO...</div>
-    <div class="track"><div class="fill" id="loadFill"></div></div>
-  </div>
+  <h1>Benchmark — ZBar vs ZXing vs rxing</h1>
+  <div class="load-msg" id="loadMsg">Chargement des moteurs...</div>
 
   <div class="cam-wrap" id="camWrap" style="display:none">
     <video id="video" autoplay playsinline muted></video>
-    <canvas class="overlay" id="drawCanvas"></canvas>
-    <div class="badge" id="badge">YOLO</div>
-    <div class="badge2" id="badge2">—</div>
+    <div class="badge" id="badge">—</div>
     <div class="flash" id="flash"></div>
+  </div>
+
+  <div class="bench" id="benchArea" style="display:none">
+    <div class="bench-row">
+      <div class="bench-card">
+        <div class="name">ZBar</div>
+        <div class="time" id="tZbar">—</div>
+        <div class="detail" id="dZbar">—</div>
+      </div>
+      <div class="bench-card">
+        <div class="name">ZXing</div>
+        <div class="time" id="tZxing">—</div>
+        <div class="detail" id="dZxing">—</div>
+      </div>
+      <div class="bench-card">
+        <div class="name">rxing</div>
+        <div class="time" id="tRxing">—</div>
+        <div class="detail" id="dRxing">—</div>
+      </div>
+    </div>
   </div>
   <div class="stats" id="stats"></div>
   <div class="results" id="results"></div>
 
-<!-- ONNX Runtime Web -->
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.js"></script>
-<!-- ZBar WASM pour decodage -->
-<script src="https://cdn.jsdelivr.net/npm/@aspect-build/aspect-zbar-wasm@0.0.3/dist/index.js" onerror="console.log('ZBar non dispo')"></script>
+<!-- ZBar WASM -->
+<script src="https://cdn.jsdelivr.net/npm/@aspect-build/aspect-zbar-wasm@0.0.3/dist/index.js" onerror="console.log('ZBar unavailable')"></script>
+<!-- ZXing WASM -->
+<script src="https://cdn.jsdelivr.net/npm/@nickvdberge/zxing-wasm@0.2.3/dist/iife/full/zxing_full.js" onerror="console.log('ZXing unavailable')"></script>
 
-<script>
-'use strict';
+<script type="module">
+// rxing — ES module
+let rxingReady = false;
+let rxing = null;
+try {
+  rxing = await import('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm.js');
+  await rxing.default('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.wasm');
+  rxingReady = true;
+  console.log('[Beta] rxing WASM loaded');
+} catch(e) {
+  console.warn('[Beta] rxing load error:', e);
+}
 
-const MODELS = {
-  '320': { url: 'models/barcode-yolov8s-320-q8.onnx', size: 320, label: '320px (rapide)' },
-  '640': { url: 'models/barcode-yolov8s-q8.onnx', size: 640, label: '640px (precis)' },
-};
-let currentModel = '320';
-let INPUT_SIZE = 320;
-const CONF_THRESHOLD = 0.25;
-const IOU_THRESHOLD = 0.5;
-
-let session = null;
-let videoEl, drawCanvas, drawCtx;
-let cropCanvas, cropCtx;
-let frameCount = 0, detectCount = 0;
+const videoEl = document.getElementById('video');
+const badge = document.getElementById('badge');
+const flash = document.getElementById('flash');
+let canvas, ctx;
+let frameCount = 0;
 const seen = new Map();
 const history = [];
 
-// ── Load model ──
-async function switchModel(key) {
-  if (key === currentModel && session) return;
-  currentModel = key;
-  INPUT_SIZE = MODELS[key].size;
-  document.getElementById('btn320').style.background = key === '320' ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.15)';
-  document.getElementById('btn320').style.color = key === '320' ? '#60a5fa' : '#f8fafc';
-  document.getElementById('btn320').style.borderColor = key === '320' ? 'rgba(96,165,250,.4)' : '#2b3b5a';
-  document.getElementById('btn640').style.background = key === '640' ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.15)';
-  document.getElementById('btn640').style.color = key === '640' ? '#60a5fa' : '#f8fafc';
-  document.getElementById('btn640').style.borderColor = key === '640' ? 'rgba(96,165,250,.4)' : '#2b3b5a';
-  session = null;
-  frameCount = 0; detectCount = 0;
-  document.getElementById('loadBar').style.display = 'block';
-  await loadModel();
+// Avg trackers
+const avgs = { zbar: [], zxing: [], rxing: [] };
+const MAX_AVG = 50;
+function addAvg(key, ms) { avgs[key].push(ms); if (avgs[key].length > MAX_AVG) avgs[key].shift(); }
+function getAvg(key) { const a = avgs[key]; return a.length ? (a.reduce((s,v)=>s+v,0)/a.length) : 0; }
+
+// Status
+const loadMsg = document.getElementById('loadMsg');
+const hasZbar = typeof zbarWasm !== 'undefined';
+const hasZxing = typeof ZXingWASM !== 'undefined';
+loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | rxing: ${rxingReady?'OK':'NON'}`;
+
+// Start camera
+try {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false,
+  });
+  videoEl.srcObject = stream;
+  await new Promise(r => { videoEl.onloadedmetadata = r; });
+  videoEl.play();
+  document.getElementById('camWrap').style.display = 'block';
+  document.getElementById('benchArea').style.display = 'block';
+  loadMsg.style.display = 'none';
+  scanLoop();
+} catch(e) {
+  loadMsg.textContent = 'Camera error: ' + e.message;
+  loadMsg.style.color = '#f87171';
 }
 
-async function loadModel() {
-  const msg = document.getElementById('loadMsg');
-  const fill = document.getElementById('loadFill');
-  const modelConf = MODELS[currentModel];
-
-  try {
-    // Configure ONNX Runtime for WASM
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
-
-    msg.textContent = 'Chargement ONNX Runtime...';
-    fill.style.width = '20%';
-
-    // Fetch model with progress
-    const resp = await fetch(modelConf.url);
-    const total = parseInt(resp.headers.get('content-length') || '0');
-    const reader = resp.body.getReader();
-    const chunks = [];
-    let loaded = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      loaded += value.length;
-      if (total > 0) {
-        const pct = 20 + Math.round((loaded / total) * 60);
-        fill.style.width = pct + '%';
-        msg.textContent = `Modele YOLO : ${(loaded/1024/1024).toFixed(1)} / ${(total/1024/1024).toFixed(1)} Mo`;
-      }
-    }
-
-    const buf = new Uint8Array(loaded);
-    let offset = 0;
-    for (const c of chunks) { buf.set(c, offset); offset += c.length; }
-
-    fill.style.width = '85%';
-    msg.textContent = 'Initialisation ONNX session...';
-
-    session = await ort.InferenceSession.create(buf.buffer, {
-      executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all',
-    });
-
-    fill.style.width = '100%';
-    msg.textContent = 'Modele charge ! Demarrage camera...';
-
-    console.log('[Beta] Model loaded (' + currentModel + '), inputs:', session.inputNames, 'outputs:', session.outputNames);
-
-    setTimeout(() => {
-      document.getElementById('loadBar').style.display = 'none';
-      document.getElementById('camWrap').style.display = 'block';
-      startCamera();
-    }, 500);
-
-  } catch (e) {
-    msg.textContent = 'Erreur: ' + e.message;
-    msg.style.color = '#f87171';
-    console.error('[Beta] Model load error:', e);
-  }
-}
-
-// ── Camera ──
-async function startCamera() {
-  videoEl = document.getElementById('video');
-  drawCanvas = document.getElementById('drawCanvas');
-  drawCtx = drawCanvas.getContext('2d');
-  cropCanvas = document.createElement('canvas');
-  cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false,
-    });
-    videoEl.srcObject = stream;
-    videoEl.onloadedmetadata = () => { videoEl.play(); scanLoop(); };
-  } catch(e) {
-    document.getElementById('badge').textContent = 'Camera error';
-  }
-}
-
-// ── Preprocess: resize + normalize to [1, 3, 640, 640] ──
-function preprocess(video) {
-  const vw = video.videoWidth, vh = video.videoHeight;
-  cropCanvas.width = INPUT_SIZE;
-  cropCanvas.height = INPUT_SIZE;
-  cropCtx.drawImage(video, 0, 0, vw, vh, 0, 0, INPUT_SIZE, INPUT_SIZE);
-  const imgData = cropCtx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-  const pixels = imgData.data;
-  const len = INPUT_SIZE * INPUT_SIZE;
-
-  // CHW format, normalized [0, 1]
-  const float32 = new Float32Array(3 * len);
-  for (let i = 0; i < len; i++) {
-    const p = i * 4;
-    float32[i]           = pixels[p]     / 255; // R
-    float32[i + len]     = pixels[p + 1] / 255; // G
-    float32[i + len * 2] = pixels[p + 2] / 255; // B
-  }
-  return new ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-}
-
-// ── NMS ──
-function iou(a, b) {
-  const x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
-  const x2 = Math.min(a[2], b[2]), y2 = Math.min(a[3], b[3]);
-  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  const areaA = (a[2]-a[0]) * (a[3]-a[1]);
-  const areaB = (b[2]-b[0]) * (b[3]-b[1]);
-  return inter / (areaA + areaB - inter);
-}
-
-function nms(boxes) {
-  boxes.sort((a, b) => b.conf - a.conf);
-  const keep = [];
-  for (const box of boxes) {
-    let dominated = false;
-    for (const k of keep) {
-      if (iou(box.box, k.box) > IOU_THRESHOLD) { dominated = true; break; }
-    }
-    if (!dominated) keep.push(box);
-  }
-  return keep;
-}
-
-// ── Parse YOLO output [1, 6, 8400] → boxes ──
-// Format: [x_center, y_center, w, h, class0_conf, class1_conf, ...]
-function parseOutput(output, scaleX, scaleY) {
-  const data = output.data;
-  const [, attrs, numBoxes] = output.dims; // [1, 6, 8400]
-  const numClasses = attrs - 4;
-  const boxes = [];
-
-  for (let i = 0; i < numBoxes; i++) {
-    // Find best class
-    let maxConf = 0, bestCls = 0;
-    for (let c = 0; c < numClasses; c++) {
-      const conf = data[(4 + c) * numBoxes + i];
-      if (conf > maxConf) { maxConf = conf; bestCls = c; }
-    }
-    if (maxConf < CONF_THRESHOLD) continue;
-
-    const cx = data[0 * numBoxes + i];
-    const cy = data[1 * numBoxes + i];
-    const w  = data[2 * numBoxes + i];
-    const h  = data[3 * numBoxes + i];
-
-    boxes.push({
-      box: [
-        (cx - w/2) * scaleX,
-        (cy - h/2) * scaleY,
-        (cx + w/2) * scaleX,
-        (cy + h/2) * scaleY,
-      ],
-      conf: maxConf,
-      cls: bestCls,
-    });
-  }
-  return nms(boxes);
-}
-
-// ── Draw bounding boxes ──
-function drawBoxes(boxes, vw, vh) {
-  drawCanvas.width = vw;
-  drawCanvas.height = vh;
-  drawCtx.clearRect(0, 0, vw, vh);
-
-  for (const b of boxes) {
-    const [x1, y1, x2, y2] = b.box;
-    drawCtx.strokeStyle = 'rgba(74, 222, 128, 0.9)';
-    drawCtx.lineWidth = 3;
-    drawCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-    // Label
-    const label = `barcode ${(b.conf * 100).toFixed(0)}%`;
-    drawCtx.font = 'bold 12px system-ui';
-    const tw = drawCtx.measureText(label).width;
-    drawCtx.fillStyle = 'rgba(74, 222, 128, 0.85)';
-    drawCtx.fillRect(x1, y1 - 18, tw + 8, 18);
-    drawCtx.fillStyle = '#0b1220';
-    drawCtx.fillText(label, x1 + 4, y1 - 5);
-  }
-}
-
-// ── Decode barcodes in detected regions using ZBar ──
-async function decodeCrops(boxes, video) {
-  if (typeof zbarWasm === 'undefined') return [];
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const decoded = [];
-
-  for (const b of boxes) {
-    const [x1, y1, x2, y2] = b.box;
-    const bw = Math.round(x2 - x1), bh = Math.round(y2 - y1);
-    if (bw < 20 || bh < 10) continue;
-
-    // Expand crop by 10% for safety
-    const pad = 0.1;
-    const cx1 = Math.max(0, Math.round(x1 - bw * pad));
-    const cy1 = Math.max(0, Math.round(y1 - bh * pad));
-    const cx2 = Math.min(vw, Math.round(x2 + bw * pad));
-    const cy2 = Math.min(vh, Math.round(y2 + bh * pad));
-    const cw = cx2 - cx1, ch = cy2 - cy1;
-
-    cropCanvas.width = cw;
-    cropCanvas.height = ch;
-    cropCtx.drawImage(video, cx1, cy1, cw, ch, 0, 0, cw, ch);
-    const imgData = cropCtx.getImageData(0, 0, cw, ch);
-
-    try {
-      const symbols = await zbarWasm.scanImageData(imgData);
-      for (const s of symbols) {
-        const text = s.decode().replace(/\s/g, '');
-        if (/^\d{5,13}$/.test(text)) {
-          decoded.push({ text, format: 'YOLO+ZBar', conf: b.conf });
-        }
-      }
-    } catch(e) {}
-  }
-  return decoded;
-}
-
-// ── Main scan loop ──
 async function scanLoop() {
-  if (!videoEl || !session) { setTimeout(scanLoop, 200); return; }
   const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
   if (!vw || !vh) { setTimeout(scanLoop, 100); return; }
 
-  frameCount++;
-  const t0 = performance.now();
-
-  try {
-    // 1) YOLO inference
-    const inputTensor = preprocess(videoEl);
-    const results = await session.run({ [session.inputNames[0]]: inputTensor });
-    const output = results[session.outputNames[0]];
-    const tInfer = performance.now() - t0;
-
-    // 2) Parse boxes
-    const scaleX = vw / INPUT_SIZE;
-    const scaleY = vh / INPUT_SIZE;
-    const boxes = parseOutput(output, scaleX, scaleY);
-
-    // 3) Draw
-    drawBoxes(boxes, vw, vh);
-    document.getElementById('badge').textContent = `YOLO ${tInfer.toFixed(0)}ms`;
-
-    // 4) Decode with ZBar
-    if (boxes.length > 0) {
-      const decoded = await decodeCrops(boxes, videoEl);
-      const tTotal = performance.now() - t0;
-      document.getElementById('badge2').textContent = `${boxes.length} box | ${decoded.length} code`;
-
-      const now = Date.now();
-      for (const d of decoded) {
-        const prev = seen.get(d.text);
-        if (prev && now - prev < 3000) continue;
-        seen.set(d.text, now);
-
-        detectCount++;
-        history.unshift(d);
-        if (history.length > 30) history.pop();
-
-        // Flash
-        const flash = document.getElementById('flash');
-        flash.classList.add('on');
-        setTimeout(() => flash.classList.remove('on'), 150);
-        try { navigator.vibrate?.(80); } catch(e){}
-      }
-
-      renderResults();
-      document.getElementById('stats').textContent =
-        `Frame ${frameCount} | ${detectCount} codes | YOLO ${tInfer.toFixed(0)}ms | Total ${tTotal.toFixed(0)}ms | ${boxes.length} detection(s)`;
-    } else {
-      document.getElementById('badge2').textContent = '0 box';
-      document.getElementById('stats').textContent =
-        `Frame ${frameCount} | ${detectCount} codes | YOLO ${tInfer.toFixed(0)}ms`;
-    }
-
-  } catch(e) {
-    console.warn('[Beta] Error:', e);
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
   }
 
-  setTimeout(scanLoop, 100);
+  // Crop centre 76%
+  const VF = 0.76;
+  const side = Math.round(Math.min(vw, vh) * VF);
+  const cx = Math.round((vw - side) / 2);
+  const cy = Math.round((vh - side) / 2);
+  canvas.width = side; canvas.height = side;
+  ctx.drawImage(videoEl, cx, cy, side, side, 0, 0, side, side);
+  const imageData = ctx.getImageData(0, 0, side, side);
+
+  frameCount++;
+  const allResults = [];
+
+  // ── ZBar ──
+  let tZbar = 0, zbarRes = [];
+  if (hasZbar) {
+    const t0 = performance.now();
+    try {
+      const symbols = await zbarWasm.scanImageData(imageData);
+      zbarRes = symbols.map(s => ({ text: s.decode().replace(/\s/g, ''), engine: 'ZBar' }));
+    } catch(e) {}
+    tZbar = performance.now() - t0;
+    addAvg('zbar', tZbar);
+  }
+
+  // ── ZXing ──
+  let tZxing = 0, zxingRes = [];
+  if (hasZxing) {
+    const t0 = performance.now();
+    try {
+      const res = await ZXingWASM.readBarcodes(imageData, {
+        tryHarder: true,
+        formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'],
+        maxNumberOfSymbols: 4,
+      });
+      zxingRes = res.map(r => ({ text: r.text.replace(/\s/g, ''), engine: 'ZXing' }));
+    } catch(e) {}
+    tZxing = performance.now() - t0;
+    addAvg('zxing', tZxing);
+  }
+
+  // ── rxing ──
+  let tRxing = 0, rxingRes = [];
+  if (rxingReady) {
+    const t0 = performance.now();
+    try {
+      const luma = rxing.convert_imagedata_to_luma(imageData);
+      const result = rxing.decode_multi(luma, side, side);
+      if (result && result.length) {
+        rxingRes = result.map(r => ({ text: String(r.text || r).replace(/\s/g, ''), engine: 'rxing' }));
+      }
+    } catch(e) {}
+    tRxing = performance.now() - t0;
+    addAvg('rxing', tRxing);
+  }
+
+  // Update bench cards
+  updateCard('Zbar', tZbar, zbarRes, hasZbar);
+  updateCard('Zxing', tZxing, zxingRes, hasZxing);
+  updateCard('Rxing', tRxing, rxingRes, rxingReady);
+
+  // Merge all results
+  const now = Date.now();
+  const seenThisFrame = new Set();
+  for (const r of [...zbarRes, ...zxingRes, ...rxingRes]) {
+    if (!r.text || !/^\d{5,13}$/.test(r.text)) continue;
+    if (seenThisFrame.has(r.text)) continue;
+    seenThisFrame.add(r.text);
+    const prev = seen.get(r.text);
+    if (prev && now - prev < 3000) continue;
+    seen.set(r.text, now);
+    history.unshift(r);
+    if (history.length > 20) history.pop();
+    flash.classList.add('on');
+    setTimeout(() => flash.classList.remove('on'), 150);
+    try { navigator.vibrate?.(80); } catch(e){}
+  }
+
+  renderResults();
+  badge.textContent = `Frame ${frameCount}`;
+  document.getElementById('stats').textContent =
+    `Moyenne — ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | rxing: ${getAvg('rxing').toFixed(0)}ms`;
+
+  setTimeout(scanLoop, 120);
+}
+
+function updateCard(name, ms, results, available) {
+  const tEl = document.getElementById('t' + name);
+  const dEl = document.getElementById('d' + name);
+  if (!available) { tEl.textContent = 'N/A'; tEl.className = 'time slow'; dEl.textContent = 'non charge'; return; }
+  tEl.textContent = ms.toFixed(0) + 'ms';
+  tEl.className = 'time ' + (ms < 30 ? 'fast' : ms < 80 ? 'mid' : 'slow');
+  dEl.textContent = results.length ? results.map(r=>r.text).join(', ') : 'rien';
 }
 
 function renderResults() {
   const el = document.getElementById('results');
   el.innerHTML = history.map(r =>
-    `<div class="result">
-      <span class="code">${r.text}</span>
-      <span class="meta">${r.format}<br>${(r.conf*100).toFixed(0)}% conf</span>
-    </div>`
+    `<div class="result"><span class="code">${r.text}</span><span class="meta">${r.engine}</span></div>`
   ).join('');
 }
-
-// ── Boot ──
-loadModel();
 </script>
 </body>
 </html>
