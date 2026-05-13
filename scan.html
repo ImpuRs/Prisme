@@ -3238,6 +3238,7 @@ function PCApp() {
   }, []);
   const [code, setCode] = useState(null);
   const [q, setQ] = useState('');
+  const [catalogMode, setCatalogMode] = useState(false);
   const [history, setHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('prisme_pc_hist')||'[]'); } catch(e){ return []; }
   });
@@ -3317,11 +3318,25 @@ function PCApp() {
     if (!s) return [];
     const words = s.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
     if (!words.length) return [];
-    return ARTICLES.filter(a => {
+    const local = ARTICLES.filter(a => {
       const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque||''} ${a.refFourn||''}`.toLowerCase();
       return words.every(w => hay.includes(w));
-    }).slice(0,12);
-  }, [q]);
+    }).slice(0, catalogMode ? 6 : 12);
+    if (!catalogMode || !CATALOGUE?.A) return local;
+    const localCodes = new Set(local.map(a => a.code));
+    const catResults = [];
+    for (const [code, entry] of Object.entries(CATALOGUE.A)) {
+      if (localCodes.has(code)) continue;
+      const lib = (entry[2] || '').toLowerCase();
+      const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
+      const hay = `${code} ${lib} ${marque}`;
+      if (words.every(w => hay.includes(w))) {
+        catResults.push(_catalogArticle(code));
+        if (catResults.length >= 8) break;
+      }
+    }
+    return [...local, ...catResults];
+  }, [q, catalogMode]);
 
   const article = code ? _artByCode.get(code) : null;
 
@@ -3359,9 +3374,14 @@ function PCApp() {
               {q && <button type="button" onClick={()=>{setQ('');inputRef.current?.focus();}} style={{background:'none',border:'none',color:T.t3,fontSize:22,cursor:'pointer',padding:'4px 4px'}}>X</button>}
               <button type="submit" disabled={!q.trim()} style={{height:42,padding:'0 14px',borderRadius:9,border:'none',background:q.trim()?T.accent:T.border,color:q.trim()?'#1a0e05':T.t3,fontSize:12,fontWeight:800,cursor:q.trim()?'pointer':'default',letterSpacing:.5}}>Enter</button>
             </div>
-            <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600}}>
+            <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
               <span><kbd style={kbd}>Enter</kbd> ouvrir</span>
               <span><kbd style={kbd}>Esc</kbd> effacer</span>
+              {CATALOGUE && <button type="button" onClick={()=>setCatalogMode(m=>!m)} style={{
+                padding:'3px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
+                background:catalogMode?'rgba(96,165,250,.15)':'transparent',
+                color:catalogMode?'#60a5fa':T.t3,fontSize:10,fontWeight:800,cursor:'pointer',
+              }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
               <span style={{marginLeft:'auto',color:scannerActive?T.accent:T.t3}}>douchette auto</span>
             </div>
           </form>
