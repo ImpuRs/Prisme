@@ -66,22 +66,81 @@
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js" onerror="console.log('ZBar unavailable')"></script>
 <!-- ZXing WASM -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
-<!-- Ocrad.js — pur JavaScript, pas de WASM, ~1MB, compatible iPhone -->
-<script src="https://cdn.jsdelivr.net/npm/ocrad.js/ocrad.js"></script>
+<!-- ONNX Runtime (pour PaddleOCR — desktop/Mac) -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" onerror="window._ortFailed=true"></script>
+<!-- Ocrad.js — fallback pur JS pour iPhone -->
+<script src="https://cdn.jsdelivr.net/npm/ocrad.js/ocrad.js" onerror="console.log('Ocrad unavailable')"></script>
 
 <script type="module">
-// ── Ocrad.js OCR — pur JS, zéro dépendance, fonctionne partout ──
+// ── OCR dual : PaddleOCR (ONNX) si possible, sinon Ocrad.js (fallback) ──
+let paddleOcr = null;
+let ocrEngine = null; // 'paddle' | 'ocrad'
 let ocrReady = false;
 let ocrLoading = false;
 
-function initOCR() {
+function loadOpenCV() {
+  return new Promise((resolve, reject) => {
+    if (typeof cv !== 'undefined' && cv.Mat) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+    s.async = true;
+    s.onload = () => {
+      const check = () => {
+        if (typeof cv !== 'undefined' && cv.Mat) resolve();
+        else setTimeout(check, 100);
+      };
+      check();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function initOCR() {
   if (ocrReady || ocrLoading) return;
-  if (typeof OCRAD === 'undefined') {
-    console.warn('[OCR] Ocrad.js not loaded');
+  ocrLoading = true;
+
+  // 1) Tenter PaddleOCR (ONNX) — meilleure qualité
+  if (!window._ortFailed && typeof ort !== 'undefined') {
+    try {
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.proxy = false;
+      console.log('[OCR] Trying PaddleOCR (ONNX)...');
+      const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+      await Promise.race([loadOpenCV(), timeout(15000)]);
+      const Paddle = await Promise.race([
+        import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js'),
+        timeout(15000)
+      ]);
+      const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser/dist/';
+      const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
+      const dic = await dicRes.text();
+      await Promise.race([
+        Paddle.init({ detPath: assetsPath + 'ppocr_det.onnx', recPath: assetsPath + 'ppocr_rec.onnx', dic, ort, node: false, cv }),
+        timeout(30000)
+      ]);
+      paddleOcr = Paddle;
+      ocrEngine = 'paddle';
+      ocrReady = true;
+      ocrLoading = false;
+      console.log('[OCR] PaddleOCR ready (ONNX)');
+      return;
+    } catch(e) {
+      console.warn('[OCR] PaddleOCR failed:', e.message, '— falling back to Ocrad.js');
+    }
+  }
+
+  // 2) Fallback Ocrad.js — pur JS, fonctionne partout
+  if (typeof OCRAD !== 'undefined') {
+    ocrEngine = 'ocrad';
+    ocrReady = true;
+    ocrLoading = false;
+    console.log('[OCR] Ocrad.js ready (fallback)');
     return;
   }
-  ocrReady = true;
-  console.log('[OCR] Ocrad.js ready');
+
+  console.warn('[OCR] No OCR engine available');
+  // keep ocrLoading=true to prevent retry
 }
 
 const videoEl = document.getElementById('video');
@@ -147,8 +206,6 @@ async function runOCR() {
 
   try {
     const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-
-    // Snapshot HD pleine résolution
     if (!hdCanvas) {
       hdCanvas = document.createElement('canvas');
       hdCtx = hdCanvas.getContext('2d');
@@ -157,33 +214,45 @@ async function runOCR() {
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
-    // Binariser pour améliorer la lisibilité (Ocrad fonctionne mieux en N&B)
-    const imgData = hdCtx.getImageData(0, 0, vw, vh);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-      const bw = gray > 140 ? 255 : 0;
-      d[i] = d[i+1] = d[i+2] = bw;
-    }
-    hdCtx.putImageData(imgData, 0, 0);
-
     const t0 = performance.now();
-    const rawText = OCRAD(hdCanvas);
-    const tOcr = performance.now() - t0;
-    addAvg('ocr', tOcr);
-
-    console.log('[OCR] raw:', JSON.stringify(rawText), 'ms:', Math.round(tOcr));
-
-    // Extraire les séquences de chiffres
     const ocrResults = [];
-    const clean = rawText.replace(/[^0-9\n]/g, ' ');
-    const matches = clean.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-    for (const m of matches) {
-      console.log('[OCR] match:', m);
-      ocrResults.push({ text: m, engine: 'OCR' });
+
+    if (ocrEngine === 'paddle') {
+      // PaddleOCR — snapshot HD dataURL
+      const dataURL = hdCanvas.toDataURL('image/jpeg', 0.92);
+      const result = await paddleOcr.ocr(dataURL);
+      const tOcr = performance.now() - t0;
+      addAvg('ocr', tOcr);
+      console.log('[OCR:Paddle]', Math.round(tOcr) + 'ms');
+      const paragraphs = result?.parragraphs || result?.paragraphs || [];
+      for (const p of paragraphs) {
+        const text = (p.text || '').replace(/\s/g, '');
+        if (!text) continue;
+        console.log('[OCR:Paddle] text:', text, 'conf:', p.mean?.toFixed(2));
+        const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+        for (const m of matches) ocrResults.push({ text: m, engine: 'PaddleOCR' });
+      }
+      updateCard('Ocr', tOcr, ocrResults, true);
+    } else {
+      // Ocrad.js — binariser puis OCR
+      const imgData = hdCtx.getImageData(0, 0, vw, vh);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+        const bw = gray > 140 ? 255 : 0;
+        d[i] = d[i+1] = d[i+2] = bw;
+      }
+      hdCtx.putImageData(imgData, 0, 0);
+      const rawText = OCRAD(hdCanvas);
+      const tOcr = performance.now() - t0;
+      addAvg('ocr', tOcr);
+      console.log('[OCR:Ocrad]', JSON.stringify(rawText), Math.round(tOcr) + 'ms');
+      const clean = rawText.replace(/[^0-9\n]/g, ' ');
+      const matches = clean.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+      for (const m of matches) ocrResults.push({ text: m, engine: 'Ocrad' });
+      updateCard('Ocr', tOcr, ocrResults, true);
     }
 
-    updateCard('Ocr', tOcr, ocrResults, true);
     return ocrResults;
   } catch(e) {
     console.warn('[OCR] error:', e);
