@@ -67,7 +67,7 @@
 <!-- ZXing WASM -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
 <!-- ONNX Runtime (pour PaddleOCR) -->
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" onerror="console.log('ONNX Runtime unavailable')"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" onerror="console.log('ONNX Runtime unavailable');window._ortFailed=true"></script>
 
 <script type="module">
 // ── PaddleOCR — lazy load ──
@@ -98,31 +98,48 @@ function loadOpenCV() {
 
 async function initOCR() {
   if (ocrReady || ocrLoading) return;
+  if (window._ortFailed || typeof ort === 'undefined') {
+    console.warn('[OCR] ONNX Runtime unavailable — OCR disabled');
+    document.getElementById('loadMsg').textContent = 'OCR indisponible (ONNX non supporté sur ce navigateur)';
+    document.getElementById('loadMsg').style.display = 'block';
+    document.getElementById('loadMsg').style.color = '#fbbf24';
+    return;
+  }
   ocrLoading = true;
+  const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + ms + 'ms')), ms));
   try {
     console.log('[OCR] Loading OpenCV.js...');
-    await loadOpenCV();
+    await Promise.race([loadOpenCV(), timeout(15000)]);
     console.log('[OCR] OpenCV ready, loading PaddleOCR models...');
 
-    const Paddle = await import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js');
+    const Paddle = await Promise.race([
+      import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js'),
+      timeout(15000)
+    ]);
     const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser/dist/';
     const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
     const dic = await dicRes.text();
 
-    await Paddle.init({
-      detPath: assetsPath + 'ppocr_det.onnx',
-      recPath: assetsPath + 'ppocr_rec.onnx',
-      dic: dic,
-      ort: ort,
-      node: false,
-      cv: cv
-    });
+    await Promise.race([
+      Paddle.init({
+        detPath: assetsPath + 'ppocr_det.onnx',
+        recPath: assetsPath + 'ppocr_rec.onnx',
+        dic: dic,
+        ort: ort,
+        node: false,
+        cv: cv
+      }),
+      timeout(30000)
+    ]);
 
     paddleOcr = Paddle;
     ocrReady = true;
     console.log('[OCR] PaddleOCR ready');
   } catch(e) {
     console.warn('[OCR] load error:', e);
+    document.getElementById('loadMsg').textContent = 'OCR: ' + e.message;
+    document.getElementById('loadMsg').style.display = 'block';
+    document.getElementById('loadMsg').style.color = '#f87171';
     return; // keep ocrLoading=true to prevent retry
   }
   ocrLoading = false;
