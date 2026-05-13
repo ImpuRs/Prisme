@@ -80,6 +80,9 @@ async function initOCR() {
   const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + ms + 'ms')), ms));
   try {
     console.log('[OCR] Loading Paddle.js OCR (WebGL)...');
+    // Polyfill CommonJS globals pour le bundle
+    if (!window.module) window.module = { exports: {} };
+    if (!window.exports) window.exports = window.module.exports;
     const ocr = await Promise.race([
       import('https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm'),
       timeout(30000)
