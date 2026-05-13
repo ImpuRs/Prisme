@@ -2767,8 +2767,8 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
             <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(T.card, T.border)}>
               <div style={{width:32,height:32,borderRadius:9,background:'rgba(255,255,255,.04)',color:T.t3,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,fontWeight:800}}>○</div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code} · {a.empl}</div>
-                <div style={{fontSize:13,fontWeight:600,color:T.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
               </div>
               <div style={{textAlign:'right'}}>
                 <div style={{fontSize:10,color:T.t3}}>ERP</div>
@@ -2790,8 +2790,8 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
                   <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(ok?'rgba(34,197,94,.06)':'rgba(251,191,36,.08)', ok?'rgba(34,197,94,.2)':'rgba(251,191,36,.3)')}>
                     <div style={{width:32,height:32,borderRadius:9,background:c+'22',color:c,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:900}}>{ok?'✓':'⚠'}</div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code} · {a.empl}</div>
-                      <div style={{fontSize:13,fontWeight:600,color:T.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                      <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                      <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     </div>
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:10,color:T.t3}} className="tn">ERP {a.stock}</div>
