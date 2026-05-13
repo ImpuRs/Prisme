@@ -108,6 +108,9 @@ async function initOCR() {
   ocrLoading = true;
   const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + ms + 'ms')), ms));
   try {
+    // Réduire la mémoire ONNX pour mobile
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.proxy = false;
     console.log('[OCR] Loading OpenCV.js...');
     await Promise.race([loadOpenCV(), timeout(15000)]);
     console.log('[OCR] OpenCV ready, loading PaddleOCR models...');
