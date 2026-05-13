@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Scan Beta — Benchmark ZBar vs ZXing vs rxing</title>
+  <title>Scan Beta — ZBar vs ZXing vs OCR</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:#0b1220;color:#f8fafc;font-family:-apple-system,system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <h1>Benchmark — ZBar vs ZXing vs rxing</h1>
+  <h1>Benchmark — ZBar vs ZXing vs OCR</h1>
   <div class="load-msg" id="loadMsg">Chargement des moteurs...</div>
 
   <div class="cam-wrap" id="camWrap" style="display:none">
@@ -53,9 +53,9 @@
         <div class="detail" id="dZxing">—</div>
       </div>
       <div class="bench-card">
-        <div class="name">rxing</div>
-        <div class="time" id="tRxing">—</div>
-        <div class="detail" id="dRxing">—</div>
+        <div class="name">OCR</div>
+        <div class="time" id="tOcr">—</div>
+        <div class="detail" id="dOcr">—</div>
       </div>
     </div>
   </div>
@@ -68,37 +68,44 @@
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
 
 <script type="module">
-// rxing — ES module (wasm-bindgen, init manuelle)
-let rxingReady = false;
-let rxing = null;
-try {
-  const bgModule = await import('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.js');
-  const wasmResp = await fetch('https://cdn.jsdelivr.net/npm/rxing-wasm@0.5.5/rxing_wasm_bg.wasm');
-  const wasmBytes = await wasmResp.arrayBuffer();
-  // Build imports object: WASM expects imports from './rxing_wasm_bg.js'
-  const importObj = { './rxing_wasm_bg.js': {} };
-  for (const [key, val] of Object.entries(bgModule)) {
-    if (typeof val === 'function') importObj['./rxing_wasm_bg.js'][key] = val;
+// ── Tesseract.js — lazy load, digits only ──
+let tesseractWorker = null;
+let ocrReady = false;
+let ocrLoading = false;
+
+async function initOCR() {
+  if (ocrReady || ocrLoading) return;
+  ocrLoading = true;
+  try {
+    const Tess = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+    tesseractWorker = await Tess.createWorker('eng', 1, {
+      workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js',
+    });
+    await tesseractWorker.setParameters({
+      tessedit_char_whitelist: '0123456789',
+      tessedit_pageseg_mode: '7', // single line
+    });
+    ocrReady = true;
+    console.log('[Beta] Tesseract OCR loaded');
+  } catch(e) {
+    console.warn('[Beta] OCR load error:', e);
   }
-  const { instance } = await WebAssembly.instantiate(wasmBytes, importObj);
-  bgModule.__wbg_set_wasm(instance.exports);
-  rxing = bgModule;
-  rxingReady = true;
-  console.log('[Beta] rxing WASM loaded');
-} catch(e) {
-  console.warn('[Beta] rxing load error:', e);
+  ocrLoading = false;
 }
 
 const videoEl = document.getElementById('video');
 const badge = document.getElementById('badge');
 const flash = document.getElementById('flash');
 let canvas, ctx;
+let ocrCanvas, ocrCtx; // canvas séparé pour le crop OCR
 let frameCount = 0;
+let emptyFrames = 0;
 const seen = new Map();
 const history = [];
 
 // Avg trackers
-const avgs = { zbar: [], zxing: [], rxing: [] };
+const avgs = { zbar: [], zxing: [], ocr: [] };
 const MAX_AVG = 50;
 function addAvg(key, ms) { avgs[key].push(ms); if (avgs[key].length > MAX_AVG) avgs[key].shift(); }
 function getAvg(key) { const a = avgs[key]; return a.length ? (a.reduce((s,v)=>s+v,0)/a.length) : 0; }
@@ -110,8 +117,8 @@ await new Promise(r => setTimeout(r, 100));
 const loadMsg = document.getElementById('loadMsg');
 const hasZbar = typeof window.zbarWasm !== 'undefined';
 const hasZxing = typeof window.ZXingWASM !== 'undefined';
-console.log('[Beta] ZBar:', hasZbar, 'ZXing:', hasZxing, 'rxing:', rxingReady);
-loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | rxing: ${rxingReady?'OK':'NON'}`;
+console.log('[Beta] ZBar:', hasZbar, 'ZXing:', hasZxing);
+loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy (stage 4)`;
 
 // Start camera
 try {
@@ -122,6 +129,17 @@ try {
   videoEl.srcObject = stream;
   await new Promise(r => { videoEl.onloadedmetadata = r; });
   videoEl.play();
+  // Autofocus continu + zoom x1.5
+  try {
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities?.();
+    if (caps?.focusMode?.includes('continuous'))
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    if (caps?.zoom) {
+      const z = Math.min(1.5, caps.zoom.max);
+      await track.applyConstraints({ advanced: [{ zoom: z }] });
+    }
+  } catch(e){}
   document.getElementById('camWrap').style.display = 'block';
   document.getElementById('benchArea').style.display = 'block';
   loadMsg.style.display = 'none';
@@ -150,7 +168,6 @@ async function scanLoop() {
   const imageData = ctx.getImageData(0, 0, side, side);
 
   frameCount++;
-  const allResults = [];
 
   // ── ZBar ──
   let tZbar = 0, zbarRes = [];
@@ -180,53 +197,67 @@ async function scanLoop() {
     addAvg('zxing', tZxing);
   }
 
-  // ── rxing ──
-  let tRxing = 0, rxingRes = [];
-  if (rxingReady) {
+  // ── OCR (stage 4 : 20+ frames vides) ──
+  let tOcr = 0, ocrRes = [];
+  const barcodeFound = zbarRes.length > 0 || zxingRes.length > 0;
+  if (barcodeFound) { emptyFrames = 0; } else { emptyFrames++; }
+
+  // Lazy-load Tesseract dès 15 frames vides
+  if (emptyFrames >= 15 && !ocrReady && !ocrLoading) {
+    initOCR();
+    updateCard('Ocr', 0, [], true, 'chargement...');
+  }
+
+  // Run OCR toutes les 3 frames à partir de 20 frames vides
+  if (emptyFrames >= 20 && ocrReady && frameCount % 3 === 0) {
     const t0 = performance.now();
     try {
-      // convert_imagedata_to_luma attend un ImageData
-      const luma = rxing.convert_imagedata_to_luma(imageData);
-      if (frameCount <= 3) console.log('[rxing] luma type:', typeof luma, 'length:', luma?.length, 'side:', side);
-      let result = null;
-      try {
-        // decode_multi attend (luma, width, height, DecodeHintDictionary)
-        const hints = new rxing.DecodeHintDictionary();
-        result = rxing.decode_multi(luma, side, side, hints);
-        if (frameCount <= 3) console.log('[rxing] decode_multi result:', result?.length, result);
-      } catch(e1) {
-        if (frameCount <= 3) console.log('[rxing] decode_multi error:', e1.message);
-        try {
-          const single = rxing.decode_barcode(luma, side, side);
-          if (single) result = [single];
-        } catch(e2) {
-          // no barcode found — normal
-        }
+      // Crop bande basse du viewfinder (30% bas, là où les chiffres sont imprimés)
+      if (!ocrCanvas) {
+        ocrCanvas = document.createElement('canvas');
+        ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
       }
-      if (result && result.length) {
-        rxingRes = result.map(r => {
-          const text = String(r.text || r.getText?.() || r).replace(/\s/g, '');
-          if (frameCount <= 3) console.log('[rxing] found:', text, 'format:', r.format || r.getFormat?.());
-          return { text, engine: 'rxing' };
-        });
+      const cropH = Math.round(side * 0.30);
+      const cropY = side - cropH;
+      ocrCanvas.width = side;
+      ocrCanvas.height = cropH;
+      ocrCtx.drawImage(canvas, 0, cropY, side, cropH, 0, 0, side, cropH);
+
+      // Binarize pour meilleure OCR
+      const ocrData = ocrCtx.getImageData(0, 0, side, cropH);
+      const px = ocrData.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
+        const bw = gray < 128 ? 0 : 255;
+        px[i] = px[i+1] = px[i+2] = bw;
       }
+      ocrCtx.putImageData(ocrData, 0, 0);
+
+      const { data } = await tesseractWorker.recognize(ocrCanvas);
+      const raw = data.text.replace(/\s/g, '');
+      // Extraire séquences de 6 ou 13 chiffres
+      const matches = raw.match(/\d{13}|\d{6}/g) || [];
+      ocrRes = matches.map(m => ({ text: m, engine: 'OCR' }));
+      if (ocrRes.length) console.log('[OCR] found:', ocrRes.map(r=>r.text));
     } catch(e) {
-      if (frameCount <= 3) console.log('[rxing] outer error:', e.message);
+      if (frameCount <= 5) console.log('[OCR] error:', e.message);
     }
-    tRxing = performance.now() - t0;
-    addAvg('rxing', tRxing);
+    tOcr = performance.now() - t0;
+    addAvg('ocr', tOcr);
   }
 
   // Update bench cards
   updateCard('Zbar', tZbar, zbarRes, hasZbar);
   updateCard('Zxing', tZxing, zxingRes, hasZxing);
-  updateCard('Rxing', tRxing, rxingRes, rxingReady);
+  updateCard('Ocr', tOcr, ocrRes, ocrReady || emptyFrames >= 15,
+    !ocrReady && emptyFrames >= 15 ? 'chargement...' :
+    emptyFrames < 20 ? (ocrReady ? 'en veille' : 'attente') : undefined);
 
   // Merge all results
   const now = Date.now();
   const seenThisFrame = new Set();
-  for (const r of [...zbarRes, ...zxingRes, ...rxingRes]) {
-    if (!r.text || !/^\d{5,13}$/.test(r.text)) continue;
+  for (const r of [...zbarRes, ...zxingRes, ...ocrRes]) {
+    if (!r.text) continue;
     if (seenThisFrame.has(r.text)) continue;
     seenThisFrame.add(r.text);
     const prev = seen.get(r.text);
@@ -240,18 +271,19 @@ async function scanLoop() {
   }
 
   renderResults();
-  badge.textContent = `Frame ${frameCount}`;
+  badge.textContent = `Frame ${frameCount}` + (emptyFrames >= 20 ? ' [OCR]' : '');
   document.getElementById('stats').textContent =
-    `Moyenne — ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | rxing: ${getAvg('rxing').toFixed(0)}ms`;
+    `Moyenne — ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | OCR: ${getAvg('ocr').toFixed(0)}ms · vides: ${emptyFrames}`;
 
   setTimeout(scanLoop, 120);
 }
 
-function updateCard(name, ms, results, available) {
+function updateCard(name, ms, results, available, override) {
   const tEl = document.getElementById('t' + name);
   const dEl = document.getElementById('d' + name);
-  if (!available) { tEl.textContent = 'N/A'; tEl.className = 'time slow'; dEl.textContent = 'non charge'; return; }
-  tEl.textContent = ms.toFixed(0) + 'ms';
+  if (!available) { tEl.textContent = 'N/A'; tEl.className = 'time slow'; dEl.textContent = 'attente'; return; }
+  if (override) { tEl.textContent = '...'; tEl.className = 'time mid'; dEl.textContent = override; return; }
+  tEl.textContent = ms > 0 ? ms.toFixed(0) + 'ms' : '—';
   tEl.className = 'time ' + (ms < 30 ? 'fast' : ms < 80 ? 'mid' : 'slow');
   dEl.textContent = results.length ? results.map(r=>r.text).join(', ') : 'rien';
 }
