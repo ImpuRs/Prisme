@@ -28,6 +28,9 @@
     .result .meta{color:#94a3b8;font-size:10px;text-align:right}
     .stats{padding:6px 12px;color:#64748b;font-size:11px;text-align:center;font-variant-numeric:tabular-nums;max-width:500px;width:100%}
     .load-msg{text-align:center;color:#94a3b8;font-size:12px;padding:8px}
+    #ocrPreview{width:100%;max-width:500px;padding:0 12px;display:none}
+    #ocrPreview canvas{width:100%;border:1px solid #2b3b5a;border-radius:8px}
+    #ocrPreview .label{font-size:10px;color:#64748b;margin:4px 0;text-align:center}
   </style>
 </head>
 <body>
@@ -60,6 +63,7 @@
     </div>
   </div>
   <div class="stats" id="stats"></div>
+  <div id="ocrPreview"><div class="label">OCR crop preview</div></div>
   <div class="results" id="results"></div>
 
 <!-- ZBar WASM -->
@@ -84,25 +88,79 @@ async function initOCR() {
     });
     await tesseractWorker.setParameters({
       tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode: '13', // raw line — pas de segmentation, juste lire les chiffres
+      tessedit_pageseg_mode: '7', // single text line
     });
     ocrReady = true;
     console.log('[Beta] Tesseract OCR loaded');
   } catch(e) {
     console.warn('[Beta] OCR load error:', e);
-    // Keep ocrLoading=true to prevent retry spam
-    return;
+    return; // keep ocrLoading=true to prevent retry
   }
   ocrLoading = false;
+}
+
+// ── NICK adaptive threshold (meilleur que seuil fixe pour caméra) ──
+function nickThreshold(imageData, k = -0.2, windowSize = 19) {
+  const { width, height, data } = imageData;
+  // Convert to grayscale array
+  const gray = new Float32Array(width * height);
+  for (let i = 0; i < gray.length; i++) {
+    gray[i] = data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114;
+  }
+  // Integral image + integral squared image
+  const integral = new Float64Array(width * height);
+  const integralSq = new Float64Array(width * height);
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0, rowSumSq = 0;
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const v = gray[idx];
+      rowSum += v;
+      rowSumSq += v * v;
+      integral[idx] = rowSum + (y > 0 ? integral[idx - width] : 0);
+      integralSq[idx] = rowSumSq + (y > 0 ? integralSq[idx - width] : 0);
+    }
+  }
+  const half = windowSize >> 1;
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const x1 = Math.max(0, x - half), y1 = Math.max(0, y - half);
+      const x2 = Math.min(width - 1, x + half), y2 = Math.min(height - 1, y + half);
+      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+      // Sum and sumSq from integral images
+      let sum = integral[y2 * width + x2];
+      let sumSq = integralSq[y2 * width + x2];
+      if (x1 > 0) { sum -= integral[y2 * width + x1 - 1]; sumSq -= integralSq[y2 * width + x1 - 1]; }
+      if (y1 > 0) { sum -= integral[(y1-1) * width + x2]; sumSq -= integralSq[(y1-1) * width + x2]; }
+      if (x1 > 0 && y1 > 0) { sum += integral[(y1-1) * width + x1 - 1]; sumSq += integralSq[(y1-1) * width + x1 - 1]; }
+      const mean = sum / count;
+      const variance = sumSq / count - mean * mean;
+      const stddev = Math.sqrt(Math.max(0, variance));
+      // NICK threshold: T = mean + k * sqrt(variance + mean^2)
+      // Simplified: good for uneven lighting
+      const threshold = mean + k * Math.sqrt(sumSq / count);
+      const idx = y * width + x;
+      const px = gray[idx] > threshold ? 255 : 0;
+      const o = idx * 4;
+      out[o] = out[o+1] = out[o+2] = px;
+      out[o+3] = 255;
+    }
+  }
+  return new ImageData(out, width, height);
 }
 
 const videoEl = document.getElementById('video');
 const badge = document.getElementById('badge');
 const flash = document.getElementById('flash');
 let canvas, ctx;
-let ocrCanvas, ocrCtx; // canvas séparé pour le crop OCR
+let hdCanvas, hdCtx;     // canvas pleine résolution pour snapshot OCR
+let ocrCanvas, ocrCtx;   // canvas pour le crop OCR
 let frameCount = 0;
 let emptyFrames = 0;
+let ocrBusy = false;      // OCR en cours (snapshot mode, pas chaque frame)
+let lastOcrTime = 0;       // timestamp dernier OCR
+const OCR_COOLDOWN = 2000; // attendre 2s entre chaque tentative OCR
 const seen = new Map();
 const history = [];
 
@@ -120,12 +178,12 @@ const loadMsg = document.getElementById('loadMsg');
 const hasZbar = typeof window.zbarWasm !== 'undefined';
 const hasZxing = typeof window.ZXingWASM !== 'undefined';
 console.log('[Beta] ZBar:', hasZbar, 'ZXing:', hasZxing);
-loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy (stage 4)`;
+loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy`;
 
 // Start camera
 try {
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
     audio: false,
   });
   videoEl.srcObject = stream;
@@ -151,6 +209,83 @@ try {
   loadMsg.style.color = '#f87171';
 }
 
+async function runOCR() {
+  if (ocrBusy || !ocrReady) return [];
+  const now = Date.now();
+  if (now - lastOcrTime < OCR_COOLDOWN) return [];
+  ocrBusy = true;
+  lastOcrTime = now;
+
+  try {
+    const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+
+    // 1) Snapshot HD pleine résolution
+    if (!hdCanvas) {
+      hdCanvas = document.createElement('canvas');
+      hdCtx = hdCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    hdCanvas.width = vw;
+    hdCanvas.height = vh;
+    hdCtx.drawImage(videoEl, 0, 0, vw, vh);
+
+    // 2) Crop bande centrale horizontale (40% hauteur, centrée)
+    //    C'est là que les chiffres sous le code-barre se trouvent
+    if (!ocrCanvas) {
+      ocrCanvas = document.createElement('canvas');
+      ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    const cropH = Math.round(vh * 0.25);
+    const cropY = Math.round((vh - cropH) / 2) + Math.round(cropH * 0.3); // un peu sous le centre
+    const cropW = Math.round(vw * 0.7); // 70% largeur centrée
+    const cropX = Math.round((vw - cropW) / 2);
+
+    // 3) Upscale ×2 pour atteindre ~300 DPI
+    const SCALE = 2;
+    ocrCanvas.width = cropW * SCALE;
+    ocrCanvas.height = cropH * SCALE;
+    ocrCtx.imageSmoothingEnabled = true;
+    ocrCtx.imageSmoothingQuality = 'high';
+    ocrCtx.drawImage(hdCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW * SCALE, cropH * SCALE);
+
+    // 4) NICK adaptive threshold (meilleur que seuil fixe pour lumière inégale)
+    const rawData = ocrCtx.getImageData(0, 0, cropW * SCALE, cropH * SCALE);
+    const thresholded = nickThreshold(rawData, -0.2, 25);
+    ocrCtx.putImageData(thresholded, 0, 0);
+
+    // 5) Afficher le preview OCR pour debug
+    const previewEl = document.getElementById('ocrPreview');
+    previewEl.style.display = 'block';
+    const existingCanvas = previewEl.querySelector('canvas');
+    if (existingCanvas) existingCanvas.remove();
+    const clone = document.createElement('canvas');
+    clone.width = ocrCanvas.width;
+    clone.height = ocrCanvas.height;
+    clone.getContext('2d').drawImage(ocrCanvas, 0, 0);
+    previewEl.appendChild(clone);
+
+    // 6) Tesseract recognize (un seul appel, pas en boucle)
+    const t0 = performance.now();
+    const { data } = await tesseractWorker.recognize(ocrCanvas);
+    const tOcr = performance.now() - t0;
+    addAvg('ocr', tOcr);
+
+    console.log('[OCR] raw:', JSON.stringify(data.text), 'conf:', data.confidence, 'ms:', Math.round(tOcr));
+
+    const cleaned = data.text.replace(/[^0-9]/g, '');
+    // Extraire séquences de 5-6 ou 8 ou 13 chiffres
+    const matches = cleaned.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+    const results = matches.map(m => ({ text: m, engine: 'OCR' }));
+
+    updateCard('Ocr', tOcr, results, true);
+    return results;
+  } catch(e) {
+    console.warn('[OCR] error:', e);
+    return [];
+  } finally {
+    ocrBusy = false;
+  }
+}
+
 async function scanLoop() {
   const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
   if (!vw || !vh) { setTimeout(scanLoop, 100); return; }
@@ -160,7 +295,7 @@ async function scanLoop() {
     ctx = canvas.getContext('2d', { willReadFrequently: true });
   }
 
-  // Crop centre 76%
+  // Crop centre 76% pour barcode engines
   const VF = 0.76;
   const side = Math.round(Math.min(vw, vh) * VF);
   const cx = Math.round((vw - side) / 2);
@@ -199,65 +334,29 @@ async function scanLoop() {
     addAvg('zxing', tZxing);
   }
 
-  // ── OCR (stage 4 : 20+ frames vides) ──
-  let tOcr = 0, ocrRes = [];
+  // ── OCR (snapshot mode) ──
+  let ocrRes = [];
   const barcodeFound = zbarRes.length > 0 || zxingRes.length > 0;
   if (barcodeFound) { emptyFrames = 0; } else { emptyFrames++; }
 
   // Lazy-load Tesseract dès 15 frames vides
   if (emptyFrames >= 15 && !ocrReady && !ocrLoading) {
     initOCR();
-    updateCard('Ocr', 0, [], true, 'chargement...');
   }
 
-  // Run OCR toutes les 3 frames à partir de 20 frames vides
-  if (emptyFrames >= 20 && ocrReady && frameCount % 3 === 0) {
-    const t0 = performance.now();
-    try {
-      // Crop bande étroite sous le code-barre (15% bas) + upscale ×3
-      // Les barres confusent Tesseract — isoler les chiffres imprimés en dessous
-      if (!ocrCanvas) {
-        ocrCanvas = document.createElement('canvas');
-        ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
-      }
-      const cropH = Math.round(side * 0.15);
-      const cropY = side - cropH;
-      const SCALE = 3;
-      ocrCanvas.width = side * SCALE;
-      ocrCanvas.height = cropH * SCALE;
-      ocrCtx.imageSmoothingEnabled = true;
-      ocrCtx.imageSmoothingQuality = 'high';
-      ocrCtx.drawImage(canvas, 0, cropY, side, cropH, 0, 0, side * SCALE, cropH * SCALE);
-
-      // Binarize pour meilleure OCR
-      const ocrData = ocrCtx.getImageData(0, 0, side * SCALE, cropH * SCALE);
-      const px = ocrData.data;
-      for (let i = 0; i < px.length; i += 4) {
-        const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
-        const bw = gray < 128 ? 0 : 255;
-        px[i] = px[i+1] = px[i+2] = bw;
-      }
-      ocrCtx.putImageData(ocrData, 0, 0);
-
-      const { data } = await tesseractWorker.recognize(ocrCanvas);
-      const cleaned = data.text.replace(/\s/g, '');
-      // Extraire séquences de 5-6 ou 8 ou 13 chiffres
-      const matches = cleaned.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-      ocrRes = matches.map(m => ({ text: m, engine: 'OCR' }));
-      if (ocrRes.length) console.log('[OCR] found:', ocrRes.map(r=>r.text));
-    } catch(e) {
-      if (frameCount <= 5) console.log('[OCR] error:', e.message);
-    }
-    tOcr = performance.now() - t0;
-    addAvg('ocr', tOcr);
+  // Snapshot OCR : un seul appel après 20 frames vides, cooldown 2s
+  if (emptyFrames >= 20 && ocrReady && !ocrBusy) {
+    ocrRes = await runOCR();
   }
 
   // Update bench cards
   updateCard('Zbar', tZbar, zbarRes, hasZbar);
   updateCard('Zxing', tZxing, zxingRes, hasZxing);
-  updateCard('Ocr', tOcr, ocrRes, ocrReady || emptyFrames >= 15,
-    !ocrReady && emptyFrames >= 15 ? 'chargement...' :
-    emptyFrames < 20 ? (ocrReady ? 'en veille' : 'attente') : undefined);
+  if (!ocrBusy && emptyFrames < 20) {
+    updateCard('Ocr', 0, [], ocrReady || emptyFrames >= 15,
+      ocrLoading ? 'chargement...' :
+      !ocrReady ? 'attente' : 'en veille');
+  }
 
   // Merge all results
   const now = Date.now();
@@ -277,9 +376,10 @@ async function scanLoop() {
   }
 
   renderResults();
-  badge.textContent = `Frame ${frameCount}` + (emptyFrames >= 20 ? ' [OCR]' : '');
+  const ocrStatus = ocrBusy ? ' [OCR...]' : emptyFrames >= 20 ? ' [OCR]' : '';
+  badge.textContent = `Frame ${frameCount}${ocrStatus}`;
   document.getElementById('stats').textContent =
-    `Moyenne — ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | OCR: ${getAvg('ocr').toFixed(0)}ms · vides: ${emptyFrames}`;
+    `ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | OCR: ${getAvg('ocr').toFixed(0)}ms · vides: ${emptyFrames}`;
 
   setTimeout(scanLoop, 120);
 }
