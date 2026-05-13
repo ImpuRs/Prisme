@@ -2806,18 +2806,18 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
       </div>
 
       <div style={{padding:'8px 14px calc(14px + env(safe-area-inset-bottom))',background:T.bg,borderTop:`1px solid ${T.border}`,display:'flex',gap:8}}>
+        {done > 0 && <button onClick={onSummary} style={{
+          padding:'14px 16px',borderRadius:14,border:'none',
+          background:'#22c55e',color:'#06200f',
+          fontSize:13,fontWeight:800,letterSpacing:.3,flexShrink:0,
+        }}>{`Terminer · ${ecarts}`}</button>}
         <button onClick={onScan} style={{
-          width:54,height:50,borderRadius:14,border:'none',background:T.accent,color:'#1a0e05',
-          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+          flex:1,padding:'14px',borderRadius:14,border:'none',background:T.accent,color:'#1a0e05',
+          display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+          fontSize:14,fontWeight:900,letterSpacing:.3,
         }}>
-          <Ico d={ICONS.scan} s={20} sw={2.5} />
+          <Ico d={ICONS.scan} s={18} sw={2.5} /> Scanner
         </button>
-        <button onClick={onSummary} disabled={done===0} style={{
-          flex:1,padding:'14px',borderRadius:14,border:'none',
-          background: done===0 ? 'rgba(255,255,255,.06)' : '#22c55e',
-          color: done===0 ? T.t3 : '#06200f',
-          fontSize:14,fontWeight:800,letterSpacing:.3,
-        }}>{done===0 ? 'Compter pour terminer' : `Terminer · ${ecarts} correction${ecarts>1?'s':''}`}</button>
       </div>
     </>
   );
