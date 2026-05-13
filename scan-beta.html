@@ -211,17 +211,18 @@ async function runOCR() {
 
     console.log('[OCR] result:', result, 'ms:', Math.round(tOcr));
 
-    // Extraire tous les textes détectés
+    // Extraire les textes détectés depuis la structure PaddleOCR
+    // Structure : {src, columns, parragraphs: [{box, text, mean}]}
     const ocrResults = [];
-    if (result && Array.isArray(result)) {
-      for (const item of result) {
-        const text = (item.text || item[1]?.text || String(item)).replace(/\s/g, '');
-        console.log('[OCR] detected text:', text);
-        // Garder les séquences de 5-6 ou 8 ou 13 chiffres
-        const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-        for (const m of matches) {
-          ocrResults.push({ text: m, engine: 'OCR' });
-        }
+    const paragraphs = result?.parragraphs || result?.paragraphs || [];
+    for (const p of paragraphs) {
+      const text = (p.text || '').replace(/\s/g, '');
+      if (!text) continue;
+      console.log('[OCR] text:', text, 'conf:', p.mean?.toFixed(2));
+      // Garder uniquement les séquences de chiffres (5-6 ou 8 ou 13)
+      const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+      for (const m of matches) {
+        ocrResults.push({ text: m, engine: 'OCR' });
       }
     }
 
