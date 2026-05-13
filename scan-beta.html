@@ -219,7 +219,7 @@ async function scanLoop() {
         ocrCanvas = document.createElement('canvas');
         ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
       }
-      const cropH = Math.round(side * 0.35);
+      const cropH = Math.round(side * 0.30);
       const cropY = side - cropH;
       ocrCanvas.width = side;
       ocrCanvas.height = cropH;
@@ -230,15 +230,13 @@ async function scanLoop() {
       const px = ocrData.data;
       for (let i = 0; i < px.length; i += 4) {
         const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
-        const bw = gray < 140 ? 0 : 255;
+        const bw = gray < 128 ? 0 : 255;
         px[i] = px[i+1] = px[i+2] = bw;
       }
       ocrCtx.putImageData(ocrData, 0, 0);
 
       const { data } = await tesseractWorker.recognize(ocrCanvas);
-      const raw = data.text;
-      console.log('[OCR] raw:', JSON.stringify(raw), 'confidence:', data.confidence);
-      const cleaned = raw.replace(/\s/g, '');
+      const cleaned = data.text.replace(/\s/g, '');
       // Extraire séquences de 5-6 ou 8 ou 13 chiffres
       const matches = cleaned.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
       ocrRes = matches.map(m => ({ text: m, engine: 'OCR' }));
