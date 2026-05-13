@@ -2913,11 +2913,11 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                   border:'1px solid rgba(248,113,113,.3)',color:T.t1,textAlign:'left',width:'100%',
                 }}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:800,letterSpacing:.5}} className="tn">{a.code}</div>
-                    <div style={{fontSize:11,color:T.t3,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                    <div style={{fontSize:17,fontWeight:900,letterSpacing:.5}} className="tn">{a.code}</div>
+                    <div style={{fontSize:12,color:T.t3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                   </div>
                   <div style={{textAlign:'right',flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:700}} className="tn">ERP {a.stock}</div>
+                    <div style={{fontSize:15,fontWeight:800}} className="tn">ERP {a.stock}</div>
                     <div style={{fontSize:10,color:'#fca5a5',marginTop:1,fontWeight:700}}>Non vérifié</div>
                   </div>
                 </button>
@@ -2940,8 +2940,8 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                     border:`1px solid ${ok ? 'rgba(34,197,94,.15)' : 'rgba(251,191,36,.25)'}`,color:T.t1,textAlign:'left',width:'100%',
                   }}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:17,fontWeight:900,fontFamily:'ui-monospace,monospace',color: ok ? T.t3 : T.t1}} className="tn">{a.code}</div>
-                      <div style={{fontSize:11,color:T.t3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                      <div style={{fontSize:17,fontWeight:900,fontFamily:'ui-monospace,monospace',color: ok ? T.t1 : T.t1}} className="tn">{a.code}</div>
+                      <div style={{fontSize:12,color:T.t2,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                       {!ok && <div style={{fontSize:11,color:T.t2,marginTop:2}} className="tn">ERP {a.stock} → <strong style={{color:T.t1}}>{n}</strong></div>}
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
