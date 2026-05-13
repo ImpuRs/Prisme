@@ -228,29 +228,65 @@ async function runOCR() {
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
-    // 2) Crop bande étroite sous le centre (juste les chiffres, pas les barres)
-    //    Bande de 8% hauteur, positionnée à 58% du haut (sous les barres typiques)
+    // 2) Crop large centré (70% largeur × 30% hauteur, centré verticalement)
     if (!ocrCanvas) {
       ocrCanvas = document.createElement('canvas');
       ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
     }
-    const cropH = Math.round(vh * 0.08);
-    const cropY = Math.round(vh * 0.58);
-    const cropW = Math.round(vw * 0.5); // 50% largeur centrée
-    const cropX = Math.round((vw - cropW) / 2);
+    const fullCropH = Math.round(vh * 0.30);
+    const fullCropY = Math.round((vh - fullCropH) / 2);
+    const fullCropW = Math.round(vw * 0.7);
+    const fullCropX = Math.round((vw - fullCropW) / 2);
 
-    // 3) Upscale ×3 pour atteindre ~300 DPI
+    // Canvas temporaire pour threshold
+    const tmpCanvas = document.createElement('canvas');
+    const tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
+    tmpCanvas.width = fullCropW;
+    tmpCanvas.height = fullCropH;
+    tmpCtx.drawImage(hdCanvas, fullCropX, fullCropY, fullCropW, fullCropH, 0, 0, fullCropW, fullCropH);
+
+    // 3) NICK adaptive threshold
+    const rawData = tmpCtx.getImageData(0, 0, fullCropW, fullCropH);
+    const thresholded = nickThreshold(rawData, -0.2, 25);
+    tmpCtx.putImageData(thresholded, 0, 0);
+
+    // 4) Auto-detect zone texte : chercher les lignes avec peu de noir (texte, pas barres)
+    //    Barres = >40% pixels noirs sur la ligne. Texte = 5-35% pixels noirs.
+    const thData = thresholded.data;
+    const rowBlackRatio = [];
+    for (let y = 0; y < fullCropH; y++) {
+      let black = 0;
+      for (let x = 0; x < fullCropW; x++) {
+        if (thData[(y * fullCropW + x) * 4] === 0) black++;
+      }
+      rowBlackRatio.push(black / fullCropW);
+    }
+    // Chercher la transition barres→texte : dernière ligne avec ratio > 0.35, puis zone texte en dessous
+    let textStart = 0, textEnd = fullCropH - 1;
+    // Scan du bas vers le haut pour trouver la zone texte (ratio entre 2% et 35%)
+    let foundText = false;
+    for (let y = fullCropH - 1; y >= 0; y--) {
+      const r = rowBlackRatio[y];
+      if (r >= 0.02 && r <= 0.35) {
+        if (!foundText) { textEnd = y; foundText = true; }
+        textStart = y;
+      } else if (foundText && r > 0.35) {
+        break; // on a trouvé le bas des barres
+      }
+    }
+    // Ajouter une marge de 4px
+    textStart = Math.max(0, textStart - 4);
+    textEnd = Math.min(fullCropH - 1, textEnd + 4);
+    const textH = textEnd - textStart + 1;
+    console.log('[OCR] auto-crop: textStart:', textStart, 'textEnd:', textEnd, 'textH:', textH, 'of', fullCropH);
+
+    // 5) Extraire et upscaler la zone texte ×3
     const SCALE = 3;
-    ocrCanvas.width = cropW * SCALE;
-    ocrCanvas.height = cropH * SCALE;
+    ocrCanvas.width = fullCropW * SCALE;
+    ocrCanvas.height = textH * SCALE;
     ocrCtx.imageSmoothingEnabled = true;
     ocrCtx.imageSmoothingQuality = 'high';
-    ocrCtx.drawImage(hdCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW * SCALE, cropH * SCALE);
-
-    // 4) NICK adaptive threshold (meilleur que seuil fixe pour lumière inégale)
-    const rawData = ocrCtx.getImageData(0, 0, cropW * SCALE, cropH * SCALE);
-    const thresholded = nickThreshold(rawData, -0.2, 25);
-    ocrCtx.putImageData(thresholded, 0, 0);
+    ocrCtx.drawImage(tmpCanvas, 0, textStart, fullCropW, textH, 0, 0, fullCropW * SCALE, textH * SCALE);
 
     // 5) Afficher le preview OCR pour debug
     const previewEl = document.getElementById('ocrPreview');
