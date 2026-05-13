@@ -66,40 +66,22 @@
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js" onerror="console.log('ZBar unavailable')"></script>
 <!-- ZXing WASM -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
-<!-- Paddle.js OCR (WebGL — compatible iOS) -->
+<!-- Ocrad.js — pur JavaScript, pas de WASM, ~1MB, compatible iPhone -->
+<script src="https://cdn.jsdelivr.net/npm/ocrad.js/ocrad.js"></script>
 
 <script type="module">
-// ── Paddle.js OCR — lazy load via WebGL (pas WASM → fonctionne sur iPhone) ──
-let paddleOcr = null;
+// ── Ocrad.js OCR — pur JS, zéro dépendance, fonctionne partout ──
 let ocrReady = false;
 let ocrLoading = false;
 
-async function initOCR() {
+function initOCR() {
   if (ocrReady || ocrLoading) return;
-  ocrLoading = true;
-  const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + ms + 'ms')), ms));
-  try {
-    console.log('[OCR] Loading Paddle.js OCR (WebGL)...');
-    // Polyfill CommonJS globals pour le bundle
-    if (!window.module) window.module = { exports: {} };
-    if (!window.exports) window.exports = window.module.exports;
-    const ocr = await Promise.race([
-      import('https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm'),
-      timeout(30000)
-    ]);
-    console.log('[OCR] Module loaded, initializing models...');
-    await Promise.race([ocr.init(), timeout(60000)]);
-    paddleOcr = ocr;
-    ocrReady = true;
-    ocrLoading = false;
-    console.log('[OCR] Paddle.js OCR ready (WebGL)');
-  } catch(e) {
-    console.warn('[OCR] load error:', e);
-    document.getElementById('loadMsg').textContent = 'OCR: ' + e.message;
-    document.getElementById('loadMsg').style.display = 'block';
-    document.getElementById('loadMsg').style.color = '#f87171';
-    // keep ocrLoading=true to prevent retry
+  if (typeof OCRAD === 'undefined') {
+    console.warn('[OCR] Ocrad.js not loaded');
+    return;
   }
+  ocrReady = true;
+  console.log('[OCR] Ocrad.js ready');
 }
 
 const videoEl = document.getElementById('video');
@@ -175,27 +157,30 @@ async function runOCR() {
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
+    // Binariser pour améliorer la lisibilité (Ocrad fonctionne mieux en N&B)
+    const imgData = hdCtx.getImageData(0, 0, vw, vh);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      const bw = gray > 140 ? 255 : 0;
+      d[i] = d[i+1] = d[i+2] = bw;
+    }
+    hdCtx.putImageData(imgData, 0, 0);
+
     const t0 = performance.now();
-    // Paddle.js recognize attend un HTMLCanvasElement
-    const result = await paddleOcr.recognize(hdCanvas);
+    const rawText = OCRAD(hdCanvas);
     const tOcr = performance.now() - t0;
     addAvg('ocr', tOcr);
 
-    console.log('[OCR] result:', result, 'ms:', Math.round(tOcr));
+    console.log('[OCR] raw:', JSON.stringify(rawText), 'ms:', Math.round(tOcr));
 
-    // Extraire les textes détectés
-    // Structure Paddle.js : { text: [{text, confidence}], points: [...] }
+    // Extraire les séquences de chiffres
     const ocrResults = [];
-    const texts = result?.text || result?.texts || [];
-    if (Array.isArray(texts)) {
-      for (const item of texts) {
-        const raw = typeof item === 'string' ? item : (item?.text || '');
-        const text = raw.replace(/\s/g, '');
-        if (!text) continue;
-        console.log('[OCR] text:', text);
-        const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-        for (const m of matches) ocrResults.push({ text: m, engine: 'OCR' });
-      }
+    const clean = rawText.replace(/[^0-9\n]/g, ' ');
+    const matches = clean.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+    for (const m of matches) {
+      console.log('[OCR] match:', m);
+      ocrResults.push({ text: m, engine: 'OCR' });
     }
 
     updateCard('Ocr', tOcr, ocrResults, true);
