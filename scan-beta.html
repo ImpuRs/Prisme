@@ -88,7 +88,7 @@ async function initOCR() {
     });
     await tesseractWorker.setParameters({
       tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode: '7', // single text line
+      tessedit_pageseg_mode: '8', // single word
     });
     ocrReady = true;
     console.log('[Beta] Tesseract OCR loaded');
@@ -228,19 +228,19 @@ async function runOCR() {
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
-    // 2) Crop bande centrale horizontale (40% hauteur, centrée)
-    //    C'est là que les chiffres sous le code-barre se trouvent
+    // 2) Crop bande étroite sous le centre (juste les chiffres, pas les barres)
+    //    Bande de 8% hauteur, positionnée à 58% du haut (sous les barres typiques)
     if (!ocrCanvas) {
       ocrCanvas = document.createElement('canvas');
       ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
     }
-    const cropH = Math.round(vh * 0.25);
-    const cropY = Math.round((vh - cropH) / 2) + Math.round(cropH * 0.3); // un peu sous le centre
-    const cropW = Math.round(vw * 0.7); // 70% largeur centrée
+    const cropH = Math.round(vh * 0.08);
+    const cropY = Math.round(vh * 0.58);
+    const cropW = Math.round(vw * 0.5); // 50% largeur centrée
     const cropX = Math.round((vw - cropW) / 2);
 
-    // 3) Upscale ×2 pour atteindre ~300 DPI
-    const SCALE = 2;
+    // 3) Upscale ×3 pour atteindre ~300 DPI
+    const SCALE = 3;
     ocrCanvas.width = cropW * SCALE;
     ocrCanvas.height = cropH * SCALE;
     ocrCtx.imageSmoothingEnabled = true;
