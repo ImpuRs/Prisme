@@ -66,86 +66,37 @@
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js" onerror="console.log('ZBar unavailable')"></script>
 <!-- ZXing WASM -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
-<!-- ONNX Runtime (pour PaddleOCR) -->
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" onerror="console.log('ONNX Runtime unavailable');window._ortFailed=true"></script>
+<!-- Paddle.js OCR (WebGL — compatible iOS) -->
 
 <script type="module">
-// ── PaddleOCR — lazy load ──
+// ── Paddle.js OCR — lazy load via WebGL (pas WASM → fonctionne sur iPhone) ──
 let paddleOcr = null;
 let ocrReady = false;
 let ocrLoading = false;
-let cvReady = false;
-
-// Charger OpenCV.js dynamiquement
-function loadOpenCV() {
-  return new Promise((resolve, reject) => {
-    if (typeof cv !== 'undefined' && cv.Mat) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
-    s.async = true;
-    s.onload = () => {
-      // OpenCV.js met cv dans window mais il faut attendre qu'il soit prêt
-      const check = () => {
-        if (typeof cv !== 'undefined' && cv.Mat) { cvReady = true; resolve(); }
-        else setTimeout(check, 100);
-      };
-      check();
-    };
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
 
 async function initOCR() {
   if (ocrReady || ocrLoading) return;
-  if (window._ortFailed || typeof ort === 'undefined') {
-    console.warn('[OCR] ONNX Runtime unavailable — OCR disabled');
-    document.getElementById('loadMsg').textContent = 'OCR indisponible (ONNX non supporté sur ce navigateur)';
-    document.getElementById('loadMsg').style.display = 'block';
-    document.getElementById('loadMsg').style.color = '#fbbf24';
-    return;
-  }
   ocrLoading = true;
   const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + ms + 'ms')), ms));
   try {
-    // Réduire la mémoire ONNX pour mobile
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.proxy = false;
-    console.log('[OCR] Loading OpenCV.js...');
-    await Promise.race([loadOpenCV(), timeout(15000)]);
-    console.log('[OCR] OpenCV ready, loading PaddleOCR models...');
-
-    const Paddle = await Promise.race([
-      import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js'),
-      timeout(15000)
-    ]);
-    const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser/dist/';
-    const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
-    const dic = await dicRes.text();
-
-    await Promise.race([
-      Paddle.init({
-        detPath: assetsPath + 'ppocr_det.onnx',
-        recPath: assetsPath + 'ppocr_rec.onnx',
-        dic: dic,
-        ort: ort,
-        node: false,
-        cv: cv
-      }),
+    console.log('[OCR] Loading Paddle.js OCR (WebGL)...');
+    const ocr = await Promise.race([
+      import('https://cdn.jsdelivr.net/npm/@paddle-js-models/ocr@4.1.1/lib/index.esm.js'),
       timeout(30000)
     ]);
-
-    paddleOcr = Paddle;
+    console.log('[OCR] Module loaded, initializing models...');
+    await Promise.race([ocr.init(), timeout(60000)]);
+    paddleOcr = ocr;
     ocrReady = true;
-    console.log('[OCR] PaddleOCR ready');
+    ocrLoading = false;
+    console.log('[OCR] Paddle.js OCR ready (WebGL)');
   } catch(e) {
     console.warn('[OCR] load error:', e);
     document.getElementById('loadMsg').textContent = 'OCR: ' + e.message;
     document.getElementById('loadMsg').style.display = 'block';
     document.getElementById('loadMsg').style.color = '#f87171';
-    return; // keep ocrLoading=true to prevent retry
+    // keep ocrLoading=true to prevent retry
   }
-  ocrLoading = false;
 }
 
 const videoEl = document.getElementById('video');
@@ -221,28 +172,26 @@ async function runOCR() {
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
-    // Convertir en dataURL pour PaddleOCR
-    const dataURL = hdCanvas.toDataURL('image/jpeg', 0.92);
-
     const t0 = performance.now();
-    const result = await paddleOcr.ocr(dataURL);
+    // Paddle.js recognize attend un HTMLCanvasElement
+    const result = await paddleOcr.recognize(hdCanvas);
     const tOcr = performance.now() - t0;
     addAvg('ocr', tOcr);
 
     console.log('[OCR] result:', result, 'ms:', Math.round(tOcr));
 
-    // Extraire les textes détectés depuis la structure PaddleOCR
-    // Structure : {src, columns, parragraphs: [{box, text, mean}]}
+    // Extraire les textes détectés
+    // Structure Paddle.js : { text: [{text, confidence}], points: [...] }
     const ocrResults = [];
-    const paragraphs = result?.parragraphs || result?.paragraphs || [];
-    for (const p of paragraphs) {
-      const text = (p.text || '').replace(/\s/g, '');
-      if (!text) continue;
-      console.log('[OCR] text:', text, 'conf:', p.mean?.toFixed(2));
-      // Garder uniquement les séquences de chiffres (5-6 ou 8 ou 13)
-      const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-      for (const m of matches) {
-        ocrResults.push({ text: m, engine: 'OCR' });
+    const texts = result?.text || result?.texts || [];
+    if (Array.isArray(texts)) {
+      for (const item of texts) {
+        const raw = typeof item === 'string' ? item : (item?.text || '');
+        const text = raw.replace(/\s/g, '');
+        if (!text) continue;
+        console.log('[OCR] text:', text);
+        const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+        for (const m of matches) ocrResults.push({ text: m, engine: 'OCR' });
       }
     }
 
