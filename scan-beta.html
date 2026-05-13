@@ -84,7 +84,7 @@ async function initOCR() {
     });
     await tesseractWorker.setParameters({
       tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode: '7', // single line
+      tessedit_pageseg_mode: '13', // raw line — pas de segmentation, juste lire les chiffres
     });
     ocrReady = true;
     console.log('[Beta] Tesseract OCR loaded');
@@ -214,19 +214,23 @@ async function scanLoop() {
   if (emptyFrames >= 20 && ocrReady && frameCount % 3 === 0) {
     const t0 = performance.now();
     try {
-      // Crop bande basse du viewfinder (35% bas, là où les chiffres sont imprimés)
+      // Crop bande étroite sous le code-barre (15% bas) + upscale ×3
+      // Les barres confusent Tesseract — isoler les chiffres imprimés en dessous
       if (!ocrCanvas) {
         ocrCanvas = document.createElement('canvas');
         ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
       }
-      const cropH = Math.round(side * 0.30);
+      const cropH = Math.round(side * 0.15);
       const cropY = side - cropH;
-      ocrCanvas.width = side;
-      ocrCanvas.height = cropH;
-      ocrCtx.drawImage(canvas, 0, cropY, side, cropH, 0, 0, side, cropH);
+      const SCALE = 3;
+      ocrCanvas.width = side * SCALE;
+      ocrCanvas.height = cropH * SCALE;
+      ocrCtx.imageSmoothingEnabled = true;
+      ocrCtx.imageSmoothingQuality = 'high';
+      ocrCtx.drawImage(canvas, 0, cropY, side, cropH, 0, 0, side * SCALE, cropH * SCALE);
 
-      // Binarize pour meilleure OCR (seuil adaptatif)
-      const ocrData = ocrCtx.getImageData(0, 0, side, cropH);
+      // Binarize pour meilleure OCR
+      const ocrData = ocrCtx.getImageData(0, 0, side * SCALE, cropH * SCALE);
       const px = ocrData.data;
       for (let i = 0; i < px.length; i += 4) {
         const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
