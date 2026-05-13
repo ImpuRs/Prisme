@@ -77,7 +77,7 @@ async function initOCR() {
   if (ocrReady || ocrLoading) return;
   ocrLoading = true;
   try {
-    const Tess = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+    const Tess = (await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js')).default;
     tesseractWorker = await Tess.createWorker('eng', 1, {
       workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
       corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js',
@@ -90,6 +90,8 @@ async function initOCR() {
     console.log('[Beta] Tesseract OCR loaded');
   } catch(e) {
     console.warn('[Beta] OCR load error:', e);
+    // Keep ocrLoading=true to prevent retry spam
+    return;
   }
   ocrLoading = false;
 }
