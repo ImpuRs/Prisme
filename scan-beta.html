@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Scan Beta — ZBar vs ZXing vs OCR</title>
+  <title>Scan Beta — ZBar vs ZXing vs PaddleOCR</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:#0b1220;color:#f8fafc;font-family:-apple-system,system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
@@ -28,13 +28,10 @@
     .result .meta{color:#94a3b8;font-size:10px;text-align:right}
     .stats{padding:6px 12px;color:#64748b;font-size:11px;text-align:center;font-variant-numeric:tabular-nums;max-width:500px;width:100%}
     .load-msg{text-align:center;color:#94a3b8;font-size:12px;padding:8px}
-    #ocrPreview{width:100%;max-width:500px;padding:0 12px;display:none}
-    #ocrPreview canvas{width:100%;border:1px solid #2b3b5a;border-radius:8px}
-    #ocrPreview .label{font-size:10px;color:#64748b;margin:4px 0;text-align:center}
   </style>
 </head>
 <body>
-  <h1>Benchmark — ZBar vs ZXing vs OCR</h1>
+  <h1>Benchmark — ZBar vs ZXing vs PaddleOCR</h1>
   <div class="load-msg" id="loadMsg">Chargement des moteurs...</div>
 
   <div class="cam-wrap" id="camWrap" style="display:none">
@@ -63,124 +60,101 @@
     </div>
   </div>
   <div class="stats" id="stats"></div>
-  <div id="ocrPreview"><div class="label">OCR crop preview</div></div>
   <div class="results" id="results"></div>
 
 <!-- ZBar WASM -->
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js" onerror="console.log('ZBar unavailable')"></script>
 <!-- ZXing WASM -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" onerror="console.log('ZXing unavailable')"></script>
+<!-- ONNX Runtime (pour PaddleOCR) -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" onerror="console.log('ONNX Runtime unavailable')"></script>
 
 <script type="module">
-// ── Tesseract.js — lazy load, digits only ──
-let tesseractWorker = null;
+// ── PaddleOCR — lazy load ──
+let paddleOcr = null;
 let ocrReady = false;
 let ocrLoading = false;
+let cvReady = false;
+
+// Charger OpenCV.js dynamiquement
+function loadOpenCV() {
+  return new Promise((resolve, reject) => {
+    if (typeof cv !== 'undefined' && cv.Mat) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+    s.async = true;
+    s.onload = () => {
+      // OpenCV.js met cv dans window mais il faut attendre qu'il soit prêt
+      const check = () => {
+        if (typeof cv !== 'undefined' && cv.Mat) { cvReady = true; resolve(); }
+        else setTimeout(check, 100);
+      };
+      check();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
 
 async function initOCR() {
   if (ocrReady || ocrLoading) return;
   ocrLoading = true;
   try {
-    const Tess = (await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js')).default;
-    tesseractWorker = await Tess.createWorker('eng', 1, {
-      workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js',
+    console.log('[OCR] Loading OpenCV.js...');
+    await loadOpenCV();
+    console.log('[OCR] OpenCV ready, loading PaddleOCR models...');
+
+    const Paddle = await import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js');
+    const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser/dist/';
+    const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
+    const dic = await dicRes.text();
+
+    await Paddle.init({
+      detPath: assetsPath + 'ppocr_det.onnx',
+      recPath: assetsPath + 'ppocr_rec.onnx',
+      dic: dic,
+      ort: ort,
+      node: false,
+      cv: cv
     });
-    await tesseractWorker.setParameters({
-      tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode: '8', // single word
-    });
+
+    paddleOcr = Paddle;
     ocrReady = true;
-    console.log('[Beta] Tesseract OCR loaded');
+    console.log('[OCR] PaddleOCR ready');
   } catch(e) {
-    console.warn('[Beta] OCR load error:', e);
+    console.warn('[OCR] load error:', e);
     return; // keep ocrLoading=true to prevent retry
   }
   ocrLoading = false;
-}
-
-// ── NICK adaptive threshold (meilleur que seuil fixe pour caméra) ──
-function nickThreshold(imageData, k = -0.2, windowSize = 19) {
-  const { width, height, data } = imageData;
-  // Convert to grayscale array
-  const gray = new Float32Array(width * height);
-  for (let i = 0; i < gray.length; i++) {
-    gray[i] = data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114;
-  }
-  // Integral image + integral squared image
-  const integral = new Float64Array(width * height);
-  const integralSq = new Float64Array(width * height);
-  for (let y = 0; y < height; y++) {
-    let rowSum = 0, rowSumSq = 0;
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const v = gray[idx];
-      rowSum += v;
-      rowSumSq += v * v;
-      integral[idx] = rowSum + (y > 0 ? integral[idx - width] : 0);
-      integralSq[idx] = rowSumSq + (y > 0 ? integralSq[idx - width] : 0);
-    }
-  }
-  const half = windowSize >> 1;
-  const out = new Uint8ClampedArray(width * height * 4);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const x1 = Math.max(0, x - half), y1 = Math.max(0, y - half);
-      const x2 = Math.min(width - 1, x + half), y2 = Math.min(height - 1, y + half);
-      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
-      // Sum and sumSq from integral images
-      let sum = integral[y2 * width + x2];
-      let sumSq = integralSq[y2 * width + x2];
-      if (x1 > 0) { sum -= integral[y2 * width + x1 - 1]; sumSq -= integralSq[y2 * width + x1 - 1]; }
-      if (y1 > 0) { sum -= integral[(y1-1) * width + x2]; sumSq -= integralSq[(y1-1) * width + x2]; }
-      if (x1 > 0 && y1 > 0) { sum += integral[(y1-1) * width + x1 - 1]; sumSq += integralSq[(y1-1) * width + x1 - 1]; }
-      const mean = sum / count;
-      const variance = sumSq / count - mean * mean;
-      const stddev = Math.sqrt(Math.max(0, variance));
-      // NICK threshold: T = mean + k * sqrt(variance + mean^2)
-      // Simplified: good for uneven lighting
-      const threshold = mean + k * Math.sqrt(sumSq / count);
-      const idx = y * width + x;
-      const px = gray[idx] > threshold ? 255 : 0;
-      const o = idx * 4;
-      out[o] = out[o+1] = out[o+2] = px;
-      out[o+3] = 255;
-    }
-  }
-  return new ImageData(out, width, height);
 }
 
 const videoEl = document.getElementById('video');
 const badge = document.getElementById('badge');
 const flash = document.getElementById('flash');
 let canvas, ctx;
-let hdCanvas, hdCtx;     // canvas pleine résolution pour snapshot OCR
-let ocrCanvas, ocrCtx;   // canvas pour le crop OCR
+let hdCanvas, hdCtx;
 let frameCount = 0;
 let emptyFrames = 0;
-let ocrBusy = false;      // OCR en cours (snapshot mode, pas chaque frame)
-let lastOcrTime = 0;       // timestamp dernier OCR
-const OCR_COOLDOWN = 2000; // attendre 2s entre chaque tentative OCR
+let ocrBusy = false;
+let lastOcrTime = 0;
+const OCR_COOLDOWN = 2000;
 const seen = new Map();
 const history = [];
 
-// Avg trackers
 const avgs = { zbar: [], zxing: [], ocr: [] };
 const MAX_AVG = 50;
 function addAvg(key, ms) { avgs[key].push(ms); if (avgs[key].length > MAX_AVG) avgs[key].shift(); }
 function getAvg(key) { const a = avgs[key]; return a.length ? (a.reduce((s,v)=>s+v,0)/a.length) : 0; }
 
-// Wait a tick for IIFE scripts to execute
 await new Promise(r => setTimeout(r, 100));
 
-// Status
 const loadMsg = document.getElementById('loadMsg');
 const hasZbar = typeof window.zbarWasm !== 'undefined';
 const hasZxing = typeof window.ZXingWASM !== 'undefined';
 console.log('[Beta] ZBar:', hasZbar, 'ZXing:', hasZxing);
 loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy`;
 
-// Start camera
+// Start camera (1080p pour snapshot HD)
 try {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -189,7 +163,6 @@ try {
   videoEl.srcObject = stream;
   await new Promise(r => { videoEl.onloadedmetadata = r; });
   videoEl.play();
-  // Autofocus continu + zoom x1.5
   try {
     const track = stream.getVideoTracks()[0];
     const caps = track.getCapabilities?.();
@@ -219,101 +192,41 @@ async function runOCR() {
   try {
     const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
 
-    // 1) Snapshot HD pleine résolution
+    // Snapshot HD pleine résolution
     if (!hdCanvas) {
       hdCanvas = document.createElement('canvas');
-      hdCtx = hdCanvas.getContext('2d', { willReadFrequently: true });
+      hdCtx = hdCanvas.getContext('2d');
     }
     hdCanvas.width = vw;
     hdCanvas.height = vh;
     hdCtx.drawImage(videoEl, 0, 0, vw, vh);
 
-    // 2) Crop large centré (70% largeur × 30% hauteur, centré verticalement)
-    if (!ocrCanvas) {
-      ocrCanvas = document.createElement('canvas');
-      ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
-    }
-    const fullCropH = Math.round(vh * 0.30);
-    const fullCropY = Math.round((vh - fullCropH) / 2);
-    const fullCropW = Math.round(vw * 0.7);
-    const fullCropX = Math.round((vw - fullCropW) / 2);
+    // Convertir en dataURL pour PaddleOCR
+    const dataURL = hdCanvas.toDataURL('image/jpeg', 0.92);
 
-    // Canvas temporaire pour threshold
-    const tmpCanvas = document.createElement('canvas');
-    const tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
-    tmpCanvas.width = fullCropW;
-    tmpCanvas.height = fullCropH;
-    tmpCtx.drawImage(hdCanvas, fullCropX, fullCropY, fullCropW, fullCropH, 0, 0, fullCropW, fullCropH);
-
-    // 3) NICK adaptive threshold
-    const rawData = tmpCtx.getImageData(0, 0, fullCropW, fullCropH);
-    const thresholded = nickThreshold(rawData, -0.2, 25);
-    tmpCtx.putImageData(thresholded, 0, 0);
-
-    // 4) Auto-detect zone texte : chercher les lignes avec peu de noir (texte, pas barres)
-    //    Barres = >40% pixels noirs sur la ligne. Texte = 5-35% pixels noirs.
-    const thData = thresholded.data;
-    const rowBlackRatio = [];
-    for (let y = 0; y < fullCropH; y++) {
-      let black = 0;
-      for (let x = 0; x < fullCropW; x++) {
-        if (thData[(y * fullCropW + x) * 4] === 0) black++;
-      }
-      rowBlackRatio.push(black / fullCropW);
-    }
-    // Chercher la transition barres→texte : dernière ligne avec ratio > 0.35, puis zone texte en dessous
-    let textStart = 0, textEnd = fullCropH - 1;
-    // Scan du bas vers le haut pour trouver la zone texte (ratio entre 2% et 35%)
-    let foundText = false;
-    for (let y = fullCropH - 1; y >= 0; y--) {
-      const r = rowBlackRatio[y];
-      if (r >= 0.02 && r <= 0.35) {
-        if (!foundText) { textEnd = y; foundText = true; }
-        textStart = y;
-      } else if (foundText && r > 0.35) {
-        break; // on a trouvé le bas des barres
-      }
-    }
-    // Ajouter une marge de 4px
-    textStart = Math.max(0, textStart - 4);
-    textEnd = Math.min(fullCropH - 1, textEnd + 4);
-    const textH = textEnd - textStart + 1;
-    console.log('[OCR] auto-crop: textStart:', textStart, 'textEnd:', textEnd, 'textH:', textH, 'of', fullCropH);
-
-    // 5) Extraire et upscaler la zone texte ×3
-    const SCALE = 3;
-    ocrCanvas.width = fullCropW * SCALE;
-    ocrCanvas.height = textH * SCALE;
-    ocrCtx.imageSmoothingEnabled = true;
-    ocrCtx.imageSmoothingQuality = 'high';
-    ocrCtx.drawImage(tmpCanvas, 0, textStart, fullCropW, textH, 0, 0, fullCropW * SCALE, textH * SCALE);
-
-    // 5) Afficher le preview OCR pour debug
-    const previewEl = document.getElementById('ocrPreview');
-    previewEl.style.display = 'block';
-    const existingCanvas = previewEl.querySelector('canvas');
-    if (existingCanvas) existingCanvas.remove();
-    const clone = document.createElement('canvas');
-    clone.width = ocrCanvas.width;
-    clone.height = ocrCanvas.height;
-    clone.getContext('2d').drawImage(ocrCanvas, 0, 0);
-    previewEl.appendChild(clone);
-
-    // 6) Tesseract recognize (un seul appel, pas en boucle)
     const t0 = performance.now();
-    const { data } = await tesseractWorker.recognize(ocrCanvas);
+    const result = await paddleOcr.ocr(dataURL);
     const tOcr = performance.now() - t0;
     addAvg('ocr', tOcr);
 
-    console.log('[OCR] raw:', JSON.stringify(data.text), 'conf:', data.confidence, 'ms:', Math.round(tOcr));
+    console.log('[OCR] result:', result, 'ms:', Math.round(tOcr));
 
-    const cleaned = data.text.replace(/[^0-9]/g, '');
-    // Extraire séquences de 5-6 ou 8 ou 13 chiffres
-    const matches = cleaned.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
-    const results = matches.map(m => ({ text: m, engine: 'OCR' }));
+    // Extraire tous les textes détectés
+    const ocrResults = [];
+    if (result && Array.isArray(result)) {
+      for (const item of result) {
+        const text = (item.text || item[1]?.text || String(item)).replace(/\s/g, '');
+        console.log('[OCR] detected text:', text);
+        // Garder les séquences de 5-6 ou 8 ou 13 chiffres
+        const matches = text.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
+        for (const m of matches) {
+          ocrResults.push({ text: m, engine: 'OCR' });
+        }
+      }
+    }
 
-    updateCard('Ocr', tOcr, results, true);
-    return results;
+    updateCard('Ocr', tOcr, ocrResults, true);
+    return ocrResults;
   } catch(e) {
     console.warn('[OCR] error:', e);
     return [];
@@ -331,7 +244,6 @@ async function scanLoop() {
     ctx = canvas.getContext('2d', { willReadFrequently: true });
   }
 
-  // Crop centre 76% pour barcode engines
   const VF = 0.76;
   const side = Math.round(Math.min(vw, vh) * VF);
   const cx = Math.round((vw - side) / 2);
@@ -375,12 +287,12 @@ async function scanLoop() {
   const barcodeFound = zbarRes.length > 0 || zxingRes.length > 0;
   if (barcodeFound) { emptyFrames = 0; } else { emptyFrames++; }
 
-  // Lazy-load Tesseract dès 15 frames vides
+  // Lazy-load PaddleOCR dès 15 frames vides
   if (emptyFrames >= 15 && !ocrReady && !ocrLoading) {
     initOCR();
   }
 
-  // Snapshot OCR : un seul appel après 20 frames vides, cooldown 2s
+  // Snapshot OCR après 20 frames vides, cooldown 2s
   if (emptyFrames >= 20 && ocrReady && !ocrBusy) {
     ocrRes = await runOCR();
   }
