@@ -1513,35 +1513,18 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 </div>
                 <Ico d={ICONS.fwd} s={18} sw={2.5} />
               </button>
-              <button onClick={onActions} style={{
-                width:'100%',marginTop:8,padding:'13px 14px',borderRadius:12,
-                background:T.card,color:T.t1,border:`1px solid ${T.border}`,
-                display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
-              }}>
-                <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une action
-              </button>
             </>
-          );
-          if (addedActions.length === 0) return (
-            <button onClick={onActions} style={{
-              width:'100%',marginTop:12,padding:'13px 14px',borderRadius:12,
-              background:T.card,color:T.t1,border:`1px solid ${T.border}`,
-              display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
-            }}>
-              <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une action
-            </button>
           );
           return null;
         })()}
         {!invMode && (
           <button onClick={onActions} style={{
-            width: addedActions.length > 0 ? '100%' : 0,
-            display: addedActions.length > 0 ? 'flex' : 'none',
-            marginTop:10,padding:'12px 14px',borderRadius:12,
-            background:'rgba(255,255,255,.04)',color:T.t1,border:`1px dashed ${T.border}`,
-            alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
+            width:'100%',marginTop:10,padding:'13px 14px',borderRadius:12,
+            background:addedActions.length > 0 ? 'rgba(255,255,255,.04)' : T.card,
+            color:T.t1,border:addedActions.length > 0 ? `1px dashed ${T.border}` : `1px solid ${T.border}`,
+            display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
           }}>
-            <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une autre action
+            <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />{addedActions.length > 0 ? 'Ajouter une autre action' : 'Ajouter une action'}
           </button>
         )}
 
