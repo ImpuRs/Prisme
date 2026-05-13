@@ -214,31 +214,13 @@ async function scanLoop() {
   if (emptyFrames >= 20 && ocrReady && frameCount % 3 === 0) {
     const t0 = performance.now();
     try {
-      // Crop bande basse du viewfinder (30% bas, là où les chiffres sont imprimés)
-      if (!ocrCanvas) {
-        ocrCanvas = document.createElement('canvas');
-        ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
-      }
-      const cropH = Math.round(side * 0.30);
-      const cropY = side - cropH;
-      ocrCanvas.width = side;
-      ocrCanvas.height = cropH;
-      ocrCtx.drawImage(canvas, 0, cropY, side, cropH, 0, 0, side, cropH);
-
-      // Binarize pour meilleure OCR
-      const ocrData = ocrCtx.getImageData(0, 0, side, cropH);
-      const px = ocrData.data;
-      for (let i = 0; i < px.length; i += 4) {
-        const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
-        const bw = gray < 128 ? 0 : 255;
-        px[i] = px[i+1] = px[i+2] = bw;
-      }
-      ocrCtx.putImageData(ocrData, 0, 0);
-
-      const { data } = await tesseractWorker.recognize(ocrCanvas);
-      const raw = data.text.replace(/\s/g, '');
-      // Extraire séquences de 6 ou 13 chiffres
-      const matches = raw.match(/\d{13}|\d{6}/g) || [];
+      // Passe toute l'image du viewfinder à Tesseract
+      const { data } = await tesseractWorker.recognize(canvas);
+      const raw = data.text;
+      console.log('[OCR] raw:', JSON.stringify(raw), 'confidence:', data.confidence);
+      const cleaned = raw.replace(/\s/g, '');
+      // Extraire séquences de 5-6 ou 8 ou 13 chiffres
+      const matches = cleaned.match(/\d{13}|\d{8}|\d{5,6}/g) || [];
       ocrRes = matches.map(m => ({ text: m, engine: 'OCR' }));
       if (ocrRes.length) console.log('[OCR] found:', ocrRes.map(r=>r.text));
     } catch(e) {
