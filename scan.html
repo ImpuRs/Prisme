@@ -1830,7 +1830,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       const now = Date.now();
       for (const r of merged) {
         const barcode = r.text.replace(/\s/g, '');
-        if (!/^\d{5,13}$/.test(barcode)) continue;
+        if (!barcode) continue;
         // Anti-doublon brut 2s sur le code-barre brut
         const prev = lastCodesRef.current.get(barcode);
         if (prev && now - prev < 2000) continue;
@@ -1838,8 +1838,6 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
 
         // Résoudre vers un article PRISME
         const artCode = resolveBarcode(barcode);
-        // Ignorer codes courts non résolus (lectures partielles)
-        if (!artCode && barcode.length < 8) continue;
         if (!continu) {
           // Mode direct : attendre brièvement les autres passes, puis choisir le meilleur candidat.
           const buf = directBufRef.current;
