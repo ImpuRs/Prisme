@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Scan Beta — ZBar vs ZXing vs PaddleOCR</title>
+  <title>Scan Beta — Native vs ZBar vs ZXing vs PaddleOCR</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:#0b1220;color:#f8fafc;font-family:-apple-system,system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center}
@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <h1>Benchmark — ZBar vs ZXing vs PaddleOCR</h1>
+  <h1>Benchmark — Native vs ZBar vs ZXing vs PaddleOCR</h1>
   <div class="load-msg" id="loadMsg">Chargement des moteurs...</div>
 
   <div class="cam-wrap" id="camWrap" style="display:none">
@@ -42,6 +42,11 @@
 
   <div class="bench" id="benchArea" style="display:none">
     <div class="bench-row">
+      <div class="bench-card">
+        <div class="name">Native</div>
+        <div class="time" id="tNative">—</div>
+        <div class="detail" id="dNative">—</div>
+      </div>
       <div class="bench-card">
         <div class="name">ZBar</div>
         <div class="time" id="tZbar">—</div>
@@ -146,7 +151,17 @@ const OCR_COOLDOWN = 2000;
 const seen = new Map();
 const history = [];
 
-const avgs = { zbar: [], zxing: [], ocr: [] };
+// ── Stage 0: Native BarcodeDetector ──
+let nativeDetector = null;
+const hasNative = 'BarcodeDetector' in window;
+if (hasNative) {
+  try {
+    nativeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39'] });
+    console.log('[Native] BarcodeDetector ready');
+  } catch(e) { console.warn('[Native] BarcodeDetector init error:', e); }
+}
+
+const avgs = { native: [], zbar: [], zxing: [], ocr: [] };
 const MAX_AVG = 50;
 function addAvg(key, ms) { avgs[key].push(ms); if (avgs[key].length > MAX_AVG) avgs[key].shift(); }
 function getAvg(key) { const a = avgs[key]; return a.length ? (a.reduce((s,v)=>s+v,0)/a.length) : 0; }
@@ -156,8 +171,8 @@ await new Promise(r => setTimeout(r, 100));
 const loadMsg = document.getElementById('loadMsg');
 const hasZbar = typeof window.zbarWasm !== 'undefined';
 const hasZxing = typeof window.ZXingWASM !== 'undefined';
-console.log('[Beta] ZBar:', hasZbar, 'ZXing:', hasZxing);
-loadMsg.textContent = `ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy`;
+console.log('[Beta] Native:', hasNative, 'ZBar:', hasZbar, 'ZXing:', hasZxing);
+loadMsg.textContent = `Native: ${hasNative?'OK':'NON'} | ZBar: ${hasZbar?'OK':'NON'} | ZXing: ${hasZxing?'OK':'NON'} | OCR: lazy`;
 
 // Start camera (1080p pour snapshot HD)
 try {
@@ -250,6 +265,19 @@ async function scanLoop() {
 
   frameCount++;
 
+  // ── Native BarcodeDetector (Stage 0 — fastest) ──
+  let tNative = 0, nativeRes = [];
+  if (nativeDetector) {
+    const t0 = performance.now();
+    try {
+      const barcodes = await nativeDetector.detect(canvas);
+      nativeRes = barcodes.map(b => ({ text: b.rawValue.replace(/\s/g, ''), engine: 'Native' }));
+    } catch(e) {}
+    tNative = performance.now() - t0;
+    addAvg('native', tNative);
+  }
+  updateCard('Native', tNative, nativeRes, hasNative);
+
   // ── ZBar ──
   let tZbar = 0, zbarRes = [];
   if (hasZbar) {
@@ -280,7 +308,7 @@ async function scanLoop() {
 
   // ── OCR (snapshot mode) ──
   let ocrRes = [];
-  const barcodeFound = zbarRes.length > 0 || zxingRes.length > 0;
+  const barcodeFound = nativeRes.length > 0 || zbarRes.length > 0 || zxingRes.length > 0;
   if (barcodeFound) { emptyFrames = 0; } else { emptyFrames++; }
 
   // Lazy-load PaddleOCR dès 15 frames vides
@@ -305,7 +333,7 @@ async function scanLoop() {
   // Merge all results
   const now = Date.now();
   const seenThisFrame = new Set();
-  for (const r of [...zbarRes, ...zxingRes, ...ocrRes]) {
+  for (const r of [...nativeRes, ...zbarRes, ...zxingRes, ...ocrRes]) {
     if (!r.text) continue;
     if (seenThisFrame.has(r.text)) continue;
     seenThisFrame.add(r.text);
@@ -323,7 +351,7 @@ async function scanLoop() {
   const ocrStatus = ocrBusy ? ' [OCR...]' : emptyFrames >= 20 ? ' [OCR]' : '';
   badge.textContent = `Frame ${frameCount}${ocrStatus}`;
   document.getElementById('stats').textContent =
-    `ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | OCR: ${getAvg('ocr').toFixed(0)}ms · vides: ${emptyFrames}`;
+    `Native: ${getAvg('native').toFixed(0)}ms | ZBar: ${getAvg('zbar').toFixed(0)}ms | ZXing: ${getAvg('zxing').toFixed(0)}ms | OCR: ${getAvg('ocr').toFixed(0)}ms · vides: ${emptyFrames}`;
 
   setTimeout(scanLoop, 120);
 }
