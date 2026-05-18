@@ -1135,6 +1135,12 @@ function SearchScreen({ onClose, onPick, onScan }) {
       const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque}`.toLowerCase();
       return words.every(w => hay.includes(w));
     }).slice(0, catalogMode ? 4 : 8);
+    // Si query = code exact 5-6 chiffres non trouvé en local, essayer catalogue direct
+    const qClean = q.trim().replace(/\D/g,'');
+    if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
+      const catArt = _catalogArticle(qClean);
+      if (catArt) return [catArt];
+    }
     if (!catalogMode || !CATALOGUE?.A) return local;
     // Recherche catalogue
     const localCodes = new Set(local.map(a => a.code));
