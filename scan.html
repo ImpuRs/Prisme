@@ -1132,7 +1132,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
     if (!words.length) return [];
     // Recherche locale
     const local = ARTICLES.filter(a => {
-      const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque}`.toLowerCase();
+      const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque} ${a.refFourn||''}`.toLowerCase();
       return words.every(w => hay.includes(w));
     }).slice(0, catalogMode ? 4 : 8);
     // Si query = code exact 5-6 chiffres non trouvé en local, essayer catalogue direct
@@ -1149,7 +1149,8 @@ function SearchScreen({ onClose, onPick, onScan }) {
       if (localCodes.has(code)) continue;
       const lib = (entry[2] || '').toLowerCase();
       const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
-      const hay = `${code} ${lib} ${marque}`;
+      const ref = (CATALOGUE.R?.[code] || '').toLowerCase();
+      const hay = `${code} ${lib} ${marque} ${ref}`;
       if (words.every(w => hay.includes(w))) {
         catResults.push(_catalogArticle(code));
         if (catResults.length >= 8) break;
