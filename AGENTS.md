@@ -5,7 +5,7 @@
 
 ## Qu'est-ce que PRISME ?
 
-PRISME est un outil d'analyse BI offline pour chef d'agence B2B (distribution quincaillerie Legallais).
+PRISME est un outil d'analyse BI offline pour chef d'agence B2B (distribution quincaillerie).
 Il tourne entièrement dans le navigateur — zéro serveur, zéro cloud, zéro build step.
 Tagline : **"Voir juste, piloter vite."**
 

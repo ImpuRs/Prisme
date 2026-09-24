@@ -13,7 +13,7 @@ ou en local. localStorage est interdit (bloqué dans GAS).
 Fichiers chargés par l'utilisateur :
 1. Consommé — export Qlik ~200k lignes (BL, client, article, canal, qté, CA)
 2. État du Stock — stock actuel + MIN/MAX existants par article
-3. Territoire — BL omnicanal Legallais (3ème fichier optionnel, Web Worker)
+3. Territoire — BL omnicanal réseau (3ème fichier optionnel, Web Worker)
 4. Chalandise — export clients zone (4ème fichier optionnel)
 
 Modules JS : constants.js → utils.js → state.js → engine.js → parser.js

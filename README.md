@@ -2,7 +2,7 @@
 
 > Voir juste, piloter vite.
 
-**Outil d'analyse BI offline** pour chef d'agence en distribution B2B (quincaillerie Legallais) : stock, clients, réseau.
+**Outil d'analyse BI offline** pour chef d'agence en distribution B2B : stock, clients, réseau.
 
 Tout tourne dans le navigateur — zéro serveur, zéro cloud, zéro build step.
 Déployé sur GitHub Pages : **https://impurs.github.io/Prisme/**

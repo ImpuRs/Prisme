@@ -180,7 +180,7 @@ Localise la section `id="tabPromo"` dans index.html. Remplace son contenu intég
         <div class="flex items-center gap-2 mb-2 cursor-pointer"
              onclick="_togglePromoSection('B')">
           <span class="text-sm font-bold">
-            🔴 Actifs Legallais — jamais en comptoir
+            🔴 Actifs enseigne — jamais en comptoir
           </span>
           <span id="promoCountB" class="text-[10px] t-tertiary font-semibold"></span>
           <span id="promoArrowB" class="text-[10px] t-disabled ml-auto">▼</span>

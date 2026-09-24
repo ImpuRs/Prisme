@@ -164,7 +164,7 @@ export function computeSPC(cc, info) {
     // >180j = 0 pts
   }
 
-  // 2. CA rapatriable — CA Legallais hors PDV (30 pts)
+  // 2. CA rapatriable — CA enseigne hors PDV (30 pts)
   const caLeg = info.ca2025 || info.ca2026 || 0;
   const artMap = _S.ventesClientArticle.get(cc);
   const caPDV = artMap ? [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0) : 0;

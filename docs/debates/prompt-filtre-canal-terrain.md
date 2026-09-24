@@ -10,7 +10,7 @@
 # PRISME — Filtre canal global dans la sidebar Le Terrain
 
 ## Contexte PRISME
-PRISME est un outil BI d'analyse de stocks pour distribution B2B (Quincaillerie Legallais).
+PRISME est un outil BI d'analyse de stocks pour distribution B2B (quincaillerie).
 C'est un fichier HTML statique + modules JS chargés via <script src>, sans bundler, sans framework,
 sans backend. Il tourne en local ou dans une iframe Google Apps Script.
 
@@ -94,7 +94,7 @@ function buildTerrContrib() {
   }
 }
 // Le ratio "% BL agence" = blAgence.size / blTerr.size
-// C'est le % des BL Legallais qui passent par votre comptoir
+// C'est le % des BL réseau qui passent par votre comptoir
 ```
 
 ### 6. renderCanalAgence() — bloc informatif uniquement (pas un filtre)
