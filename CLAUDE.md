@@ -50,11 +50,29 @@ js/
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   router.js      — initRouter (hash routing minimal)
-  main.js        — point d'entrée, orchestre tous les modules (~2800 lignes)
+  main.js        — point d'entrée, orchestre tous les modules (~3300 lignes)
                    contient : processData, processDataFromRaw, _initFromCache,
-                   renderDashboardAndCockpit, renderTerritoireTab, renderBenchmark,
-                   _buildChalandiseOverview, _buildDegradedCockpit, _buildCockpitClient
+                   renderDashboardAndCockpit, renderBenchmark
+  sales.js       — façade ventes (pleine période vs filtrée) : getVentesClientMagFull…
+  helpers.js     — fonctions de rendu transverses factorisées depuis main.js
+
+  Stores pré-calculés
+  article-store.js / client-store.js / agence-store.js — Map<clé, Record> à plat
+  chalandise-store.js — helpers autour de chalandiseData (+ table de forçage)
+
+  Onglets / blocs métier
+  commerce.js (+ commerce-conquete*.js, commerce-terrain-widgets.js,
+    commerce-top-actions.js) — onglet Commerce/Terrain : renderTerritoireTab,
+    _buildChalandiseOverview, _buildDegradedCockpit, _buildCockpitClient
+  territoire.js, omni.js, animation.js, associations.js, labo.js,
+  planRayon.js, emplacement.js, efficience.js, duel-agence.js, direction.js
+  physigamme*.js — Physigamme PDV (engine, view, table, actions, deployment)
+
+  Workers (importScripts SheetJS)
+  parse-worker.js (consommé + stock + ABC/FMR), xlsx-worker.js, conv-worker.js
+  conv.js        — convertisseur XLSX → CSV (conv.html)
 index.html       — structure HTML + CSS (198 tokens CSS, thème dark/mixed)
+scan.html / scan-beta.html / balisage.html / conv.html — outils annexes (sw.js = PWA scan)
 ```
 
 **Pas de bundler, pas de npm, pas de framework.** CDN : Tailwind CSS, SheetJS.
