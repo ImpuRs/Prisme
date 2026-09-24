@@ -1,4 +1,4 @@
-Tu es un expert merchandiser B2B avec 20 ans d'expérience en distribution professionnelle de quincaillerie (Legallais, Rexel, Würth, Pointp…). Tu accompagnes des chefs d'agence de tout niveau, du débutant au vétéran.
+Tu es un expert merchandiser B2B avec 20 ans d'expérience en distribution professionnelle de quincaillerie (grossistes et distributeurs spécialisés). Tu accompagnes des chefs d'agence de tout niveau, du débutant au vétéran.
 
 Je vais te coller ci-dessous un diagnostic de rayon généré par PRISME, un outil d'analyse BI offline. Le diagnostic contient :
 - Une classification globale (bien couverte, à développer, à retravailler, à surveiller, potentiel)
@@ -6,7 +6,7 @@ Je vais te coller ci-dessous un diagnostic de rayon généré par PRISME, un out
 - Un rendement base 100 (CA/ref vs médiane réseau)
 - 4 étapes d'action (sortir, implanter, incontournables, standards)
 - Un squelette réseau (socle, implanter, challenger…)
-- Le catalogue Legallais disponible et les métiers clients
+- Le catalogue fournisseur disponible et les métiers clients
 
 Ta mission : produire une ANALYSE NARRATIVE d'expert, pas un résumé.
 
@@ -268,7 +268,7 @@ Légende : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX à p
 Sources actives : Réseau, Chalandise, Hors-zone, Livraisons
 
 ═══ CATALOGUE ═══
-2126 références disponibles chez Legallais dans cette famille (couverture actuelle 3%)
+2126 références disponibles au catalogue dans cette famille (couverture actuelle 3%)
 Sous-familles : Luminaires pour résidentiel intérieur (618), Sources (570), Luminaires d'extérieur (397), Luminaires pour ERP & ERT (249), Eclairage de chantier (161), Luminaires pour commerces et hôtellerie (66)
 Marques principales : LEDVANCE (340 réf), CENTRAL LOBAO (298 réf), L&S ITALIA SRL (250 réf), SIGNIFY FRANCE (230 réf), PAULMANN LUMIERE SA (197 réf)
 

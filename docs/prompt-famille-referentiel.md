@@ -26,7 +26,7 @@ pour le même article selon la source. `normFam()` strip le préfixe mais perd l
 Ajouter à la fin de `constants.js` :
 
 ```javascript
-// ── Référentiel familles Legallais ────────────────────────────────────────
+// ── Référentiel familles catalogue ────────────────────────────────────────
 // Source : Qlik — stable, mis à jour manuellement si évolution du catalogue
 export const FAMILLE_LOOKUP = {
   "00": "Frais Gén./Emballages Internes",
