@@ -2,145 +2,121 @@
 
 > Voir juste, piloter vite.
 
-**Outil d'analyse et d'optimisation des stocks** pour magasins de distribution B2B.
+**Outil d'analyse BI offline** pour chef d'agence en distribution B2B (quincaillerie Legallais) : stock, clients, réseau.
 
-Fichier HTML unique, zéro dépendance serveur — fonctionne dans Google Apps Script ou en local dans un navigateur.
+Tout tourne dans le navigateur — zéro serveur, zéro cloud, zéro build step.
+Déployé sur GitHub Pages : **https://impurs.github.io/Prisme/**
 
 ---
 
 ## 🎯 À quoi ça sert ?
 
-PRISME analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik), la **Zone de Chalandise** (clients Qlik) pour :
+PRISME croise les exports ERP / Qlik de l'agence pour :
 
-- **Recalculer les MIN/MAX** de chaque article selon un algorithme éprouvé (écrêtage des commandes exceptionnelles + stock de sécurité 48h)
-- **Identifier les actions prioritaires** : ruptures, fantômes, dormants, SASO, anomalies, fins de série
-- **Analyser le territoire** : canaux de distribution, capte agence, articles absents du rayon
-- **Benchmarker** les performances entre magasins d'un même bassin
-- **Diagnostiquer par famille** en 4 niveaux adaptatifs : Stock → Calibrage → Gamme → Clients métier
-- **Suivre l'évolution** mois par mois (export/import JSON historique)
+- **Recalculer les MIN/MAX** de chaque article (écrêtage des commandes exceptionnelles + stock de sécurité selon la fréquence)
+- **Arbitrer le rayon** : ruptures, dormants, surstock, rendement par emplacement, Plan Rayon
+- **Piloter les clients** : fidélisation PDV, conquête terrain, omnicanalité, reconquête, opportunités par métier
+- **Se comparer au réseau** : Physigamme (squelette d'assortiment), Duel Agence, heatmap familles × agences
+- **Animer le commerce** : ciblage marque/conquête, associations d'articles, exports tournée CSV
+- **Diagnostiquer une famille** en 4 niveaux adaptatifs : Stock → Calibrage → Gamme → Clients métier
+
+## 📂 Fichiers d'entrée
+
+| Fichier | Obligatoire | Contenu |
+|---|---|---|
+| **Consommé** | ✅ | Ventes multi-canal (MAGASIN, REPRÉSENTANT, INTERNET, DCS), multi-agences |
+| **État du Stock** | ✅ | Articles, stock, MIN/MAX ERP, statuts, emplacements |
+| **Le Terrain** | Optionnel | BL omnicanal réseau Qlik (~250k lignes) |
+| **Zone de Chalandise** | Optionnel | Clients de la zone : classification, commercial, métier, CP, CA |
+
+Les données restent dans le navigateur. La session est persistée en **IndexedDB** et restaurée au prochain lancement.
+
+## 🧭 Navigation
+
+| Super-onglet | Sous-onglets |
+|---|---|
+| 📦 **Pilotage Stock** | Arbitrage · Plan · Articles · Efficience |
+| 👥 **Pilotage Commercial** | Fidélisation PDV · Conquête Terrain |
+| 🏢 **Direction Réseau** | Physigamme · Duel Agence |
+| 🧪 **Labo** | Action Commerciale · Associations |
+
+Un overlay **Diagnostic** (par famille) et une **fiche Client 360°** sont accessibles depuis la plupart des vues.
+
+### Outils annexes
+
+| Page | Rôle |
+|---|---|
+| `scan.html` | Scanner code-barres mobile (PWA, `sw.js`) : stock, MIN/MAX, emplacement d'un article |
+| `scan-update.html` | Mise à jour du JSON scan depuis un export ZZAT (version navigateur de `tools/update-scan.sh`) |
+| `balisage.html` | Génération d'étiquettes de balisage avec code-barres |
+| `conv.html` | Convertisseur XLSX → CSV local (Web Worker, multi-fichiers) |
+| `scan-beta.html` | Banc d'essai des moteurs de scan (BarcodeDetector natif, ZBar, ZXing, OCR) |
 
 ## 🏗️ Architecture
 
 ```
-PRISME 1.0
-├── index.html          ← Application complète (HTML + CSS + JS)
-├── README.md           ← Ce fichier
-├── CLAUDE.md           ← Contexte pour Claude Code
-└── docs/
-    └── DOCUMENTATION.md ← Documentation technique complète
+index.html        ← structure HTML + CSS (thème dark/mixed)
+js/
+  main.js         ← point d'entrée ESM, orchestre les modules
+  state.js        ← _S : état mutable unique
+  store.js        ← DataStore : lecture seule sur _S, byContext()
+  engine.js       ← moteur de calcul métier
+  parser.js       ← pipeline de parsing
+  parse-worker.js ← Web Worker : consommé + stock + ABC/FMR
+  cache.js        ← persistance IndexedDB
+  *-store.js      ← stores pré-calculés (article, client, agence, chalandise)
+  …               ← un module par onglet (commerce, physigamme, planRayon, duel-agence…)
+data/             ← données du scan (prisme-scan-AGxx.json)
+models/           ← modèles ONNX de détection code-barres
+tools/            ← scripts Node/Bash de mise à jour des données
+docs/             ← documentation technique et specs
 ```
 
-**Stack :** HTML5 + Tailwind CSS (CDN) + SheetJS/XLSX (CDN) + Vanilla JS. Aucun build, aucun framework, aucun backend.
+**Stack :** ES Modules natifs + Tailwind CSS (CDN) + SheetJS (CDN). Pas de bundler, pas de npm, pas de framework.
+Les gros fichiers sont parsés en **Web Workers** ; les boucles lourdes sont découpées en chunks avec `yieldToMain()`.
+
+Contexte détaillé pour le développement : [`CLAUDE.md`](CLAUDE.md) · documentation : [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)
 
 ## 🚀 Utilisation
 
+### En ligne
+Ouvrir https://impurs.github.io/Prisme/, charger le consommé et l'état du stock (+ fichiers optionnels), lancer l'analyse.
+
 ### En local
-Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel (+ territoire optionnel), cliquer "Analyser".
+Les modules ESM et les Web Workers ne se chargent pas en `file://` : servir le dossier en HTTP.
 
-### Dans Google Apps Script
-1. Créer un projet Apps Script
-2. Copier le contenu de `index.html` dans un fichier HTML
-3. Ajouter un `doGet()` qui sert la page
-4. Déployer en Web App
+```bash
+python3 -m http.server 8080
+# puis ouvrir http://localhost:8080/
+```
 
-## 📊 Les onglets
+### Mettre à jour les données du scan
 
-| Onglet | Rôle |
-|--------|------|
-| 📋 **Articles** | Tableau complet filtrable, triable, exportable CSV |
-| 📊 **Stock** | KPI → Évolution historique → Accès rapide → Attractivité → Ancienneté/Statuts/Familles |
-| 🎯 **COCKPIT** | Résumé exécutif + Urgences (Ruptures + Anomalies) + Préconisation (SASO + Colis) |
-| 📊 **ABC** | Matrice ABC/FMR 3×3 + guides "Par où commencer ?" et "Comment progresser ?" |
-| 🔗 **Territoire** *(optionnel)* | Canaux agence + Vue Direction + Top 100 articles + filtre multi-select secteur |
-| 🔄 **BENCH** | Comparaison multi-magasins |
+```bash
+./tools/update-scan.sh ~/Downloads/ZZAT018_22.csv   # merge + commit + push pour AG22
+node tools/build-catalogue.js                       # data/catalogue.csv → js/catalogue-marques.json
+```
+
+### Déploiement
+Chaque push sur `main` déclenche le workflow `.github/workflows/pages.yml` (GitHub Pages).
 
 ## 🧮 Algorithme MIN/MAX
 
+Calculé sur le **prélevé** uniquement (l'enlevé ne compte que pour la fréquence) :
+
 ```
-MIN = plus gros panier écrêté + 3 jours de sécurité (48h réappro + 1j marge)
-MAX = MIN + 21 jours (forte rotation) ou 10 jours (faible rotation)
+U  = prélevé moyen par BL          X = prélevé moyen par jour ouvré
+dl = min(plus gros BL, 3×U, 5×U)                       ← écrêtage
+MIN = dl + X × jours de sécurité   (F ≥12 BL : 4j · M 4-11 : 3j · R ≤3 : 2j)
+MAX = MIN + X × 21j (≥12 BL) ou 10j
 ```
 
-Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
+Cas spéciaux : W ≤ 1 → 0/0 · W = 2 → 1/2 · nouveauté < 35 j → conserve l'ancien MIN/MAX ·
+statuts 2/3/4 → 0/0 · articles spéciaux (code ≠ 6 chiffres) exclus.
+Si le calcul local donne 0/0 mais que le réseau stocke l'article, la **Vitesse Réseau** (Top 3 agences) prend le relais.
 
-## 📋 Changelog
-
-### V2 Phase 2 (Mars 2026) — Diagnostic Cascade Adaptatif
-
-**Diagnostic en 4 niveaux** — s'ouvre en overlay sombre, calcul lazy au clic, s'adapte aux fichiers disponibles :
-
-- **Niveau 1 — Stock** (toujours) : ruptures confirmées par famille, CA perdu estimé, tableau détaillé cliquable
-- **Niveau 2 — Calibrage MIN/MAX** (toujours) : détecte articles sans paramétrage ERP + sous-dimensionnements + écart fréquence vs agence référence (bench)
-- **Niveau 3 — Profondeur de gamme** (Bench ou Territoire) : articles présents chez la référence ou dans le territoire mais absents de votre rayon
-- **Niveau 4 — Clients métier** (Chalandise) : mapping automatique famille→métier, clients perdus à reconquérir, potentiel chiffré
-
-**Déclencheurs** :
-- 🔄 Bench : clic sur cellule rouge (< 50% médiane) dans Forces & Faiblesses
-- 🎯 Cockpit : bouton 🔍 sur ruptures avec score priorité ≥ 5 000€
-- 📊 ABC : boutons 🔍 sur familles CF (Rare valeur, Fréquent usage)
-- 📦 Stock : boutons 🔍 dans le Top 10 Familles
-
-**Plan d'action** : 1 à 3 actions générées automatiquement, classées par impact (⭐ immédiat → ⭐⭐⭐ moyen terme), chacune cliquable pour naviguer directement vers le bon onglet avec filtres pré-remplis. Export CSV.
-
-### 1.0 (Mars 2026) — PRISME
-Première version sous le nom PRISME. Récapitulatif de toutes les fonctionnalités héritées d'Optistock (V22→V24) :
-
-**Moteur de calcul**
-- Algorithme MIN/MAX avec écrêtage (`dl = min(3×U, T)` puis `dl = min(dl, U×5)`)
-- Stock de sécurité 3 jours (SECURITY_DAYS)
-- Cas spéciaux : W≤1 → 0/0, W=2 → 1/2, Nouveauté <35j → garde ancien
-- Dédup BL (même commande + même article → quantité MAX)
-- Avoirs et régularisations gérés (prélevé négatif → 0)
-- Références père (3 dates vides) → exclues des ruptures
-- Score de priorité composite (Fréq × PU × coeff ancienneté)
-- Jours ouvrés calculés dynamiquement sur la période réelle du fichier
-
-**Onglet Articles**
-- Tableau 10k+ lignes avec pagination, tri, colonnes sticky
-- Filtres globaux : famille, sous-famille, emplacement, statut, ancienneté, ABC, FMR
-- Export CSV complet avec toutes les colonnes
-
-**Onglet Stock**
-- 6 KPI cards (Total, Stock mort, Surstock, CAPALIN, Taux de service, CA Perdu)
-- Évolution historique vs dernière analyse (import/export JSON)
-- 5 raccourcis Accès rapide (Sans emplacement, Dormants, Fins, Top 20, Nouveautés)
-- Attractivité par Famille (% commandes contenant la famille)
-- Tableaux ancienneté, statuts, top 10 familles
-
-**Onglet Cockpit**
-- Résumé exécutif automatique (ruptures, stock, service, C-Rare, territoire)
-- Urgences : Ruptures avec CA perdu estimé + Score priorité, Anomalies
-- Préconisation : SASO (CAPALIN à renvoyer), Colis à stocker (enlevé ≥5, prélevé 0)
-
-**Onglet ABC**
-- Matrice ABC/FMR 3×3 cliquable (AF=Pépites → CR=Déréférencement)
-- ABC par valeur rotation (V×PU) : A=80%, B=15%, C=5%
-- FMR par fréquence : F≥12, M=4-11, R≤3
-- Guides "Par où commencer ?" et "Comment progresser ?"
-
-**Onglet Territoire** *(optionnel, 3ème fichier BL omnicanal)*
-- Répartition canaux agence (MAGASIN / INTERNET / DCS / REPRÉSENTANT)
-- Vue par Direction commerciale avec drilldown familles
-- Top 100 articles avec statut rayon (✅ En rayon / ⚠️ Rupture / ❌ Absent)
-- Filtre multi-select par secteur/commercial avec checkboxes (M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie)
-- Articles spéciaux (code ≠ 6 chiffres) : exclus du calcul, comptés séparément (📌 X% du CA = spécial non stockable)
-- % capté calculé sur CA hors spécial uniquement
-- Top 50 clients avec type mixte/extérieur pur
-- Web Worker pour parsing en arrière-plan (UI jamais bloquée)
-
-**Onglet Benchmark**
-- Comparaison multi-magasins (tout le bassin ou sélection)
-- Articles manquées, sous-performance, sur-performance
-- Forces & faiblesses par famille
-- Classement des magasins
-
-**UX / Performance**
-- Single-page HTML (compatible iframe Apps Script)
-- Tailwind CSS + Inter font
-- Traitement par chunks avec `yieldToMain()` (UI fluide sur 10k+ articles)
-- Toasts animés, loading overlay avec pipeline par fichier
-- Tooltips contextuels, glossaire intégré
+Détail complet des règles : [`CLAUDE.md`](CLAUDE.md) (section *Règles métier critiques*).
 
 ## 📝 Licence
 
-Usage interne — JE
+© 2026 Jawad El Barkaoui — Usage interne.
