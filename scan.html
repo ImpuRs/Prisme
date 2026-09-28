@@ -6,6 +6,12 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0a0c10" />
 <title>PRISME Scan · prototype C</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Scan" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -76,6 +82,10 @@
 </div>
 
 <script>
+// Hors-ligne : service worker limité aux pages scan*.html (l'appli principale n'est pas concernée)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js', { scope: './scan' }).catch(function () {}); });
+}
 // Global crash catcher — avant React/Babel
 window.onerror = function(msg, src, line, col, err) {
   document.body.innerHTML = '<div style="padding:30px;color:#f87171;background:#0b1220;font-family:monospace;min-height:100dvh">'
@@ -597,9 +607,13 @@ function App() {
     const h = () => bump(v => v + 1);
     window.addEventListener('prisme-data', h);
     window.addEventListener('prisme-catalogue', h);
+    window.addEventListener('online', h);
+    window.addEventListener('offline', h);
     return () => {
       window.removeEventListener('prisme-data', h);
       window.removeEventListener('prisme-catalogue', h);
+      window.removeEventListener('online', h);
+      window.removeEventListener('offline', h);
     };
   }, []);
   const [page, setPage] = useState('home'); // home | search | article | invList | invSummary | douchette
@@ -1137,7 +1151,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   });
   return (
     <>
-      <TopBar onMenu={onMenu} sub={`${t.agency} · ${_nowLabel()}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
+      <TopBar onMenu={onMenu} sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       {ARTICLES.length === 0 ? (
         <div style={{flex:1}} />
