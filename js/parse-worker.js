@@ -651,7 +651,9 @@ async function _handleParseMessage(data) {
       var _rbl2 = (CI.bl !== null ? (row[CI.bl] != null ? row[CI.bl] : '').toString() : '').trim();
       var _rncb = _rnc || _rbl2;
       var _rj = _parseDateRow(row);
-      var canal = (CI.canal !== null ? (row[CI.canal] != null ? row[CI.canal] : '') : '').toString().trim().toUpperCase();
+      // Colonne canal absente du consommé → toutes les lignes sont des ventes MAGASIN
+      // (sinon, en multi-agences, elles partaient toutes en hors-MAGASIN et le comptoir était vide)
+      var canal = (CI.canal !== null ? (row[CI.canal] != null ? row[CI.canal] : '') : 'MAGASIN').toString().trim().toUpperCase();
 
       // Period-independent blocks (always on first parse — isRefilter=false in worker)
       if (!lowMem && canal) {
