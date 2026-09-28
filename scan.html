@@ -84,7 +84,15 @@
 <script>
 // Hors-ligne : service worker limité aux pages scan*.html (l'appli principale n'est pas concernée)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js', { scope: './scan' }).catch(function () {}); });
+  // Nouvelle version du worker qui prend la main → recharger une fois pour afficher la nouvelle version
+  var _swHadController = !!navigator.serviceWorker.controller, _swReloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!_swHadController || _swReloading) return;
+    _swReloading = true; location.reload();
+  });
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js', { scope: './scan', updateViaCache: 'none' }).catch(function () {});
+  });
 }
 // Global crash catcher — avant React/Babel
 window.onerror = function(msg, src, line, col, err) {
@@ -155,6 +163,10 @@ function _ensureCatalogue() {
   }).catch(() => false);
   return _cataloguePromise;
 }
+
+// Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
+// en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
+const SCAN_VERSION = 'v10 · 28/09/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -1151,7 +1163,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   });
   return (
     <>
-      <TopBar onMenu={onMenu} sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
+      <TopBar onMenu={onMenu} title={`PRISME · ${SCAN_VERSION.split(' ')[0]}`} sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       {ARTICLES.length === 0 ? (
         <div style={{flex:1}} />
@@ -1933,6 +1945,7 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
             <Ico d={ICONS.fwd} s={14} sw={2.5} />
           </button>
         ))}
+        <div style={{textAlign:'center',fontSize:11,color:T.t3,padding:'8px 0 4px'}} className="tn">PRISME Scan · {SCAN_VERSION}</div>
       </div>
     </Sheet>
   );
@@ -3810,7 +3823,7 @@ function PCApp() {
 
       {/* Hint footer */}
       <div style={{height:28,padding:'0 18px',display:'flex',alignItems:'center',gap:18,fontSize:10,color:T.t3,fontWeight:600,background:'#0d1016',borderTop:`1px solid ${T.border}`,flexShrink:0}}>
-        <span>Mode PC · {CTX.agency}</span>
+        <span>Mode PC · {CTX.agency} · {SCAN_VERSION}</span>
         <span><kbd style={kbd}>/</kbd> recherche</span>
         <span><kbd style={kbd}>Esc</kbd> retour</span>
         <span style={{marginLeft:'auto'}}>Le clavier va toujours dans le champ de scan.</span>
