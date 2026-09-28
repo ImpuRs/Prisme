@@ -175,9 +175,10 @@ function _dateStamp() {
   const d = new Date(), p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
-// Coût unitaire pour valoriser un écart d'inventaire (fallback prix moyen réseau)
+// Coût unitaire pour valoriser un écart d'inventaire (fallback prix moyen réseau).
+// null si l'export n'a pas de prix (export « Scan AG sans prix ») → valeur non affichée.
 function _unitCost(a) {
-  return a?._raw?._coutUnitaire ?? a?._raw?.prixUnitaire ?? a?.prix ?? 0;
+  return a?._raw?._coutUnitaire ?? a?._raw?.prixUnitaire ?? a?.prix ?? null;
 }
 
 // ── Theme ─────────────────────────────────────────────────────
@@ -716,7 +717,7 @@ function App() {
       if (ecart) ecarts++;
       const statut = n == null ? 'Non vérifié' : ecart === 0 ? 'Conforme' : 'Écart';
       const hors = !INV_CODES.includes(c) ? 'Oui' : '';
-      rows.push([a.code, a.lib, a.empl, a.stock, n ?? '', ecart ?? '', ecart ? (ecart * _unitCost(a)).toFixed(2).replace('.', ',') : '', statut, hors]);
+      rows.push([a.code, a.lib, a.empl, a.stock, n ?? '', ecart ?? '', ecart && _unitCost(a) != null ? (ecart * _unitCost(a)).toFixed(2).replace('.', ',') : '', statut, hors]);
     }
     _downloadCsv(`inventaire-${AGENCY !== '—' ? AGENCY : CTX.agency}-${INV_ZONE}-${_dateStamp()}.csv`,
       ['Code article','Libellé','Emplacement ERP','Stock ERP','Compté','Écart','Valeur écart (€)','Statut','Hors zone'], rows);
@@ -3068,7 +3069,8 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
   const corrections = scanned.filter(i=>i.ecart !== 0);
   const corrected = scanned.filter(i=>i.ecart === 0);
   const items = scanned;
-  const valDelta = corrections.reduce((s,i)=>s + i.ecart * _unitCost(i.a), 0);
+  const hasCost = corrections.some(i => _unitCost(i.a) != null);
+  const valDelta = corrections.reduce((s,i)=>s + i.ecart * (_unitCost(i.a) ?? 0), 0);
   const extrasList = Object.keys(extras).map(c => {
     const a = _artByCode.get(c); if (!a) return null;
     return { a, n: extras[c] };
@@ -3093,7 +3095,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
             <div>
               <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Écarts</div>
               <div style={{fontSize:22,fontWeight:900,color:'#fbbf24',marginTop:2}} className="tn">{corrections.length}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{valDelta>=0?'+':''}{valDelta.toFixed(0)}€</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{hasCost ? `${valDelta>=0?'+':''}${valDelta.toFixed(0)}€` : 'à corriger'}</div>
             </div>
             <div>
               <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Attendus</div>
