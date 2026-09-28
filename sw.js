@@ -7,9 +7,10 @@
 //    — l'URL contient la version, le contenu ne change jamais.
 //  - Pages et données (scan.html, data/*.json, catalogue, constants.js, config.json) : réseau
 //    d'abord, copie en cache en secours — toujours la version à jour quand il y a du réseau,
-//    la dernière connue sinon.
+//    la dernière connue sinon. Requête en `cache: 'no-cache'` : le navigateur revalide auprès
+//    du serveur (ETag) au lieu de resservir sa copie HTTP (GitHub Pages : max-age 10 min).
 'use strict';
-const CACHE_NAME = 'prisme-scan-v9';
+const CACHE_NAME = 'prisme-scan-v10';
 const PRECACHE = ['./scan.html', './manifest.json', './js/constants.js', './data/index.json'];
 const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -38,7 +39,7 @@ function cacheFirst(req) {
 }
 
 function networkFirst(req) {
-  return fetch(req).then(res => {
+  return fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
     if (res.ok) {
       const copy = res.clone();
       caches.open(CACHE_NAME).then(c => c.put(req, copy));
