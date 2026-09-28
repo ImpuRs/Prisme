@@ -57,8 +57,8 @@
   ::-webkit-scrollbar{display:none}
   *{scrollbar-width:none}
 </style>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
@@ -129,11 +129,36 @@ fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.jso
 const CTX = {
   greeting: AGENCY,
   agency: AGENCY,
-  refs: '12 416',
-  day: 'Vendredi',
-  time: '14:32',
-  scansToday: 12,
 };
+// Jour + heure courants (remplace les valeurs de maquette)
+function _nowLabel() {
+  const d = new Date();
+  const day = d.toLocaleDateString('fr-FR', { weekday:'long' });
+  return day.charAt(0).toUpperCase() + day.slice(1) + ' ' + d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+}
+
+// Téléchargement CSV (séparateur ; + BOM pour Excel FR)
+function _csvCell(v) {
+  const s = v == null ? '' : String(v);
+  return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function _downloadCsv(filename, header, rows) {
+  const lines = [header, ...rows].map(r => r.map(_csvCell).join(';'));
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function _dateStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+}
+// Coût unitaire pour valoriser un écart d'inventaire (fallback prix moyen réseau)
+function _unitCost(a) {
+  return a?._raw?._coutUnitaire ?? a?._raw?.prixUnitaire ?? a?.prix ?? 0;
+}
 
 // ── Theme ─────────────────────────────────────────────────────
 const T = {
@@ -415,12 +440,20 @@ function _fetchScanJson() {
 
 hydrateFromIDB();
 const findArt = (q) => {
-  const c = q.replace(/\D/g,'');
-  if (_artByCode.get(c)) return c;
-  if (_catalogHas(c)) return _normCode(c);
+  const raw = String(q || '').trim();
+  // Recherche par code uniquement si la saisie est numérique — sinon "vis 5x60" → "560" → 000560
+  const compact = raw.replace(/\s/g, '');
+  const c = /^\d+$/.test(compact) ? compact : '';
+  if (c) {
+    if (_artByCode.get(c)) return c;
+    const n = _normCode(c);
+    if (_artByCode.get(n)) return n;
+    if (_catalogHas(c)) return n;
+  }
   // Ref fournisseur
-  const byRef = _artByRef.get(q) || _artByRef.get(q.toUpperCase());
+  const byRef = _artByRef.get(raw) || _artByRef.get(raw.toUpperCase());
   if (byRef) return byRef.code;
+  if (!c) return null;
   // Custom EAN
   if (_customEanMap.has(c)) {
     const m = _normCode(_customEanMap.get(c));
@@ -609,13 +642,24 @@ function App() {
   };
   const exitInv = () => { setPage('home'); showToast('Inventaire suspendu — reprise possible'); };
   const cancelInv = () => { setInvMode(false); setInvZone(null); setInvCounts({}); setInvExtras({}); setPage('home'); showToast('Inventaire abandonné'); };
+  const invAllCodes = [...INV_CODES, ...Object.keys(invExtras).filter(c => !INV_CODES.includes(c)), ...Object.keys(invCounts).filter(c => !INV_CODES.includes(c) && !(c in invExtras))];
+  // Clôture : exporte le comptage en CSV (aucune liaison ERP directe) avant de vider l'état
   const pushInv = () => {
-    const ecarts = INV_CODES.filter(c => {
-      const a = _artByCode.get(c); const n = invCounts[c];
-      return a && n != null && n !== a.stock;
-    });
-    setInvMode(false); setInvZone(null); setInvCounts({}); setPage('home');
-    showToast(`✓ ${ecarts.length} correction${ecarts.length>1?'s':''} envoyée${ecarts.length>1?'s':''} à l'ERP`);
+    const rows = [];
+    let ecarts = 0;
+    for (const c of [...invAllCodes].sort()) {
+      const a = _artByCode.get(c); if (!a) continue;
+      const n = invCounts[c];
+      const ecart = n != null ? n - a.stock : null;
+      if (ecart) ecarts++;
+      const statut = n == null ? 'Non vérifié' : ecart === 0 ? 'Conforme' : 'Écart';
+      const hors = !INV_CODES.includes(c) ? 'Oui' : '';
+      rows.push([a.code, a.lib, a.empl, a.stock, n ?? '', ecart ?? '', ecart ? (ecart * _unitCost(a)).toFixed(2).replace('.', ',') : '', statut, hors]);
+    }
+    _downloadCsv(`inventaire-${AGENCY !== '—' ? AGENCY : CTX.agency}-${INV_ZONE}-${_dateStamp()}.csv`,
+      ['Code article','Libellé','Emplacement ERP','Stock ERP','Compté','Écart','Valeur écart (€)','Statut','Hors zone'], rows);
+    setInvMode(false); setInvZone(null); setInvCounts({}); setInvExtras({}); setPage('home');
+    showToast(`✓ Inventaire exporté · ${ecarts} écart${ecarts>1?'s':''} à saisir dans l'ERP`);
   };
   const totalActions = Object.values(actions).reduce((n,a)=>n+a.length,0);
   const hasEtiquettes = Object.values(actions).some(a=>a.some(x=>x.kind==='etiquette'&&x.status==='pending'));
@@ -656,6 +700,7 @@ function App() {
       {page === 'article' && (() => {
         const articleInInv = invMode && articleCode && (INV_CODES.includes(articleCode) || articleCode in invExtras);
         return <ArticleScreen
+        key={articleCode}
         t={t}
         code={articleCode}
         onBack={articleInInv ? ()=>setPage('invList') : goHome}
@@ -680,7 +725,7 @@ function App() {
 
       {page === 'invList' && <InvListScreen
         zone={INV_ZONE}
-        codes={[...INV_CODES, ...Object.keys(invExtras).filter(c => !INV_CODES.includes(c)), ...Object.keys(invCounts).filter(c => !INV_CODES.includes(c) && !(c in invExtras))]}
+        codes={invAllCodes}
         counts={invCounts}
         onPick={openArticle}
         onExit={exitInv}
@@ -690,7 +735,7 @@ function App() {
 
       {page === 'invSummary' && <InvSummaryScreen
         zone={INV_ZONE}
-        codes={[...INV_CODES, ...Object.keys(invExtras).filter(c => !INV_CODES.includes(c)), ...Object.keys(invCounts).filter(c => !INV_CODES.includes(c) && !(c in invExtras))]}
+        codes={invAllCodes}
         counts={invCounts}
         extras={invExtras}
         onBack={()=>setPage('invList')}
@@ -867,6 +912,18 @@ function App() {
           });
           showToast('✓ Toutes les actions synchronisées');
         }}
+        onExport={()=>{
+          const rows = [];
+          Object.keys(actions).sort().forEach(c => {
+            const a = _artByCode.get(c) || _catalogArticle(c);
+            (actions[c]||[]).forEach(x => rows.push([
+              new Date(x.ts).toLocaleString('fr-FR'), c, a?.lib || '', a?.empl || '', x.kind, x.label, x.dest || '', x.status === 'validee' ? 'Validée' : 'En attente',
+            ]));
+          });
+          if (!rows.length) { showToast('Journal vide'); return; }
+          _downloadCsv(`journal-actions-${CTX.agency}-${_dateStamp()}.csv`, ['Date','Code article','Libellé','Emplacement','Type','Action','Destination','Statut'], rows);
+          showToast(`✓ ${rows.length} action${rows.length>1?'s':''} exportée${rows.length>1?'s':''}`);
+        }}
         onPurge={()=>{
           setActions({});
           setSheet(null);
@@ -1009,7 +1066,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   });
   return (
     <>
-      <TopBar onMenu={onMenu} sub={`${t.agency} · ${t.day} ${t.time}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
+      <TopBar onMenu={onMenu} sub={`${t.agency} · ${_nowLabel()}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       {ARTICLES.length === 0 ? (
         <div style={{flex:1}} />
@@ -1189,7 +1246,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
-        {!q.trim() && (
+        {!q.trim() && DATA_SOURCE === 'mock' && (
           <>
             <div style={sectionLabel}>Suggestions</div>
             {['foret béton', 'spax 5x60', 'B12-C3'].map(s => (
@@ -1704,6 +1761,8 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
 
 function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const [haptic, setHaptic] = useState(true);
+  const hapticRef = useRef(true); // lu par scanLoop/tryAdd (closures créées au montage)
+  hapticRef.current = haptic;
   const [unreadable, setUnreadable] = useState(false);
   const [detected, setDetected] = useState([]); // [{...article, count, lastTs, firstTs}]
   const [flash, setFlash] = useState(0); // increment to trigger flash
@@ -1770,7 +1829,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       return [{...a, count:1, firstTs:now, lastTs:now, barHint}, ...d];
     });
     setFlash(f => f + 1);
-    if (haptic) _beep();
+    if (hapticRef.current) _beep();
   };
 
   // ── PaddleOCR lazy-load ──
@@ -1986,7 +2045,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           tryAdd(artCode, barcode);
         } else {
           setUnknownNotice(barcode);
-          if (haptic) _beepError();
+          if (hapticRef.current) _beepError();
         }
       }
     } catch (e) {
@@ -2100,7 +2159,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
 
         {/* Dup notice */}
         {unreadable && (
-          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(239,68,68,.95)',color:'#fff',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>⚠ Code illisible · rapproche-toi</div>
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(239,68,68,.95)',color:'#fff',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>⚠ Caméra indisponible · autorise l’accès</div>
         )}
         {dupNotice && (
           <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(251,191,36,.95)',color:'#1a0e05',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>↻ Déjà scanné · {dupNotice.code}</div>
@@ -2257,11 +2316,11 @@ function DouchetteScreen({ onBack, onArticle }) {
             </div>
             <div style={{fontSize:16,fontWeight:800,color:T.t1}}>En attente de scan</div>
             <div style={{fontSize:12,color:T.t2,marginTop:6,maxWidth:240,lineHeight:1.5}}>Pointe la douchette Zebra et appuie sur la gâchette. Le clavier ne s'affichera pas.</div>
-            <div style={{marginTop:18,display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
-              {[ARTICLES[0],ARTICLES[1],ARTICLES[2]].map(x=>(
+            {DATA_SOURCE === 'mock' && <div style={{marginTop:18,display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
+              {ARTICLES.slice(0,3).map(x=>(
                 <button key={x.code} onClick={()=>fakeScan(x.code)} style={{padding:'6px 10px',borderRadius:99,background:'rgba(255,255,255,.04)',border:`1px solid ${T.border}`,color:T.t2,fontSize:11,fontWeight:600}} className="tn">simuler {x.code}</button>
               ))}
-            </div>
+            </div>}
           </div>
         ) : (
           <button onClick={()=>onArticle(last.code)} key={last.ts} className="pop" style={{
@@ -2415,7 +2474,7 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
   );
 }
 
-function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onPurge, onLabels }) {
+function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onExport, onPurge, onLabels }) {
   const all = [];
   Object.keys(actions).forEach(c => actions[c].forEach(x => all.push({...x, code:c})));
   // Trier par emplacement croissant
@@ -2496,7 +2555,14 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
                 <Ico d={ICONS.fwd} s={13} sw={2.5} />
               </button>
             )}
-            <button onClick={()=>{ if (confirm('Purger le journal du jour ? Cette action est définitive.')) onPurge(); }} style={{
+            <button onClick={onExport} style={{
+              width:'100%',marginTop:8,padding:'12px 14px',borderRadius:12,
+              background:'#fff',color:'#000',fontSize:13,fontWeight:800,letterSpacing:.3,border:'none',
+              display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+            }}>
+              <Ico d={ICONS.download} s={15} sw={2.5} /> Exporter le journal (CSV)
+            </button>
+            <button onClick={()=>{ if (confirm('Purger le journal du jour ? Pense à l\u2019exporter avant. Cette action est définitive.')) onPurge(); }} style={{
               width:'100%',marginTop:8,padding:'12px',borderRadius:12,
               background:'transparent',color:'#fca5a5',fontSize:12,fontWeight:700,
               border:'1px solid rgba(239,68,68,.25)',
@@ -2731,7 +2797,7 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
   const done = items.filter(i=>i.counted).length;
   const ecarts = items.filter(i=>i.counted && i.ecart !== 0).length;
   const remaining = items.length - done;
-  const pct = (done/items.length)*100;
+  const pct = items.length ? (done/items.length)*100 : 0;
   return (
     <>
       <div style={{padding:'10px 14px',display:'flex',alignItems:'center',gap:10,background:'#16301f',borderBottom:`1px solid ${T.border}`,minHeight:52}}>
@@ -2829,7 +2895,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
   const corrections = scanned.filter(i=>i.ecart !== 0);
   const corrected = scanned.filter(i=>i.ecart === 0);
   const items = scanned;
-  const valDelta = corrections.reduce((s,i)=>s + i.ecart * i.a.prix, 0);
+  const valDelta = corrections.reduce((s,i)=>s + i.ecart * _unitCost(i.a), 0);
   const extrasList = Object.keys(extras).map(c => {
     const a = _artByCode.get(c); if (!a) return null;
     return { a, n: extras[c] };
@@ -2954,12 +3020,12 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
           <button onClick={onPush} style={{
             width:'100%',padding:'15px',borderRadius:14,border:'none',
             background:'#fbbf24',color:'#1a0e05',fontSize:14,fontWeight:900,letterSpacing:.3,
-          }}>POUSSER {corrections.length} CORRECTION{corrections.length>1?'S':''} VERS ERP</button>
+          }}>EXPORTER {corrections.length} CORRECTION{corrections.length>1?'S':''} (CSV)</button>
         ) : (
           <button onClick={onPush} style={{
             width:'100%',padding:'15px',borderRadius:14,border:'none',
             background:'#22c55e',color:'#06200f',fontSize:14,fontWeight:900,letterSpacing:.3,
-          }}>CLÔTURER L'INVENTAIRE</button>
+          }}>CLÔTURER · EXPORTER CSV</button>
         )}
       </div>
     </>
@@ -3192,6 +3258,11 @@ function PCArticle({ a, onClose }) {
         <div style={{flex:1}} />
         <button onClick={onClose} style={{...pcBtn,padding:'7px 12px',fontSize:12}}>Fermer · Esc</button>
       </div>
+      {a.catalogOnly && (
+        <div style={{marginBottom:14,padding:'10px 14px',borderRadius:10,background:'rgba(96,165,250,.10)',border:'1px solid rgba(96,165,250,.3)',color:'#93c5fd',fontSize:12,fontWeight:700}}>
+          Catalogue Legallais · article non référencé dans cette agence
+        </div>
+      )}
       <div style={{fontSize:26,fontWeight:800,color:T.t1,letterSpacing:-.3,lineHeight:1.15}}>{a.lib}</div>
       <div style={{fontSize:13,color:T.t2,marginTop:6}}>{a.marque} · {a.fam} {a.refFourn ? <span style={{color:T.t3,marginLeft:8}}>ref. four. {a.refFourn}</span>:''}</div>
 
@@ -3217,7 +3288,7 @@ function PCArticle({ a, onClose }) {
             <div style={pcStatLbl}>Empl.</div>
             <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:3}}>{a.empl}</div>
           </div>
-          {SCAN_CONFIG.prix !== false ? (
+          {SCAN_CONFIG.prix !== false && a.prix != null ? (
             <button onClick={()=>setPriceShown(p=>!p)} style={{...pcCellSmall,border:'none',cursor:'pointer',textAlign:'left'}}>
               <div style={pcStatLbl}>Prix moy. <span style={{color:T.t3,fontWeight:500}}>· {a.marge}%</span></div>
               <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix?a.prix.toFixed(2):'--'} EUR</div>
@@ -3331,6 +3402,11 @@ function PCApp() {
       const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque||''} ${a.refFourn||''}`.toLowerCase();
       return words.every(w => hay.includes(w));
     }).slice(0, catalogMode ? 6 : 12);
+    const qClean = s.replace(/\D/g,'');
+    if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
+      const catArt = _catalogArticle(qClean);
+      if (catArt) return [catArt];
+    }
     if (!catalogMode || !CATALOGUE?.A) return local;
     const localCodes = new Set(local.map(a => a.code));
     const catResults = [];
@@ -3338,7 +3414,8 @@ function PCApp() {
       if (localCodes.has(code)) continue;
       const lib = (entry[2] || '').toLowerCase();
       const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
-      const hay = `${code} ${lib} ${marque}`;
+      const ref = (CATALOGUE.R?.[code] || '').toLowerCase();
+      const hay = `${code} ${lib} ${marque} ${ref}`;
       if (words.every(w => hay.includes(w))) {
         catResults.push(_catalogArticle(code));
         if (catResults.length >= 8) break;
@@ -3347,7 +3424,7 @@ function PCApp() {
     return [...local, ...catResults];
   }, [q, catalogMode]);
 
-  const article = code ? _artByCode.get(code) : null;
+  const article = code ? (_artByCode.get(code) || _catalogArticle(code)) : null;
 
   return (
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',background:T.bg,color:T.t1,fontSize:14}}>
@@ -3405,7 +3482,7 @@ function PCApp() {
                   </div>
                 )}
                 {history.slice(0,15).map(h => {
-                  const a = _artByCode.get(h.code); if (!a) return null;
+                  const a = _artByCode.get(h.code) || _catalogArticle(h.code); if (!a) return null;
                   const v = VC[a.verdict];
                   const t = new Date(h.ts);
                   const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -3504,7 +3581,7 @@ function PCApp() {
             <div style={{flex:1,overflow:'auto',padding:'8px 8px'}}>
               {history.length === 0 && <div style={{padding:'30px 14px',textAlign:'center',color:T.t3,fontSize:11}}>Aucun scan pour le moment.</div>}
               {history.map((h, i) => {
-                const a = _artByCode.get(h.code);
+                const a = _artByCode.get(h.code) || _catalogArticle(h.code);
                 const v = a ? VC[a.verdict] : VC.ok;
                 const t = new Date(h.ts);
                 const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
