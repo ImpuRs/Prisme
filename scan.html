@@ -59,7 +59,6 @@
 </style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js" onerror="window._ortFailed=true"></script>
@@ -95,7 +94,8 @@ window.addEventListener('unhandledrejection', function(e) {
 // Loader ESM pour esearch-ocr — hors Babel pour éviter require()
 window._loadPaddleOCR = () => import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js');
 </script>
-<script type="text/babel">
+<!-- Source JSX : compilé par le chargeur en bas de page (Babel seulement si absent du cache) -->
+<script type="text/x-prisme-jsx" id="app-src">
 const { useState, useEffect, useMemo, useRef } = React;
 
 // Agence dérivée du nom de fichier : "Prisme Scan C - AG22.html" → AG22
@@ -112,9 +112,22 @@ fetch('config.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}).catch(()=>({})
   if (c.retour===false) { ARTICLES = loadEngineData(window._rawEngineData||ENGINE_DATA); _rebuildArtIndex(); document.dispatchEvent(new Event('prisme-data')); }
 });
 
-fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
-  if (!data) return;
+// Libellés famille dès le démarrage (constants.js est un module ESM sans dépendance)
+import('./js/constants.js').then(m => {
+  for (const [code, lib] of Object.entries(m.FAMILLE_LOOKUP || {})) if (!_famNames.has(code)) _famNames.set(code, lib);
+  for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
+  window.dispatchEvent(new Event('prisme-catalogue'));
+}).catch(() => {});
+
+// Catalogue national (25 Mo) : chargé au premier besoin seulement — code/EAN hors agence,
+// mode « Catalogue » de la recherche. Promesse mémoïsée ; résout à true si disponible.
+let _cataloguePromise = null;
+function _ensureCatalogue() {
+  if (_cataloguePromise) return _cataloguePromise;
+  _cataloguePromise = fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
+  if (!data) return false;
   CATALOGUE = data;
+  _catalogCache.clear(); // les « introuvable » mis en cache avant le chargement ne sont plus valables
   if (Array.isArray(data.F)) {
     for (const f of data.F) if (f?.[0] && f[1] && !_famNames.has(f[0])) _famNames.set(f[0], f[1]);
     for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
@@ -128,7 +141,10 @@ fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.jso
     _rebuildEanByCode();
   }
   window.dispatchEvent(new Event('prisme-catalogue'));
-}).catch(() => {});
+  return true;
+  }).catch(() => false);
+  return _cataloguePromise;
+}
 
 const CTX = {
   greeting: AGENCY,
@@ -519,6 +535,17 @@ function _beep(freq=1200, ms=120) {
   } catch(e){}
 }
 function _beepError() { _beep(440, 120); setTimeout(()=>_beep(330, 120), 140); }
+
+// Re-rend le composant quand le catalogue (ou les libellés famille) arrive
+function useCatalogueVersion() {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const h = () => setV(x => x + 1);
+    window.addEventListener('prisme-catalogue', h);
+    return () => window.removeEventListener('prisme-catalogue', h);
+  }, []);
+  return v;
+}
 
 // ── Atoms ─────────────────────────────────────────────────────
 const Dot = ({c, s=8}) => <span style={{display:'inline-block',width:s,height:s,borderRadius:99,background:c}} />;
@@ -1241,6 +1268,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
   const [catalogMode, setCatalogMode] = useState(false);
   const [numPad, setNumPad] = useState(true);
   const inputRef = useRef(null);
+  const catV = useCatalogueVersion();
   useEffect(() => { setTimeout(()=>inputRef.current?.focus(), 50); }, []);
 
   const results = useMemo(() => {
@@ -1274,7 +1302,11 @@ function SearchScreen({ onClose, onPick, onScan }) {
       }
     }
     return [...local, ...catResults];
-  }, [q, catalogMode]);
+  }, [q, catalogMode, catV]);
+  // Catalogue chargé à la demande : mode Catalogue, ou code 5-6 chiffres absent de l'agence
+  useEffect(() => {
+    if (catalogMode || (results.length === 0 && /^\d{5,6}$/.test(q.trim().replace(/\D/g,'')))) _ensureCatalogue();
+  }, [q, catalogMode, results.length]);
 
   return (
     <>
@@ -1297,12 +1329,12 @@ function SearchScreen({ onClose, onPick, onScan }) {
           background:numPad?'rgba(74,222,128,.15)':'transparent',
           color:numPad?'#4ade80':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
         }}>{numPad ? '123' : 'ABC'}</button>
-        {CATALOGUE && <button onClick={()=>setCatalogMode(m=>!m)} style={{
+        {<button onClick={()=>setCatalogMode(m=>!m)} style={{
           padding:'5px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
           background:catalogMode?'rgba(96,165,250,.15)':'transparent',
           color:catalogMode?'#60a5fa':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
         }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
-        {catalogMode && CATALOGUE && <span style={{fontSize:10,color:T.t3}}>{Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR')} articles</span>}
+        {catalogMode && <span style={{fontSize:11,color:T.t3}}>{CATALOGUE ? Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR') + ' articles' : 'Chargement du catalogue…'}</span>}
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
@@ -1321,7 +1353,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
           <div style={{textAlign:'center',padding:'40px 20px',color:T.t2}}>
             <div style={{fontSize:32,marginBottom:8}}>🔍</div>
             <div style={{fontSize:13}}>Aucun résultat pour « {q} »</div>
-            {!catalogMode && CATALOGUE && <button onClick={()=>setCatalogMode(true)} style={{marginTop:12,padding:'8px 14px',borderRadius:99,border:'1px solid rgba(96,165,250,.4)',background:'rgba(96,165,250,.1)',color:'#60a5fa',fontSize:12,fontWeight:700,cursor:'pointer'}}>Chercher dans le catalogue</button>}
+            {!catalogMode && <button onClick={()=>setCatalogMode(true)} style={{marginTop:12,padding:'8px 14px',borderRadius:99,border:'1px solid rgba(96,165,250,.4)',background:'rgba(96,165,250,.1)',color:'#60a5fa',fontSize:12,fontWeight:700,cursor:'pointer'}}>Chercher dans le catalogue</button>}
           </div>
         )}
         {q.trim() && results.length > 0 && (
@@ -1894,6 +1926,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const [dupNotice, setDupNotice] = useState(null);
   const [unknownNotice, setUnknownNotice] = useState(null); // barcode EAN non résolu
   const [batchOpen, setBatchOpen] = useState(false);
+  const [catLoading, setCatLoading] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -2141,7 +2174,14 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         lastCodesRef.current.set(barcode, now);
 
         // Résoudre vers un article PRISME
-        const artCode = resolveBarcode(barcode, rawText);
+        let artCode = resolveBarcode(barcode, rawText);
+        // Code hors agence : charger le catalogue (une seule fois) puis réessayer
+        if (!artCode && !CATALOGUE) {
+          setCatLoading(true);
+          await _ensureCatalogue();
+          setCatLoading(false);
+          artCode = resolveBarcode(barcode, rawText);
+        }
         if (!continu) {
           // Mode direct : attendre brièvement les autres passes, puis choisir le meilleur candidat.
           const buf = directBufRef.current;
@@ -2286,6 +2326,9 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         {unreadable && (
           <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(239,68,68,.95)',color:'#fff',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>⚠ Caméra indisponible · autorise l’accès</div>
         )}
+        {catLoading && (
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(96,165,250,.95)',color:'#fff',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>Recherche dans le catalogue…</div>
+        )}
         {dupNotice && (
           <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(251,191,36,.95)',color:'#1a0e05',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>↻ Déjà scanné · {dupNotice.code}</div>
         )}
@@ -2389,13 +2432,18 @@ function DouchetteScreen({ onBack, onArticle }) {
 
   const bufRef = useRef('');
   const timerRef = useRef(null);
-  const resolveAndShow = (raw) => {
+  const find = (raw) => {
     const clean = raw.replace(/\D/g,'');
     let a = _artByCode.get(clean);
     if (!a) a = _artByRef.get(raw) || _artByRef.get(raw.toUpperCase());
     if (!a && _customEanMap.has(clean)) { const m = _normCode(_customEanMap.get(clean)); a = _artByCode.get(m) || _catalogArticle(m); }
     if (!a && window._eanMap) { const c = _normCode(window._eanMap.get(clean)); a = _artByCode.get(c) || _catalogArticle(c); }
     if (!a) a = _catalogArticle(clean);
+    return a;
+  };
+  const resolveAndShow = async (raw) => {
+    let a = find(raw);
+    if (!a && !CATALOGUE && await _ensureCatalogue()) a = find(raw);
     if (!a) return;
     setLast({...a, ts:Date.now()});
     setHistory(h => [{code:a.code, lib:a.lib, ts:Date.now()}, ...h].slice(0,8));
@@ -3436,6 +3484,7 @@ function PCArticle({ a, onClose }) {
 
 function PCApp() {
   const [, bump] = useState(0);
+  const catV = useCatalogueVersion();
   useEffect(() => {
     const h = () => bump(v => v + 1);
     window.addEventListener('prisme-data', h);
@@ -3492,11 +3541,14 @@ function PCApp() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
-  const lookup = (raw) => {
+  const lookup = async (raw) => {
     const trimmed = String(raw||'').trim();
     if (!trimmed) return;
     // Code exact (6 chiffres, EAN, ref fournisseur)
     let c = findArt(trimmed);
+    // Code/EAN hors agence : charger le catalogue à la demande puis réessayer
+    // (toujours pour une saisie numérique : un code/EAN exact passe avant les résultats texte)
+    if (!c && !CATALOGUE && (/^\d+$/.test(trimmed.replace(/\s/g,'')) || results.length === 0) && await _ensureCatalogue()) c = findArt(trimmed);
     // Sinon prendre le 1er résultat de la recherche texte
     if (!c && results.length > 0) c = results[0].code;
     if (c) {
@@ -3547,7 +3599,10 @@ function PCApp() {
       }
     }
     return [...local, ...catResults];
-  }, [q, catalogMode]);
+  }, [q, catalogMode, catV]);
+  useEffect(() => {
+    if (catalogMode || (results.length === 0 && /^\d{5,6}$/.test(q.trim().replace(/\D/g,'')))) _ensureCatalogue();
+  }, [q, catalogMode, results.length]);
 
   const article = code ? (_artByCode.get(code) || _catalogArticle(code)) : null;
 
@@ -3588,7 +3643,7 @@ function PCApp() {
             <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
               <span><kbd style={kbd}>Enter</kbd> ouvrir</span>
               <span><kbd style={kbd}>Esc</kbd> effacer</span>
-              {CATALOGUE && <button type="button" onClick={()=>setCatalogMode(m=>!m)} style={{
+              {<button type="button" onClick={()=>setCatalogMode(m=>!m)} style={{
                 padding:'3px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
                 background:catalogMode?'rgba(96,165,250,.15)':'transparent',
                 color:catalogMode?'#60a5fa':T.t3,fontSize:10,fontWeight:800,cursor:'pointer',
@@ -3743,6 +3798,60 @@ function PCApp() {
 
 if (IS_PC) document.body.classList.add('pc-mode');
 ReactDOM.createRoot(document.getElementById('root')).render(<ErrorBoundary>{IS_PC ? <PCApp /> : <App />}</ErrorBoundary>);
+</script>
+<script>
+// Chargeur : compile le JSX une seule fois par version de scan.html et garde le résultat
+// dans IndexedDB (base PRISME_SCAN). Babel (3 Mo) n'est téléchargé que si le cache est vide
+// ou si le source a changé. Preset « react » uniquement : pas de transpilation ES5.
+(function () {
+  var BABEL_URL = 'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js';
+  var BABEL_SRI = 'sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y';
+  var src = document.getElementById('app-src').textContent;
+  var h = 0x811c9dc5;
+  for (var i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  var key = 'app:' + (h >>> 0).toString(16) + ':' + src.length;
+
+  function openDb() {
+    return new Promise(function (res, rej) {
+      var rq = indexedDB.open('PRISME_SCAN', 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore('code'); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+  }
+  function getCached(db) {
+    return new Promise(function (res) {
+      try { var r = db.transaction('code').objectStore('code').get(key); r.onsuccess = function () { res(r.result || null); }; r.onerror = function () { res(null); }; }
+      catch (e) { res(null); }
+    });
+  }
+  function putCached(db, code) {
+    try { var st = db.transaction('code', 'readwrite').objectStore('code'); st.clear(); st.put(code, key); } catch (e) {}
+  }
+  function loadBabel() {
+    return new Promise(function (res, rej) {
+      if (window.Babel) return res();
+      var s = document.createElement('script');
+      s.src = BABEL_URL; s.integrity = BABEL_SRI; s.crossOrigin = 'anonymous';
+      s.onload = res; s.onerror = function () { rej(new Error('Babel indisponible (réseau ?)')); };
+      document.head.appendChild(s);
+    });
+  }
+  function run(code) {
+    var s = document.createElement('script');
+    s.textContent = code + '\n//# sourceURL=scan-app.js';
+    document.body.appendChild(s);
+  }
+  var dbP = (typeof indexedDB !== 'undefined' ? openDb() : Promise.reject()).catch(function () { return null; });
+  dbP.then(function (db) { return (db ? getCached(db) : Promise.resolve(null)).then(function (code) {
+    if (code) return run(code);
+    return loadBabel().then(function () {
+      var out = Babel.transform(src, { presets: ['react'] }).code;
+      if (db) putCached(db, out);
+      run(out);
+    });
+  }); }).catch(function (e) { window.onerror(String(e && e.message || e), 'scan.html', 0, 0, e); });
+})();
 </script>
 </body>
 </html>
