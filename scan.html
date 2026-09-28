@@ -167,7 +167,7 @@ function _unitCost(a) {
 // ── Theme ─────────────────────────────────────────────────────
 const T = {
   bg: '#0a0c10', card: '#13171f', card2: '#1a1f29', border: '#252a35',
-  t1: '#f4f6fa', t2: '#9aa3b2', t3: '#5b6473', accent: '#fb923c',
+  t1: '#f4f6fa', t2: '#a3acba', t3: '#7d8696', accent: '#fb923c',
 };
 const VC = {
   rupture:  { bg:'#3a1518', fg:'#fca5a5', edge:'#ef4444', label:'Rupture' },
@@ -243,6 +243,22 @@ function _famDisplay(it) {
   const sous = String(it.sousFamille || '').replace(/^[A-Z0-9]{1,4}\s*-\s*/, '');
   return [fam, sous].filter(Boolean).join(' › ') || '—';
 }
+// Filtres de l'accueil (type d'alerte)
+const HOME_FILTERS = [
+  { k:'',         l:'Tout' },
+  { k:'neg',      l:'Négatifs',  c:'#f87171' },
+  { k:'rupt',     l:'Ruptures',  c:'#fca5a5' },
+  { k:'sousmin',  l:'Sous min',  c:'#fbbf24' },
+  { k:'surstock', l:'Sur-stock', c:'#c4b5fd' },
+];
+function _matchHomeFilter(a, f) {
+  if (!f) return true;
+  if (f === 'neg') return a.stock < 0;
+  if (a.stock < 0) return false;
+  return a.verdict === (f === 'rupt' ? 'rupture' : f);
+}
+const _zoneOf = (a) => (a.empl || '—').split('-')[0] || '—';
+
 // Couverture affichable : sans objet si stock ≤ 0
 const _couvLabel = (a) => a.stock > 0 && a.couv > 0 ? a.couv + 'j' : '—';
 const _verdictLabel = (a) => a.stock < 0 ? 'Stock négatif' : (VC[a.verdict] || VC.ok).label;
@@ -587,6 +603,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState([]);
   const [tourZone, setTourZone] = useState(null); // zone emplacement en cours de tournée
+  const [homeFilter, setHomeFilter] = useState(''); // '' | neg | rupt | sousmin | surstock
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1800); };
 
@@ -599,7 +616,7 @@ function App() {
   const goHome = () => { setPage('home'); setArticleCode(null); setTourZone(null); };
   const nextInZone = () => {
     if (!tourZone) { goHome(); return; }
-    const zoneArts = ARTICLES.filter(a => a.primary && (a.empl||'—').split('-')[0] === tourZone && !(actions[a.code]?.length > 0) && a.code !== articleCode);
+    const zoneArts = ARTICLES.filter(a => a.primary && _zoneOf(a) === tourZone && _matchHomeFilter(a, homeFilter) && !(actions[a.code]?.length > 0) && a.code !== articleCode);
     if (zoneArts.length === 0) { goHome(); showToast(`✓ Zone ${tourZone} terminée`); return; }
     const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
     zoneArts.sort((a,b) => ((a.stock<0?-1:verdictPrio[a.verdict]??9)) - ((b.stock<0?-1:verdictPrio[b.verdict]??9)));
@@ -703,6 +720,8 @@ function App() {
         validatedCount={Object.values(actions).reduce((n,a)=>n+a.filter(x=>x.status==='validee').length,0)}
         onActions={()=>setSheet('todo')}
         onMenu={()=>setSheet('menu')}
+        filter={homeFilter}
+        onFilter={setHomeFilter}
       />}
       {page === 'douch_dummy_marker' && null}
       {page === 'douchette' && <DouchetteScreen onBack={goHome} onArticle={openArticle} />}
@@ -980,7 +999,7 @@ function App() {
 // ── Top + bottom bar ──────────────────────────────────────────
 function TopBar({ title='PRISME', sub, back, onBack, onMenu }) {
   return (
-    <div style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:52}}>
+    <div style={{padding:'6px 12px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:56}}>
       {back && <button onClick={onBack} style={btnIcon()}><Ico d={ICONS.back} /></button>}
       <div style={{flex:1, minWidth:0}}>
         <div style={{fontSize:14,fontWeight:800,color:T.t1,letterSpacing:-.2,lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</div>
@@ -1015,7 +1034,7 @@ function BottomBar({ onSearch, onScan, onActions, count=0, primary }) {
 }
 
 const btnIcon = (out) => ({
-  width:32,height:32,borderRadius:9,border: out ? `1px solid ${T.border}` : 'none',
+  width:44,height:44,borderRadius:12,border: out ? `1px solid ${T.border}` : 'none',
   background: out ? 'transparent' : T.card, color:T.t1,padding:0,
   display:'flex',alignItems:'center',justifyContent:'center',
 });
@@ -1039,7 +1058,7 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-          <span style={{fontSize:9,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
+          <span style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
           <span style={{fontSize:12,fontWeight:800,color:T.t1}}>{zone}</span>
         </div>
         <div style={{marginTop:4,height:4,background:'rgba(0,0,0,.3)',borderRadius:99}}>
@@ -1047,36 +1066,40 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
         </div>
         <div style={{fontSize:10,color:T.t2,marginTop:3}} className="tn">{doneCount}/{total} · {total-doneCount} restants · voir liste</div>
       </div>
-      <button onClick={(e)=>{e.stopPropagation(); onExit();}} style={{padding:'5px 9px',borderRadius:8,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
+      <button onClick={(e)=>{e.stopPropagation(); onExit();}} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
     </div>
   );
 }
 
 // ── HOME ──────────────────────────────────────────────────────
-function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, treatedCodes, actionsCount, validatedCount, onActions, onMenu }) {
+function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, treatedCodes, actionsCount, validatedCount, onActions, onMenu, filter, onFilter }) {
+  const [showAllZones, setShowAllZones] = useState(false);
   const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
   const todos = ARTICLES.filter(a => a.primary && !(treatedCodes[a.code]?.length > 0)).sort((a,b)=>{
     const pa = a.stock < 0 ? -1 : (verdictPrio[a.verdict]??9);
     const pb = b.stock < 0 ? -1 : (verdictPrio[b.verdict]??9);
     return pa - pb;
   });
-  const totalQty = todos.reduce((s,a)=>s+(a.primary?.qty||0),0);
-  const ruptures = todos.filter(a=>a.verdict==='rupture').length;
+  const filterCounts = Object.fromEntries(HOME_FILTERS.map(f => [f.k, todos.filter(a => _matchHomeFilter(a, f.k)).length]));
+  const shown = todos.filter(a => _matchHomeFilter(a, filter));
+  const treatedCount = Object.keys(treatedCodes).length;
 
   // Regrouper par emplacement (zone = partie avant le tiret)
   const emplMap = {};
-  todos.forEach(a => {
-    const zone = (a.empl||'—').split('-')[0] || '—';
+  shown.forEach(a => {
+    const zone = _zoneOf(a);
     if (!emplMap[zone]) emplMap[zone] = {neg:0,rupt:0,sousmin:0,surstock:0,total:0,articles:[]};
     const e = emplMap[zone];
     e.total++;
     if (a.stock < 0) e.neg++;
-    if (a.verdict === 'rupture') e.rupt++;
+    else if (a.verdict === 'rupture') e.rupt++;
     else if (a.verdict === 'sousmin') e.sousmin++;
     else if (a.verdict === 'surstock') e.surstock++;
     e.articles.push(a);
   });
   const emplList = Object.entries(emplMap).sort((a,b) => {
+    // Articles sans emplacement : toujours en dernier (pas une allée parcourable)
+    if ((a[0] === '—') !== (b[0] === '—')) return a[0] === '—' ? 1 : -1;
     const sa = a[1].neg*1000 + a[1].rupt*100 + a[1].sousmin*10 + a[1].surstock;
     const sb = b[1].neg*1000 + b[1].rupt*100 + b[1].sousmin*10 + b[1].surstock;
     return sb - sa;
@@ -1094,15 +1117,28 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
           <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
             <div>
               <div style={{fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
-              <div style={{fontSize:12,color:T.t3,marginTop:2}}>{todos.length} article{todos.length>1?'s':''} · {emplList.length} emplacement{emplList.length>1?'s':''}</div>
+              <div style={{fontSize:12,color:T.t2,marginTop:2}}>{emplList.length} emplacement{emplList.length>1?'s':''}{treatedCount>0 && <span style={{color:'#86efac'}}> · {treatedCount} traité{treatedCount>1?'s':''}</span>}</div>
             </div>
-            <span style={{fontSize:36,fontWeight:900,color:'#fca5a5',letterSpacing:-2}} className="tn">{todos.length}</span>
+            <span style={{fontSize:36,fontWeight:900,color:'#fca5a5',letterSpacing:-2}} className="tn">{shown.length}</span>
+          </div>
+          <div style={{display:'flex',gap:6,overflowX:'auto',margin:'0 -16px 10px',padding:'0 16px',flexShrink:0}}>
+            {HOME_FILTERS.filter(f => !f.k || filterCounts[f.k] > 0).map(f => {
+              const on = filter === f.k;
+              return (
+                <button key={f.k} onClick={()=>{ onFilter(f.k); setShowAllZones(false); }} style={{
+                  flexShrink:0,height:36,padding:'0 12px',borderRadius:99,
+                  border:`1px solid ${on ? (f.c||T.t1) : T.border}`,
+                  background: on ? (f.c||T.t1)+'22' : T.card,
+                  color: on ? (f.c||T.t1) : T.t2,fontSize:12,fontWeight:800,whiteSpace:'nowrap',
+                }}>{f.l} <span className="tn" style={{opacity:.75}}>{filterCounts[f.k]}</span></button>
+              );
+            })}
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:14}}>
-            {emplList.slice(0,8).map(([zone, e]) => (
+            {(showAllZones ? emplList : emplList.slice(0,8)).map(([zone, e]) => (
               <button key={zone} onClick={()=>onArticle(e.articles[0].code, zone)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft:`3px solid ${e.neg>0?'#f87171':e.rupt>0?'#ef4444':e.sousmin>0?'#fbbf24':'#a78bfa'}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
                 <div style={{minWidth:44,textAlign:'center'}}>
-                  <div style={{fontSize:18,fontWeight:900,color:T.accent}} className="tn">{zone}</div>
+                  <div style={{fontSize:zone==='—'?12:18,fontWeight:900,color:zone==='—'?T.t2:T.accent}} className="tn">{zone==='—' ? 'Sans empl.' : zone}</div>
                   <div style={{fontSize:10,color:T.t3}}>{e.total} réf{e.total>1?'s':''}</div>
                 </div>
                 <div style={{flex:1,display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -1114,7 +1150,11 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
                 <Ico d={ICONS.fwd} s={14} sw={2.5} />
               </button>
             ))}
-            {emplList.length > 8 && <div style={{fontSize:11,color:T.t3,textAlign:'center',padding:4}}>+ {emplList.length - 8} autres emplacements</div>}
+            {emplList.length > 8 && (
+              <button onClick={()=>setShowAllZones(v=>!v)} style={{height:44,borderRadius:12,border:`1px dashed ${T.border}`,background:'transparent',color:T.t2,fontSize:13,fontWeight:700}}>
+                {showAllZones ? 'Réduire' : `Voir les ${emplList.length - 8} autres emplacements`}
+              </button>
+            )}
           </div>
         </>) : (
           <div style={{padding:'14px 16px',borderRadius:14,background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.25)',marginBottom:14,display:'flex',gap:10,alignItems:'center'}}>
@@ -1156,7 +1196,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                  <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                  <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
                 </div>
               </button>
             );
@@ -1296,7 +1336,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <span style={{fontSize:11,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</span>
-                      {isCat && <span style={{fontSize:9,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
+                      {isCat && <span style={{fontSize:11,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
                     </div>
                     <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     <div style={{fontSize:11,color:isCat?'#60a5fa':T.accent,fontWeight:600,marginTop:1}}>{isCat?a.fam:a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
@@ -1304,7 +1344,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
                   {!isCat && (
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                      <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                      <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
                     </div>
                   )}
                 </button>
@@ -1362,11 +1402,11 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             </div>
             <div style={{marginTop:14,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               <div style={{padding:'10px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Statut</div>
+                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Statut</div>
                 <div style={{fontSize:12,color:T.t1,fontWeight:800,marginTop:3}}>{a.statut}</div>
               </div>
               <div style={{padding:'10px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Emplacement</div>
+                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Emplacement</div>
                 <div style={{fontSize:12,color:T.t1,fontWeight:800,marginTop:3}}>{a.empl}</div>
               </div>
             </div>
@@ -1386,7 +1426,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
     return (
       <>
         <div style={{padding:'12px 14px',background:'#22c55e',color:'#06200f',display:'flex',alignItems:'center',gap:10,minHeight:52}}>
-          <button onClick={onBack} style={{width:32,height:32,borderRadius:9,border:'none',background:'rgba(0,0,0,.18)',color:'#06200f',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
+          <button onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#06200f',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>OK · {a.empl}</div>
             <div style={{fontSize:13,fontWeight:700}} className="tn">{a.code}</div>
@@ -1402,7 +1442,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           <div style={{marginTop:22,padding:'10px 14px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,display:'grid',gridTemplateColumns:'repeat(4,minmax(48px,1fr))',gap:14}}>
             {[['Stock', a.stock, '#86efac'],['Min', a.min, T.t1],['Max', a.max, T.t1],['Couv.', _couvLabel(a), T.t1]].map(([k,val,c])=>(
               <div key={k} style={{textAlign:'center'}}>
-                <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
+                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
                 <div style={{fontSize:18,fontWeight:900,color:c,marginTop:2,lineHeight:1}} className="tn">{val}</div>
               </div>
             ))}
@@ -1424,7 +1464,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
       {/* Verdict bandeau pleine largeur — remplace TopBar pour les états actionnables */}
       {a.primary && !invMode ? (
         <div style={{padding:'12px 14px',background:v.edge,color:'#0a0c10',display:'flex',alignItems:'center',gap:10,minHeight:52}}>
-          <button onClick={onBack} style={{width:32,height:32,borderRadius:9,border:'none',background:'rgba(0,0,0,.18)',color:'#0a0c10',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
+          <button onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#0a0c10',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>{_verdictLabel(a)} · {a.empl}</div>
             <div style={{fontSize:13,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">{a.code} · {a.lib}</div>
@@ -1495,36 +1535,36 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           {/* KPI row : Stock / Min / Max / Couv. */}
           <div style={{marginTop:12,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Stock</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Stock</div>
               <div style={{fontSize:20,fontWeight:900,color:v.fg,marginTop:2,lineHeight:1}} className="tn">{a.stock}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>actuel</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>actuel</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.min}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>seuil</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>seuil</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.max}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>cible</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>cible</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Couv.</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Couv.</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{_couvLabel(a)}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}} className="tn">{a.vitesse||''}</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{a.vitesse||''}</div>
             </div>
           </div>
 
           {/* Empl + prix */}
           <div style={{marginTop:8,display:'grid',gridTemplateColumns: a.prix != null ? '1.4fr 1fr' : '1fr',gap:6}}>
             <div style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12}}>
-              <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Emplacement</div>
+              <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Emplacement</div>
               <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:2}}>{a.empl}</div>
             </div>
             {a.prix != null && (
               <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
-                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix moy. <span style={{color:T.t3,fontWeight:500,fontSize:8}}>· {a.marge}%</span></div>
+                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix moy. <span style={{color:T.t3,fontWeight:500,fontSize:10}}>· {a.marge}%</span></div>
                 <div style={{fontSize:15,fontWeight:700,color:T.t1,marginTop:2,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2)} €</div>
               </button>
             )}
@@ -2269,14 +2309,14 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <span style={{fontSize:15,color:T.t1,fontWeight:900,fontFamily:'ui-monospace,monospace'}} className="tn">{d.code}</span>
                       {d.barHint && <span style={{fontSize:10,color:T.accent,fontWeight:700}} className="tn">{d.barHint}</span>}
-                      <span style={{padding:'1px 6px',borderRadius:99,background:v.bg,color:v.fg,fontSize:9,fontWeight:800,letterSpacing:.3,textTransform:'uppercase'}}>{v.label}</span>
+                      <span style={{padding:'1px 6px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.3,textTransform:'uppercase'}}>{v.label}</span>
                     </div>
                     <div style={{fontSize:12,fontWeight:500,color:T.t3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{d.lib}</div>
                     <div style={{fontSize:11,color:T.accent,fontWeight:600,marginTop:1}}>{d.empl}</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontSize:16,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{d.stock}</div>
-                    <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{d.min}/{d.max}</div>
+                    <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{d.min}/{d.max}</div>
                   </div>
                 </button>
               );
@@ -2395,16 +2435,16 @@ function DouchetteScreen({ onBack, onArticle }) {
             <div style={{fontSize:12,color:T.t2,marginTop:3}}>{[last.marque, last.fam].filter(Boolean).join(' · ')}</div>
             <div style={{marginTop:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Stock</div>
+                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Stock</div>
                 <div style={{fontSize:22,fontWeight:900,color:VC[last.verdict].fg,marginTop:2}} className="tn">{last.stock}</div>
-                <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{last.min}/{last.max}</div>
+                <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{last.min}/{last.max}</div>
               </div>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Empl.</div>
+                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Empl.</div>
                 <div style={{fontSize:14,fontWeight:800,color:T.accent,marginTop:4}}>{last.empl}</div>
               </div>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Couv.</div>
+                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Couv.</div>
                 <div style={{fontSize:14,fontWeight:800,color:T.t1,marginTop:4}} className="tn">{_couvLabel(last)}</div>
               </div>
             </div>
@@ -2557,7 +2597,7 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:15,fontWeight:900,color:T.t1,fontFamily:'ui-monospace,monospace'}} className="tn">{x.code}</span>
             <span style={{fontSize:11,color:T.accent,fontWeight:700}}>{a?.empl || '—'}</span>
-            {v && <span style={{padding:'1px 5px',borderRadius:99,background:v.bg,color:v.fg,fontSize:8,fontWeight:800,textTransform:'uppercase',marginLeft:'auto'}}>{v.label}</span>}
+            {v && <span style={{padding:'1px 5px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,textTransform:'uppercase',marginLeft:'auto'}}>{v.label}</span>}
           </div>
           <div style={{fontSize:13,fontWeight:700,marginTop:2}}>{x.label}</div>
           {a && <div style={{fontSize:11,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>}
@@ -2592,11 +2632,11 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,marginBottom:12}}>
               <div style={{padding:'8px 10px',background:'rgba(251,191,36,.08)',borderRadius:10,border:'1px solid rgba(251,191,36,.3)'}}>
                 <div style={{fontSize:18,fontWeight:900,color:'#fbbf24'}} className="tn">{pending.length}</div>
-                <div style={{fontSize:9,color:T.t2,marginTop:1}}>en attente</div>
+                <div style={{fontSize:11,color:T.t2,marginTop:1}}>en attente</div>
               </div>
               <div style={{padding:'8px 10px',background:'rgba(34,197,94,.08)',borderRadius:10,border:'1px solid rgba(34,197,94,.25)'}}>
                 <div style={{fontSize:18,fontWeight:900,color:'#86efac'}} className="tn">{validated.length}</div>
-                <div style={{fontSize:9,color:T.t2,marginTop:1}}>validees</div>
+                <div style={{fontSize:11,color:T.t2,marginTop:1}}>validees</div>
               </div>
             </div>
             <Section title="En attente" items={pending} color="#fbbf24" />
@@ -2759,9 +2799,9 @@ function StockEditSheet({ code, onClose, onConfirm }) {
       <div style={{padding:'4px 14px 0'}}>
         <div style={{fontSize:11,color:T.t3,padding:'0 4px 10px'}} className="tn">{a.code} · {a.lib}</div>
         <div style={{padding:'18px 16px',background:'rgba(255,255,255,.03)',borderRadius:14,border:`1px solid ${T.border}`,marginBottom:12,textAlign:'center'}}>
-          <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>ERP actuel</div>
+          <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>ERP actuel</div>
           <div style={{fontSize:18,color:T.t2,fontWeight:700,marginTop:2,marginBottom:14}} className="tn">{a.stock} pcs</div>
-          <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau stock</div>
+          <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau stock</div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginTop:6}}>
             <button onClick={()=>setVal(v=>{const x=Math.max(0,(parseInt(v,10)||0)-1);return String(x);})} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.05)',color:T.t1,fontSize:28,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center'}}>-</button>
             <div style={{fontSize:48,fontWeight:900,color:T.t1,lineHeight:1,minWidth:80,textAlign:'center'}} className="tn">{val}</div>
@@ -2862,12 +2902,12 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
         <button onClick={onExit} style={btnIcon()}><Ico d={ICONS.back} /></button>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-            <span style={{fontSize:9,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
+            <span style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
             <span style={{fontSize:14,fontWeight:800,color:T.t1}}>Zone {zone}</span>
           </div>
           <div style={{fontSize:10,color:T.t2,marginTop:2}} className="tn">{done}/{items.length} comptés · {ecarts} écart{ecarts>1?'s':''}</div>
         </div>
-        <button onClick={onExit} style={{padding:'6px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
+        <button onClick={onExit} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
       </div>
 
       <div style={{padding:'8px 14px',background:'#0a0c10',borderBottom:`1px solid ${T.border}`}}>
@@ -2966,24 +3006,24 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
         <div className="pop" style={{padding:'14px 16px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,marginBottom:14}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8}}>
             <div>
-              <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Vérifiés</div>
+              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Vérifiés</div>
               <div style={{fontSize:22,fontWeight:900,color:'#86efac',marginTop:2}} className="tn">{items.length}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>/ {codes.length}</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>/ {codes.length}</div>
             </div>
             <div>
-              <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Non vér.</div>
+              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Non vér.</div>
               <div style={{fontSize:22,fontWeight:900,color:'#fca5a5',marginTop:2}} className="tn">{nonScanned.length}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>absents</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>absents</div>
             </div>
             <div>
-              <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Écarts</div>
+              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Écarts</div>
               <div style={{fontSize:22,fontWeight:900,color:'#fbbf24',marginTop:2}} className="tn">{corrections.length}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}} className="tn">{valDelta>=0?'+':''}{valDelta.toFixed(0)}€</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{valDelta>=0?'+':''}{valDelta.toFixed(0)}€</div>
             </div>
             <div>
-              <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Attendus</div>
+              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Attendus</div>
               <div style={{fontSize:22,fontWeight:900,color:T.t1,marginTop:2}} className="tn">{codes.length}</div>
-              <div style={{fontSize:9,color:T.t3,marginTop:1}}>ERP</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}}>ERP</div>
             </div>
           </div>
         </div>
@@ -3011,7 +3051,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                       <div style={{fontSize:11,color:'#fb923c',fontWeight:700,marginTop:1}}>→ {zone}</div>
                     </div>
                   </button>
-                  <button onClick={()=>onRemoveExtra(a.code)} style={{width:32,height:32,borderRadius:8,border:'1px solid rgba(248,113,113,.3)',background:'rgba(248,113,113,.08)',color:'#fca5a5',fontSize:14,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Retirer">✕</button>
+                  <button onClick={()=>onRemoveExtra(a.code)} style={{width:40,height:40,borderRadius:10,border:'1px solid rgba(248,113,113,.3)',background:'rgba(248,113,113,.08)',color:'#fca5a5',fontSize:14,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Retirer">✕</button>
                 </div>
               ))}
             </div>
@@ -3137,12 +3177,12 @@ function EmplacementSheet({ code, onClose, onPick }) {
       <div style={{padding:'4px 14px 0'}}>
         <div style={{padding:'12px 14px',background:'rgba(255,255,255,.03)',borderRadius:12,border:`1px solid ${T.border}`,marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Actuel</div>
+            <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Actuel</div>
             <div style={{fontSize:20,fontWeight:800,color:T.t2,marginTop:2}} className="tn">{a.empl}</div>
           </div>
           <div style={{fontSize:22,color:T.t3,fontWeight:300}}>→</div>
           <div style={{flex:1,textAlign:'right'}}>
-            <div style={{fontSize:9,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau</div>
+            <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau</div>
             <div style={{fontSize:20,fontWeight:800,color:isValid?'#fb923c':T.t3,marginTop:2}} className="tn">{val || '—'}</div>
           </div>
         </div>
@@ -3213,7 +3253,7 @@ const emplChip = (active) => ({
 
 function Toast({ msg }) {
   return (
-    <div style={{position:'absolute',bottom:90,left:'50%',transform:'translateX(-50%)',padding:'10px 16px',background:'rgba(15,17,22,.95)',color:T.t1,fontSize:13,fontWeight:600,borderRadius:99,zIndex:200,border:`1px solid ${T.border}`,backdropFilter:'blur(12px)',animation:'pop .15s ease',whiteSpace:'nowrap'}}>
+    <div style={{position:'absolute',bottom:'calc(96px + env(safe-area-inset-bottom))',pointerEvents:'none',maxWidth:'calc(100% - 32px)',left:'50%',transform:'translateX(-50%)',padding:'10px 16px',background:'rgba(15,17,22,.95)',color:T.t1,fontSize:13,fontWeight:600,borderRadius:99,zIndex:200,border:`1px solid ${T.border}`,backdropFilter:'blur(12px)',animation:'pop .15s ease',whiteSpace:'nowrap'}}>
       {msg}
     </div>
   );
@@ -3234,7 +3274,7 @@ const pcBtn = {
   color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.3,
 };
 const pcStat = {padding:'18px 18px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`};
-const pcStatLbl = {fontSize:9,fontWeight:800,letterSpacing:.6,color:T.t3,textTransform:'uppercase'};
+const pcStatLbl = {fontSize:11,fontWeight:800,letterSpacing:.6,color:T.t3,textTransform:'uppercase'};
 const pcStatVal = {fontSize:36,fontWeight:900,color:T.t1,marginTop:6,letterSpacing:-1};
 const pcStatSub = {fontSize:11,color:T.t2,marginTop:4};
 const pcCellSmall = {padding:'10px 12px',background:'#0a0c10',borderRadius:10};
@@ -3273,7 +3313,7 @@ function CopyBtn({ code, large }) {
 function PCEmpty({ agency, historyCount }) {
   return (
     <div style={{maxWidth:720,margin:'8vh auto 0',textAlign:'center',color:T.t1}}>
-      <div style={{fontSize:9,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency}</div>
+      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency}</div>
       <div style={{fontSize:36,fontWeight:900,letterSpacing:-1,marginTop:8,color:T.t1}}>Pret a scanner.</div>
       <div style={{fontSize:14,color:T.t2,marginTop:10,maxWidth:440,margin:'10px auto 0',lineHeight:1.5}}>
         Pointe la douchette USB sur un code, ou tape un code article, EAN, libelle ou emplacement dans le champ a gauche.
@@ -3509,7 +3549,7 @@ function PCApp() {
         {/* Left: scan input + live results */}
         <div style={{width:540,flexShrink:0,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',background:'#0c0f15'}}>
           <form onSubmit={onSubmit} style={{padding:'18px 18px 14px',borderBottom:`1px solid ${T.border}`}}>
-            <div style={{fontSize:9,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>Scanner ou rechercher</div>
+            <div style={{fontSize:11,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>Scanner ou rechercher</div>
             <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px 0 16px',background:T.card,borderRadius:14,border:`2px solid ${q?T.accent:T.border}`,height:60,transition:'border-color .15s'}}>
               <Ico d={scannerActive?ICONS.scan:ICONS.search} s={20} sw={2.5} />
               <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} autoFocus
@@ -3588,7 +3628,7 @@ function PCApp() {
                         </div>
                         <div style={{textAlign:'right'}}>
                           <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                          <div style={{fontSize:9,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                          <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
                         </div>
                       </button>
                       <CopyBtn code={a.code} />
@@ -3648,13 +3688,13 @@ function PCApp() {
                     width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 10px',
                     background:code===h.code?T.card:'transparent',borderRadius:8,border:'none',color:T.t1,textAlign:'left',cursor:'pointer',marginBottom:1,
                   }}>
-                    <span style={{fontSize:9,color:T.t3,width:38,fontWeight:600}} className="tn">{tStr}</span>
+                    <span style={{fontSize:11,color:T.t3,width:38,fontWeight:600}} className="tn">{tStr}</span>
                     <span style={{width:6,height:6,borderRadius:99,background:v.edge,flexShrink:0}} />
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{h.code}</div>
                       <div style={{fontSize:11,color:T.t1,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?a.lib:'?'}</div>
                     </div>
-                    <span style={{fontSize:9,color:T.t3}}>{h.mode==='scan'?'S':'R'}</span>
+                    <span style={{fontSize:11,color:T.t3}}>{h.mode==='scan'?'S':'R'}</span>
                   </button>
                 );
               })}
