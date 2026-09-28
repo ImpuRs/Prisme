@@ -115,6 +115,10 @@ fetch('config.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}).catch(()=>({})
 fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
   if (!data) return;
   CATALOGUE = data;
+  if (Array.isArray(data.F)) {
+    for (const f of data.F) if (f?.[0] && f[1] && !_famNames.has(f[0])) _famNames.set(f[0], f[1]);
+    for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
+  }
   if (data.E && typeof data.E === 'object') {
     if (!window._eanMap) window._eanMap = new Map();
     for (const [ean, code] of Object.entries(data.E)) {
@@ -232,6 +236,17 @@ function _secondary(it) {
   return sec;
 }
 
+// Libellés famille (code → nom) — alimenté par catalogue-marques.json (F)
+const _famNames = new Map();
+function _famDisplay(it) {
+  const fam = _famNames.get(it.famille) || it.famille || '';
+  const sous = String(it.sousFamille || '').replace(/^[A-Z0-9]{1,4}\s*-\s*/, '');
+  return [fam, sous].filter(Boolean).join(' › ') || '—';
+}
+// Couverture affichable : sans objet si stock ≤ 0
+const _couvLabel = (a) => a.stock > 0 && a.couv > 0 ? a.couv + 'j' : '—';
+const _verdictLabel = (a) => a.stock < 0 ? 'Stock négatif' : (VC[a.verdict] || VC.ok).label;
+
 function loadEngineData(engine) {
   if (!Array.isArray(engine)) return [];
   return engine.map(it => {
@@ -241,7 +256,7 @@ function loadEngineData(engine) {
     const eMin  = it.ancienMin    ?? 0;
     const eMax  = it.ancienMax    ?? 0;
     const verdict = _verdict(stock, min, max);
-    const fam = it.sousFamille ? `${it.famille || ''} › ${it.sousFamille}` : (it.famille || '—');
+    const fam = _famDisplay(it);
     return {
       code:    it.code,
       lib:     it.libelle || '—',
@@ -720,6 +735,8 @@ function App() {
         onInvCount={(n)=>{ setInvCounts(c=>({...c,[articleCode]:n})); setTimeout(()=>setPage('invList'), 350); }}
         onActionsCount={pendingActions}
         onTodo={()=>setSheet('todo')}
+        onSearch={()=>setPage('search')}
+        onStockEdit={()=>setSheet({type:'stockedit', code:articleCode})}
       />;
       })()}
 
@@ -1307,14 +1324,15 @@ const chipRow = () => ({
 });
 
 // ── ARTICLE ───────────────────────────────────────────────────
-function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext, tourZone, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo }) {
+function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext, tourZone, addedActions, invMode, invDoneCount, invTotal, invZone, invCurrentCount, onInvOpen, onInvExit, onInvCount, onActionsCount, onTodo, onSearch, onStockEdit }) {
   const [priceShown, setPriceShown] = useState(false);
   const [flip, setFlip] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [editQty, setEditQty] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const a = _artByCode.get(code) || _catalogArticle(code);
-  const [invCount, setInvCount] = useState(invCurrentCount != null ? invCurrentCount : (a?.stock ?? 0));
+  // Comptage à l'aveugle : départ vide (pas pré-rempli avec le stock ERP)
+  const [invVal, setInvVal] = useState(invCurrentCount != null ? String(invCurrentCount) : '');
   if (!a) return (
     <>
       <TopBar title="Article introuvable" sub={code} back onBack={onBack} onMenu={()=>{}} />
@@ -1382,7 +1400,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           <div style={{fontSize:28,fontWeight:900,color:T.t1,marginTop:8,letterSpacing:.5}} className="tn">{a.code}</div>
           <div style={{fontSize:13,color:T.t2,marginTop:4,maxWidth:280,lineHeight:1.4}}>{a.lib}</div>
           <div style={{marginTop:22,padding:'10px 14px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,display:'grid',gridTemplateColumns:'repeat(4,minmax(48px,1fr))',gap:14}}>
-            {[['Stock', a.stock, '#86efac'],['Min', a.min, T.t1],['Max', a.max, T.t1],['Couv.', a.couv+'j', T.t1]].map(([k,val,c])=>(
+            {[['Stock', a.stock, '#86efac'],['Min', a.min, T.t1],['Max', a.max, T.t1],['Couv.', _couvLabel(a), T.t1]].map(([k,val,c])=>(
               <div key={k} style={{textAlign:'center'}}>
                 <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
                 <div style={{fontSize:18,fontWeight:900,color:c,marginTop:2,lineHeight:1}} className="tn">{val}</div>
@@ -1408,7 +1426,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         <div style={{padding:'12px 14px',background:v.edge,color:'#0a0c10',display:'flex',alignItems:'center',gap:10,minHeight:52}}>
           <button onClick={onBack} style={{width:32,height:32,borderRadius:9,border:'none',background:'rgba(0,0,0,.18)',color:'#0a0c10',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>{v.label} · {a.empl}</div>
+            <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>{_verdictLabel(a)} · {a.empl}</div>
             <div style={{fontSize:13,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">{a.code} · {a.lib}</div>
           </div>
         </div>
@@ -1425,15 +1443,19 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
               <div style={{fontSize:11,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase'}}>Recommandation PRISME</div>
               <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:6}}>
                 <div style={{width:46,height:46,borderRadius:13,background:v.bg,color:v.fg,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'center'}}>
-                  <Ico d={a.primary.kind==='retour'?ICONS.ret||ICONS.back:ICONS.cart||ICONS.fwd} s={24} sw={2} />
+                  <Ico d={a.primary.kind==='retour' ? ICONS.back : a.primary.kind==='corriger_stock' ? ICONS.edit : ICONS.cart} s={24} sw={2} />
                 </div>
-                <span style={{fontSize:80,fontWeight:900,color:v.fg,lineHeight:.85,letterSpacing:-4}} className="tn">{a.primary.qty}</span>
-                <span style={{fontSize:16,color:T.t2,fontWeight:600,marginBottom:6}}>pcs</span>
+                <span style={{fontSize:80,fontWeight:900,color:v.fg,lineHeight:.85,letterSpacing:-4}} className="tn">{a.primary.kind==='corriger_stock' ? a.stock : a.primary.qty}</span>
+                <span style={{fontSize:16,color:T.t2,fontWeight:600,marginBottom:6}}>{a.primary.kind==='corriger_stock' ? 'en stock ERP' : 'pcs'}</span>
               </div>
-              <div style={{fontSize:17,fontWeight:800,color:T.t1,marginTop:8,lineHeight:1.3}}>{a.primary.label} maintenant</div>
+              <div style={{fontSize:17,fontWeight:800,color:T.t1,marginTop:8,lineHeight:1.3}}>{a.primary.kind==='corriger_stock' ? 'Recompter le rayon' : a.primary.label + ' maintenant'}</div>
               <div style={{fontSize:12,color:T.t2,marginTop:4,lineHeight:1.5}}>{a.primary.sub}</div>
             </div>
-            {editQty != null ? (
+            {a.primary.kind === 'corriger_stock' ? (
+              <div style={{padding:'12px 14px 0'}}>
+                <button onClick={onStockEdit} style={{width:'100%',padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>SAISIR LE STOCK COMPTÉ</button>
+              </div>
+            ) : editQty != null ? (
               <div style={{padding:'12px 14px 0'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginBottom:10}}>
                   <button onClick={()=>setEditQty(Math.max(0,editQty-1))} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:28,fontWeight:900,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
@@ -1458,12 +1480,18 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         <div className="pop" style={{background:T.card,borderRadius:16,border:`1px solid ${T.border}`,padding:'12px 14px',position:'relative',overflow:'hidden'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:16,color:T.t1,fontWeight:900,letterSpacing:.6}} className="tn">{a.code}</span>
-            <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {v.label}</span>
+            <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</span>
             <span style={{marginLeft:'auto',fontSize:10,color:T.t3,fontWeight:600}}>{a.sq}</span>
           </div>
           <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5,lineHeight:1.3}}>{a.lib}</div>
-          <div style={{fontSize:11,color:T.t3,marginTop:2}}>{a.marque} · {a.fam}</div>
+          <div style={{fontSize:12,color:T.t2,marginTop:2}}>{[a.marque, a.fam].filter(Boolean).join(' · ')}</div>
 
+          {invMode ? (
+            <div style={{marginTop:10,display:'flex',alignItems:'baseline',gap:10}}>
+              <span style={{fontSize:20,fontWeight:800,color:T.accent}}>{a.empl}</span>
+              <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:700}} className="tn">ERP {a.stock}</span>
+            </div>
+          ) : <>
           {/* KPI row : Stock / Min / Max / Couv. */}
           <div style={{marginTop:12,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
@@ -1483,7 +1511,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
               <div style={{fontSize:8,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Couv.</div>
-              <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.couv}j</div>
+              <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{_couvLabel(a)}</div>
               <div style={{fontSize:9,color:T.t3,marginTop:1}} className="tn">{a.vitesse||''}</div>
             </div>
           </div>
@@ -1526,27 +1554,22 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
               <div><span style={{color:T.t3}}>ERP MIN/MAX</span> <strong style={{color:T.t1}}>{(a.erpMin === a.min && a.erpMax === a.max) ? `${a.min}/${a.max}` : `${a.erpMin}/${a.erpMax} (à corriger)`}</strong></div>
             </div>
           )}
+          </>}
         </div>
 
         {/* Inv mode quick count */}
         {invMode && (
-          <div className="pop" style={{marginTop:10,padding:'12px 14px',background:'#16301f',borderRadius:14,border:'1px solid rgba(34,197,94,.3)'}}>
-            <div style={{fontSize:10,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Compter cet article</div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8}}>
-              <button onClick={()=>setInvCount(c=>Math.max(0,c-1))} style={{...numBtn(),width:44,height:44}}><Ico d={ICONS.minus} s={18} /></button>
-              <div style={{flex:1,textAlign:'center',padding:'8px',background:'rgba(0,0,0,.3)',borderRadius:10}}>
-                <div style={{fontSize:32,fontWeight:900,color:'#86efac',lineHeight:1}} className="tn">{invCount}</div>
-                <div style={{fontSize:9,color:T.t3,marginTop:2}}>compté · ERP {a.stock}</div>
-              </div>
-              <button onClick={()=>setInvCount(c=>c+1)} style={{...numBtn(),width:44,height:44}}><Ico d={ICONS.plus} s={18} /></button>
+          <div className="pop" style={{marginTop:10,padding:'12px 14px 14px',background:'#16301f',borderRadius:14,border:'1px solid rgba(34,197,94,.3)'}}>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+              <div style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Quantité comptée</div>
+              {invVal !== '' && parseInt(invVal,10) !== a.stock && (
+                <div style={{fontSize:12,fontWeight:800,color:'#fbbf24'}} className="tn">écart {parseInt(invVal,10)-a.stock>0?'+':''}{parseInt(invVal,10)-a.stock}</div>
+              )}
             </div>
-            <button onClick={()=>onInvCount(invCount)} style={{
-              width:'100%',marginTop:8,padding:'12px',borderRadius:11,border:'none',
-              background:'#22c55e',color:'#06200f',fontSize:13,fontWeight:800,
-              display:'flex',alignItems:'center',justifyContent:'center',gap:6,
-            }}>
-              <Ico d={ICONS.check} s={14} sw={3} /> Valider · suivant
-            </button>
+            <div style={{margin:'8px 0 10px',padding:'10px',background:'rgba(0,0,0,.3)',borderRadius:12,textAlign:'center'}}>
+              <div style={{fontSize:48,fontWeight:900,color:invVal===''?T.t3:'#86efac',lineHeight:1}} className="tn">{invVal === '' ? '—' : invVal}</div>
+            </div>
+            <NumPad value={invVal} onChange={setInvVal} />
           </div>
         )}
 
@@ -1566,11 +1589,11 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           if (erpAction) return (
             <>
               <button onClick={()=>onAddAction(erpAction.kind, `${erpAction.label} (${erpAction.sub})`, 'ERP central', '≤ 5 min')} style={{
-                width:'100%',marginTop:12,padding:'12px 14px',borderRadius:14,border:'none',
-                background:'#eab308',color:'#0a0c10',textAlign:'left',
+                width:'100%',marginTop:12,padding:'12px 14px',borderRadius:14,border:'1px solid rgba(234,179,8,.45)',
+                background:'rgba(234,179,8,.10)',color:'#facc15',textAlign:'left',
                 display:'flex',alignItems:'center',gap:12,
               }}>
-                <div style={{width:40,height:40,borderRadius:10,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:800}}>ERP</div>
+                <div style={{width:40,height:40,borderRadius:10,background:'rgba(234,179,8,.16)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:800}}>ERP</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:800}}>{erpAction.label}</div>
                   <div style={{fontSize:11,opacity:.75,marginTop:1}}>{erpAction.sub}</div>
@@ -1594,8 +1617,43 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
 
       </div>
 
-      <BottomBar onSearch={onBack} onScan={onScan} onActions={onTodo} count={onActionsCount} primary={a.primary && !invMode} />
+      {invMode ? (
+        <div style={{padding:'10px 14px calc(14px + env(safe-area-inset-bottom))',background:T.bg,borderTop:`1px solid ${T.border}`,display:'flex',gap:8}}>
+          <button onClick={onScan} aria-label="Scanner" style={{width:56,flexShrink:0,borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <Ico d={ICONS.scan} s={22} sw={2.5} />
+          </button>
+          <button disabled={invVal===''} onClick={()=>onInvCount(parseInt(invVal,10))} style={{
+            flex:1,padding:'16px',borderRadius:14,border:'none',
+            background:invVal===''?'rgba(255,255,255,.06)':'#22c55e',color:invVal===''?T.t3:'#06200f',
+            fontSize:15,fontWeight:900,letterSpacing:.3,display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+          }}>
+            <Ico d={ICONS.check} s={16} sw={3} /> {invVal===''?'Saisir la quantité':`Valider ${invVal} · suivant`}
+          </button>
+        </div>
+      ) : (
+        <BottomBar onSearch={onSearch || onBack} onScan={onScan} onActions={onTodo} count={onActionsCount} />
+      )}
     </>
+  );
+}
+
+// Pavé numérique réutilisable (comptage inventaire, saisie stock)
+function NumPad({ value, onChange, max=4 }) {
+  const tap = (k) => {
+    if (k === 'del') onChange(value.slice(0, -1));
+    else if (k === 'c') onChange('');
+    else onChange((value === '0' ? k : value + k).slice(0, max));
+  };
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+      {['1','2','3','4','5','6','7','8','9','c','0','del'].map(k => (
+        <button key={k} onClick={()=>tap(k)} style={{
+          height:52,borderRadius:12,border:`1px solid ${T.border}`,
+          background: k==='c' || k==='del' ? 'rgba(255,255,255,.03)' : T.card,
+          color: k==='c' || k==='del' ? T.t2 : T.t1,fontSize:22,fontWeight:800,
+        }} className="tn">{k === 'del' ? '⌫' : k === 'c' ? 'C' : k}</button>
+      ))}
+    </div>
   );
 }
 
@@ -2334,7 +2392,7 @@ function DouchetteScreen({ onBack, onArticle }) {
               <span style={{marginLeft:'auto',fontSize:10,color:'#a78bfa',fontWeight:700}}>● SCANNÉ</span>
             </div>
             <div style={{fontSize:18,fontWeight:800,marginTop:8,lineHeight:1.25}}>{last.lib}</div>
-            <div style={{fontSize:12,color:T.t2,marginTop:3}}>{last.marque} · {last.fam}</div>
+            <div style={{fontSize:12,color:T.t2,marginTop:3}}>{[last.marque, last.fam].filter(Boolean).join(' · ')}</div>
             <div style={{marginTop:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
                 <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Stock</div>
@@ -2347,7 +2405,7 @@ function DouchetteScreen({ onBack, onArticle }) {
               </div>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
                 <div style={{fontSize:9,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Couv.</div>
-                <div style={{fontSize:14,fontWeight:800,color:T.t1,marginTop:4}} className="tn">{last.couv}j</div>
+                <div style={{fontSize:14,fontWeight:800,color:T.t1,marginTop:4}} className="tn">{_couvLabel(last)}</div>
               </div>
             </div>
             <div style={{marginTop:10,fontSize:11,color:T.t3,textAlign:'right'}}>Tape pour la fiche complète →</div>
@@ -2685,7 +2743,7 @@ function LabelsSheet({ onClose, actions, onMarkPrinted, onMarkAllPrinted }) {
 // ── StockEditSheet — saisie compté physique ───────────────────
 function StockEditSheet({ code, onClose, onConfirm }) {
   const a = _artByCode.get(code);
-  const [val, setVal] = useState(String(a ? a.stock : ''));
+  const [val, setVal] = useState(a ? String(Math.max(0, a.stock)) : '');
   if (!a) return null;
   const n = parseInt(val,10);
   const valid = !isNaN(n) && n >= 0;
@@ -3247,7 +3305,7 @@ function PCArticle({ a, onClose }) {
   return (
     <div style={{maxWidth:800,margin:'0 auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-        <div style={{padding:'4px 10px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {v.label}</div>
+        <div style={{padding:'4px 10px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</div>
         <div style={{fontSize:13,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</div>
         <CopyBtn code={a.code} large />
         <a href={`http://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Ouvrir sur legallais.com" style={{
@@ -3264,7 +3322,7 @@ function PCArticle({ a, onClose }) {
         </div>
       )}
       <div style={{fontSize:26,fontWeight:800,color:T.t1,letterSpacing:-.3,lineHeight:1.15}}>{a.lib}</div>
-      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{a.marque} · {a.fam} {a.refFourn ? <span style={{color:T.t3,marginLeft:8}}>ref. four. {a.refFourn}</span>:''}</div>
+      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{[a.marque, a.fam].filter(Boolean).join(' · ')} {a.refFourn ? <span style={{color:T.t3,marginLeft:8}}>ref. four. {a.refFourn}</span>:''}</div>
 
       <div style={{padding:'24px 26px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,position:'relative',overflow:'hidden',marginTop:24}}>
         <div style={{position:'absolute',top:-60,right:-60,width:200,height:200,borderRadius:99,background:v.edge,opacity:.1,filter:'blur(50px)',pointerEvents:'none'}} />
@@ -3272,7 +3330,7 @@ function PCArticle({ a, onClose }) {
         <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:6,position:'relative'}}>
           <span style={{fontSize:96,fontWeight:900,color:v.fg,lineHeight:.9,letterSpacing:-4}} className="tn">{a.stock}</span>
           <span style={{fontSize:16,color:T.t2,fontWeight:600}}>pcs</span>
-          <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:600}} className="tn">{a.couv}j de couverture</span>
+          <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:600}} className="tn">{a.stock > 0 && a.couv > 0 ? a.couv + 'j de couverture' : ''}</span>
         </div>
         <div style={{marginTop:18,height:8,background:'#0a0c10',borderRadius:99,position:'relative'}}>
           <div style={{position:'absolute',left:0,top:0,height:'100%',width:`${Math.min(100,(a.stock/Math.max(a.max*1.5,a.stock,1))*100)}%`,background:v.edge,borderRadius:99}} />
@@ -3296,7 +3354,7 @@ function PCArticle({ a, onClose }) {
           ) : (
             <div style={pcCellSmall}>
               <div style={pcStatLbl}>Couverture</div>
-              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3}} className="tn">{a.couv}j</div>
+              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3}} className="tn">{_couvLabel(a)}</div>
             </div>
           )}
           <div style={pcCellSmall}>
