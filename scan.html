@@ -170,7 +170,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v11 · 29/09/2026';
+const SCAN_VERSION = 'v12 · 29/09/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -3077,10 +3077,16 @@ function ConfirmSheet({ info, onClose, onUndo, onHome, onNext, tourZone }) {
             background:'#fff',color:'#000',fontSize:14,fontWeight:800,letterSpacing:.3,
           }}>{count > 0 ? 'OK · retour à l\u2019accueil' : 'Retour à l\u2019accueil'}</button>
         )}
-        <button onClick={onHome} style={{
-          width:'100%',marginTop:6,padding:'12px',borderRadius:12,border:'none',
-          background:'transparent',color:T.t2,fontSize:12,fontWeight:600,
-        }}>{onNext ? 'Retour à l\u2019accueil' : 'Rester sur la fiche'}</button>
+        <div style={{display:'flex',gap:6,marginTop:6}}>
+          <button onClick={onClose} style={{
+            flex:1,padding:'12px',borderRadius:12,border:'none',
+            background:'transparent',color:T.t2,fontSize:12,fontWeight:600,
+          }}>Rester sur la fiche</button>
+          {onNext && <button onClick={onHome} style={{
+            flex:1,padding:'12px',borderRadius:12,border:'none',
+            background:'transparent',color:T.t2,fontSize:12,fontWeight:600,
+          }}>Retour à l\u2019accueil</button>}
+        </div>
       </div>
     </Sheet>
   );
