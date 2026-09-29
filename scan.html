@@ -14,11 +14,15 @@
 <meta name="apple-mobile-web-app-title" content="Scan" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 <style>
   html,body{margin:0;padding:0;background:#0a0c10;font-family:'Inter',-apple-system,system-ui,sans-serif;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
   *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
   .tn{font-variant-numeric:tabular-nums}
+  .mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  button{transition:transform .08s ease,background-color .15s ease,border-color .15s ease}
+  button:active{transform:scale(.985)}
+  button:focus-visible,input:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
   /* Stage: fake bezel for desktop preview only */
   #stage{height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 800px at 50% 30%,#22262e 0%,#0a0c10 100%)}
   .phone{position:relative;width:390px;height:780px;border-radius:48px;background:#000;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 2px #1a1d24,0 0 0 6px #2a2f38}
@@ -166,7 +170,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v10 · 28/09/2026';
+const SCAN_VERSION = 'v11 · 29/09/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -207,7 +211,16 @@ function _unitCost(a) {
 const T = {
   bg: '#0a0c10', card: '#13171f', card2: '#1a1f29', border: '#252a35',
   t1: '#f4f6fa', t2: '#a3acba', t3: '#7d8696', accent: '#fb923c',
+  accentInk: '#1a0e05', accentSoft: 'rgba(251,146,60,.12)',
 };
+// Alertes accueil : le négatif (anomalie ERP) se distingue de la rupture par la saturation
+const ALERT = {
+  neg:      { c:'#ef4444', bg:'rgba(239,68,68,.22)',  fg:'#fecaca', l:'nég' },
+  rupt:     { c:'#fca5a5', bg:'rgba(252,165,165,.12)', fg:'#fca5a5', l:'rupt' },
+  sousmin:  { c:'#fbbf24', bg:'rgba(251,191,36,.12)',  fg:'#fbbf24', l:'<min' },
+  surstock: { c:'#a78bfa', bg:'rgba(167,139,250,.13)', fg:'#c4b5fd', l:'sur' },
+};
+const ALERT_KEYS = ['neg','rupt','sousmin','surstock'];
 const VC = {
   rupture:  { bg:'#3a1518', fg:'#fca5a5', edge:'#ef4444', label:'Rupture' },
   sousmin:  { bg:'#3a2a14', fg:'#fbbf24', edge:'#f59e0b', label:'Sous min' },
@@ -288,7 +301,7 @@ function _famDisplay(it) {
 // Filtres de l'accueil (type d'alerte)
 const HOME_FILTERS = [
   { k:'',         l:'Tout' },
-  { k:'neg',      l:'Négatifs',  c:'#f87171' },
+  { k:'neg',      l:'Négatifs',  c:'#ef4444' },
   { k:'rupt',     l:'Ruptures',  c:'#fca5a5' },
   { k:'sousmin',  l:'Sous min',  c:'#fbbf24' },
   { k:'surstock', l:'Sur-stock', c:'#c4b5fd' },
@@ -592,6 +605,15 @@ const ICONS = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   minus:'<path d="M5 12h14"/>',
   tag:'<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  keyboard:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  stream:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  box:'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+  ext:'<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
 };
 
@@ -1054,37 +1076,58 @@ function App() {
 }
 
 // ── Top + bottom bar ──────────────────────────────────────────
-function TopBar({ title='PRISME', sub, back, onBack, onMenu }) {
+// Logo PRISME : prisme qui décompose un faisceau (reprend l'accent orange)
+function BrandMark({ s=34 }) {
   return (
-    <div style={{padding:'6px 12px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:56}}>
-      {back && <button onClick={onBack} style={btnIcon()}><Ico d={ICONS.back} /></button>}
+    <div style={{width:s,height:s,borderRadius:10,flexShrink:0,background:'linear-gradient(145deg,#1f1a16,#13171f)',border:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <svg width={s*.62} height={s*.62} viewBox="0 0 24 24" fill="none">
+        <path d="M12 3L21 19H3z" stroke={T.accent} strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M1 12.5h7.5" stroke={T.t2} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M15 11.5l8-2.5M15.5 13l8 .5M15 14.5l7.5 3" stroke={T.accent} strokeWidth="1.4" strokeLinecap="round" opacity=".85" />
+      </svg>
+    </div>
+  );
+}
+
+function TopBar({ title='PRISME', sub, back, onBack, onMenu, brand, badgeTxt, status }) {
+  return (
+    <div style={{padding:'8px 12px 8px 14px',display:'flex',alignItems:'center',gap:10,borderBottom:`1px solid ${T.border}`,background:T.bg,minHeight:58}}>
+      {back && <button onClick={onBack} style={btnIcon()} aria-label="Retour"><Ico d={ICONS.back} /></button>}
+      {brand && <BrandMark />}
       <div style={{flex:1, minWidth:0}}>
-        <div style={{fontSize:14,fontWeight:800,color:T.t1,letterSpacing:-.2,lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</div>
-        <div style={{fontSize:10,color:T.t3,marginTop:2}} className="tn">{sub}</div>
+        <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+          <div style={{fontSize:brand?15:14,fontWeight:800,color:T.t1,letterSpacing:brand?1.2:-.2,lineHeight:1.1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</div>
+          {badgeTxt && <span className="mono" style={{fontSize:9.5,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6,flexShrink:0}}>{badgeTxt}</span>}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:T.t3,marginTop:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">
+          {status && <span style={{width:6,height:6,borderRadius:99,flexShrink:0,background:status==='off'?'#fbbf24':status==='load'?T.t3:'#22c55e',boxShadow:status==='on'?'0 0 0 3px rgba(34,197,94,.15)':'none',animation:status==='load'?'pulse 1.2s infinite':'none'}} />}
+          <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{sub}</span>
+        </div>
       </div>
-      <button onClick={onMenu} style={{...btnIcon(true)}}><Ico d={ICONS.more} /></button>
+      {onMenu && <button onClick={onMenu} style={{...btnIcon(true)}} aria-label="Menu"><Ico d={ICONS.more} /></button>}
     </div>
   );
 }
 
 function BottomBar({ onSearch, onScan, onActions, count=0, primary }) {
   return (
-    <div style={{padding:'8px 16px calc(16px + env(safe-area-inset-bottom))',display:'flex',alignItems:'center',gap:10,background:T.bg,borderTop:`1px solid ${T.border}`,position:'relative'}}>
+    <div style={{padding:'10px 16px calc(14px + env(safe-area-inset-bottom))',display:'flex',alignItems:'center',gap:12,background:'linear-gradient(to bottom,rgba(10,12,16,.92),#0a0c10)',borderTop:`1px solid ${T.border}`,position:'relative'}}>
       <button onClick={onSearch} style={pillBtn()}>
-        <Ico d={ICONS.search} s={14} />
-        <span style={{color:T.t2,fontWeight:500}}>Recherche</span>
+        <Ico d={ICONS.search} s={16} />
+        <span>Recherche</span>
       </button>
-      <button onClick={onScan} style={{
-        width:60,height:60,borderRadius:99,border:'none',background:T.accent,color:'#1a0e05',
+      <button onClick={onScan} aria-label="Scanner" style={{
+        width:64,height:64,borderRadius:22,border:'none',background:`linear-gradient(160deg,#fdba74,${T.accent} 55%,#f97316)`,color:T.accentInk,
         display:'flex',alignItems:'center',justifyContent:'center',
-        boxShadow:'0 8px 24px rgba(251,146,60,.4),0 2px 0 rgba(0,0,0,.2)',
-        marginTop:-14,flexShrink:0,
+        boxShadow:'0 10px 28px rgba(251,146,60,.35),inset 0 1px 0 rgba(255,255,255,.35),0 0 0 5px #0a0c10',
+        marginTop:-20,flexShrink:0,
       }}>
-        <Ico d={ICONS.scan} s={24} sw={2.5} />
+        <Ico d={ICONS.scan} s={26} sw={2.4} />
       </button>
-      <button onClick={onActions} style={{...pillBtn(),justifyContent:'flex-end',position:'relative'}}>
-        <span style={{color:T.t2,fontWeight:500}}>{primary ? 'Faire' : 'Actions'}</span>
-        {count > 0 && <span style={badge('#fbbf24','#000')}>{count}</span>}
+      <button onClick={onActions} style={{...pillBtn(),position:'relative'}}>
+        <Ico d={ICONS.list} s={16} />
+        <span>{primary ? 'Faire' : 'Actions'}</span>
+        {count > 0 && <span className="tn" style={{...badge(T.accent,T.accentInk),marginLeft:'auto'}}>{count}</span>}
       </button>
     </div>
   );
@@ -1096,8 +1139,8 @@ const btnIcon = (out) => ({
   display:'flex',alignItems:'center',justifyContent:'center',
 });
 const pillBtn = () => ({
-  flex:1,height:46,borderRadius:14,border:`1px solid ${T.border}`,
-  background:T.card,color:T.t1,fontSize:13,fontWeight:700,
+  flex:1,height:48,borderRadius:14,border:`1px solid ${T.border}`,
+  background:T.card,color:T.t2,fontSize:13,fontWeight:700,
   display:'flex',alignItems:'center',gap:8,padding:'0 14px',
 });
 const badge = (bg,fg) => ({
@@ -1163,7 +1206,9 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   });
   return (
     <>
-      <TopBar onMenu={onMenu} title={`PRISME · ${SCAN_VERSION.split(' ')[0]}`} sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
+      <TopBar brand onMenu={onMenu} title="PRISME" badgeTxt={SCAN_VERSION.split(' ')[0]}
+        status={navigator.onLine === false ? 'off' : DATA_SOURCE==='loading' ? 'load' : 'on'}
+        sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       {ARTICLES.length === 0 ? (
         <div style={{flex:1}} />
@@ -1171,44 +1216,55 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
       <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
 
         {todos.length > 0 && SCAN_CONFIG.retour !== false ? (<>
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
-              <div style={{fontSize:12,color:T.t2,marginTop:2}}>{emplList.length} emplacement{emplList.length>1?'s':''}{treatedCount>0 && <span style={{color:'#86efac'}}> · {treatedCount} traité{treatedCount>1?'s':''}</span>}</div>
+          <div style={{padding:'14px 16px',borderRadius:16,marginBottom:12,background:'radial-gradient(120% 140% at 100% 0%,rgba(239,68,68,.14),transparent 55%),#11141b',border:`1px solid ${T.border}`}}>
+            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10.5,fontWeight:800,letterSpacing:1.4,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
+                <div style={{fontSize:12,color:T.t2,marginTop:4}}>{emplList.length} emplacement{emplList.length>1?'s':''} à visiter{treatedCount>0 && <span style={{color:'#86efac'}}> · {treatedCount} traité{treatedCount>1?'s':''}</span>}</div>
+              </div>
+              <span style={{fontSize:44,fontWeight:900,color:T.t1,letterSpacing:-2,lineHeight:.9}} className="tn">{shown.length.toLocaleString('fr-FR')}</span>
             </div>
-            <span style={{fontSize:36,fontWeight:900,color:'#fca5a5',letterSpacing:-2}} className="tn">{shown.length}</span>
+            <div style={{display:'flex',height:6,borderRadius:99,overflow:'hidden',gap:2,marginTop:14,background:'rgba(255,255,255,.04)'}}>
+              {ALERT_KEYS.map(k => filterCounts[k] > 0 && (
+                <div key={k} style={{flex:filterCounts[k],background:ALERT[k].c,opacity:!filter||filter===k?1:.25,transition:'opacity .2s'}} />
+              ))}
+            </div>
           </div>
           <div style={{display:'flex',gap:6,overflowX:'auto',margin:'0 -16px 10px',padding:'0 16px',flexShrink:0}}>
             {HOME_FILTERS.filter(f => !f.k || filterCounts[f.k] > 0).map(f => {
               const on = filter === f.k;
               return (
                 <button key={f.k} onClick={()=>{ onFilter(f.k); setShowAllZones(false); }} style={{
-                  flexShrink:0,height:36,padding:'0 12px',borderRadius:99,
+                  flexShrink:0,height:36,padding:'0 12px',borderRadius:99,display:'flex',alignItems:'center',gap:7,
                   border:`1px solid ${on ? (f.c||T.t1) : T.border}`,
                   background: on ? (f.c||T.t1)+'22' : T.card,
                   color: on ? (f.c||T.t1) : T.t2,fontSize:12,fontWeight:800,whiteSpace:'nowrap',
-                }}>{f.l} <span className="tn" style={{opacity:.75}}>{filterCounts[f.k]}</span></button>
+                }}>{f.c && <Dot c={f.c} s={7} />}{f.l} <span className="tn" style={{opacity:.7,fontWeight:700}}>{filterCounts[f.k].toLocaleString('fr-FR')}</span></button>
               );
             })}
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:14}}>
             {(showAllZones ? emplList : emplList.slice(0,8)).map(([zone, e]) => (
-              <button key={zone} onClick={()=>onArticle(e.articles[0].code, zone)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,borderLeft:`3px solid ${e.neg>0?'#f87171':e.rupt>0?'#ef4444':e.sousmin>0?'#fbbf24':'#a78bfa'}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
-                <div style={{minWidth:44,textAlign:'center'}}>
-                  <div style={{fontSize:zone==='—'?12:18,fontWeight:900,color:zone==='—'?T.t2:T.accent}} className="tn">{zone==='—' ? 'Sans empl.' : zone}</div>
-                  <div style={{fontSize:10,color:T.t3}}>{e.total} réf{e.total>1?'s':''}</div>
+              <button key={zone} onClick={()=>onArticle(e.articles[0].code, zone)} style={{display:'flex',flexDirection:'column',gap:9,padding:'11px 12px 10px 14px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`,cursor:'pointer',color:T.t1,textAlign:'left'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12,width:'100%'}}>
+                  <div style={{flexShrink:0,maxWidth:'58%',display:'flex',alignItems:'baseline',gap:8}}>
+                    <span className={zone==='—'?'':'mono'} style={{fontSize:zone==='—'?14:20,fontWeight:800,color:zone==='—'?T.t2:T.accent,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',minWidth:0}}>{zone==='—' ? 'Sans emplacement' : zone}</span>
+                    <span className="tn" style={{fontSize:11,color:T.t3,flexShrink:0}}>{e.total} réf{e.total>1?'s':''}</span>
+                  </div>
+                  <div style={{flex:1,minWidth:0,display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    {ALERT_KEYS.map(k => e[k] > 0 && (
+                      <span key={k} className="tn" style={{padding:'2px 7px',borderRadius:6,background:ALERT[k].bg,color:ALERT[k].fg,fontSize:10.5,fontWeight:800,whiteSpace:'nowrap'}}>{e[k]} {ALERT[k].l}</span>
+                    ))}
+                  </div>
+                  <span style={{color:T.t3,display:'flex'}}><Ico d={ICONS.fwd} s={14} sw={2.5} /></span>
                 </div>
-                <div style={{flex:1,display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {e.neg > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(248,113,113,.15)',color:'#f87171',fontSize:10,fontWeight:800}}>{e.neg} nég</span>}
-                  {e.rupt > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(239,68,68,.15)',color:'#fca5a5',fontSize:10,fontWeight:800}}>{e.rupt} rupt</span>}
-                  {e.sousmin > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(251,191,36,.12)',color:'#fbbf24',fontSize:10,fontWeight:800}}>{e.sousmin} &lt;min</span>}
-                  {e.surstock > 0 && <span style={{padding:'2px 7px',borderRadius:99,background:'rgba(167,139,250,.12)',color:'#c4b5fd',fontSize:10,fontWeight:800}}>{e.surstock} sur</span>}
+                <div style={{display:'flex',height:3,borderRadius:99,overflow:'hidden',gap:2,width:'100%'}}>
+                  {ALERT_KEYS.map(k => e[k] > 0 && <div key={k} style={{flex:e[k],background:ALERT[k].c}} />)}
                 </div>
-                <Ico d={ICONS.fwd} s={14} sw={2.5} />
               </button>
             ))}
             {emplList.length > 8 && (
-              <button onClick={()=>setShowAllZones(v=>!v)} style={{height:44,borderRadius:12,border:`1px dashed ${T.border}`,background:'transparent',color:T.t2,fontSize:13,fontWeight:700}}>
+              <button onClick={()=>setShowAllZones(v=>!v)} style={{height:44,borderRadius:14,border:`1px dashed ${T.border}`,background:'transparent',color:T.t2,fontSize:13,fontWeight:700}}>
                 {showAllZones ? 'Réduire' : `Voir les ${emplList.length - 8} autres emplacements`}
               </button>
             )}
@@ -1221,8 +1277,8 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
         )}
 
         {actionsCount > 0 && (
-          <button onClick={onActions} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'rgba(251,191,36,.08)',borderRadius:12,border:'1px solid rgba(251,191,36,.3)',color:T.t1,marginBottom:14,cursor:'pointer',textAlign:'left'}}>
-            <div style={{fontSize:22,fontWeight:900,color:'#fbbf24'}} className="tn">{actionsCount}</div>
+          <button onClick={onActions} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:T.accentSoft,borderRadius:14,border:'1px solid rgba(251,146,60,.3)',color:T.t1,marginBottom:16,cursor:'pointer',textAlign:'left'}}>
+            <div style={{minWidth:38,height:38,padding:'0 8px',borderRadius:10,background:T.accent,color:T.accentInk,fontSize:17,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}} className="tn">{actionsCount}</div>
             <div style={{flex:1,fontSize:12,color:T.t2}}>action{actionsCount>1?'s':''} en attente {validatedCount>0 && <span style={{color:'#86efac'}}>· {validatedCount} validée{validatedCount>1?'s':''}</span>}</div>
             <Ico d={ICONS.fwd} s={14} sw={2.5} />
           </button>
@@ -1230,13 +1286,13 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
 
         <div style={sectionLabel}>Modes</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          <ModeBtn dot="#22c55e" l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
-          <ModeBtn dot="#60a5fa" l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
-          <ModeBtn dot="#a78bfa" l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={onDouchette} />
+          <ModeBtn dot="#22c55e" icon={ICONS.checkb} l="Inventaire emplacement" s="Compter une zone et corriger l'ERP" onClick={onInv} active={invMode} />
+          <ModeBtn dot="#60a5fa" icon={ICONS.stream} l="Scan continu" s="Plusieurs articles d'affilée" onClick={()=>onScan()} />
+          <ModeBtn dot="#a78bfa" icon={ICONS.keyboard} l="Mode douchette" s="Clavier masqué — scanner Zebra" onClick={onDouchette} />
         </div>
 
-        <div style={{...sectionLabel, marginTop:14}}>Récents</div>
-        <div style={{display:'flex',flexDirection:'column',gap:6,paddingBottom:12}}>
+        {recents.length > 0 && <div style={{...sectionLabel, marginTop:18}}>Récents</div>}
+        <div style={{display:'flex',flexDirection:'column',gap:6,paddingBottom:28}}>
           {recents.slice(0,4).map(c => {
             const a = _artByCode.get(c); if (!a) return null;
             const v = VC[a.verdict];
@@ -1247,9 +1303,8 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
                 borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',
               }}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:11,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</div>
-                  <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
-                  <div style={{fontSize:11,color:T.accent,fontWeight:600,marginTop:1}}>{a.empl}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700}} className="mono"><span style={{color:T.t3}}>{a.code}</span><span style={{color:T.accent}}>{a.empl}</span></div>
+                  <div style={{fontSize:13,fontWeight:600,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
@@ -1266,19 +1321,19 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   );
 }
 
-const sectionLabel = {fontSize:10,color:T.t3,fontWeight:700,letterSpacing:1,textTransform:'uppercase',margin:'4px 4px 6px'};
+const sectionLabel = {fontSize:10.5,color:T.t3,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',margin:'4px 4px 8px'};
 const statCard = () => ({padding:'14px 14px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`,textAlign:'left',color:T.t1});
 
-function ModeBtn({ dot, l, s, onClick, active }) {
+function ModeBtn({ dot, icon, l, s, onClick, active }) {
   return (
     <button onClick={onClick} style={{
       display:'flex',alignItems:'center',gap:12,padding:'11px 14px',
-      background: active ? '#16301f' : T.card,borderRadius:12,
+      background: active ? '#16301f' : T.card,borderRadius:14,
       border:`1px solid ${active ? 'rgba(34,197,94,.3)' : T.border}`,
       color:T.t1,textAlign:'left',
     }}>
-      <div style={{width:32,height:32,borderRadius:9,background:dot+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-        <Dot c={dot} s={10} />
+      <div style={{width:36,height:36,borderRadius:10,background:dot+'1f',color:dot,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        {icon ? <Ico d={icon} s={18} sw={2} /> : <Dot c={dot} s={10} />}
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:700}}>{l}{active && ' · actif'}</div>
@@ -1339,7 +1394,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
     <>
       <div style={{padding:'8px 12px 6px',display:'flex',alignItems:'center',gap:8,background:T.bg,borderBottom:`1px solid ${T.border}`}}>
         <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.back} /></button>
-        <div style={{flex:1,display:'flex',alignItems:'center',gap:8,padding:'0 6px 0 12px',background:T.card,borderRadius:12,border:`1.5px solid ${q?T.accent:T.border}`,height:42}}>
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:8,padding:'0 6px 0 12px',background:T.card,borderRadius:12,border:`1.5px solid ${q?T.accent:T.border}`,height:42,color:q?T.accent:T.t3}}>
           <Ico d={ICONS.search} s={16} />
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder={numPad?"Référence...":"Code, libellé, empl..."} autoFocus
             inputMode={numPad?'numeric':'text'}
@@ -1365,6 +1420,13 @@ function SearchScreen({ onClose, onPick, onScan }) {
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
+        {!q.trim() && DATA_SOURCE !== 'mock' && (
+          <div style={{padding:'36px 20px 0',textAlign:'center',color:T.t3}}>
+            <div style={{width:52,height:52,margin:'0 auto 14px',borderRadius:16,background:T.card,border:`1px solid ${T.border}`,color:T.t2,display:'flex',alignItems:'center',justifyContent:'center'}}><Ico d={ICONS.search} s={22} sw={2} /></div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1}}>Chercher un article</div>
+            <div style={{fontSize:12,lineHeight:1.5,marginTop:6}}>Code article, libellé, marque, réf. fournisseur ou emplacement.<br/>{numPad ? <>Passez en <b style={{color:T.t2}}>ABC</b> pour saisir du texte.</> : <><b style={{color:T.t2}}>Catalogue</b> : articles hors agence.</>}</div>
+          </div>
+        )}
         {!q.trim() && DATA_SOURCE === 'mock' && (
           <>
             <div style={sectionLabel}>Suggestions</div>
@@ -1397,7 +1459,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
                 }}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <span style={{fontSize:11,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</span>
+                      <span style={{fontSize:11,color:T.t3,fontWeight:700}} className="mono">{a.code}</span>
                       {isCat && <span style={{fontSize:11,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
                     </div>
                     <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
@@ -1440,7 +1502,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const [invVal, setInvVal] = useState(invCurrentCount != null ? String(invCurrentCount) : '');
   if (!a) return (
     <>
-      <TopBar title="Article introuvable" sub={code} back onBack={onBack} onMenu={()=>{}} />
+      <TopBar title="Article introuvable" sub={code} back onBack={onBack} />
       <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center'}}>
         <div style={{fontSize:48,marginBottom:16}}>?</div>
         <div style={{fontSize:18,fontWeight:900,color:T.t1}}>Code {code}</div>
@@ -1463,7 +1525,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   if (a.catalogOnly) {
     return (
       <>
-        <TopBar title={a.code} sub="Article hors agence" back onBack={onBack} onMenu={()=>{}} />
+        <TopBar title={a.code} sub="Article hors agence" back onBack={onBack} />
         <div style={{flex:1,padding:'18px 14px',overflow:'auto'}}>
           <div style={{padding:'18px 16px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`}}>
             <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:'uppercase'}}>Catalogue Legallais</div>
@@ -1545,7 +1607,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           </div>
         </div>
       ) : (
-        <TopBar title={a.code} sub={a.lib} back onBack={onBack} onMenu={()=>{}} />
+        <TopBar title={a.code} sub={a.lib} back onBack={onBack} />
       )}
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       <div style={{flex:1,padding:'12px 14px',overflow:'auto'}}>
@@ -1610,7 +1672,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         {/* Cartouche article — toujours visible (compact si action-first) */}
         <div className="pop" style={{background:T.card,borderRadius:16,border:`1px solid ${T.border}`,padding:'12px 14px',position:'relative',overflow:'hidden'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontSize:16,color:T.t1,fontWeight:900,letterSpacing:.6}} className="tn">{a.code}</span>
+            <span style={{fontSize:16,color:T.t1,fontWeight:800}} className="mono">{a.code}</span>
             <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</span>
             <span style={{marginLeft:'auto',fontSize:10,color:T.t3,fontWeight:600}}>{a.sq}</span>
           </div>
@@ -1619,7 +1681,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
 
           {invMode ? (
             <div style={{marginTop:10,display:'flex',alignItems:'baseline',gap:10}}>
-              <span style={{fontSize:20,fontWeight:800,color:T.accent}}>{a.empl}</span>
+              <span style={{fontSize:20,fontWeight:800,color:T.accent}} className="mono">{a.empl}</span>
               <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:700}} className="tn">ERP {a.stock}</span>
             </div>
           ) : <>
@@ -1647,11 +1709,16 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             </div>
           </div>
 
+          <StockGauge stock={a.stock} min={a.min} max={a.max} color={v.fg} />
+
           {/* Empl + prix */}
           <div style={{marginTop:8,display:'grid',gridTemplateColumns: a.prix != null ? '1.4fr 1fr' : '1fr',gap:6}}>
-            <div style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12}}>
-              <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Emplacement</div>
-              <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:2}}>{a.empl}</div>
+            <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:12,display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:32,height:32,borderRadius:9,background:T.accentSoft,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.pin} s={16} sw={2} /></div>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:800}}>Emplacement</div>
+                <div style={{fontSize:17,fontWeight:800,color:T.accent,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="mono">{a.empl}</div>
+              </div>
             </div>
             {a.prix != null && (
               <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
@@ -1667,19 +1734,19 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           </button>
           {detailsOpen && (
             <div style={{padding:'8px 10px',color:T.t2,fontSize:11,lineHeight:1.8,background:'#0a0c10',borderRadius:'0 0 10px 10px',marginTop:-2}}>
-              <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}}>{_eanByCode.get(a.code) || '—'}</strong></div>
+              <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}} className="mono">{_eanByCode.get(a.code) || '—'}</strong></div>
               {getCustomEansForCode(a.code).length > 0 && (
                 <div style={{marginTop:2,marginBottom:2}}>
                   <span style={{color:T.t3}}>Associations</span>
                   {getCustomEansForCode(a.code).map(ean=>(
                     <div key={ean} style={{display:'inline-flex',alignItems:'center',gap:4,marginLeft:6,padding:'1px 6px',background:'rgba(251,146,60,.12)',borderRadius:6}}>
-                      <strong style={{color:T.t1,fontFamily:'ui-monospace,monospace',fontSize:11}}>{ean}</strong>
+                      <strong style={{color:T.t1,fontSize:11}} className="mono">{ean}</strong>
                       <button onClick={(ev)=>{ ev.stopPropagation(); removeCustomEan(ean); setFlip(f=>f+1); }} style={{background:'none',border:'none',color:'#fca5a5',fontSize:13,fontWeight:800,padding:'0 2px',cursor:'pointer',lineHeight:1}}>x</button>
                     </div>
                   ))}
                 </div>
               )}
-              <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}}>{a.refFourn || '—'}</strong></div>
+              <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}} className="mono">{a.refFourn || '—'}</strong></div>
               <div><span style={{color:T.t3}}>Statut</span> <strong style={{color:T.t1}}>{a.statut}</strong></div>
               <div><span style={{color:T.t3}}>Squelette</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>
               <div><span style={{color:T.t3}}>ERP MIN/MAX</span> <strong style={{color:T.t1}}>{(a.erpMin === a.min && a.erpMax === a.max) ? `${a.min}/${a.max}` : `${a.erpMin}/${a.erpMax} (à corriger)`}</strong></div>
@@ -1706,10 +1773,10 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
 
         {/* Actions déjà ajoutées */}
         {addedActions.length > 0 && (
-          <div style={{marginTop:10,padding:'10px 12px',background:'rgba(251,191,36,.08)',borderRadius:12,border:'1px solid rgba(251,191,36,.25)'}}>
-            <div style={{fontSize:10,color:'#fbbf24',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',marginBottom:6}}>✓ {addedActions.length} action{addedActions.length>1?'s':''} en attente</div>
+          <div className="pop" style={{marginTop:10,padding:'10px 12px',background:T.accentSoft,borderRadius:14,border:'1px solid rgba(251,146,60,.28)'}}>
+            <div style={{fontSize:10.5,color:T.accent,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>{addedActions.length} action{addedActions.length>1?'s':''} en attente</div>
             {addedActions.map((act,i)=>(
-              <div key={i} style={{fontSize:12,color:T.t1,padding:'2px 0'}}>· {act.label}</div>
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:12.5,color:T.t1,padding:'3px 0'}}><span style={{color:'#86efac',display:'flex'}}><Ico d={ICONS.check} s={14} sw={3} /></span>{act.label}</div>
             ))}
           </div>
         )}
@@ -1769,6 +1836,28 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   );
 }
 
+// Jauge stock : bande MIN→MAX (cible) et position du stock actuel
+function StockGauge({ stock, min, max, color }) {
+  if (!(max > 0) && !(stock > 0)) return null;
+  const top = Math.max(max * 1.3, stock, min, 1);
+  const pct = (x) => Math.max(0, Math.min(100, (x / top) * 100));
+  const sp = pct(stock);
+  return (
+    <div style={{marginTop:10,padding:'10px 12px 8px',background:'#0a0c10',borderRadius:10}}>
+      <div style={{position:'relative',height:8,borderRadius:99,background:'rgba(255,255,255,.05)'}}>
+        {max > 0 && <div style={{position:'absolute',top:0,bottom:0,left:pct(min)+'%',width:Math.max(1.5,pct(max)-pct(min))+'%',background:'rgba(34,197,94,.22)',borderLeft:'2px solid rgba(34,197,94,.7)',borderRight:'2px solid rgba(34,197,94,.7)'}} />}
+        <div style={{position:'absolute',top:0,bottom:0,left:0,width:sp+'%',borderRadius:99,background:color,opacity:.55}} />
+        <div style={{position:'absolute',top:-4,left:`calc(${sp}% - 2px)`,width:4,height:16,borderRadius:2,background:color,boxShadow:'0 0 0 2px #0a0c10'}} />
+      </div>
+      <div style={{position:'relative',height:14,marginTop:5,fontSize:10,color:T.t3,fontWeight:700}} className="tn">
+        <span style={{position:'absolute',left:0}}>0</span>
+        {max > 0 && <span style={{position:'absolute',left:pct(min)+'%',transform:'translateX(-50%)',whiteSpace:'nowrap'}}>{max === min ? `min/max ${min}` : `min ${min}`}</span>}
+        {max > 0 && max !== min && <span style={{position:'absolute',left:pct(max)+'%',transform:'translateX(-50%)',whiteSpace:'nowrap'}}>max {max}</span>}
+      </div>
+    </div>
+  );
+}
+
 // Pavé numérique réutilisable (comptage inventaire, saisie stock)
 function NumPad({ value, onChange, max=4, fresh=false }) {
   // fresh : la valeur affichée est une proposition → la 1re touche chiffre la remplace
@@ -1781,10 +1870,11 @@ function NumPad({ value, onChange, max=4, fresh=false }) {
     <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
       {['1','2','3','4','5','6','7','8','9','c','0','del'].map(k => (
         <button key={k} onClick={()=>tap(k)} style={{
-          height:52,borderRadius:12,border:`1px solid ${T.border}`,
-          background: k==='c' || k==='del' ? 'rgba(255,255,255,.03)' : T.card,
-          color: k==='c' || k==='del' ? T.t2 : T.t1,fontSize:22,fontWeight:800,
-        }} className="tn">{k === 'del' ? '⌫' : k === 'c' ? 'C' : k}</button>
+          height:54,borderRadius:14,border:`1px solid ${k==='c' || k==='del' ? 'transparent' : T.border}`,
+          background: k==='c' || k==='del' ? 'rgba(255,255,255,.03)' : T.card2,
+          color: k==='c' || k==='del' ? T.t2 : T.t1,fontSize:23,fontWeight:700,
+          display:'flex',alignItems:'center',justifyContent:'center',
+        }} className="tn" aria-label={k === 'del' ? 'Effacer' : k === 'c' ? 'Tout effacer' : k}>{k === 'del' ? <Ico d='<path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-5 6M12 9l5 6"/>' s={22} sw={2} /> : k === 'c' ? 'C' : k}</button>
       ))}
     </div>
   );
@@ -1798,12 +1888,12 @@ const numBtn = () => ({
 // ── Sheets ────────────────────────────────────────────────────
 function Sheet({ children, onClose, title, h='auto' }) {
   return (
-    <div onClick={onClose} className="sheet-bg" style={{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',zIndex:100,display:'flex',alignItems:'flex-end'}}>
-      <div onClick={e=>e.stopPropagation()} className="sheet" style={{width:'100%',background:T.card,borderRadius:'20px 20px 0 0',maxHeight:'85%',overflow:'auto',paddingBottom:18}}>
-        <div style={{width:36,height:4,borderRadius:2,background:T.border,margin:'8px auto 0'}} />
-        {title && <div style={{padding:'10px 18px 4px',display:'flex',alignItems:'center'}}>
-          <div style={{flex:1,fontSize:14,fontWeight:800,color:T.t1}}>{title}</div>
-          <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.close} s={16} /></button>
+    <div onClick={onClose} className="sheet-bg" style={{position:'absolute',inset:0,background:'rgba(4,5,8,.6)',backdropFilter:'blur(3px)',WebkitBackdropFilter:'blur(3px)',zIndex:100,display:'flex',alignItems:'flex-end'}}>
+      <div onClick={e=>e.stopPropagation()} className="sheet" style={{width:'100%',background:T.card,borderRadius:'22px 22px 0 0',borderTop:'1px solid rgba(255,255,255,.07)',boxShadow:'0 -20px 50px rgba(0,0,0,.45)',maxHeight:'85%',overflow:'auto',paddingBottom:'calc(18px + env(safe-area-inset-bottom))'}}>
+        <div style={{width:40,height:5,borderRadius:99,background:'#2e3440',margin:'8px auto 0'}} />
+        {title && <div style={{padding:'10px 14px 6px 18px',display:'flex',alignItems:'center'}}>
+          <div style={{flex:1,fontSize:16,fontWeight:800,color:T.t1,letterSpacing:-.2}}>{title}</div>
+          <button onClick={onClose} style={{...btnIcon(),background:T.card2,borderRadius:99,width:36,height:36}} aria-label="Fermer"><Ico d={ICONS.close} s={16} /></button>
         </div>}
         {children}
       </div>
@@ -1822,6 +1912,7 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
     all.push({...a.primary, primary:true, color:v.edge, dest:pdest, eta:peta});
   }
   (a.secondary || []).filter(s=>!doneKinds.has(s.kind)).forEach(s => all.push({...s, dest:'ERP central · sync', eta:'≤ 5 min'}));
+  const KIND_ICON = { commander:ICONS.cart, retour:ICONS.back, corriger_stock:ICONS.edit, erp:ICONS.sync, etiquette:ICONS.tag, stock:ICONS.box, emp:ICONS.pin };
   all.push({kind:'etiquette', label:'Étiquette manquante', sub:'Réimprimer · ajout commande Legallais', dest:'Commande rapide Legallais', eta:'À la prochaine impression'});
   all.push({kind:'stock', label:'Modifier le stock', sub:`Stock ERP : ${a.stock} pcs`, dest:'ERP central · sync', eta:'≤ 5 min'});
   all.push({kind:'emp', label:'Modifier emplacement', sub:`Actuel : ${a.empl}`, dest:'ERP central', eta:'Immédiat'});
@@ -1829,16 +1920,17 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
   return (
     <Sheet onClose={onClose} title="Que veux-tu faire ?">
       <div style={{padding:'4px 14px 0'}}>
-        <div style={{fontSize:11,color:T.t3,padding:'0 4px 8px'}} className="tn">Article {a.code} · {a.lib}</div>
+        <div style={{fontSize:11.5,color:T.t3,padding:'0 4px 10px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}><span className="mono" style={{color:T.t2,fontWeight:700}}>{a.code}</span> · {a.lib}</div>
         {all.map((x,i)=>(
           <button key={i} onClick={()=>onAdd(x.kind, x.label + (x.sub&&x.kind==='erp'?' · '+x.sub:'') + (x.qty?` (${x.qty} pcs)`:''), x.dest, x.eta)} style={{
             width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
             background: x.primary ? x.color : 'rgba(255,255,255,.03)',
             color: x.primary ? '#0a0c10' : T.t1,
-            borderRadius:12,border: x.primary ? 'none' : `1px solid ${T.border}`,
+            borderRadius:14,border: x.primary ? 'none' : `1px solid ${T.border}`,
             textAlign:'left',marginBottom:6,
           }}>
-            {x.qty && <div style={{width:40,height:40,borderRadius:10,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,flexShrink:0}} className="tn">{x.qty}</div>}
+            {x.qty ? <div style={{width:40,height:40,borderRadius:10,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,flexShrink:0}} className="tn">{x.qty}</div>
+              : <div style={{width:40,height:40,borderRadius:10,background:x.primary?'rgba(0,0,0,.18)':T.card2,color:x.primary?'inherit':T.t2,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={KIND_ICON[x.kind] || ICONS.fwd} s={18} sw={2} /></div>}
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:800}}>{x.label}</div>
               <div style={{fontSize:11,opacity:.75,marginTop:1}}>{x.sub}</div>
@@ -1903,9 +1995,10 @@ function ZonePickerSheet({ onClose, onPick }) {
               borderRadius:12,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,
             }}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{z}</div>
-                <div style={{fontSize:11,color:T.t2,marginTop:2}}>{e.count} article{e.count>1?'s':''}{e.alerts>0 ? ` · ${e.alerts} alerte${e.alerts>1?'s':''}`:''}</div>
+                <div style={{fontSize:16,fontWeight:800,color:T.accent,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="mono">{z}</div>
+                <div style={{fontSize:11,color:T.t2,marginTop:2}} className="tn">{e.count} article{e.count>1?'s':''}</div>
               </div>
+              {e.alerts > 0 && <span className="tn" style={{padding:'2px 8px',borderRadius:6,background:ALERT.sousmin.bg,color:ALERT.sousmin.fg,fontSize:10.5,fontWeight:800}}>{e.alerts} alerte{e.alerts>1?'s':''}</span>}
               <Ico d={ICONS.fwd} s={14} sw={2.5} />
             </button>
           ))}
@@ -1917,14 +2010,14 @@ function ZonePickerSheet({ onClose, onPick }) {
 
 function MenuSheet({ onClose, onItem, invMode, invZone }) {
   const items = [
-    { k:'import', l:'Importer JSON ou CSV', s:'JSON PRISME ou CSV état du stock ERP', dot:'#34d399' },
+    { k:'import', l:'Importer JSON ou CSV', s:'JSON PRISME ou CSV état du stock ERP', dot:'#34d399', ic:ICONS.upload },
     invMode
-      ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24' }
-      : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e' },
-    ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171' }] : []),
-    { k:'ean', l:`Codes-barres associés (${_customEanMap.size})`, s:'Voir et gérer les associations EAN', dot:'#fb923c' },
-    { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#fbbf24' },
-    { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171' },
+      ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24', ic:ICONS.checkb }
+      : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e', ic:ICONS.checkb },
+    ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171', ic:ICONS.stop, danger:true }] : []),
+    { k:'ean', l:`Codes-barres associés (${_customEanMap.size})`, s:'Voir et gérer les associations EAN', dot:'#fb923c', ic:ICONS.scan },
+    { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#60a5fa', ic:ICONS.sync },
+    { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171', ic:ICONS.trash, danger:true },
   ];
   return (
     <Sheet onClose={onClose} title="Menu">
@@ -1933,13 +2026,13 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
           <button key={x.k} onClick={()=>onItem(x.k)} style={{
             width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
             background:'rgba(255,255,255,.03)',color:T.t1,
-            borderRadius:12,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,
+            borderRadius:14,border:`1px solid ${T.border}`,textAlign:'left',marginBottom:6,
           }}>
-            <div style={{width:32,height:32,borderRadius:9,background:x.dot+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <Dot c={x.dot} s={9} />
+            <div style={{width:36,height:36,borderRadius:10,background:x.dot+'1f',color:x.dot,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <Ico d={x.ic} s={17} sw={2} />
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700}}>{x.l}</div>
+              <div style={{fontSize:13,fontWeight:700,color:x.danger?'#fca5a5':T.t1}}>{x.l}</div>
               <div style={{fontSize:11,color:T.t2,marginTop:1}}>{x.s}</div>
             </div>
             <Ico d={ICONS.fwd} s={14} sw={2.5} />
@@ -2505,7 +2598,7 @@ function DouchetteScreen({ onBack, onArticle }) {
 
   return (
     <>
-      <TopBar title="Mode douchette" sub="Scanner Zebra · clavier masqué" back onBack={onBack} onMenu={()=>{}} />
+      <TopBar title="Mode douchette" sub="Scanner Zebra · clavier masqué" back onBack={onBack} />
       {/* Input capte les keystrokes de la douchette */}
       <input
         ref={inputRef}
@@ -3111,7 +3204,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
   }).filter(Boolean).sort((x,y)=>x.a.code.localeCompare(y.a.code));
   return (
     <>
-      <TopBar title="Bilan inventaire" sub={`Zone ${zone} · ${items.length} article${items.length>1?'s':''} comptés`} back onBack={onBack} onMenu={()=>{}} />
+      <TopBar title="Bilan inventaire" sub={`Zone ${zone} · ${items.length} article${items.length>1?'s':''} comptés`} back onBack={onBack} />
       <div style={{flex:1,overflow:'auto',padding:'12px 14px 100px'}}>
 
         <div className="pop" style={{padding:'14px 16px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,marginBottom:14}}>
@@ -3408,7 +3501,7 @@ function CopyBtn({ code, large }) {
       background:copied?'rgba(34,197,94,.12)':T.card,color:copied?'#86efac':T.t2,
       fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5,letterSpacing:.3,
     }}>
-      <span>{copied?'Copie':'Copier'}</span>
+      <span>{copied?'Copié ✓':'Copier'}</span>
     </button>
   );
   return (
@@ -3421,99 +3514,107 @@ function CopyBtn({ code, large }) {
   );
 }
 
-function PCEmpty({ agency, historyCount }) {
+// Mode PC = recherche d'article au comptoir : on n'affiche que la disponibilité,
+// pas les indicateurs de gestion de stock (ruptures, MIN/MAX, négatifs…)
+function _dispo(a) {
+  if (a.catalogOnly) return { c:'#93c5fd', bg:'rgba(96,165,250,.12)', l:'Non référencé en agence', n:null };
+  if (a.stock > 0) return { c:'#86efac', bg:'rgba(34,197,94,.12)', l:'Disponible', n:a.stock };
+  return { c:'#fca5a5', bg:'rgba(239,68,68,.12)', l:'Indisponible', n:0 };
+}
+
+function PCEmpty({ agency }) {
+  const HINTS = [['Code article','600510'],['Code-barres','EAN 13 chiffres'],['Libellé','gants hiver'],['Emplacement','B12'],['Réf. fournisseur','SP-0191…']];
   return (
-    <div style={{maxWidth:720,margin:'8vh auto 0',textAlign:'center',color:T.t1}}>
-      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency}</div>
-      <div style={{fontSize:36,fontWeight:900,letterSpacing:-1,marginTop:8,color:T.t1}}>Pret a scanner.</div>
-      <div style={{fontSize:14,color:T.t2,marginTop:10,maxWidth:440,margin:'10px auto 0',lineHeight:1.5}}>
-        Pointe la douchette USB sur un code, ou tape un code article, EAN, libelle ou emplacement dans le champ a gauche.
+    <div style={{maxWidth:640,margin:'12vh auto 0',textAlign:'center',color:T.t1}}>
+      <div style={{width:64,height:64,margin:'0 auto 18px',borderRadius:18,background:T.card,border:`1px solid ${T.border}`,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <Ico d={ICONS.search} s={28} sw={2} />
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14,marginTop:36,textAlign:'left',maxWidth:500,margin:'36px auto 0'}}>
-        <div style={pcStat}>
-          <div style={pcStatLbl}>Refs en cache</div>
-          <div style={pcStatVal} className="tn">{ARTICLES.length}</div>
-          <div style={pcStatSub}>{DATA_SOURCE === 'idb' ? 'session PRISME live' : 'donnees demo'}</div>
-        </div>
-        <div style={pcStat}>
-          <div style={pcStatLbl}>Scans aujourd'hui</div>
-          <div style={pcStatVal} className="tn">{historyCount}</div>
-          <div style={pcStatSub}>session courante</div>
-        </div>
+      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency} · {ARTICLES.length.toLocaleString('fr-FR')} articles</div>
+      <div style={{fontSize:32,fontWeight:900,letterSpacing:-1,marginTop:8}}>Rechercher un article</div>
+      <div style={{fontSize:14,color:T.t2,marginTop:10,lineHeight:1.5}}>
+        Scanne l'article avec la douchette ou tape dans le champ à gauche.
       </div>
-      <div style={{marginTop:36,fontSize:11,color:T.t3,display:'flex',gap:18,justifyContent:'center',flexWrap:'wrap'}}>
-        <span><kbd style={kbd}>douchette USB</kbd> scanne directement</span>
-        <span><kbd style={kbd}>Tab/click</kbd> n'importe ou — focus revient toujours sur le champ</span>
-        <span><kbd style={kbd}>Esc</kbd> ferme la fiche</span>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginTop:28}}>
+        {HINTS.map(([l,ex]) => (
+          <div key={l} style={{padding:'8px 12px',borderRadius:10,background:T.card,border:`1px solid ${T.border}`,textAlign:'left'}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.t1}}>{l}</div>
+            <div style={{fontSize:11,color:T.t3,marginTop:1}} className="mono">{ex}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:28,fontSize:11,color:T.t3,display:'flex',gap:18,justifyContent:'center',flexWrap:'wrap'}}>
+        <span><kbd style={kbd}>Entrée</kbd> ouvre le 1er résultat</span>
+        <span><kbd style={kbd}>Esc</kbd> efface / ferme la fiche</span>
+        <span>Catalogue : articles hors agence</span>
       </div>
     </div>
   );
 }
 
 function PCArticle({ a, onClose }) {
-  const v = VC[a.verdict];
+  const d = _dispo(a);
   const [priceShown, setPriceShown] = useState(false);
+  const ean = _eanByCode.get(a.code);
+  const cell = {padding:'14px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12};
   return (
-    <div style={{maxWidth:800,margin:'0 auto'}}>
-      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-        <div style={{padding:'4px 10px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</div>
-        <div style={{fontSize:13,color:T.t3,fontWeight:600,letterSpacing:.5}} className="tn">{a.code}</div>
+    <div style={{maxWidth:820,margin:'0 auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+        <div style={{fontSize:15,color:T.t1,fontWeight:800}} className="mono">{a.code}</div>
         <CopyBtn code={a.code} large />
-        <a href={`http://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Ouvrir sur legallais.com" style={{
-          padding:'5px 10px',borderRadius:7,border:`1px solid ${T.border}`,background:T.card,color:T.t2,
-          fontSize:11,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:5,letterSpacing:.3,textDecoration:'none',
-        }}>legallais.com</a>
-        <div style={{fontSize:11,color:T.t3}}>{a.sq}</div>
         <div style={{flex:1}} />
-        <button onClick={onClose} style={{...pcBtn,padding:'7px 12px',fontSize:12}}>Fermer · Esc</button>
+        <button onClick={onClose} style={{...pcBtn,padding:'7px 12px',fontSize:12,whiteSpace:'nowrap'}}>Fermer · Esc</button>
       </div>
-      {a.catalogOnly && (
-        <div style={{marginBottom:14,padding:'10px 14px',borderRadius:10,background:'rgba(96,165,250,.10)',border:'1px solid rgba(96,165,250,.3)',color:'#93c5fd',fontSize:12,fontWeight:700}}>
-          Catalogue Legallais · article non référencé dans cette agence
-        </div>
-      )}
-      <div style={{fontSize:26,fontWeight:800,color:T.t1,letterSpacing:-.3,lineHeight:1.15}}>{a.lib}</div>
-      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{[a.marque, a.fam].filter(Boolean).join(' · ')} {a.refFourn ? <span style={{color:T.t3,marginLeft:8}}>ref. four. {a.refFourn}</span>:''}</div>
+      <div style={{fontSize:28,fontWeight:800,color:T.t1,letterSpacing:-.4,lineHeight:1.15}}>{a.lib}</div>
+      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{[a.marque, a.fam].filter(Boolean).join(' · ')}</div>
+      <a href={`https://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" style={{
+        marginTop:16,display:'inline-flex',alignItems:'center',gap:8,padding:'10px 16px',borderRadius:10,
+        background:T.accent,color:T.accentInk,fontSize:13,fontWeight:800,textDecoration:'none',
+      }}>Voir la fiche sur legallais.com <Ico d={ICONS.ext} s={14} sw={2.5} /></a>
 
-      <div style={{padding:'24px 26px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,position:'relative',overflow:'hidden',marginTop:24}}>
-        <div style={{position:'absolute',top:-60,right:-60,width:200,height:200,borderRadius:99,background:v.edge,opacity:.1,filter:'blur(50px)',pointerEvents:'none'}} />
-        <div style={pcStatLbl}>En stock</div>
-        <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:6,position:'relative'}}>
-          <span style={{fontSize:96,fontWeight:900,color:v.fg,lineHeight:.9,letterSpacing:-4}} className="tn">{a.stock}</span>
-          <span style={{fontSize:16,color:T.t2,fontWeight:600}}>pcs</span>
-          <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:600}} className="tn">{a.stock > 0 && a.couv > 0 ? a.couv + 'j de couverture' : ''}</span>
-        </div>
-        <div style={{marginTop:18,height:8,background:'#0a0c10',borderRadius:99,position:'relative'}}>
-          <div style={{position:'absolute',left:0,top:0,height:'100%',width:`${Math.min(100,(a.stock/Math.max(a.max*1.5,a.stock,1))*100)}%`,background:v.edge,borderRadius:99}} />
-          <div style={{position:'absolute',left:`${(a.min/Math.max(a.max*1.5,a.stock,1))*100}%`,top:-3,width:2,height:14,background:T.t2}} />
-          <div style={{position:'absolute',left:`${(a.max/Math.max(a.max*1.5,a.stock,1))*100}%`,top:-3,width:2,height:14,background:T.t2}} />
-        </div>
-        <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:11,color:T.t3,fontWeight:600}} className="tn">
-          <span>min {a.min}</span><span>max {a.max}</span>
-        </div>
-
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:18}}>
-          <div style={pcCellSmall}>
-            <div style={pcStatLbl}>Empl.</div>
-            <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:3}}>{a.empl}</div>
-          </div>
-          {SCAN_CONFIG.prix !== false && a.prix != null ? (
-            <button onClick={()=>setPriceShown(p=>!p)} style={{...pcCellSmall,border:'none',cursor:'pointer',textAlign:'left'}}>
-              <div style={pcStatLbl}>Prix moy. <span style={{color:T.t3,fontWeight:500}}>· {a.marge}%</span></div>
-              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix?a.prix.toFixed(2):'--'} EUR</div>
-            </button>
-          ) : (
-            <div style={pcCellSmall}>
-              <div style={pcStatLbl}>Couverture</div>
-              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3}} className="tn">{_couvLabel(a)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:20}}>
+        <div style={{padding:'20px 22px',borderRadius:16,background:d.bg,border:`1px solid ${d.c}44`}}>
+          <div style={{...pcStatLbl,color:d.c}}>Disponibilité</div>
+          {d.n != null ? (
+            <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:8}}>
+              <span style={{fontSize:64,fontWeight:900,color:T.t1,lineHeight:.9,letterSpacing:-2}} className="tn">{d.n}</span>
+              <span style={{fontSize:15,color:T.t2,fontWeight:600}}>en stock</span>
             </div>
-          )}
-          <div style={pcCellSmall}>
-            <div style={pcStatLbl}>Statut</div>
-            <div style={{fontSize:13,fontWeight:700,color:T.t1,marginTop:5}}>{a.statut}</div>
+          ) : <div style={{height:58}} />}
+          <div style={{display:'flex',alignItems:'center',gap:7,marginTop:10,fontSize:14,fontWeight:800,color:d.c}}><Dot c={d.c} s={8} />{d.l}</div>
+        </div>
+        <div style={{padding:'20px 22px',borderRadius:16,background:T.card,border:`1px solid ${T.border}`}}>
+          <div style={pcStatLbl}>Emplacement</div>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginTop:10}}>
+            <div style={{width:44,height:44,borderRadius:12,background:T.accentSoft,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.pin} s={22} sw={2} /></div>
+            <span className="mono" style={{fontSize:a.catalogOnly?20:36,fontWeight:800,color:a.catalogOnly?T.t3:T.accent,lineHeight:1,wordBreak:'break-all'}}>{a.empl || '—'}</span>
           </div>
         </div>
       </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:12}}>
+        {SCAN_CONFIG.prix !== false && a.prix != null ? (
+          <button onClick={()=>setPriceShown(p=>!p)} title="Cliquer pour afficher / masquer" style={{...cell,color:T.t1,cursor:'pointer',textAlign:'left'}}>
+            <div style={pcStatLbl}>Prix moy. {priceShown ? '' : '· cliquer'}</div>
+            <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,filter:priceShown?'none':'blur(6px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2).replace('.',',')} €</div>
+          </button>
+        ) : (
+          <div style={cell}>
+            <div style={pcStatLbl}>Statut</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}}>{a.statut || '—'}</div>
+          </div>
+        )}
+        <div style={cell}>
+          <div style={pcStatLbl}>Code-barres</div>
+          <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}} className="mono">{ean || '—'}</div>
+        </div>
+        <div style={cell}>
+          <div style={pcStatLbl}>Réf. fournisseur</div>
+          <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5,wordBreak:'break-all'}} className="mono">{a.refFourn || '—'}</div>
+        </div>
+      </div>
+      {SCAN_CONFIG.prix !== false && a.prix != null && a.statut && (
+        <div style={{fontSize:12,color:T.t3,marginTop:12}}>Statut : <span style={{color:T.t2,fontWeight:600}}>{a.statut}</span></div>
+      )}
     </div>
   );
 }
@@ -3533,7 +3634,7 @@ function PCApp() {
     try { return JSON.parse(localStorage.getItem('prisme_pc_hist')||'[]'); } catch(e){ return []; }
   });
   useEffect(()=>{ try{ localStorage.setItem('prisme_pc_hist', JSON.stringify(history.slice(0,50))); }catch(e){} }, [history]);
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [unknown, setUnknown] = useState(null);
   const [flashKey, setFlashKey] = useState(0);
   const [scannerActive, setScannerActive] = useState(false);
@@ -3646,14 +3747,18 @@ function PCApp() {
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',background:T.bg,color:T.t1,fontSize:14}}>
       {/* Top bar */}
       <div style={{height:54,padding:'0 20px',display:'flex',alignItems:'center',gap:18,borderBottom:`1px solid ${T.border}`,background:'#0d1016',flexShrink:0}}>
-        <div style={{fontSize:14,fontWeight:900,letterSpacing:1.5,color:T.t1}}>PRISME</div>
-        <div style={{padding:'3px 10px',borderRadius:6,background:T.card,fontSize:11,fontWeight:700,letterSpacing:.5,color:T.accent}}>{CTX.agency}</div>
-        <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{ARTICLES.length.toLocaleString('fr-FR')} refs</div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <BrandMark s={30} />
+          <div style={{fontSize:14,fontWeight:900,letterSpacing:1.5,color:T.t1}}>PRISME</div>
+          <span className="mono" style={{fontSize:10,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6}}>{SCAN_VERSION.split(' ')[0]}</span>
+        </div>
+        <div style={{padding:'3px 10px',borderRadius:6,background:T.card,border:`1px solid ${T.border}`,fontSize:11,fontWeight:700,letterSpacing:.5,color:T.t1}}>{CTX.agency}</div>
+        <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{ARTICLES.length.toLocaleString('fr-FR')} réfs</div>
         <div style={{flex:1}} />
         <div style={{display:'flex',alignItems:'center',gap:8,padding:'5px 11px',borderRadius:99,background:scannerActive?'rgba(251,146,60,.15)':T.card,border:`1px solid ${scannerActive?T.accent:T.border}`,transition:'all .2s'}}>
           <div style={{width:7,height:7,borderRadius:99,background:scannerActive?T.accent:'#5b6473',animation:scannerActive?'pulseDot 1s infinite':'none'}} />
           <span style={{fontSize:11,fontWeight:700,color:scannerActive?T.accent:T.t2,letterSpacing:.3}}>
-            {scannerActive ? 'Douchette detectee' : 'Douchette prete'}
+            {scannerActive ? 'Douchette détectée' : 'Douchette prête'}
           </span>
         </div>
         <button onClick={()=>setHistoryOpen(o=>!o)} style={{...btnIcon(true),width:'auto',height:32,padding:'0 12px',gap:6,fontSize:12,fontWeight:700,color:T.t2}}>
@@ -3665,15 +3770,15 @@ function PCApp() {
       {/* Body */}
       <div style={{flex:1,display:'flex',minHeight:0,overflow:'hidden'}}>
         {/* Left: scan input + live results */}
-        <div style={{width:540,flexShrink:0,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',background:'#0c0f15'}}>
+        <div style={{width:440,flexShrink:0,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',background:'#0c0f15'}}>
           <form onSubmit={onSubmit} style={{padding:'18px 18px 14px',borderBottom:`1px solid ${T.border}`}}>
             <div style={{fontSize:11,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>Scanner ou rechercher</div>
-            <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px 0 16px',background:T.card,borderRadius:14,border:`2px solid ${q?T.accent:T.border}`,height:60,transition:'border-color .15s'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 10px 0 16px',background:T.card,borderRadius:14,border:`2px solid ${q?T.accent:T.border}`,height:60,transition:'border-color .15s',color:q||scannerActive?T.accent:T.t3}}>
               <Ico d={scannerActive?ICONS.scan:ICONS.search} s={20} sw={2.5} />
               <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} autoFocus
-                placeholder="Code · libelle · EAN · ref four..."
+                placeholder="Code, libellé, EAN, réf…"
                 style={{flex:1,background:'none',border:'none',color:T.t1,fontSize:18,fontWeight:q?800:500,outline:'none',letterSpacing:q?.5:0,fontVariantNumeric:'tabular-nums'}} />
-              {q && <button type="button" onClick={()=>{setQ('');inputRef.current?.focus();}} style={{background:'none',border:'none',color:T.t3,fontSize:22,cursor:'pointer',padding:'4px 4px'}}>X</button>}
+              {q && <button type="button" onClick={()=>{setQ('');inputRef.current?.focus();}} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',padding:'4px 4px',display:'flex'}} aria-label="Effacer"><Ico d={ICONS.close} s={18} /></button>}
               <button type="submit" disabled={!q.trim()} style={{height:42,padding:'0 14px',borderRadius:9,border:'none',background:q.trim()?T.accent:T.border,color:q.trim()?'#1a0e05':T.t3,fontSize:12,fontWeight:800,cursor:q.trim()?'pointer':'default',letterSpacing:.5}}>Enter</button>
             </div>
             <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
@@ -3691,7 +3796,7 @@ function PCApp() {
           <div style={{flex:1,overflow:'auto',padding:'10px 12px 16px'}}>
             {!q.trim() && (
               <>
-                <div style={{...sectionLabel,padding:'4px 6px'}}>Recents · {history.length}</div>
+                <div style={{...sectionLabel,padding:'4px 6px'}}>Récents · {history.length}</div>
                 {history.length === 0 && (
                   <div style={{padding:'40px 16px',textAlign:'center',color:T.t3,fontSize:12}}>
                     Pointe la douchette ou tape un code.
@@ -3699,21 +3804,21 @@ function PCApp() {
                 )}
                 {history.slice(0,15).map(h => {
                   const a = _artByCode.get(h.code) || _catalogArticle(h.code); if (!a) return null;
-                  const v = VC[a.verdict];
+                  const d = _dispo(a);
                   const t = new Date(h.ts);
                   const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
                   return (
                     <button key={h.ts} onClick={()=>{setCode(h.code);inputRef.current?.focus();}} style={{
                       width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                       background:code===h.code?T.card2:'transparent',borderRadius:10,border:'none',
-                      borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',marginBottom:3,cursor:'pointer',
+                      color:T.t1,textAlign:'left',marginBottom:3,cursor:'pointer',
                     }}>
-                      <span title={h.mode==='scan'?'douchette':'recherche'} style={{fontSize:11,color:T.t3}}>{h.mode==='scan'?'S':'R'}</span>
+                      <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={13} sw={2} /></span>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code} · {tStr}</div>
+                        <div style={{fontSize:11,color:T.t3,fontWeight:600}}><span className="mono">{a.code}</span> · {tStr}</div>
                         <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                       </div>
-                      <div style={{fontSize:15,fontWeight:800,color:v.fg}} className="tn">{a.stock}</div>
+                      <div style={{fontSize:15,fontWeight:800,color:d.c}} className="tn">{d.n ?? '—'}</div>
                     </button>
                   );
                 })}
@@ -3721,39 +3826,39 @@ function PCApp() {
             )}
             {q.trim() && results.length === 0 && (
               <div style={{padding:'40px 16px',textAlign:'center',color:T.t2,fontSize:13}}>
-                Aucun resultat pour "{q}"
+                Aucun résultat pour « {q} »
               </div>
             )}
             {q.trim() && results.length > 0 && (
               <>
-                <div style={{...sectionLabel,padding:'4px 6px'}}>{results.length} resultat{results.length>1?'s':''}</div>
+                <div style={{...sectionLabel,padding:'4px 6px'}}>{results.length} résultat{results.length>1?'s':''}</div>
                 {results.map(a => {
-                  const v = VC[a.verdict];
+                  const d = _dispo(a);
                   return (
                     <div key={a.code} className="pop" style={{
                       position:'relative',display:'flex',alignItems:'stretch',gap:0,
                       background:T.card,borderRadius:10,border:`1px solid ${T.border}`,
-                      borderLeft:`3px solid ${v.edge}`,marginBottom:5,overflow:'hidden',
+                      marginBottom:5,overflow:'hidden',
                     }}>
                       <button onClick={()=>{setCode(a.code);setQ('');setHistory(h=>[{code:a.code,ts:Date.now(),mode:'search'},...h.filter(x=>x.code!==a.code)].slice(0,50));}} style={{
                         flex:1,display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                         background:'none',border:'none',color:T.t1,textAlign:'left',cursor:'pointer',minWidth:0,
                       }}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,color:T.t2,fontWeight:800,letterSpacing:.8}} className="tn">{a.code}</div>
+                          <div style={{fontSize:13,color:T.t2,fontWeight:700}} className="mono">{a.code}</div>
                           <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:T.t1,marginTop:2}}>{a.lib}</div>
-                          <div style={{fontSize:10,color:T.accent,fontWeight:600,marginTop:1}}>{a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
+                          <div style={{fontSize:11,color:T.accent,fontWeight:700,marginTop:1}}><span className="mono">{a.empl}</span><span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                         </div>
                         <div style={{textAlign:'right'}}>
-                          <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                          <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                          <div style={{fontSize:18,fontWeight:800,color:d.c,lineHeight:1}} className="tn">{d.n ?? '—'}</div>
+                          <div style={{fontSize:10.5,color:d.c,opacity:.8,marginTop:3,fontWeight:700,whiteSpace:'nowrap'}}>{a.catalogOnly ? 'hors agence' : d.n > 0 ? 'en stock' : 'indispo.'}</div>
                         </div>
                       </button>
                       <CopyBtn code={a.code} />
-                      <a href={`http://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Voir sur legallais.com" onClick={e=>e.stopPropagation()} style={{
+                      <a href={`https://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Voir sur legallais.com" onClick={e=>e.stopPropagation()} style={{
                         width:36,borderLeft:`1px solid ${T.border}`,background:'rgba(255,255,255,.02)',
                         color:T.t3,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,textDecoration:'none',
-                      }}>L</a>
+                      }}><Ico d={ICONS.ext} s={14} sw={2} /></a>
                     </div>
                   );
                 })}
@@ -3766,14 +3871,14 @@ function PCApp() {
         <div key={flashKey} className={article?'scan-flash':''} style={{flex:1,overflow:'auto',padding:'24px 32px'}}>
           {!article && !unknown && DATA_SOURCE === 'loading' && (
             <div style={{maxWidth:720,margin:'8vh auto 0',textAlign:'center',color:T.t2}}>
-              <div style={{fontSize:36,fontWeight:900,letterSpacing:-1,color:T.t1,marginBottom:12}}>Chargement...</div>
-              <div style={{fontSize:13}}>Connexion a la base articles</div>
+              <div style={{fontSize:36,fontWeight:900,letterSpacing:-1,color:T.t1,marginBottom:12}}>Chargement…</div>
+              <div style={{fontSize:13}}>Connexion à la base articles</div>
             </div>
           )}
-          {!article && !unknown && DATA_SOURCE !== 'loading' && <PCEmpty agency={CTX.agency} historyCount={history.length} />}
+          {!article && !unknown && DATA_SOURCE !== 'loading' && <PCEmpty agency={CTX.agency} />}
           {unknown && (
             <div style={{maxWidth:560,margin:'80px auto',padding:'28px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,textAlign:'center'}}>
-              <div style={{fontSize:18,fontWeight:800,color:T.t1}}>Code <span style={{color:T.accent,letterSpacing:1}} className="tn">"{unknown}"</span> non trouve</div>
+              <div style={{fontSize:18,fontWeight:800,color:T.t1}}>Code <span style={{color:T.accent,letterSpacing:1}} className="tn">"{unknown}"</span> non trouvé</div>
               <div style={{fontSize:13,color:T.t2,marginTop:8}}>Pas dans la base agence ni au catalogue.</div>
               <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:18}}>
                 <button onClick={()=>{setUnknown(null);setQ(unknown);inputRef.current?.focus();}} style={pcBtn}>Modifier</button>
@@ -3798,7 +3903,7 @@ function PCApp() {
               {history.length === 0 && <div style={{padding:'30px 14px',textAlign:'center',color:T.t3,fontSize:11}}>Aucun scan pour le moment.</div>}
               {history.map((h, i) => {
                 const a = _artByCode.get(h.code) || _catalogArticle(h.code);
-                const v = a ? VC[a.verdict] : VC.ok;
+                const d = a ? _dispo(a) : { c:T.t3 };
                 const t = new Date(h.ts);
                 const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
                 return (
@@ -3806,13 +3911,13 @@ function PCApp() {
                     width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 10px',
                     background:code===h.code?T.card:'transparent',borderRadius:8,border:'none',color:T.t1,textAlign:'left',cursor:'pointer',marginBottom:1,
                   }}>
-                    <span style={{fontSize:11,color:T.t3,width:38,fontWeight:600}} className="tn">{tStr}</span>
-                    <span style={{width:6,height:6,borderRadius:99,background:v.edge,flexShrink:0}} />
+                    <span style={{fontSize:10.5,color:T.t3,width:52,fontWeight:600}} className="tn">{tStr}</span>
+                    <span style={{width:7,height:7,borderRadius:99,background:d.c,flexShrink:0}} />
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{h.code}</div>
+                      <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="mono">{h.code}</div>
                       <div style={{fontSize:11,color:T.t1,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?a.lib:'?'}</div>
                     </div>
-                    <span style={{fontSize:11,color:T.t3}}>{h.mode==='scan'?'S':'R'}</span>
+                    <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={12} sw={2} /></span>
                   </button>
                 );
               })}

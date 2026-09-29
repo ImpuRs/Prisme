@@ -10,7 +10,7 @@
 //    la dernière connue sinon. Requête en `cache: 'no-cache'` : le navigateur revalide auprès
 //    du serveur (ETag) au lieu de resservir sa copie HTTP (GitHub Pages : max-age 10 min).
 'use strict';
-const CACHE_NAME = 'prisme-scan-v10';
+const CACHE_NAME = 'prisme-scan-v11';
 const PRECACHE = ['./scan.html', './manifest.json', './js/constants.js', './data/index.json'];
 const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
