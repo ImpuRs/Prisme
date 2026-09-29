@@ -3514,152 +3514,107 @@ function CopyBtn({ code, large }) {
   );
 }
 
-function PCEmpty({ agency, historyCount, onPick }) {
-  // Même lecture que l'accueil mobile : alertes par type, emplacements les plus urgents
-  const counts = { neg:0, rupt:0, sousmin:0, surstock:0 };
-  const zones = {};
-  for (const x of ARTICLES) {
-    if (!x.primary) continue;
-    const k = x.stock < 0 ? 'neg' : x.verdict === 'rupture' ? 'rupt' : x.verdict === 'sousmin' ? 'sousmin' : x.verdict === 'surstock' ? 'surstock' : null;
-    if (!k) continue;
-    counts[k]++;
-    const z = _zoneOf(x);
-    if (!zones[z]) zones[z] = { neg:0, rupt:0, sousmin:0, surstock:0, total:0, first:x.code };
-    zones[z][k]++; zones[z].total++;
-  }
-  const total = ALERT_KEYS.reduce((n,k)=>n+counts[k],0);
-  const prio = (e) => e.neg*1000 + e.rupt*100 + e.sousmin*10 + e.surstock;
-  const topZones = Object.entries(zones).filter(([z])=>z!=='—').sort((p,q)=>prio(q[1])-prio(p[1])).slice(0,8);
-  const LBL = { neg:'Stock négatif', rupt:'Ruptures', sousmin:'Sous min', surstock:'Sur-stock' };
+// Mode PC = recherche d'article au comptoir : on n'affiche que la disponibilité,
+// pas les indicateurs de gestion de stock (ruptures, MIN/MAX, négatifs…)
+function _dispo(a) {
+  if (a.catalogOnly) return { c:'#93c5fd', bg:'rgba(96,165,250,.12)', l:'Non référencé en agence', n:null };
+  if (a.stock > 0) return { c:'#86efac', bg:'rgba(34,197,94,.12)', l:'Disponible', n:a.stock };
+  return { c:'#fca5a5', bg:'rgba(239,68,68,.12)', l:'Indisponible', n:0 };
+}
+
+function PCEmpty({ agency }) {
+  const HINTS = [['Code article','600510'],['Code-barres','EAN 13 chiffres'],['Libellé','gants hiver'],['Emplacement','B12'],['Réf. fournisseur','SP-0191…']];
   return (
-    <div style={{maxWidth:880,margin:'4vh auto 0',color:T.t1}}>
-      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency}</div>
-      <div style={{fontSize:34,fontWeight:900,letterSpacing:-1,marginTop:6,color:T.t1}}>Prêt à scanner.</div>
-      <div style={{fontSize:14,color:T.t2,marginTop:8,maxWidth:560,lineHeight:1.5}}>
-        Pointe la douchette USB sur un code, ou tape un code article, EAN, libellé ou emplacement dans le champ à gauche.
+    <div style={{maxWidth:640,margin:'12vh auto 0',textAlign:'center',color:T.t1}}>
+      <div style={{width:64,height:64,margin:'0 auto 18px',borderRadius:18,background:T.card,border:`1px solid ${T.border}`,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <Ico d={ICONS.search} s={28} sw={2} />
       </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr 1fr',gap:14,marginTop:28}}>
-        <div style={{...pcStat,background:'radial-gradient(120% 140% at 100% 0%,rgba(239,68,68,.12),transparent 55%),'+T.card}}>
-          <div style={{...pcStatLbl,color:'#fca5a5'}}>Actions requises</div>
-          <div style={pcStatVal} className="tn">{total.toLocaleString('fr-FR')}</div>
-          {total > 0 && <div style={{display:'flex',height:6,borderRadius:99,overflow:'hidden',gap:2,marginTop:12}}>
-            {ALERT_KEYS.map(k => counts[k] > 0 && <div key={k} style={{flex:counts[k],background:ALERT[k].c}} />)}
-          </div>}
-          <div style={{display:'flex',gap:14,flexWrap:'wrap',marginTop:10,fontSize:11,color:T.t2}}>
-            {ALERT_KEYS.map(k => counts[k] > 0 && <span key={k} style={{display:'flex',alignItems:'center',gap:6}} className="tn"><Dot c={ALERT[k].c} s={7} />{LBL[k]} <b style={{color:T.t1}}>{counts[k].toLocaleString('fr-FR')}</b></span>)}
+      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency} · {ARTICLES.length.toLocaleString('fr-FR')} articles</div>
+      <div style={{fontSize:32,fontWeight:900,letterSpacing:-1,marginTop:8}}>Rechercher un article</div>
+      <div style={{fontSize:14,color:T.t2,marginTop:10,lineHeight:1.5}}>
+        Scanne l'article avec la douchette ou tape dans le champ à gauche.
+      </div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginTop:28}}>
+        {HINTS.map(([l,ex]) => (
+          <div key={l} style={{padding:'8px 12px',borderRadius:10,background:T.card,border:`1px solid ${T.border}`,textAlign:'left'}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.t1}}>{l}</div>
+            <div style={{fontSize:11,color:T.t3,marginTop:1}} className="mono">{ex}</div>
           </div>
-        </div>
-        <div style={pcStat}>
-          <div style={pcStatLbl}>Réfs en cache</div>
-          <div style={pcStatVal} className="tn">{ARTICLES.length.toLocaleString('fr-FR')}</div>
-          <div style={pcStatSub}>{DATA_SOURCE === 'idb' ? 'session PRISME' : DATA_SOURCE === 'mock' ? 'données de démo' : 'fichier ' + DATA_SOURCE}</div>
-        </div>
-        <div style={pcStat}>
-          <div style={pcStatLbl}>Scans</div>
-          <div style={pcStatVal} className="tn">{historyCount}</div>
-          <div style={pcStatSub}>historique récent</div>
-        </div>
+        ))}
       </div>
-
-      {topZones.length > 0 && (<>
-        <div style={{...sectionLabel,margin:'28px 2px 10px'}}>Emplacements prioritaires</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
-          {topZones.map(([z,e]) => (
-            <button key={z} onClick={()=>onPick(e.first)} style={{display:'flex',flexDirection:'column',gap:8,padding:'12px 14px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,color:T.t1,textAlign:'left',cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,width:'100%'}}>
-                <span className="mono" style={{fontSize:17,fontWeight:800,color:T.accent,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'45%'}}>{z}</span>
-                <span className="tn" style={{fontSize:11,color:T.t3,flexShrink:0}}>{e.total} réf{e.total>1?'s':''}</span>
-                <div style={{flex:1,display:'flex',gap:5,justifyContent:'flex-end',flexWrap:'wrap'}}>
-                  {ALERT_KEYS.map(k => e[k] > 0 && <span key={k} className="tn" style={{padding:'2px 7px',borderRadius:6,background:ALERT[k].bg,color:ALERT[k].fg,fontSize:10.5,fontWeight:800,whiteSpace:'nowrap'}}>{e[k]} {ALERT[k].l}</span>)}
-                </div>
-              </div>
-              <div style={{display:'flex',height:3,borderRadius:99,overflow:'hidden',gap:2,width:'100%'}}>
-                {ALERT_KEYS.map(k => e[k] > 0 && <div key={k} style={{flex:e[k],background:ALERT[k].c}} />)}
-              </div>
-            </button>
-          ))}
-        </div>
-      </>)}
-
-      <div style={{marginTop:28,fontSize:11,color:T.t3,display:'flex',gap:18,flexWrap:'wrap'}}>
-        <span><kbd style={kbd}>douchette USB</kbd> scanne directement</span>
-        <span><kbd style={kbd}>Tab/clic</kbd> n'importe où — le focus revient toujours sur le champ</span>
-        <span><kbd style={kbd}>Esc</kbd> ferme la fiche</span>
+      <div style={{marginTop:28,fontSize:11,color:T.t3,display:'flex',gap:18,justifyContent:'center',flexWrap:'wrap'}}>
+        <span><kbd style={kbd}>Entrée</kbd> ouvre le 1er résultat</span>
+        <span><kbd style={kbd}>Esc</kbd> efface / ferme la fiche</span>
+        <span>Catalogue : articles hors agence</span>
       </div>
     </div>
   );
 }
 
 function PCArticle({ a, onClose }) {
-  const v = VC[a.verdict];
+  const d = _dispo(a);
   const [priceShown, setPriceShown] = useState(false);
+  const ean = _eanByCode.get(a.code);
+  const cell = {padding:'14px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12};
   return (
-    <div style={{maxWidth:800,margin:'0 auto'}}>
-      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-        <div style={{padding:'4px 10px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.5,textTransform:'uppercase',whiteSpace:'nowrap'}}>● {_verdictLabel(a)}</div>
-        <div style={{fontSize:14,color:T.t2,fontWeight:700}} className="mono">{a.code}</div>
+    <div style={{maxWidth:820,margin:'0 auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+        <div style={{fontSize:15,color:T.t1,fontWeight:800}} className="mono">{a.code}</div>
         <CopyBtn code={a.code} large />
-        <a href={`http://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Ouvrir sur legallais.com" style={{
-          padding:'5px 10px',borderRadius:7,border:`1px solid ${T.border}`,background:T.card,color:T.t2,
-          fontSize:11,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:5,letterSpacing:.3,textDecoration:'none',
-        }}>legallais.com <Ico d={ICONS.ext} s={11} sw={2.5} /></a>
-        <div style={{fontSize:11,color:T.t3}}>{a.sq}</div>
         <div style={{flex:1}} />
         <button onClick={onClose} style={{...pcBtn,padding:'7px 12px',fontSize:12,whiteSpace:'nowrap'}}>Fermer · Esc</button>
       </div>
-      {a.catalogOnly && (
-        <div style={{marginBottom:14,padding:'10px 14px',borderRadius:10,background:'rgba(96,165,250,.10)',border:'1px solid rgba(96,165,250,.3)',color:'#93c5fd',fontSize:12,fontWeight:700}}>
-          Catalogue Legallais · article non référencé dans cette agence
-        </div>
-      )}
-      <div style={{fontSize:26,fontWeight:800,color:T.t1,letterSpacing:-.3,lineHeight:1.15}}>{a.lib}</div>
-      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{[a.marque, a.fam].filter(Boolean).join(' · ')} {a.refFourn ? <span style={{color:T.t3,marginLeft:8}}>réf. fourn. <span className="mono">{a.refFourn}</span></span>:''}</div>
+      <div style={{fontSize:28,fontWeight:800,color:T.t1,letterSpacing:-.4,lineHeight:1.15}}>{a.lib}</div>
+      <div style={{fontSize:13,color:T.t2,marginTop:6}}>{[a.marque, a.fam].filter(Boolean).join(' · ')}</div>
+      <a href={`https://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" style={{
+        marginTop:16,display:'inline-flex',alignItems:'center',gap:8,padding:'10px 16px',borderRadius:10,
+        background:T.accent,color:T.accentInk,fontSize:13,fontWeight:800,textDecoration:'none',
+      }}>Voir la fiche sur legallais.com <Ico d={ICONS.ext} s={14} sw={2.5} /></a>
 
-      {a.primary && (
-        <div style={{marginTop:20,padding:'14px 18px',borderRadius:14,background:v.bg,border:`1px solid ${v.edge}55`,display:'flex',alignItems:'center',gap:14}}>
-          <div style={{width:40,height:40,borderRadius:11,background:'rgba(0,0,0,.25)',color:v.fg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            <Ico d={a.primary.kind==='retour' ? ICONS.back : a.primary.kind==='corriger_stock' ? ICONS.edit : ICONS.cart} s={20} sw={2} />
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:10.5,fontWeight:800,letterSpacing:1,textTransform:'uppercase',color:v.fg,opacity:.8}}>Recommandation PRISME</div>
-            <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:2}}>{a.primary.kind==='corriger_stock' ? 'Recompter le rayon' : a.primary.label}{a.primary.qty ? <span className="tn"> · {a.primary.qty} pcs</span> : null}</div>
-            {a.primary.sub && <div style={{fontSize:12,color:T.t2,marginTop:2}}>{a.primary.sub}</div>}
-          </div>
-        </div>
-      )}
-      <div style={{padding:'24px 26px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,position:'relative',overflow:'hidden',marginTop:a.primary?12:24}}>
-        <div style={{position:'absolute',top:-60,right:-60,width:200,height:200,borderRadius:99,background:v.edge,opacity:.1,filter:'blur(50px)',pointerEvents:'none'}} />
-        <div style={pcStatLbl}>En stock</div>
-        <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:6,position:'relative'}}>
-          <span style={{fontSize:96,fontWeight:900,color:v.fg,lineHeight:.9,letterSpacing:-4}} className="tn">{a.stock}</span>
-          <span style={{fontSize:16,color:T.t2,fontWeight:600}}>pcs</span>
-          <span style={{marginLeft:'auto',fontSize:13,color:T.t2,fontWeight:600}} className="tn">{a.stock > 0 && a.couv > 0 ? a.couv + 'j de couverture' : ''}</span>
-        </div>
-        <StockGauge stock={a.stock} min={a.min} max={a.max} color={v.fg} />
-
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:18}}>
-          <div style={pcCellSmall}>
-            <div style={pcStatLbl}>Empl.</div>
-            <div style={{fontSize:18,fontWeight:800,color:T.accent,marginTop:3}} className="mono">{a.empl}</div>
-          </div>
-          {SCAN_CONFIG.prix !== false && a.prix != null ? (
-            <button onClick={()=>setPriceShown(p=>!p)} style={{...pcCellSmall,border:'none',cursor:'pointer',textAlign:'left'}}>
-              <div style={pcStatLbl}>Prix moy. <span style={{color:T.t3,fontWeight:500}}>· {a.marge}%</span></div>
-              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix?a.prix.toFixed(2).replace('.',','):'--'} €</div>
-            </button>
-          ) : (
-            <div style={pcCellSmall}>
-              <div style={pcStatLbl}>Couverture</div>
-              <div style={{fontSize:16,fontWeight:800,color:T.t1,marginTop:3}} className="tn">{_couvLabel(a)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:20}}>
+        <div style={{padding:'20px 22px',borderRadius:16,background:d.bg,border:`1px solid ${d.c}44`}}>
+          <div style={{...pcStatLbl,color:d.c}}>Disponibilité</div>
+          {d.n != null ? (
+            <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:8}}>
+              <span style={{fontSize:64,fontWeight:900,color:T.t1,lineHeight:.9,letterSpacing:-2}} className="tn">{d.n}</span>
+              <span style={{fontSize:15,color:T.t2,fontWeight:600}}>en stock</span>
             </div>
-          )}
-          <div style={pcCellSmall}>
-            <div style={pcStatLbl}>Statut</div>
-            <div style={{fontSize:13,fontWeight:700,color:T.t1,marginTop:5}}>{a.statut}</div>
+          ) : <div style={{height:58}} />}
+          <div style={{display:'flex',alignItems:'center',gap:7,marginTop:10,fontSize:14,fontWeight:800,color:d.c}}><Dot c={d.c} s={8} />{d.l}</div>
+        </div>
+        <div style={{padding:'20px 22px',borderRadius:16,background:T.card,border:`1px solid ${T.border}`}}>
+          <div style={pcStatLbl}>Emplacement</div>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginTop:10}}>
+            <div style={{width:44,height:44,borderRadius:12,background:T.accentSoft,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.pin} s={22} sw={2} /></div>
+            <span className="mono" style={{fontSize:a.catalogOnly?20:36,fontWeight:800,color:a.catalogOnly?T.t3:T.accent,lineHeight:1,wordBreak:'break-all'}}>{a.empl || '—'}</span>
           </div>
         </div>
       </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:12}}>
+        {SCAN_CONFIG.prix !== false && a.prix != null ? (
+          <button onClick={()=>setPriceShown(p=>!p)} title="Cliquer pour afficher / masquer" style={{...cell,color:T.t1,cursor:'pointer',textAlign:'left'}}>
+            <div style={pcStatLbl}>Prix moy. {priceShown ? '' : '· cliquer'}</div>
+            <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,filter:priceShown?'none':'blur(6px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2).replace('.',',')} €</div>
+          </button>
+        ) : (
+          <div style={cell}>
+            <div style={pcStatLbl}>Statut</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}}>{a.statut || '—'}</div>
+          </div>
+        )}
+        <div style={cell}>
+          <div style={pcStatLbl}>Code-barres</div>
+          <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}} className="mono">{ean || '—'}</div>
+        </div>
+        <div style={cell}>
+          <div style={pcStatLbl}>Réf. fournisseur</div>
+          <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5,wordBreak:'break-all'}} className="mono">{a.refFourn || '—'}</div>
+        </div>
+      </div>
+      {SCAN_CONFIG.prix !== false && a.prix != null && a.statut && (
+        <div style={{fontSize:12,color:T.t3,marginTop:12}}>Statut : <span style={{color:T.t2,fontWeight:600}}>{a.statut}</span></div>
+      )}
     </div>
   );
 }
@@ -3679,7 +3634,7 @@ function PCApp() {
     try { return JSON.parse(localStorage.getItem('prisme_pc_hist')||'[]'); } catch(e){ return []; }
   });
   useEffect(()=>{ try{ localStorage.setItem('prisme_pc_hist', JSON.stringify(history.slice(0,50))); }catch(e){} }, [history]);
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [unknown, setUnknown] = useState(null);
   const [flashKey, setFlashKey] = useState(0);
   const [scannerActive, setScannerActive] = useState(false);
@@ -3849,21 +3804,21 @@ function PCApp() {
                 )}
                 {history.slice(0,15).map(h => {
                   const a = _artByCode.get(h.code) || _catalogArticle(h.code); if (!a) return null;
-                  const v = VC[a.verdict];
+                  const d = _dispo(a);
                   const t = new Date(h.ts);
                   const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
                   return (
                     <button key={h.ts} onClick={()=>{setCode(h.code);inputRef.current?.focus();}} style={{
                       width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                       background:code===h.code?T.card2:'transparent',borderRadius:10,border:'none',
-                      borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',marginBottom:3,cursor:'pointer',
+                      color:T.t1,textAlign:'left',marginBottom:3,cursor:'pointer',
                     }}>
                       <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={13} sw={2} /></span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:11,color:T.t3,fontWeight:600}}><span className="mono">{a.code}</span> · {tStr}</div>
                         <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                       </div>
-                      <div style={{fontSize:15,fontWeight:800,color:v.fg}} className="tn">{a.stock}</div>
+                      <div style={{fontSize:15,fontWeight:800,color:d.c}} className="tn">{d.n ?? '—'}</div>
                     </button>
                   );
                 })}
@@ -3878,12 +3833,12 @@ function PCApp() {
               <>
                 <div style={{...sectionLabel,padding:'4px 6px'}}>{results.length} résultat{results.length>1?'s':''}</div>
                 {results.map(a => {
-                  const v = VC[a.verdict] || VC.ok;
+                  const d = _dispo(a);
                   return (
                     <div key={a.code} className="pop" style={{
                       position:'relative',display:'flex',alignItems:'stretch',gap:0,
                       background:T.card,borderRadius:10,border:`1px solid ${T.border}`,
-                      borderLeft:`3px solid ${v.edge}`,marginBottom:5,overflow:'hidden',
+                      marginBottom:5,overflow:'hidden',
                     }}>
                       <button onClick={()=>{setCode(a.code);setQ('');setHistory(h=>[{code:a.code,ts:Date.now(),mode:'search'},...h.filter(x=>x.code!==a.code)].slice(0,50));}} style={{
                         flex:1,display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
@@ -3895,12 +3850,12 @@ function PCApp() {
                           <div style={{fontSize:11,color:T.accent,fontWeight:700,marginTop:1}}><span className="mono">{a.empl}</span><span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                         </div>
                         <div style={{textAlign:'right'}}>
-                          <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                          <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                          <div style={{fontSize:18,fontWeight:800,color:d.c,lineHeight:1}} className="tn">{d.n ?? '—'}</div>
+                          <div style={{fontSize:10.5,color:d.c,opacity:.8,marginTop:3,fontWeight:700,whiteSpace:'nowrap'}}>{a.catalogOnly ? 'hors agence' : d.n > 0 ? 'en stock' : 'indispo.'}</div>
                         </div>
                       </button>
                       <CopyBtn code={a.code} />
-                      <a href={`http://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Voir sur legallais.com" onClick={e=>e.stopPropagation()} style={{
+                      <a href={`https://www.legallais.com/article/${a.code}`} target="_blank" rel="noopener" title="Voir sur legallais.com" onClick={e=>e.stopPropagation()} style={{
                         width:36,borderLeft:`1px solid ${T.border}`,background:'rgba(255,255,255,.02)',
                         color:T.t3,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,textDecoration:'none',
                       }}><Ico d={ICONS.ext} s={14} sw={2} /></a>
@@ -3920,7 +3875,7 @@ function PCApp() {
               <div style={{fontSize:13}}>Connexion à la base articles</div>
             </div>
           )}
-          {!article && !unknown && DATA_SOURCE !== 'loading' && <PCEmpty agency={CTX.agency} historyCount={history.length} onPick={(c)=>{ setCode(c); setHistory(h=>[{code:c,ts:Date.now(),mode:'search'},...h.filter(x=>x.code!==c)].slice(0,50)); inputRef.current?.focus(); }} />}
+          {!article && !unknown && DATA_SOURCE !== 'loading' && <PCEmpty agency={CTX.agency} />}
           {unknown && (
             <div style={{maxWidth:560,margin:'80px auto',padding:'28px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,textAlign:'center'}}>
               <div style={{fontSize:18,fontWeight:800,color:T.t1}}>Code <span style={{color:T.accent,letterSpacing:1}} className="tn">"{unknown}"</span> non trouvé</div>
@@ -3948,7 +3903,7 @@ function PCApp() {
               {history.length === 0 && <div style={{padding:'30px 14px',textAlign:'center',color:T.t3,fontSize:11}}>Aucun scan pour le moment.</div>}
               {history.map((h, i) => {
                 const a = _artByCode.get(h.code) || _catalogArticle(h.code);
-                const v = a ? VC[a.verdict] : VC.ok;
+                const d = a ? _dispo(a) : { c:T.t3 };
                 const t = new Date(h.ts);
                 const tStr = t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
                 return (
@@ -3957,7 +3912,7 @@ function PCApp() {
                     background:code===h.code?T.card:'transparent',borderRadius:8,border:'none',color:T.t1,textAlign:'left',cursor:'pointer',marginBottom:1,
                   }}>
                     <span style={{fontSize:10.5,color:T.t3,width:52,fontWeight:600}} className="tn">{tStr}</span>
-                    <span style={{width:6,height:6,borderRadius:99,background:v.edge,flexShrink:0}} />
+                    <span style={{width:7,height:7,borderRadius:99,background:d.c,flexShrink:0}} />
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="mono">{h.code}</div>
                       <div style={{fontSize:11,color:T.t1,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?a.lib:'?'}</div>
