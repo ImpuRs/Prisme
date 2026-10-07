@@ -19,7 +19,7 @@ import { _S } from './state.js';
 import { computeSquelette } from './engine.js';
 import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import {
-  PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION,
+  PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE,
   PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX,
   PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS,
 } from './constants.js';
@@ -107,7 +107,9 @@ export function computePartie() {
         if (a.classification !== 'implanter' || !a.famille) continue;
         const f = fams.get(a.famille);
         if (!f) continue;
-        if (a.nbAgencesReseau / nbStores >= PARTIE_TROU_DETENTION || a.nbClientsZone >= PARTIE_TROU_CLIENTS) f.trousArts.push(a);
+        const reseauFort = a.nbAgencesReseau / nbStores >= PARTIE_TROU_DETENTION
+          && (a.caReseau || 0) / a.nbAgencesReseau >= PARTIE_TROU_CA_AGENCE;
+        if (reseauFort || a.nbClientsZone >= PARTIE_TROU_CLIENTS) f.trousArts.push(a);
       }
     }
   }
@@ -254,7 +256,7 @@ function _critBlock(f, i, open) {
   const n = [f.socleKOArts.length, f.trousArts.length, f.pmArts.length, f.calKOArts.length][i];
   const detail = [
     n ? `${n} incontournable${n > 1 ? 's' : ''} en rupture` : 'Tous les incontournables sont en stock',
-    n ? `${n} article${n > 1 ? 's' : ''} prioritaire${n > 1 ? 's' : ''} à implanter (≥${Math.round(PARTIE_TROU_DETENTION * 100)} % du réseau ou ≥${PARTIE_TROU_CLIENTS} clients de ta zone)` : 'Aucun trou prioritaire',
+    n ? `${n} article${n > 1 ? 's' : ''} prioritaire${n > 1 ? 's' : ''} à implanter (≥${Math.round(PARTIE_TROU_DETENTION * 100)} % du réseau à ≥${PARTIE_TROU_CA_AGENCE} €/an par agence, ou ≥${PARTIE_TROU_CLIENTS} clients de ta zone)` : 'Aucun trou prioritaire',
     n ? `${n} poids mort${n > 1 ? 's' : ''} encore en rayon` : 'Aucun poids mort en rayon',
     n ? `${n} MIN/MAX éloigné${n > 1 ? 's' : ''} de la reco PRISME` : 'MIN/MAX alignés',
   ][i];
