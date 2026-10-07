@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 // ── Build catalogue-marques.json depuis catalogue.csv (CP1252) ─────────
-// Colonnes attendues : Code;Designation_1;Statut;Libelle;Marque;Code_Famille;Libelle_Famille;Code_Sous-famille;Libelle_Sous_Famille;Code_EAN
-// Sortie : format indexé compact {M:[], F:[], A:{code:[mIdx,fIdx,designation]}, E:{ean:code}}
+// Colonnes attendues : Code;Designation_1;Statut;Libelle;Marque;Code_Famille;Libelle_Famille;Code_Sous-famille;Libelle_Sous_Famille;Ref_fournisseur;Code_EAN
+// Sortie : format indexé compact {M:[], F:[], S:[], A:{code:[mIdx,fIdx,designation,sIdx]}, E:{ean:code}, R:{code:refFourn}}
 
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +30,7 @@ const familles = [];
 const statuts = [];
 const articles = {};
 const eans = {};
+const refs = {};
 
 let eanCount = 0, eanBad = 0;
 
@@ -46,6 +47,7 @@ for (let i = 1; i < lines.length; i++) {
   const codeSF = (parts[col['Code_Sous-famille']] || '').trim();
   const libSF = (parts[col.Libelle_Sous_Famille] || '').trim();
   const eanRaw = (parts[col.Code_EAN] || '').trim();
+  const refFourn = (parts[col.Ref_fournisseur] || '').trim();
 
   // Marque index
   if (!marqueIdx.has(marque)) { marqueIdx.set(marque, marques.length); marques.push(marque); }
@@ -67,6 +69,7 @@ for (let i = 1; i < lines.length; i++) {
   }
 
   articles[code] = [mIdx, fIdx, designation, sIdx];
+  if (refFourn) refs[code] = refFourn;
 
   // EAN — ignorer notation scientifique et valeurs vides
   if (eanRaw && !eanRaw.includes('E+') && !eanRaw.includes('e+')) {
@@ -82,7 +85,7 @@ for (let i = 1; i < lines.length; i++) {
   }
 }
 
-const payload = { M: marques, F: familles, S: statuts, A: articles, E: eans };
+const payload = { M: marques, F: familles, S: statuts, A: articles, E: eans, R: refs };
 const json = JSON.stringify(payload);
 fs.writeFileSync(DST, json, 'utf8');
 
@@ -94,5 +97,6 @@ console.log(`  Articles: ${Object.keys(articles).length}`);
 console.log(`  EAN OK:   ${eanCount}`);
 console.log(`  Statuts:  ${statuts.length} (${statuts.join(', ')})`)
 console.log(`  EAN bad:  ${eanBad}`);
+console.log(`  Refs fourn: ${Object.keys(refs).length}`);
 console.log(`  Taille:   ${sizeMB} Mo`);
 console.log(`  → ${DST}`);
