@@ -392,58 +392,9 @@ function _renderClient360(clientCode,source){
     if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-[11px] font-bold ${silCol}">${daysSince}j</span></div>`);}
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
   }
-  const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   const _benchM=_S.chalandiseReady?computeBenchMetier():null;
   const _metierBench=_benchM&&info.metier?_benchM.get(info.metier):null;
-  if(spc!==null){
-    const spcCol=spc>=70?'#22c55e':spc>=40?'#f59e0b':'#ef4444';
-    let benchLine='';
-    if(_metierBench){
-      const caClient=ca2026>0?ca2026:(ca2025>0?ca2025:0);
-      const ratio=_metierBench.medianCA>0&&caClient>0?caClient/_metierBench.medianCA:0;
-      let ratioCol,ratioLabel;
-      if(ratio>=2){ratioCol='#22c55e';ratioLabel='Top client Legallais';}
-      else if(ratio>=0.8){ratioCol='#22c55e';ratioLabel='Dans la norme Legallais';}
-      else if(ratio>=0.4){ratioCol='#f59e0b';ratioLabel=`Sous la médiane (${Math.round(ratio*100)}%)`;}
-      else if(ratio>0){ratioCol='#ef4444';ratioLabel=`⚠ Poids plume (${Math.round(ratio*100)}%) — achète probablement chez la concurrence`;}
-      else{ratioCol='#94a3b8';ratioLabel='Pas de données';}
-      benchLine=`<p class="text-[9px] mt-1.5 pt-1.5 border-t b-dark" style="color:${ratioCol}" title="CA Legallais de ce client vs médiane des ${_metierBench.nbClients} ${escapeHtml(info.metier||'')} du réseau (hors bottom 25%)">🎯 Médiane ${escapeHtml(info.metier||'profession')} : <strong>${formatEuro(_metierBench.medianCA)}</strong> — ${ratioLabel}</p>`;
-    }
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Score Potentiel Client (SPC) 0-100&#10;→ Récence dernière commande (30 pts)&#10;→ CA rapatriable hors-PDV (30 pts)&#10;→ Familles manquantes vs métier (20 pts)&#10;→ Profil chalandise FID/OCC (20 pts)"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-2xl font-black" style="color:${spcCol}">${spc}</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${spc}%;background:${spcCol}"></div></div>${benchLine}</div>`);
-  }
 
-  // ── Part PDV (%) — thermomètre captation ──────────────────────
-  const caSociete=ca2026>0?ca2026:ca2025;
-  if(caSociete>0){
-    const _partDenom=Math.max(caPDV,caSociete);
-    const partPDV=Math.round(caPDV/_partDenom*100);
-    const partCol=partPDV>=40?'#22c55e':partPDV>=15?'#f59e0b':'#ef4444';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Part PDV = CA agence ÷ CA Legallais tous canaux&#10;Mesure la captation du client en magasin"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-black" style="color:${partCol}">${partPDV}%</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${Math.min(partPDV,100)}%;background:${partCol}"></div></div><p class="text-[9px] t-inverse-muted mt-1">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
-  }
-
-  // ── Indice PDV-compatible — % du CA société gagnable au comptoir ──
-  // Articles F/M (fréquents) + volume moyen faible = typiquement dépannage/proximité
-  if(caSociete>0){
-    let caCompat=0,caTotal=0;
-    // Sources : artMapFull (PDV pleine période) + ventesLocalHorsMag
-    const _allArts=new Map();
-    if(artMapFull)for(const[code,d]of artMapFull){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
-    if(horsMag)for(const[code,d]of horsMag){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
-    for(const[code,ca]of _allArts){
-      caTotal+=ca;
-      const r=DataStore.finalData?.find(f=>f.code===code);
-      if(!r)continue;
-      // FMR F ou M = rotation fréquente, compatible dépannage comptoir
-      const fmr=(r.fmrClass||'').toUpperCase();
-      if(fmr==='F'||fmr==='M')caCompat+=ca;
-    }
-    if(caTotal>0){
-      const pctCompat=Math.min(100,Math.round(caCompat/caTotal*100));
-      const compatCol=pctCompat>=50?'c-ok':pctCompat>=25?'c-caution':'c-danger';
-      const compatLabel=pctCompat>=50?'Fort potentiel PDV':pctCompat>=25?'Potentiel modéré':'Peu compatible PDV';
-      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="% du CA client sur des articles à rotation fréquente (FMR F ou M)&#10;Ces articles se vendent typiquement au comptoir (dépannage, proximité)&#10;Plus le % est élevé, plus le client est récupérable en agence"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">PDV-compatible</p><p class="text-2xl font-extrabold ${compatCol}">${pctCompat}%</p><p class="text-[10px] t-inverse-muted">${compatLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">CA articles F/M rotatifs</p></div>`);
-    }
-  }
 
   const summaryBar=cards.length?`<div class="flex flex-wrap gap-3 mb-4">${cards.join('')}</div>`:'';
 
