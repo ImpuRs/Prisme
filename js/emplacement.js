@@ -8,6 +8,7 @@
 import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
+import { setTableContext } from './ui.js';
 // ── Arbitrage Rayon — Performance par emplacement ──────────────
 let _empSort = { col: 'valStock', asc: false };
 
@@ -364,6 +365,7 @@ window._filterByEmplacement = function(emp) {
   const sel = document.getElementById('filterEmplacement');
   if (sel) {
     sel.value = emp === '(vide)' ? '' : emp;
+    setTableContext(`Emplacement ${emp}`, '');
     if (typeof window.onFilterChange === 'function') window.onFilterChange();
     if (typeof window.switchTab === 'function') window.switchTab('table');
   }

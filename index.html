@@ -1385,6 +1385,9 @@
     .ar-cell[data-tone="high"] { border-left-color:var(--pt-high); }
     .ar-cell[data-tone="mid"] { border-left-color:var(--pt-mid); }
     .ar-cell[data-tone="low"] { border-left-color:var(--pt-low); }
+    /* ── Articles (la base) ── */
+    #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    #tableContext.hidden { display:none; }
     /* ── Plan › Par famille ── */
     #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
@@ -1516,7 +1519,6 @@
         <div class="supertab-pills" id="stpills-stock">
           <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
-          <button class="supertab-pill" data-subtab="table" onclick="switchTab('table')">Articles</button>
         </div>
       </div>
 
@@ -1545,6 +1547,11 @@
           <button class="supertab-pill active" data-subtab="animation" onclick="switchTab('animation')">Action Commerciale</button>
           <button class="supertab-pill" data-subtab="associations" onclick="switchTab('associations')">Associations</button>
         </div>
+      </div>
+
+      <!-- SUPER-TAB : Base articles (la base — consultation, filtres, export ; pas un écran de décision) -->
+      <div class="supertab-group" id="stg-base" style="margin-left:auto">
+        <button data-tab="table" onclick="switchSuperTab('base')" class="tab-btn supertab-btn" id="stbtn-base" style="--tab-color:#CBD5E1;--tab-bg:#94a3b81F;--tab-text:#334155"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span>Base articles</span></button>
       </div>
 
       <!-- Aliases rétrocompat JS — les anciens IDs absorbent les classList.add/remove('hidden') sans effet visuel -->
@@ -2001,6 +2008,7 @@
 
     <!-- TAB 1 : ARTICLES -->
     <div id="tabTable" class="tab-content hidden">
+      <div id="tableContext" class="hidden"></div>
       <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
         <div class="flex items-center gap-2">
@@ -2024,13 +2032,13 @@
               <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30 font-bold" onclick="sortBy('libelle')" data-col="libelle" data-tooltip="Désignation article">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')" data-col="famille" data-tooltip="Famille article (code + libellé)">Famille ↕</th>
               <th class="px-2 py-3 text-xs uppercase t-disabled" onclick="sortBy('emplacement')" data-col="emplacement" data-tooltip="Emplacement physique en agence">Empl ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Prélevé comptoir sur la période — dimensionne le MIN/MAX">Prél ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA comptoir sur la période (source : consommé MAGASIN)">CA ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Quantité prélevée au comptoir sur 12 mois — dimensionne le MIN/MAX">Prél ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA prélevé au comptoir sur 12 mois (consommé MAGASIN, ton agence)">CA ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('enleveTotal')" data-col="enleveTotal" data-tooltip="Enlevé (colis) — NE dimensionne PAS le MIN/MAX">Enl ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-action font-bold" onclick="sortBy('W')" data-col="W" data-tooltip="Fréquence = nb de BL distincts (F≥12, M=4-11, R≤3)">Fréq ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-caution font-bold" onclick="sortBy('stockActuel')" data-col="stockActuel" data-tooltip="Stock actuel (source : état du stock)">Stock ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('couvertureJours')" data-col="couvertureJours" data-tooltip="Couverture = jours de stock restant au rythme actuel">Couv ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('ageJours')" data-col="ageJours" data-tooltip="Âge = jours depuis la dernière vente (rupture si stock = 0)">Âge ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('moisSansVente')" data-col="ageJours" data-tooltip="Dernière vente au MAGASIN de ton agence (consommé), en mois">Dern. vente ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" data-col="ancien" data-tooltip="MIN/MAX actuels dans l'ERP (avant recalcul PRISME)">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')" data-col="nouveauMin" data-tooltip="MIN recalculé par PRISME (sécurité + consommation)">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')" data-col="nouveauMax" data-tooltip="MAX recalculé par PRISME (capacité réappro optimale)">MAX ↕</th>

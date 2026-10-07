@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
+import { fmtDate, formatEuro, escapeHtml, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, computeHealthScore, rowVerdictLabel } from './engine.js';
@@ -247,10 +247,11 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { partie: 'partie', stock: 'arbitrage', clients: 'clients', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
+const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'clients', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   partie: 'partie',
-  plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
+  table: 'base',
+  plan: 'stock', arbitrage: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
   conformite: 'direction', duel: 'direction',
   animation: 'animation', associations: 'animation',
@@ -521,7 +522,7 @@ const _COL_DEFS = [
   { key: 'W', label: 'Fréquence', default: true },
   { key: 'stockActuel', label: 'Stock', default: true },
   { key: 'couvertureJours', label: 'Couverture', default: true },
-  { key: 'ageJours', label: 'Âge', default: true },
+  { key: 'ageJours', label: 'Dernière vente', default: true },
   { key: 'ancien', label: 'Ancien MIN/MAX', default: true },
   { key: 'nouveauMin', label: 'MIN PRISME', default: true },
   { key: 'nouveauMax', label: 'MAX PRISME', default: true },
@@ -576,6 +577,8 @@ export function initColSelector() {
   _applyColVisibility();
 }
 
+// Colonne masquée par l'utilisateur, ou vide par nature (🌐 sans aucun signal : _S._webColEmpty)
+const _colOff = (vis, key) => vis[key] === false || (key === 'canalWeb' && _S._webColEmpty);
 export function _applyColVisibility() {
   const vis = _loadColVisibility();
   const table = document.querySelector('#tabTable table');
@@ -589,14 +592,14 @@ export function _applyColVisibility() {
     for (const child of row.children) { if (child === th) break; idx++; }
     const key = th.dataset.col;
     colIndices[key] = idx;
-    th.style.display = vis[key] === false ? 'none' : '';
+    th.style.display = _colOff(vis, key) ? 'none' : '';
   });
   // Apply to body cells
   const rows = table.querySelectorAll('tbody tr');
   for (const row of rows) {
     const cells = row.children;
     for (const [key, idx] of Object.entries(colIndices)) {
-      if (cells[idx]) cells[idx].style.display = vis[key] === false ? 'none' : '';
+      if (cells[idx]) cells[idx].style.display = _colOff(vis, key) ? 'none' : '';
     }
   }
 }
@@ -617,8 +620,56 @@ export function filterByAbcFmr(abc, fmr) {
   _S.currentPage = 0; switchTab('table'); renderAll();
 }
 
+// ── Bandeau de contexte Articles ──────────────────────────────
+// Articles = la base. Quand on y arrive filtré depuis un écran de décision, un bandeau dit
+// ce qu'on regarde, quoi en faire, et ramène à l'écran d'origine.
+const _CTX = {
+  ruptures: ['Articles fréquents en rupture', 'à commander'],
+  saso: ['Articles au-dessus de leur MAX', 'à dégonfler'],
+  invendus: ['Jamais vendus en 12 mois', 'à retourner à la centrale ou déstocker'],
+  dormants: ['Dormants (plus de 180 jours sans mouvement)', 'à écouler'],
+  anomalies: ['En stock et vendus, sans MIN/MAX dans l’ERP', 'à paramétrer'],
+  fantomes: ['En stock sans emplacement', 'à ranger'],
+  sansemplacement: ['En stock sans emplacement', 'à ranger'],
+  stockneg: ['Stock négatif', 'à régulariser'],
+  fins: ['Fins de série', 'à écouler'],
+  colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
+};
+const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
+function _currentTabId() {
+  const pill = document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
+  return pill?.dataset.subtab || document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || '';
+}
+export function setTableContext(title, action) {
+  const from = _currentTabId();
+  _S._tableContext = { title, action, from: from && from !== 'table' ? from : (_S._tableContext?.from || '') };
+}
+export function renderTableContext() {
+  const el = document.getElementById('tableContext');
+  if (!el) return;
+  const c = _S._tableContext;
+  if (!c) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const n = DataStore.filteredData.length;
+  el.classList.remove('hidden');
+  el.innerHTML = `<div class="pt-col" style="gap:2px;min-width:0">
+      <span class="pt-small pt-muted">Tu regardes</span>
+      <span class="pt-strong" style="font-size:16px"><span class="pt-num">${n.toLocaleString('fr-FR')}</span> · ${escapeHtml(c.title)}${c.action ? ` <span class="pt-muted" style="font-weight:400">— ${escapeHtml(c.action)}</span>` : ''}</span>
+    </div>
+    <div class="pt-row" style="gap:16px;flex-wrap:wrap">
+      ${c.from ? `<button type="button" class="pt-link" onclick="_tableCtxBack()">← Retour à ${escapeHtml(_TAB_NAMES[c.from] || c.from)}</button>` : ''}
+      <button type="button" class="pt-link" onclick="resetFilters()">Toute la base</button>
+    </div>`;
+}
+if (typeof window !== 'undefined') window._tableCtxBack = () => {
+  const from = _S._tableContext?.from;
+  resetFilters();
+  if (from) switchTab(from);
+};
+
 // ── Cockpit filter ────────────────────────────────────────────
 export function showCockpitInTable(type) {
+  const ctx = _CTX[type];
+  setTableContext(ctx ? ctx[0] : type, ctx ? ctx[1] : '');
   document.getElementById('filterCockpit').value = type;
   document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', sansemplacement: '📍 Sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client', phantom: '👻 Fantômes de rayon', invendus: '🧊 Jamais vendus en 12 mois' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
@@ -631,6 +682,7 @@ export function showCockpitInTable(type) {
 }
 
 export function clearCockpitFilter(silent) {
+  _S._tableContext = null;
   document.getElementById('filterCockpit').value = '';
   document.getElementById('activeCockpitFilter').classList.add('hidden');
   const nbtn = document.getElementById('btnNouveautesOnly');

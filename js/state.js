@@ -202,6 +202,8 @@ _S._overviewOpenL3 = null;
 _S._tabRendered = {}; // tabId → true once rendered; reset on filter change
 
 // ── La partie (partie.js) ──
+_S._webColEmpty = false; // Articles : colonne 🌐 sans aucun signal → masquée
+_S._tableContext = null; // bandeau Articles : { title, action, from } quand on arrive filtré depuis un écran de décision
 _S._partie = null;      // résultat computePartie() — recalculé à chaque rendu
 _S._partieSel = '';     // famille ouverte dans le panneau détail
 _S._partieCrit = -1;    // critère dont la liste d'articles est dépliée (-1 = aucun)
@@ -346,7 +348,7 @@ export function resetAppState() {
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set();
-  _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {};
+  _S._webColEmpty = false; _S._tableContext = null; _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {};
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes

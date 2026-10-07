@@ -413,3 +413,26 @@ export function getClientsActiveSetInPeriod(canal = '', opts = {}) {
   _clientsActiveCache = { src, key, value: out };
   return out;
 }
+
+// ── Dernière vente par article (MAGASIN, myStore) ─────────────
+let _lastSaleCache = { bm: null, value: null };
+/** Map<code, monthIdx> du dernier mois avec au moins un BL (byMonth : client → article → mois). */
+export function getArticleLastSaleMonthIdx() {
+  const bm = _S._byMonth;
+  if (!bm) return null;
+  if (_lastSaleCache.bm === bm && _lastSaleCache.value) return _lastSaleCache.value;
+  const res = new Map();
+  for (const cc in bm) {
+    const arts = bm[cc];
+    if (!arts) continue;
+    for (const code in arts) {
+      const months = arts[code];
+      let best = res.get(code) ?? -1;
+      for (const m in months) if ((months[m]?.countBL || 0) > 0 && +m > best) best = +m;
+      if (best >= 0) res.set(code, best);
+    }
+  }
+  _lastSaleCache = { bm, value: res };
+  return res;
+}
+

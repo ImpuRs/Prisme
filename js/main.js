@@ -14,9 +14,9 @@ import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDa
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, renderTableContext, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
-import { getVentesClientMagFull, hasVentesClientMagFull } from './sales.js';
+import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
@@ -2263,8 +2263,22 @@ _S.articleMonthlySales=monthlySales;
   }
 
   // ★ TABLEAU
+  // Dernière vente MAGASIN (mois écoulés) — recalculée quand l'historique change ; 999 = aucune vente
+  let _lastSaleBM=null;
+  function _ensureLastSale(){
+    if(_lastSaleBM===_S._byMonth&&_lastSaleBM)return;
+    const last=getArticleLastSaleMonthIdx();const _d=_S.consommePeriodMaxFull||_S.consommePeriodMax;const ref=_d?monthIdxFromDate(new Date(_d)):null;
+    for(const r of DataStore.finalData){const m=last?.get(r.code);r.moisSansVente=(m!=null&&ref!=null)?Math.max(0,ref-m):999;}
+    _lastSaleBM=_S._byMonth;
+  }
+  function _lastSaleCell(m){
+    if(m>=999)return '<span class="age-dot" style="background:var(--pt-low)"></span><span title="Aucune vente MAGASIN dans tout l’historique du consommé chargé">jamais</span>';
+    const c=m<=1?'var(--pt-high)':m<=5?'var(--pt-mid)':'var(--pt-low)';
+    return `<span class="age-dot" style="background:${c}"></span>${m===0?'ce mois':m+' mois'}`;
+  }
   function renderTable(pageOnly){
     if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.innerHTML=_renderNoStockPlaceholder('Articles');return;}
+    _ensureLastSale();
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
       sortRowsInPlace(DataStore.filteredData,_S.sortCol,_S.sortAsc);
@@ -2272,7 +2286,9 @@ _S.articleMonthlySales=monthlySales;
     }
     const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=DataStore.filteredData.slice(start,start+PAGE_SIZE);
     document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
-    _renderActiveFilterBadges();
+    _renderActiveFilterBadges();renderTableContext();
+    // Colonne 🌐 (clients zone hors agence) : masquée tant qu'aucun article n'a de signal
+    _S._webColEmpty=!(_S.chalandiseReady&&DataStore.finalData.some(r=>(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2)); // appliqué par _applyColVisibility
     const _totalCA=_getFilteredCATotal();const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
     const p=[];
     for(const r of pd){
@@ -2280,7 +2296,6 @@ _S.articleMonthlySales=monthlySales;
       const isDormant=r.W===0&&r.stockActuel>0;
       const bg=isDormant?'':isUncalib?'s-card-alt':'';
       const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; if(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)return 'c-caution font-bold'; return ''; })();
-      const br=getAgeBracket(r.ageJours);
       const caEst=r.caAnnuel>0?(r.caAnnuel>=1000?`${(r.caAnnuel/1000).toFixed(1)}k€`:`${r.caAnnuel}€`):'—';
       const ancStr=(r.ancienMin===0&&r.ancienMax===0)?`<span class="t-disabled" title="Pas de MIN/MAX dans l'ERP">—</span>`:(r.ancienMin>0&&r.ancienMax===0)?`<span class="c-caution" title="MAX absent — anomalie ERP">${r.ancienMin}/0</span>`:`${r.ancienMin}/${r.ancienMax}`;
     p.push(`<tr class="border-b hover:i-info-bg ${bg} cursor-pointer"${isDormant?' style="background:rgba(239,68,68,0.25)"':isUncalib?' style="opacity:0.48"':''}
@@ -2295,7 +2310,7 @@ _S.articleMonthlySales=monthlySales;
       <td class="px-2 py-2 text-center font-bold text-xs">${r.W}</td>
       <td class="px-2 py-2 text-center ${sc} text-xs">${r.stockActuel}</td>
       <td class="px-2 py-2 text-center text-xs">${formatCouv(r.couvertureJours)}</td>
-      <td class="px-2 py-2 text-center text-xs whitespace-nowrap"><span class="age-dot ${AGE_BRACKETS[br].dotClass}"></span>${getAgeLabel(r.ageJours)}</td>
+      <td class="px-2 py-2 text-center text-xs whitespace-nowrap" title="Dernier mouvement ERP : ${getAgeLabel(r.ageJours)}">${_lastSaleCell(r.moisSansVente)}</td>
       <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMax}</td>
