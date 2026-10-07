@@ -316,6 +316,7 @@ export function switchTab(id) {
   if (id === 'abc' || id === 'matrice') id = 'arbitrage'; // abc/matrice → arbitrage
   if (id === 'stock') id = 'arbitrage'; // ancien stock → arbitrage
   if (id === 'omni') { switchTab('commerce'); return; }
+  if (id === 'clients') id = 'portefeuille'; // Fidélisation PDV retirée → Tes clients
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

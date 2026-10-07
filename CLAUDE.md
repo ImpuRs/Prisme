@@ -61,8 +61,11 @@ js/
   clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
                    CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
                    derniers ; part de portefeuille en info), 5 décisions triées par enjeu
-                   (relancer, reconquérir, développer, conquérir, rattacher) ; computeClientsPartie
-                   alimente le 3e domaine de La partie
+                   (relancer, reconquérir, développer, conquérir, rattacher ; silence tous canaux
+                   via clientLastOrderAll) + « Pour creuser » (top clients, nouveaux/réactivés,
+                   familles à proposer = opportuniteNette) ; computeClientsPartie alimente le 3e
+                   domaine de La partie. Remplace l'onglet Fidélisation PDV (retiré oct. 2026 :
+                   switchTab('clients') redirige ; renderMesClients n'est plus appelé)
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel

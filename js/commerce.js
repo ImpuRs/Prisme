@@ -1287,7 +1287,7 @@ function _onTerrClientSearch(){
       suggestEl.classList.add('hidden');
     }
     if(!raw){
-      _buildChalandiseOverview();renderMesClients();window.renderTerritoireTab?.();
+      _buildChalandiseOverview();window.renderTerritoireTab?.();
     }
   },250);
 }
@@ -1640,10 +1640,7 @@ function _buildChalandiseOverview(){
     _renderPochesTerrain('pochesTerrain');
     _renderLivSansPDV('livSansPDVBlock');
   }
-  // Fidélisation PDV : tabs cockpit + listes clients (renderMesClients gère tout)
-  if (document.getElementById('tabClients')) {
-    renderMesClients();
-  }
+  // Fidélisation PDV retirée (remplacée par « Tes clients ») : plus de rendu en arrière-plan
   // Tes clients : mêmes filtres clients que Fidélisation / Conquête
   if (_S._activeCommerceTab === 'portefeuille') window.renderTesClients?.();
   _buildChalandiseOverviewInner();

@@ -41,7 +41,7 @@ function _base() {
   const clients = new Map(); // cc → { ca12, months12:Set, caPrev6, caLast6, caN1, caAll, lastM }
   for (const cc in bm) {
     const arts = bm[cc];
-    const c = { ca12: 0, act12: new Set(), prev6: false, caPrev6: 0, last6: false, caN1: 0, lastM: -1, caBeforeLast12: 0 };
+    const c = { ca12: 0, act12: new Set(), prev6: false, caPrev6: 0, last6: false, caN1: 0, lastM: -1, caBeforeLast12: 0, months: null };
     const byM = new Map();
     for (const code in arts) {
       const months = arts[code];
@@ -58,11 +58,13 @@ function _base() {
       if (mi <= refM && mi > refM - 6) c.last6 = true;
       if (Math.floor(mi / 12) === yN1) c.caN1 += ca;
     }
+    c.months = [...byM.keys()].sort((a, z) => a - z);
     // CA des 12 mois qui précèdent le dernier achat (pour les perdus)
     for (const [mi, ca] of byM) if (mi <= c.lastM && mi > c.lastM - 12) c.caBeforeLast12 += ca;
     clients.set(cc, c);
   }
-  const value = { clients, refM, refDate, yN1 };
+  let firstM = Infinity; for (const [, c] of clients) if (c.months.length && c.months[0] < firstM) firstM = c.months[0];
+  const value = { clients, refM, refDate, yN1, firstM };
   _cache = { key, value };
   return value;
 }
@@ -147,7 +149,28 @@ function _decisions() {
   conquerir.sort((a, z) => z.leg - a.leg);
   rattacher.sort((a, z) => z.ca - a.ca);
   changeCanal.sort((a, z) => z.ca - a.ca);
-  return { relancer, reconquerir, developper, conquerir, rattacher, changeCanal, nbActifs: [...b.clients.values()].filter(c => c.ca12 > 0).length, ca12: [...b.clients.values()].reduce((s, c) => s + c.ca12, 0) };
+  // ── Pour creuser ──
+  const top = [], nouveaux = [];
+  for (const [cc, c] of b.clients) {
+    if (!okCom(cc)) continue;
+    if (c.ca12 >= 100) {
+      const info = chal.get(cc);
+      top.push(row(cc, { ca: c.ca12, mois: c.act12.size, leg: info?.['ca' + b.yN1] || 0 }));
+    }
+    // Arrivés sur les 6 derniers mois : nouveaux (aucun achat avant dans l'historique, qui doit
+    // remonter à 12 mois au moins) ou réactivés (revenus après 6 mois ou plus sans achat).
+    const recent = c.months.filter(m => m <= b.refM && m > b.refM - 6);
+    if (!recent.length || c.ca12 < 100) continue; // ≥100 € : on écarte les dépannages isolés
+    const before = c.months.filter(m => m <= b.refM - 6);
+    if (!before.length && b.firstM <= b.refM - 12) nouveaux.push(row(cc, { ca: c.ca12, type: 'Nouveau', depuis: b.refM - recent[0] }));
+    else if (before.length && recent[0] - before[before.length - 1] >= 6) nouveaux.push(row(cc, { ca: c.ca12, type: 'Réactivé', depuis: b.refM - recent[0] }));
+  }
+  top.sort((a, z) => z.ca - a.ca);
+  nouveaux.sort((a, z) => z.ca - a.ca);
+  const crosssell = (_S.opportuniteNette || []).filter(o => okCom(o.cc)).map(o => row(o.cc, {
+    pot: o.totalPotentiel || 0, fams: (o.missingFams || []).slice(0, 3).map(f => f.fam).join(', '), nbFams: (o.missingFams || []).length,
+  })).sort((a, z) => z.pot - a.pot);
+  return { relancer, reconquerir, developper, conquerir, rattacher, changeCanal, top, nouveaux, crosssell, nbActifs: [...b.clients.values()].filter(c => c.ca12 > 0).length, ca12: [...b.clients.values()].reduce((s, c) => s + c.ca12, 0) };
 }
 
 // ── Rendu ────────────────────────────────────────────────────
@@ -169,9 +192,20 @@ const DEFS = {
     head: ['CA 12 mois', 'Silence'], cells: (r) => [_eur(r.ca), r.sil != null ? `${r.sil} j` : '—'] },
 };
 const ORDER = ['relancer', 'reconquerir', 'developper', 'conquerir', 'rattacher'];
+const DEFS_PLUS = {
+  top: { verb: 'Top clients', sub: (l) => `${_eur(l.reduce((s, r) => s + r.ca, 0))} de CA comptoir sur 12 mois`,
+    why: 'Tes clients comptoir classés par CA sur les 12 derniers mois, avec leur CA Legallais total pour situer ta part.',
+    head: ['CA comptoir 12 mois', 'Mois actifs', 'CA Legallais N-1'], cells: (r) => [_eur(r.ca), r.mois, r.leg ? _eur(r.leg) : '—'] },
+  nouveaux: { verb: 'Nouveaux et réactivés', sub: (l) => `${l.filter(r => r.type === 'Nouveau').length} nouveaux · ${l.filter(r => r.type === 'Réactivé').length} réactivés sur 6 mois`,
+    why: 'Premier achat au comptoir sur les 6 derniers mois (nouveaux), ou retour après au moins 6 mois d’absence (réactivés), pour au moins 100 € de CA. À accueillir et à fidéliser.',
+    head: ['Type', 'Depuis', 'CA comptoir 12 mois'], cells: (r) => [r.type, r.depuis === 0 ? 'ce mois' : `${r.depuis} mois`, _eur(r.ca)] },
+  crosssell: { verb: 'Familles à proposer', sub: (l) => `${_n(l.length)} clients actifs à qui il manque des familles de leur métier`,
+    why: 'Clients actifs qui n’achètent pas chez toi des familles que leurs confrères du même métier achètent. Potentiel estimé sur la médiane du métier.',
+    head: ['Familles manquantes', 'Potentiel estimé'], cells: (r) => [`${escapeHtml(r.fams)}${r.nbFams > 3 ? ` +${r.nbFams - 3}` : ''}`, _eur(r.pot)] },
+};
 
 function _list(key, rows, extra) {
-  const d = DEFS[key];
+  const d = DEFS[key] || DEFS_PLUS[key];
   const open = _openList === key;
   const shown = rows.slice(0, ROWS);
   const body = shown.map(r => `<tr class="ar-click" onclick="window.openClient360?.('${escapeHtml(r.cc)}','tes-clients')">
@@ -254,7 +288,7 @@ export function renderTesClients() {
         <span class="pt-eyebrow">Ta clientèle comptoir</span>
         <div class="pt-num" style="font-size:40px;font-weight:600;line-height:1">${_n(dec.nbActifs)}<span class="pt-muted" style="font-size:16px;font-weight:400"> clients sur 12 mois</span></div>
         <span class="pt-muted">${_eur(dec.ca12)} de CA comptoir · panier annuel moyen ${_eur(dec.nbActifs ? dec.ca12 / dec.nbActifs : 0)}</span>
-        <span class="pt-small pt-muted">Pour le détail historique : <button type="button" class="pt-link pt-small" style="padding:0" onclick="switchTab('clients')">Fidélisation PDV</button> · <button type="button" class="pt-link pt-small" style="padding:0" onclick="switchTab('commerce')">Conquête Terrain</button></span>
+        <span class="pt-small pt-muted">Vue territoire et zone de chalandise : <button type="button" class="pt-link pt-small" style="padding:0" onclick="switchTab('commerce')">Conquête Terrain</button></span>
       </div>
     </section>
     <section class="pt-col" style="gap:16px">
@@ -265,6 +299,10 @@ export function renderTesClients() {
       <div class="ar-decs">${ORDER.map(k => _card(k, dec[k])).join('')}</div>
     </section>
     <section class="pt-col" style="gap:12px">${ORDER.map(k => _list(k, dec[k], k === 'relancer' ? dec.changeCanal : null)).join('')}</section>
+    <section class="pt-col" style="gap:12px">
+      <h3 class="pt-h2">Pour creuser</h3>
+      ${['top', 'nouveaux', 'crosssell'].map(k => _list(k, dec[k])).join('')}
+    </section>
   </div>`;
 }
 
@@ -275,7 +313,7 @@ window._tcShow = (key) => {
   if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 };
 window._tcCsv = (key) => {
-  const dec = _decisions(); const d = DEFS[key];
+  const dec = _decisions(); const d = DEFS[key] || DEFS_PLUS[key];
   if (!dec || !d) return;
   const q = (v) => `"${String(v ?? '').replace(/<[^>]+>/g, '').replace(/"/g, '""')}"`;
   const head = key === 'rattacher' ? ['Code Client', 'Nom', 'Ville', 'CA 12 mois', 'Commercial (à remplir)'] : ['Code Client', 'Nom', 'Métier', 'Commercial', 'Ville', ...d.head];
