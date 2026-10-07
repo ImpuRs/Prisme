@@ -71,6 +71,13 @@ const _silence = (cc, refDate) => {
   const d = _S.clientLastOrder?.get(cc);
   return d ? Math.round((refDate - new Date(d)) / 86400000) : null;
 };
+// Silence tous canaux (comptoir, représentant, internet, DCS) : un client qui ne vient plus au
+// comptoir mais commande encore par son représentant n'a pas décroché — il a changé de canal.
+const _silenceAll = (cc, refDate) => {
+  const a = _S.clientLastOrderAll?.get(cc);
+  return a?.date ? { j: Math.round((refDate - new Date(a.date)) / 86400000), canal: a.canal || '' } : null;
+};
+const _CANAL = { MAGASIN: 'comptoir', REPRESENTANT: 'représentant', INTERNET: 'internet', DCS: 'DCS' };
 
 /** Domaine Clients de La partie — même calcul que l'écran « Tes clients ». */
 export function computeClientsPartie() {
@@ -106,14 +113,18 @@ function _decisions() {
     const i = chal.get(cc);
     return { cc, nom: i?.nom || _S.clientNomLookup?.[cc] || cc, metier: i?.metier || '', commercial: i?.commercial || '', ville: i?.ville || '', classif: i?.classification || '', ...extra };
   };
-  const relancer = [], reconquerir = [], developper = [], rattacher = [];
+  const relancer = [], reconquerir = [], developper = [], rattacher = [], changeCanal = [];
   for (const [cc, c] of b.clients) {
     const sil = _silence(cc, b.refDate);
     const info = chal.get(cc);
     if (!info && c.ca12 > 0) rattacher.push(row(cc, { ca: c.ca12, sil }));
     if (!okCom(cc)) continue;
-    if (sil != null && sil >= 60 && sil < 180 && c.act12.size >= 3) relancer.push(row(cc, { ca: c.ca12, sil, mois: c.act12.size }));
-    else if (sil != null && sil >= 180 && sil < 365 && c.caBeforeLast12 >= 300) reconquerir.push(row(cc, { ca: c.caBeforeLast12, sil }));
+    const all = _silenceAll(cc, b.refDate);
+    const silAll = all ? all.j : sil; // sans info tous canaux : le comptoir fait foi
+    const actifAilleurs = sil != null && sil >= 60 && silAll != null && silAll < 60;
+    if (actifAilleurs && (c.act12.size >= 3 || c.caBeforeLast12 >= 300)) changeCanal.push(row(cc, { ca: c.ca12, sil, canal: _CANAL[all.canal] || all.canal, silAll }));
+    else if (sil != null && sil >= 60 && silAll < 180 && c.act12.size >= 3) relancer.push(row(cc, { ca: c.ca12, sil: silAll, mois: c.act12.size }));
+    else if (sil != null && sil >= 180 && silAll >= 180 && silAll < 365 && c.caBeforeLast12 >= 300) reconquerir.push(row(cc, { ca: c.caBeforeLast12, sil: silAll }));
     else if (sil != null && sil < 60 && info && (info['ca' + b.yN1] || 0) >= 2000) {
       const leg = info['ca' + b.yN1];
       const part = c.caN1 / Math.max(leg, c.caN1);
@@ -135,17 +146,18 @@ function _decisions() {
   developper.sort((a, z) => z.ecart - a.ecart);
   conquerir.sort((a, z) => z.leg - a.leg);
   rattacher.sort((a, z) => z.ca - a.ca);
-  return { relancer, reconquerir, developper, conquerir, rattacher, nbActifs: [...b.clients.values()].filter(c => c.ca12 > 0).length, ca12: [...b.clients.values()].reduce((s, c) => s + c.ca12, 0) };
+  changeCanal.sort((a, z) => z.ca - a.ca);
+  return { relancer, reconquerir, developper, conquerir, rattacher, changeCanal, nbActifs: [...b.clients.values()].filter(c => c.ca12 > 0).length, ca12: [...b.clients.values()].reduce((s, c) => s + c.ca12, 0) };
 }
 
 // ── Rendu ────────────────────────────────────────────────────
 const DEFS = {
   relancer: { verb: 'Relancer', unit: ['client régulier qui décroche', 'clients réguliers qui décrochent'], sub: (l) => `${_eur(l.reduce((s, r) => s + r.ca, 0))} de CA comptoir sur 12 mois`,
-    why: 'Venus au moins 3 mois sur les 12 derniers, plus rien depuis 60 jours à 6 mois. Triés par CA comptoir sur 12 mois.',
-    head: ['CA 12 mois', 'Mois actifs', 'Silence'], cells: (r) => [_eur(r.ca), r.mois, `${r.sil} j`] },
+    why: 'Venus au comptoir au moins 3 mois sur les 12 derniers, et plus aucune commande, tous canaux confondus, depuis 60 jours à 6 mois. Triés par CA comptoir sur 12 mois.',
+    head: ['CA 12 mois', 'Mois actifs', 'Silence tous canaux'], cells: (r) => [_eur(r.ca), r.mois, `${r.sil} j`] },
   reconquerir: { verb: 'Reconquérir', unit: ['client perdu depuis 6 à 12 mois', 'clients perdus depuis 6 à 12 mois'], sub: (l) => `${_eur(l.reduce((s, r) => s + r.ca, 0))} de CA comptoir avant leur départ`,
-    why: 'Plus aucun achat au comptoir depuis 6 à 12 mois, au moins 300 € sur leurs 12 derniers mois actifs. Triés par ce CA.',
-    head: ['CA avant départ', 'Silence'], cells: (r) => [_eur(r.ca), `${r.sil} j`] },
+    why: 'Plus aucune commande, tous canaux confondus, depuis 6 à 12 mois ; au moins 300 € au comptoir sur leurs 12 derniers mois actifs. Triés par ce CA.',
+    head: ['CA avant départ', 'Silence tous canaux'], cells: (r) => [_eur(r.ca), `${r.sil} j`] },
   developper: { verb: 'Développer', unit: ['client actif qui achète surtout ailleurs', 'clients actifs qui achètent surtout ailleurs'], sub: (l) => `${_eur(l.reduce((s, r) => s + r.ecart, 0))} de CA Legallais hors de ton comptoir`,
     why: 'Venus ces 60 derniers jours, mais ton comptoir pèse moins de 25 % de leur CA Legallais (année précédente, chalandise). Triés par ce qu’ils dépensent ailleurs.',
     head: ['CA comptoir 12 mois', 'CA Legallais N-1', 'Ta part'], cells: (r) => [_eur(r.ca), _eur(r.leg), `${r.part} %`] },
@@ -158,7 +170,7 @@ const DEFS = {
 };
 const ORDER = ['relancer', 'reconquerir', 'developper', 'conquerir', 'rattacher'];
 
-function _list(key, rows) {
+function _list(key, rows, extra) {
   const d = DEFS[key];
   const open = _openList === key;
   const shown = rows.slice(0, ROWS);
@@ -174,6 +186,10 @@ function _list(key, rows) {
     </span><span class="ar-chev" aria-hidden="true"></span></summary>
     ${rows.length ? `<div class="ar-sec-body">
       <p class="pt-small pt-muted" style="margin:0">${d.why}</p>
+      ${key === 'relancer' && extra?.length ? `<details class="pt-small"><summary class="pt-link" style="cursor:pointer;list-style:none">+ ${_n(extra.length)} ${_pl(extra.length, 'client ne vient', 'clients ne viennent')} plus au comptoir mais ${_pl(extra.length, 'commande', 'commandent')} encore par un autre canal — pas à relancer, à suivre</summary>
+        <div class="pt-list" style="margin-top:8px"><div class="pt-scroll"><table class="pt-table"><thead><tr><th>Client</th><th>Commercial</th><th class="ar-r">CA comptoir 12 mois</th><th class="ar-r">Silence comptoir</th><th class="ar-r">Dernière commande</th></tr></thead><tbody>
+        ${extra.slice(0, ROWS).map(r => `<tr class="ar-click" onclick="window.openClient360?.('${escapeHtml(r.cc)}','tes-clients')"><td class="pt-strong">${escapeHtml(r.nom)}</td><td class="pt-small pt-muted">${escapeHtml(r.commercial || '—')}</td><td class="pt-num ar-r">${_eur(r.ca)}</td><td class="pt-num ar-r">${r.sil} j</td><td class="pt-num ar-r">${escapeHtml(r.canal)} · ${r.silAll} j</td></tr>`).join('')}
+        </tbody></table></div></div></details>` : ''}
       <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
         <thead><tr><th>Client</th><th>Métier</th><th>Commercial</th>${d.head.map(h => `<th class="ar-r">${h}</th>`).join('')}</tr></thead>
         <tbody>${body}</tbody></table></div>
@@ -248,7 +264,7 @@ export function renderTesClients() {
       </div>
       <div class="ar-decs">${ORDER.map(k => _card(k, dec[k])).join('')}</div>
     </section>
-    <section class="pt-col" style="gap:12px">${ORDER.map(k => _list(k, dec[k])).join('')}</section>
+    <section class="pt-col" style="gap:12px">${ORDER.map(k => _list(k, dec[k], k === 'relancer' ? dec.changeCanal : null)).join('')}</section>
   </div>`;
 }
 
