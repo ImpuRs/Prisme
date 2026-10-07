@@ -758,6 +758,67 @@ export async function _clearIDB() {
   } catch (_) {}
 }
 
+// ═══════════════════════════════════════════════════════════════
+// La partie — historique du score + actions cochées
+// Base séparée PRISME_PARTIE : survit aux purges de session, et ne force pas
+// de montée de version de PRISME (scan.html l'ouvre en v2 sur la même origine).
+// Clés : 'hist|<store>' → [{key, date, global, assort, stock, fams:{k:score}}]
+//        'done|<store>|<dataKey>' → {actionId: true}
+// ═══════════════════════════════════════════════════════════════
+const PARTIE_DB = 'PRISME_PARTIE';
+const PARTIE_STORE = 'kv';
+const PARTIE_HIST_MAX = 104; // 2 ans de points hebdo
+
+function _openPartieDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PARTIE_DB, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(PARTIE_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function _partieGet(key) {
+  const db = await _openPartieDB();
+  try {
+    return await new Promise((res, rej) => {
+      const r = db.transaction(PARTIE_STORE).objectStore(PARTIE_STORE).get(key);
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  } finally { db.close(); }
+}
+
+async function _partiePut(key, value) {
+  const db = await _openPartieDB();
+  try {
+    const tx = db.transaction(PARTIE_STORE, 'readwrite');
+    tx.objectStore(PARTIE_STORE).put(value, key);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  } finally { db.close(); }
+}
+
+/** Enregistre (ou remplace) le point du jeu de données courant ; retourne l'historique trié. */
+export async function _savePartieSnapshot(store, snap) {
+  if (!store || !snap?.key) return [];
+  try {
+    const hist = (await _partieGet('hist|' + store)) || [];
+    const i = hist.findIndex(h => h.key === snap.key);
+    if (i >= 0) hist[i] = snap; else hist.push(snap);
+    hist.sort((a, b) => a.date.localeCompare(b.date));
+    const trimmed = hist.slice(-PARTIE_HIST_MAX);
+    await _partiePut('hist|' + store, trimmed);
+    return trimmed;
+  } catch (e) { console.warn('[PRISME] Historique partie indisponible :', e); return [snap]; }
+}
+
+export async function _loadPartieDone(store, dataKey) {
+  try { return (await _partieGet(`done|${store}|${dataKey}`)) || {}; } catch (_) { return {}; }
+}
+
+export async function _savePartieDone(store, dataKey, done) {
+  try { await _partiePut(`done|${store}|${dataKey}`, done); } catch (e) { console.warn('[PRISME] Actions partie non sauvegardées :', e); }
+}
+
 // Migration transparente : PILOT_PRO (ancienne base) → PRISME
 export async function _migrateIDB() {
   try {

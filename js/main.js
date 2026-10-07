@@ -31,7 +31,7 @@ import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageRayonBlock } from './emplacement.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js?v=20260425m';
-import { renderEfficienceTab } from './efficience.js';
+import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
@@ -1931,7 +1931,7 @@ _S.articleMonthlySales=monthlySales;
       _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
-      if(!isRefilter){switchTab('stock');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
+      if(!isRefilter){switchTab('partie');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
       if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileLivraisons').files[0]||null); }
       // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
@@ -2453,10 +2453,14 @@ _S.articleMonthlySales=monthlySales;
   // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────
 
   async function renderCurrentTab(){
-    const activePill=document.querySelector('.supertab-pill.active[data-subtab]');
+    // Pastille active du super-onglet affiché (les autres groupes gardent leur pastille par défaut)
+    const activePill=document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
     const activeBtn=document.querySelector('.tab-btn.active');
     const id=(activePill?.dataset.subtab)||(activeBtn?activeBtn.getAttribute('data-tab'):'table');
     switch(id){
+      case 'partie':
+        renderPartieTab();
+        break;
       case 'table':
         renderTable(true);
         return;
@@ -2491,9 +2495,6 @@ _S.articleMonthlySales=monthlySales;
         break;
       case 'associations':
         renderAssociationsTab();
-        break;
-      case 'efficience':
-        renderEfficienceTab();
         break;
       case 'conformite':
         window.renderConformiteTab?.();
@@ -2644,7 +2645,7 @@ _S.articleMonthlySales=monthlySales;
       }
 
       _S._parsingInProgress=false;
-      switchTab('stock');_mc('switchTab stock');
+      switchTab('partie');_mc('switchTab partie');
       collapseImportZone();
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.

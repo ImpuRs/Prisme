@@ -6,7 +6,7 @@
   <title>PRISME — Voir juste, piloter vite.</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     /* ═══ COLOR COVENANT — variables sémantiques ══════════════ */
     :root {
@@ -1306,6 +1306,64 @@
     .pepites-table tr:hover td{background:var(--s-hover)}
     .pepites-empty{color:var(--t-tertiary);font-size:13px;padding:24px 0;text-align:center}
 
+    /* ═══ LA PARTIE (partie.js) — accueil gamifié ═══ */
+    :root { --pt-low:#C2531F; --pt-mid:#9A6F00; --pt-high:#13865A; --pt-line:var(--b-default); --pt-gain:#B8F26B; --pt-gain-ink:#14200A; }
+    [data-theme="dark"] { --pt-low:#FF8F5A; --pt-mid:#F2C14E; --pt-high:#57D6A4; --pt-line:#2A303B; }
+    #tabPartie { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .pt-wrap { max-width:1320px; margin:0 auto; padding:24px 16px 72px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; }
+    @media (min-width:768px) { .pt-wrap { padding:28px 32px 72px; } }
+    .pt-card { background:var(--s-card); border:1px solid var(--pt-line); border-radius:20px; padding:24px; box-sizing:border-box; min-width:0; }
+    .pt-grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+    .pt-row { display:flex; align-items:center; }
+    .pt-col { display:flex; flex-direction:column; }
+    .pt-between { justify-content:space-between; }
+    .pt-grow { flex:1; min-width:0; }
+    .pt-ellipsis { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+    .pt-num { font-family:'Geist Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+    .pt-strong { font-weight:600; }
+    .pt-muted { color:var(--t-tertiary); }
+    .pt-small { font-size:13px; }
+    .pt-eyebrow { font-size:12px; color:var(--t-tertiary); text-transform:uppercase; letter-spacing:.08em; }
+    .pt-h2 { margin:0; font-size:22px; font-weight:600; line-height:1.25; }
+    .pt-h3 { margin:0; font-size:18px; font-weight:600; }
+    .pt-big { font-size:56px; font-weight:600; line-height:1; }
+    .pt-ring { position:relative; width:168px; height:168px; flex-shrink:0; }
+    .pt-ring-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .pt-track { display:block; width:100%; background:var(--pt-line); border-radius:4px; overflow:hidden; }
+    .pt-fill { display:block; height:100%; border-radius:inherit; transition:width .6s ease; }
+    .pt-delta { align-self:flex-start; font-family:'Geist Mono',monospace; font-size:13px; font-weight:600; padding:4px 10px; border-radius:999px; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .pt-delta-neg { background:var(--s-card-alt); color:var(--pt-low); border:1px solid var(--pt-line); }
+    .pt-domain { display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--s-card-alt); border-radius:12px; }
+    .pt-domain.pt-dashed { background:transparent; border:1px dashed var(--pt-line); }
+    .pt-domain-val { font-size:22px; font-weight:600; width:40px; text-align:right; }
+    .pt-curve { width:100%; height:90px; display:block; }
+    .pt-curve-empty { height:90px; border-bottom:1px solid var(--pt-line); position:relative; }
+    .pt-dot { position:absolute; left:0; bottom:-6px; width:12px; height:12px; border-radius:50%; background:var(--pt-high); }
+    .pt-action { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:12px 16px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); }
+    .pt-action-main { flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:2px; text-align:left; background:none; border:0; padding:4px 0; cursor:pointer; color:inherit; font:inherit; }
+    .pt-action-main:hover .pt-action-title { text-decoration:underline; text-underline-offset:3px; }
+    .pt-action-title { font-size:15px; font-weight:500; }
+    .pt-gain { font-family:'Geist Mono',monospace; font-size:15px; font-weight:600; min-width:46px; text-align:center; padding:6px 8px; border-radius:10px; flex-shrink:0; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .pt-done { opacity:.6; }
+    .pt-done .pt-gain { background:var(--s-card-alt); color:var(--t-tertiary); }
+    .pt-done .pt-action-title { text-decoration:line-through; }
+    .pt-btn { min-height:44px; padding:0 18px; border-radius:10px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); }
+    .pt-btn:hover { border-color:var(--t-tertiary); }
+    .pt-btn-done { color:var(--pt-high); border-color:var(--pt-high); }
+    .pt-famlist { flex:1 1 380px; gap:4px; padding:16px; }
+    .pt-fam { display:flex; align-items:center; gap:14px; width:100%; min-height:44px; padding:8px 10px; border-radius:10px; cursor:pointer; color:inherit; font:inherit; font-size:14px; background:transparent; border:1px solid transparent; }
+    .pt-fam:hover { background:var(--s-card-alt); }
+    .pt-fam.pt-sel { background:var(--s-card-alt); border-color:var(--pt-line); }
+    .pt-detail { flex:999 1 560px; display:flex; flex-direction:column; gap:24px; scroll-margin-top:120px; }
+    .pt-crit-head { display:flex; flex-direction:column; gap:6px; width:100%; text-align:left; background:none; border:0; padding:6px 0; cursor:pointer; color:inherit; font:inherit; font-size:15px; }
+    .pt-crit-head:disabled { cursor:default; }
+    .pt-list { margin-top:10px; border:1px solid var(--pt-line); border-radius:12px; overflow:hidden; }
+    .pt-scroll { overflow-x:auto; max-height:420px; overflow-y:auto; }
+    .pt-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .pt-table th { position:sticky; top:0; background:var(--s-card-alt); text-align:left; font-weight:500; color:var(--t-tertiary); padding:8px 12px; white-space:nowrap; }
+    .pt-table td { padding:8px 12px; border-top:1px solid var(--pt-line); }
+    .pt-mini-action { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--s-card-alt); border-radius:12px; }
+    .pt-link { background:none; border:0; padding:6px 0; cursor:pointer; color:var(--t-link); font:inherit; font-weight:500; }
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -1417,14 +1475,18 @@
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
 
+      <!-- SUPER-TAB 0 : La partie (accueil) -->
+      <div class="supertab-group active" id="stg-partie">
+        <button data-tab="partie" onclick="switchSuperTab('partie')" class="tab-btn supertab-btn active" id="stbtn-partie" style="--tab-color:#7FB236;--tab-bg:#B8F26B1F;--tab-text:#3F6212"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>La partie</span></button>
+      </div>
+
       <!-- SUPER-TAB 1 : Pilotage Stock -->
-      <div class="supertab-group active" id="stg-stock">
-        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn active" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
+      <div class="supertab-group" id="stg-stock">
+        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
         <div class="supertab-pills" id="stpills-stock">
           <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
           <button class="supertab-pill" data-subtab="table" onclick="switchTab('table')">Articles</button>
-          <button class="supertab-pill" data-subtab="efficience" onclick="switchTab('efficience')">Efficience</button>
         </div>
       </div>
 
@@ -1953,13 +2015,13 @@
       <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><span id="filteredCATotal" class="hidden text-xs font-semibold c-ok" style="margin-left:12px"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
     </div>
 
+    <!-- TAB : LA PARTIE (accueil) -->
+    <div id="tabPartie" class="tab-content"></div>
+
     <!-- TAB : PLAN DE RAYON -->
-    <div id="tabPlan" class="tab-content">
+    <div id="tabPlan" class="tab-content hidden">
       <div id="planRayonBlock" class="p-4"></div>
     </div>
-
-    <!-- TAB : EFFICIENCE -->
-    <div id="tabEfficience" class="tab-content hidden"></div>
 
     <!-- TAB : ARBITRAGE -->
     <div id="tabArbitrage" class="tab-content hidden">

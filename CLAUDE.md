@@ -46,6 +46,9 @@ js/
                    _saveExclusions, _restoreExclusions, _migrateIDB
   ui.js          — fonctions UI transverses : switchTab, renderAll, onFilterChange,
                    renderInsightsBanner, renderCockpitBriefing, renderDecisionQueue
+  partie.js      — « La partie » (accueil) : score agence gamifié, computePartie,
+                   renderPartieTab — score famille 4 critères squelette + Stock,
+                   actions « +N pts », historique PRISME_PARTIE
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
@@ -283,6 +286,7 @@ Niveaux du diagnostic :
 
 | Onglet | Source principale | Description |
 |---|---|---|
+| La partie (accueil) | finalData + computeSquelette | Score agence /100 (Assortiment + Stock ; Clients à venir), actions « +N pts », familles notées, courbe de progression |
 | Articles | finalData | Tableau filtrable, MIN/MAX, ABC/FMR, export CSV |
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
@@ -367,6 +371,8 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Restaurée au démarrage via `_initFromCache()` dans main.js
 - Exclue si `_S.selectedMyStore` est vide (évite contamination)
 - Exclusions cockpit sauvegardées séparément (pas de TTL)
+- **Base `PRISME_PARTIE`** (séparée, v1, store `kv`) : historique des scores `hist|<store>` + actions cochées `done|<store>|<dataKey>`.
+  Séparée pour survivre aux purges de session ET pour ne pas monter la version de `PRISME` (scan.html ouvre `PRISME` en v2 sur la même origine — une montée de version casserait le Scan).
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
