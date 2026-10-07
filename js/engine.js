@@ -1774,22 +1774,22 @@ export function applyVerdictOverrides() {
       }
     }
 
+    // « Réseau fort » : le réseau vend vraiment l'article (cf. SQ_RESEAU_FORT_*)
+    const caR = caReseauByCode.get(r.code) || 0;
+    const reseauFort = detention >= SQ_RESEAU_FORT_DETENTION && nbSt > 0 && caR / nbSt >= SQ_RESEAU_FORT_CA_AGENCE;
+    const incontLocal = r.abcClass === 'A' && W >= 12;
+    // Socle : détention seule suffit (pas d'alerte en jeu). Surveiller / challenger : l'étiquette
+    // « incontournable » déclenche une alerte (Alerte Rouge, Réf Schizo) → réseau fort exigé.
+    const isIncont = (classif === 'surveiller' || classif === 'challenger')
+      ? (reseauFort || incontLocal)
+      : (detention >= 0.6 || incontLocal);
+
     let role = 'standard';
-    if (detention >= 0.6 || (r.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    if (isIncont) role = 'incontournable';
     else if (r.isNouveaute) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
-
-    // Challenger (jamais vendu ici) : « incontournable » = Réf Schizo seulement si le réseau
-    // le vend vraiment (cf. SQ_RESEAU_FORT_*). 3 agences à 40 €/an ne font pas une Réf Schizo.
-    if (classif === 'challenger') {
-      const caR = caReseauByCode.get(r.code) || 0;
-      const reseauFort = detention >= SQ_RESEAU_FORT_DETENTION && nbSt > 0 && caR / nbSt >= SQ_RESEAU_FORT_CA_AGENCE;
-      if (role === 'incontournable' && !reseauFort) role = 'standard';
-      if (role === 'standard') {
-        if (reseauFort) role = 'incontournable';
-        else if (nbCliMetierStrat >= 1) role = 'specialiste';
-      }
-    }
+    // Challenger standard acheté par un client de métier stratégique → Trahison (candidat Ancre Métier)
+    if (classif === 'challenger' && role === 'standard' && nbCliMetierStrat >= 1) role = 'specialiste';
 
     r._sqRole = role;
     r._sqVerdict = _VERDICT_MAP[classif]?.[role] || '';
