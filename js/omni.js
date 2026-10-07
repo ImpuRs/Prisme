@@ -456,7 +456,13 @@ function _passesAllFilters(cc){
     const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
-    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewToggle" class="flex gap-0.5 text-[10px]" onclick="event.preventDefault();event.stopPropagation()"></span><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
+    <section id="terrChalandiseOverview" class="hidden"><div class="pt-card pt-col" style="gap:14px;padding:20px">
+      <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+        <h3 class="pt-h2">Ton territoire en un coup d’œil</h3>
+        <div class="pt-row" style="gap:12px;flex-wrap:wrap"><span id="terrOverviewToggle" class="pt-row" style="gap:6px"></span><span id="terrOverviewSummaryLine" class="pt-small pt-muted"></span></div>
+      </div>
+      <div class="pt-list"><div class="tt-scroll"><table class="pt-table tt-table"><thead id="terrOverviewL1Head"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></div>
+    </div></section>
   </div>`;
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);

@@ -310,7 +310,7 @@ Niveaux du diagnostic :
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
-| Le Terrain | Tous fichiers | Canal, chalandise, cockpit client, benchmark commercial |
+| Conquête Terrain (« Ton territoire ») | chalandise + consommé | 4 chiffres (zone, actifs Leg., clients agence, à capter) + tableau direction → métier → secteur → clients trié par « à capter » (actifs Leg. non clients agence, aggregateACapter) ; clic = liste + CSV |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
 | Promo | consommé | Recherche article multi-agences, mode action, tournée |
 

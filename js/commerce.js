@@ -27,6 +27,7 @@ import {
   aggregateOverviewClients,
   aggregateOverviewMetiers,
   aggregateOverviewSecteurs,
+  aggregateACapter,
   buildOverviewCacheKey as _buildOverviewCacheKey,
   getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw,
   getOverviewMode,
@@ -41,7 +42,7 @@ import {
   renderOverviewL3Table,
   renderOverviewL4Table,
   renderTerrainFocusCoach
-} from './commerce-conquete-view.js?v=20260425d';
+} from './commerce-conquete-view.js?v=20261007a';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 import {
   buildPochesTerrain,
@@ -1759,16 +1760,17 @@ function _buildChalandiseOverviewInner(force){
       ?`<div style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;min-width:80px"><span style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;text-transform:uppercase">🚫 Exclus</span><span style="font-size:18px;font-weight:800;color:rgba(251,191,36,0.7)">${totalExcluded24m}</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:1px">&gt;24 mois</span></div>`:'' ;
     const _universTile=_universKpi?`${_tile('🧾',formatEuro(_universKpi.avg),`CA MAG ${escapeHtml(_universKpi.label)} / capté`,`${formatEuro(_universKpi.caUnivers)} · ${_universKpi.acheteurs}/${_universKpi.captes} acheteurs · ${formatEuro(_universKpi.avgBuyer)}/acheteur`,'#22d3ee')}`:'';
     const _filterBadge=filterActive?`<div style="position:absolute;top:8px;right:12px;font-size:9px;background:rgba(234,179,8,0.2);color:#fde047;padding:2px 8px;border-radius:99px;font-weight:700;letter-spacing:.05em">FILTRÉ</div>`:'';
-    bar.innerHTML=`<div style="position:relative;display:flex;align-items:stretch;overflow:hidden">
-      ${_filterBadge}
-      ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
-      ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
-      ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}${_oCanal&&_oCanal!=='MAGASIN'?' · via '+_canalLabel:''}`,'#4ade80')}
-      ${_universTile}
-      ${_tile('⚠️',_horsZoneCount.toLocaleString('fr-FR'),'Hors zone',_horsZoneCA>0?formatEuro(_horsZoneCA)+' CA PDV':'','#fcd34d')}
-      ${_exclusBadge}
-    </div>`;
-    bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
+    let _aCapterTot=0;for(const d of Object.values(dirMap))_aCapterTot+=d.aCapter||0;
+    const _k=(label,val,sub,color)=>`<div class="pt-card pt-col" style="gap:6px;padding:18px 20px"><span class="pt-eyebrow">${label}</span><span class="pt-num" style="font-size:32px;font-weight:600;line-height:1.05;${color?`color:${color}`:''}">${val}</span>${sub?`<span class="pt-small pt-muted">${sub}</span>`:''}</div>`;
+    const _base=filteredClients;
+    bar.innerHTML=`<div class="tt-kpis">
+      ${_k('Clients de ta zone',filteredClients.toLocaleString('fr-FR'),filterActive?`sur ${totalClients.toLocaleString('fr-FR')} · filtrés`:'fichier chalandise')}
+      ${_k('Actifs chez Legallais',pctCapteLeg+' %',`${totalActifsLeg.toLocaleString('fr-FR')} clients`, 'var(--t-link)')}
+      ${_k('Clients de ton agence',pctCapte+' %',`${totalActifsPDV.toLocaleString('fr-FR')} clients${_oCanal?' · '+_canalLabel:' · tous canaux'}`,'var(--pt-high)')}
+      ${_k('À capter',_aCapterTot.toLocaleString('fr-FR'),'actifs chez Legallais, pas chez toi','var(--pt-mid)')}
+    </div>
+    <p class="pt-small pt-muted" style="margin:8px 2px 0">${_horsZoneCount?`${_horsZoneCount.toLocaleString('fr-FR')} clients de ton comptoir hors chalandise (à rattacher dans Tes clients)`:''}${_horsZoneCount&&totalExcluded24m&&!_S._includePerdu24m?' · ':''}${(!_S._includePerdu24m&&totalExcluded24m)?`${totalExcluded24m.toLocaleString('fr-FR')} clients inactifs depuis plus de 24 mois exclus`:''}</p>`;
+    bar.style.cssText='display:block;margin-bottom:20px';
     bar.classList.remove('hidden');
   }}
   // Vue direction cascade — différé (6.7MB HTML ne doit pas bloquer le rendu)
@@ -1782,11 +1784,10 @@ function _buildChalandiseOverviewInner(force){
   const _axisLabel=_isSec?'Secteur':'Direction';
   const _toggleEl=document.getElementById('terrOverviewToggle');
   if(_toggleEl){
-    const _ts=on=>`padding:3px 10px;border-radius:6px;cursor:pointer;font-weight:700;${on?'background:rgba(139,92,246,0.3);color:#c4b5fd':'color:rgba(255,255,255,0.35)'}`;
-    _toggleEl.innerHTML=`<span onclick="event.preventDefault();event.stopPropagation();window._overviewToggleMode('direction')" style="${_ts(!_isSec)}">Direction</span><span onclick="event.preventDefault();event.stopPropagation();window._overviewToggleMode('secteur')" style="${_ts(_isSec)}">Secteur</span>`;
+    _toggleEl.innerHTML=`<button type="button" class="ar-chip${!_isSec?' ar-chip-on':''}" onclick="window._overviewToggleMode('direction')">Par direction</button><button type="button" class="ar-chip${_isSec?' ar-chip-on':''}" onclick="window._overviewToggleMode('secteur')">Par secteur</button>`;
   }
   // Fixed thead — axis label adapts to mode
-  const colSpan=9;
+  const colSpan=10;
   const headEl=document.getElementById('terrOverviewL1Head');
   if(headEl){
     const _captSub=_oCanal&&_oCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_captLabel})</span>`:'';
@@ -1795,7 +1796,7 @@ function _buildChalandiseOverviewInner(force){
   const _nbDirs=Object.keys(dirMap).length;const _axisN=_isSec?'secteur':'direction';const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} ${_axisN}${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV${_oCanal&&_oCanal!=='MAGASIN'?' (via '+_captLabel+')':''} · ${pctCapte}% capté`;
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
-  dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
+  dirsArr.sort((a,b)=>(b.aCapter||0)-(a.aCapter||0)||b.actifsLeg-a.actifsLeg||b.total-a.total);
   const _focusEl=document.getElementById('terrainFocusCoach');
   if(_focusEl){
     const _candidates=dirsArr
@@ -1803,8 +1804,7 @@ function _buildChalandiseOverviewInner(force){
       .map(d=>{const base=(d.total||0)-(d.prospects||0);return{...d,_base:base,_pct:base>0?(d.actifsPDV||0)/base:1,_gap:Math.max(0,(d.actifsLeg||0)-(d.actifsPDV||0))};})
       .filter(d=>d._base>0&&((d._gap||0)>0||(d.perdus12_24||0)>0));
     _candidates.sort((a,b)=>a._pct-b._pct||b._gap-a._gap||b.perdus12_24-a.perdus12_24||b.total-a.total);
-    _focusEl.innerHTML=renderTerrainFocusCoach({axisLabel:_axisLabel,worst:_candidates[0],totalActifsPDV,filteredClients,pctCapte,canalLabel:_oCanal&&_oCanal!=='MAGASIN'?_captLabel:''});
-    _focusEl.classList.toggle('hidden',!_candidates.length);
+    _focusEl.innerHTML='';_focusEl.classList.add('hidden'); // priorité = 1re ligne du tableau (tri « à capter »)
   }
   let html=renderOverviewL1Rows(dirsArr,{isSecteur:_isSec,colSpan});
   const tEl=document.getElementById('terrOverviewL1Table');
@@ -1815,13 +1815,13 @@ function _buildChalandiseOverviewInner(force){
 function _renderOverviewL2(el,direction){
   let metiersArr=aggregateOverviewMetiers(direction,_overviewCaptePDVSet);
   // Sort by % capté ascending (opportunities first)
-  metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
+  metiersArr.sort((a,b)=>(b.aCapter||0)-(a.aCapter||0)||b.perdus12_24-a.perdus12_24||b.total-a.total);
   const _cl=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
   el.innerHTML=renderOverviewL2Table(metiersArr,{direction,canalSuffix:_cl});
 }
 function _renderOverviewL3(el,direction,metier){
   let sectsArr=aggregateOverviewSecteurs(direction,metier,_overviewCaptePDVSet);
-  sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
+  sectsArr.sort((a,b)=>(b.aCapter||0)-(a.aCapter||0)||b.perdus12_24-a.perdus12_24||b.total-a.total);
   const _cl3=_S._globalCanal&&_S._globalCanal!=='MAGASIN'?` <span class="t-disabled font-normal">(via ${_CANAL_LABELS_OV[_S._globalCanal]||_S._globalCanal})</span>`:'';
   el.innerHTML=renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix:_cl3});
 }
@@ -2541,20 +2541,25 @@ function renderCommerceTab() {
   const el = document.getElementById('tabCommerce');
   if (!el) return;
   // 1. Layout squelette — rapide
-  el.innerHTML = `
-    <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
+  el.innerHTML = `<div class="pt-wrap tt-wrap">
+    <header class="pt-col" style="gap:6px">
+      <span class="pt-eyebrow">Pilotage commercial</span>
+      <h2 class="pt-h2" style="font-size:28px">Ton territoire</h2>
+      <span class="pt-small pt-muted">Zone de chalandise par direction, métier, secteur · trié par clients à capter · clic sur « À capter » = la liste</span>
+    </header>
+    <div id="terrSummaryBar" style="display:none"></div>
     <div id="terrainFocusCoach" class="hidden"></div>
     <div id="comScorecard"></div>
-    <div id="pochesTerrain"></div>
+    <div id="terrOmniBlock"></div>
+    <div id="ttCapterPanel"></div>
     <div id="comTopArticles"></div>
     <div id="livSansPDVBlock"></div>
-    <div id="terrOmniBlock" class="mt-4"></div>`;
+  </div>`;
   // 2b. Scorecard portefeuille si commercial sélectionné
   _renderCommercialScorecard('comScorecard');
   // 2b2. Top 20 articles du commercial
   _renderComTopArticles('comTopArticles');
-  // 2c. 4 poches Terrain
-  _renderPochesTerrain('pochesTerrain');
+  // (4 « poches » / angles de captation retirés : montants additionnés non captables)
   // 2d. Livrés sans PDV (conquête — déplacé depuis Fidélisation)
   _renderLivSansPDV('livSansPDVBlock');
   // 4. KPI bar chalandise + territoire (différé pour ne pas bloquer)
@@ -2568,6 +2573,36 @@ function renderCommerceTab() {
     if(_S.ventesTerrain?.length) renderTerritoireTab();
   });
 }
+
+// ── Liste des clients à capter d'un périmètre (clic sur « À capter ») ──
+let _ttCapterRows=[],_ttCapterTitle='';
+window._ttCapter=function(dirEnc,mEnc){
+  const direction=decodeURIComponent(dirEnc||''),metier=mEnc?decodeURIComponent(mEnc):null;
+  _ttCapterRows=aggregateACapter({direction,metier,capteSet:_overviewCaptePDVSet});
+  _ttCapterTitle=metier?`${direction} · ${metier}`:direction;
+  const el=document.getElementById('ttCapterPanel');if(!el)return;
+  const rows=_ttCapterRows.slice(0,100).map(r=>`<tr class="ar-click" onclick="openClient360('${escapeHtml(r.cc)}','territoire')">
+    <td><span class="pt-strong">${escapeHtml(r.nom)}</span><br><span class="pt-small pt-muted">${escapeHtml(r.ville||'')}</span></td>
+    <td class="pt-small">${escapeHtml(r.metier||'—')}</td><td class="pt-small pt-muted">${escapeHtml(r.commercial||'—')}</td><td class="pt-small pt-muted">${escapeHtml(r.classification||'—')}</td>
+    <td class="pt-num ar-r">${r.caN1?formatEuro(r.caN1):'—'}</td><td class="pt-num ar-r">${r.caN?formatEuro(r.caN):'—'}</td><td class="pt-num ar-r">${r.dist!=null?r.dist+' km':'—'}</td></tr>`).join('');
+  el.innerHTML=`<section class="pt-card pt-col" style="gap:14px;margin-top:20px;scroll-margin-top:120px" id="ttCapterCard">
+    <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px"><span class="pt-eyebrow">À capter</span><h3 class="pt-h3">${escapeHtml(_ttCapterTitle)}</h3>
+        <span class="pt-small pt-muted">${_ttCapterRows.length.toLocaleString('fr-FR')} clients actifs chez Legallais, pas encore clients de l'agence · triés par CA Legallais</span></div>
+      <div class="pt-row" style="gap:16px"><button type="button" class="pt-link" onclick="_ttCapterCsv()">Exporter en CSV</button><button type="button" class="pt-link" onclick="document.getElementById('ttCapterPanel').innerHTML=''">Fermer</button></div>
+    </div>
+    <div class="pt-list"><div class="pt-scroll"><table class="pt-table"><thead><tr><th>Client</th><th>Métier</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA Leg. 2025</th><th class="ar-r">CA Leg. 2026</th><th class="ar-r">Distance</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="pt-small pt-muted" style="padding:10px 12px">${_ttCapterRows.length>100?`100 premiers sur ${_ttCapterRows.length.toLocaleString('fr-FR')} · tout est dans l'export`:''} clic = fiche client</div></div>
+  </section>`;
+  document.getElementById('ttCapterCard')?.scrollIntoView({behavior:'smooth',block:'start'});
+};
+window._ttCapterCsv=function(){
+  const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const lines=[['Code client','Nom','Ville','Métier','Commercial','Secteur','Classification','CA Legallais 2025','CA Legallais 2026','Distance km'].map(q).join(';'),
+    ..._ttCapterRows.map(r=>[r.cc,r.nom,r.ville,r.metier,r.commercial,r.secteur,r.classification,Math.round(r.caN1),Math.round(r.caN),r.dist??''].map(q).join(';'))];
+  const url=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=`PRISME_${_S.selectedMyStore}_a-capter_${_ttCapterTitle.replace(/[^\p{L}\p{N}]+/gu,'-')}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 
 // ── Window expositions ──────────────────────────────────────────────────
 window.renderTerritoireTab        = renderTerritoireTab;

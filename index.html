@@ -1413,6 +1413,24 @@
     .ob-go { width:100%; min-height:56px; border:0; border-radius:16px; font:inherit; font-size:17px; font-weight:600; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); transition:transform .1s, opacity .15s; }
     .ob-go:hover:not(:disabled) { transform:translateY(-1px); }
     .ob-go:disabled { opacity:.35; cursor:not-allowed; }
+    /* ── Conquête › Ton territoire ── */
+    #tabCommerce .tt-wrap { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .tt-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+    .tt-scroll { overflow:auto; max-height:72vh; }
+    .tt-table td, .tt-table th { white-space:nowrap; }
+    .tt-table tr.tt-prio > td { background:color-mix(in srgb, var(--pt-mid) 10%, transparent); }
+    .tt-table tr.tt-group > td { background:var(--s-card-alt); }
+    .tt-table td.tt-indent { padding-left:28px; }
+    .tt-table tr.tt-sub > td { padding:0; background:var(--s-card-alt); }
+    .tt-nest { padding:8px 8px 8px 20px; }
+    .tt-nest .pt-table th { position:static; background:transparent; }
+    .tt-cap { display:flex; align-items:center; gap:8px; min-width:120px; }
+    .tt-cap .pt-track { flex:1; }
+    .tt-cap .pt-num { font-size:12px; min-width:38px; text-align:right; }
+    .tt-capter { font:inherit; font-family:'Geist Mono',monospace; font-weight:600; font-size:13px; min-width:44px; padding:3px 10px; border-radius:999px; border:0; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .tt-capter:hover { filter:brightness(1.08); }
+    .tt-capter.tt-zero, .tt-capter:disabled { background:transparent; color:var(--t-disabled); cursor:default; }
+    .tt-capter.tt-static { cursor:default; }
     /* ── Plan › Par famille ── */
     #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
@@ -2189,6 +2207,6 @@
   <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
   <script type="module" src="js/direction.js?v=20260425h"></script>
   <script type="module" src="js/duel-agence.js?v=20260425b"></script>
-  <script type="module" src="js/main.js?v=20260428l"></script>
+  <script type="module" src="js/main.js?v=20261007a"></script>
 </body>
 </html>

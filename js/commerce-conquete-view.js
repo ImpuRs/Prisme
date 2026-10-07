@@ -11,167 +11,103 @@ function pctPair(row){
   };
 }
 
-function barColor(pct){
-  return pct>=50?'bg-emerald-500':pct>=25?'bg-amber-500':'bg-red-500';
+const _tone=(pct)=>pct>=50?'var(--pt-high)':pct>=25?'var(--pt-mid)':'var(--pt-low)';
+function capBar(pct,color){
+  return `<span class="tt-cap"><span class="pt-track" style="height:6px"><span class="pt-fill" style="width:${pct}%;background:${color}"></span></span><span class="pt-num">${pct} %</span></span>`;
 }
-
-function capBar(pct,color,extraCls='font-bold w-8'){
-  return `<div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${color}" style="width:${pct}%"></div></div><span class="text-[10px] ${extraCls} text-right">${pct}%</span></div>`;
-}
-
-function statCell(v,cls){
-  return `<td class="py-1.5 px-2 text-center ${v>0?cls:'t-disabled'}">${v||'—'}</td>`;
-}
+const num=(v,strong)=>`<td class="pt-num ar-r${strong?' pt-strong':''}">${v?Number(v).toLocaleString('fr-FR'):'<span class="pt-muted">—</span>'}</td>`;
+const capterCell=(d,onclick)=>`<td class="ar-r"><button type="button" class="tt-capter${d.aCapter?'':' tt-zero'}" ${d.aCapter?`onclick="event.stopPropagation();${onclick}"`:'disabled'} title="Clients actifs chez Legallais, pas encore clients de l'agence">${d.aCapter?Number(d.aCapter).toLocaleString('fr-FR'):'0'}</button></td>`;
+const statCols=(d,pct)=>`${num(d.total,true)}${num(d.actifsLeg)}${num(d.actifsPDV)}${num(d.prospects)}${num(d.perdus12_24)}${num(d.inactifs)}
+      <td>${capBar(pct.leg,'var(--t-link)')}</td><td>${capBar(pct.pdv,_tone(pct.pdv))}</td>`;
+const HEAD_STATS=(cs)=>`<th class="ar-r" title="Actifs chez Legallais, pas encore clients de l'agence — clic = la liste">À capter</th><th class="ar-r">Clients</th><th class="ar-r">Actifs Leg.</th><th class="ar-r">Clients agence${cs}</th><th class="ar-r">Prospects</th><th class="ar-r">Perdus 12-24 m</th><th class="ar-r">Inactifs</th><th>% capté Leg.</th><th>% capté agence${cs}</th>`;
 
 export function renderOverviewHead(axisLabel,captSub=''){
-  return `<tr><th class="py-1.5 px-2 text-left">${axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${captSub}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV${captSub}</th></tr>`;
+  return `<tr><th>${axisLabel}</th>${HEAD_STATS(captSub)}</tr>`;
 }
 
-export function renderTerrainFocusCoach({axisLabel,worst,totalActifsPDV,filteredClients,pctCapte,canalLabel}) {
-  if(!worst)return '';
-  const base=(worst.total||0)-(worst.prospects||0);
-  const pct=base>0?Math.round((worst.actifsPDV||0)/base*100):0;
-  const gap=Math.max(0,(worst.actifsLeg||0)-(worst.actifsPDV||0));
-  const accent=pct<10?'#f87171':pct<25?'#f59e0b':'#22d3ee';
-  const activeLeg=worst.actifsLeg||0;
-  const lever=gap>0
-    ? `${gap} client${gap>1?'s':''} déjà actif${gap>1?'s':''} Leg. à ramener au PDV`
-    : `${worst.perdus12_24||0} perdu${(worst.perdus12_24||0)>1?'s':''} récent${(worst.perdus12_24||0)>1?'s':''} à travailler`;
-  return `<div style="position:relative;overflow:hidden;border:1px solid rgba(96,165,250,0.28);background:linear-gradient(135deg,rgba(14,165,233,0.16),rgba(15,23,42,0.72) 52%,rgba(34,197,94,0.10));border-radius:16px;margin-bottom:12px;padding:14px 16px;box-shadow:0 16px 40px rgba(2,6,23,0.22)">
-    <div style="position:absolute;right:-40px;top:-60px;width:180px;height:180px;border-radius:999px;background:${accent};opacity:.10;filter:blur(6px)"></div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:relative">
-      <div style="min-width:220px;flex:1">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.45);font-weight:900">🎯 Priorité terrain</div>
-        <div style="font-size:16px;font-weight:950;color:#e2e8f0;margin-top:3px">${escapeHtml(axisLabel)} : <span style="color:${accent}">${escapeHtml(worst.dir||worst.secteur||'—')}</span></div>
-        <div style="font-size:11px;color:rgba(226,232,240,.62);margin-top:3px">${escapeHtml(lever)}${canalLabel?' · '+escapeHtml(canalLabel):''}</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
-        <div style="min-width:90px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
-          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">À capter</div>
-          <div style="font-size:22px;font-weight:950;color:${accent};line-height:1">${gap}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.32)">actifs Leg. non PDV</div>
-        </div>
-        <div style="min-width:90px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
-          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">Clients zone</div>
-          <div style="font-size:22px;font-weight:950;color:#e2e8f0;line-height:1">${worst.total||0}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.32)">${activeLeg} actifs Leg.</div>
-        </div>
-        <div style="min-width:110px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.45);border-radius:12px;padding:8px 11px;text-align:center">
-          <div style="font-size:9px;color:rgba(255,255,255,.38);text-transform:uppercase;font-weight:800">Capté PDV</div>
-          <div style="font-size:22px;font-weight:950;color:#4ade80;line-height:1">${pct}%</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.32)">${worst.actifsPDV||0}/${base||worst.total||0}</div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
+export function renderTerrainFocusCoach(){ return ''; } // remplacé par la ligne « Priorité » du tableau
 
-function renderOverviewDataRow(d,idx,{grpId='',colSpan=9,hidden=false}={}){
+function renderOverviewDataRow(d,idx,{grpId='',colSpan=10,hidden=false,prio=false}={}){
   const pct=pctPair(d);
   const dirEnc=encodeURIComponent(d.dir);
   const comEntries=Object.entries(d._comCounts||{}).sort((a,b)=>b[1]-a[1]);
   const mainCom=comEntries.length?comEntries[0][0]:'';
-  const comLabel=mainCom?` <span class="t-tertiary font-normal">· ${escapeHtml(mainCom)}</span>`:'';
-  const rowCls=`${grpId} border-b text-[11px] hover:s-card-alt cursor-pointer${grpId?'':' font-semibold'}`;
   const style=hidden?' style="display:none"':'';
-  const nameCell=grpId
-    ? `<td class="py-1.5 px-2 pl-5 font-semibold">${escapeHtml(d.dir)}${comLabel} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>`
-    : `<td class="py-1.5 px-2">${escapeHtml(d.dir)} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>`;
-  return `<tr class="${rowCls}"${style} onclick="_toggleOverviewL2('${dirEnc}',${idx})">
-      ${nameCell}
-      <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
-      ${statCell(d.actifsLeg,'c-ok font-bold')}
-      ${statCell(d.actifsPDV,'c-ok font-bold')}
-      ${statCell(d.prospects,'c-action')}
-      ${statCell(d.perdus12_24,'c-caution font-bold')}
-      ${statCell(d.inactifs,'t-secondary')}
-      <td class="py-1.5 px-2">${capBar(pct.leg,'bg-blue-400','font-bold w-8 c-action')}</td>
-      <td class="py-1.5 px-2">${capBar(pct.pdv,barColor(pct.pdv),'font-bold w-8')}</td>
+  return `<tr class="${grpId} ar-click${prio?' tt-prio':''}"${style} onclick="_toggleOverviewL2('${dirEnc}',${idx})">
+      <td class="${grpId?'tt-indent':''}"><span class="pt-strong">${escapeHtml(d.dir)}</span>${mainCom?` <span class="pt-small pt-muted">· ${escapeHtml(mainCom)}</span>`:''}${prio?' <span class="ar-tag" data-tone="mid">Priorité</span>':''} <span id="overviewL1Arrow-${idx}" class="pt-muted pt-small">▼</span></td>
+      ${capterCell(d,`_ttCapter('${dirEnc}')`)}
+      ${statCols(d,pct)}
     </tr>
-    <tr id="overviewL2-${idx}" class="${grpId}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
+    <tr id="overviewL2-${idx}" class="${grpId} tt-sub" style="display:none"><td colspan="${colSpan}"><div id="overviewL2Inner-${idx}" class="pt-small pt-muted" style="padding:8px 12px">Chargement…</div></td></tr>`;
 }
 
-export function renderOverviewL1Rows(dirsArr,{isSecteur=false,colSpan=9}={}){
+const _sum=(arr)=>arr.reduce((acc,d)=>{for(const k of ['total','actifsLeg','actifsPDV','aCapter','prospects','perdus12_24','inactifs'])acc[k]+=d[k]||0;return acc;},{total:0,actifsLeg:0,actifsPDV:0,aCapter:0,prospects:0,perdus12_24:0,inactifs:0});
+const SMALL=5; // secteurs de moins de 5 clients : regroupés
+
+export function renderOverviewL1Rows(dirsArr,{isSecteur=false,colSpan=10}={}){
   if(!isSecteur){
-    return dirsArr.map((d,idx)=>renderOverviewDataRow(d,idx,{colSpan})).join('');
+    return dirsArr.map((d,idx)=>renderOverviewDataRow(d,idx,{colSpan,prio:idx===0&&(d.aCapter||0)>0})).join('');
   }
   const byParent={};
   dirsArr.forEach(d=>{const p=d.parentDir||'Autre';if(!byParent[p])byParent[p]=[];byParent[p].push(d);});
-  const parentDirs=Object.keys(byParent).sort((a,b)=>{
-    const sa=byParent[a].reduce((s,d)=>s+d.actifsLeg,0);
-    const sb=byParent[b].reduce((s,d)=>s+d.actifsLeg,0);
-    return sb-sa;
-  });
+  const parentDirs=Object.keys(byParent).sort((a,b)=>_sum(byParent[b]).aCapter-_sum(byParent[a]).aCapter);
   let html='',idx=0;
   parentDirs.forEach((pDir,pIdx)=>{
     const sects=byParent[pDir];
-    const summary=sects.reduce((acc,d)=>{acc.total+=d.total;acc.actifsLeg+=d.actifsLeg;acc.actifsPDV+=d.actifsPDV;acc.prospects+=d.prospects;acc.perdus12_24+=d.perdus12_24;acc.inactifs+=d.inactifs;return acc;},{total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0});
+    const summary=_sum(sects);
     const pct=pctPair(summary);
     const grpId='secGrp-'+pIdx;
-    html+=`<tr class="border-b text-[11px] font-black hover:s-card-alt cursor-pointer" style="background:rgba(139,92,246,0.08)" onclick="_toggleSecGrp('${grpId}')">
-        <td class="py-1.5 px-2 text-xs font-black">${escapeHtml(pDir)} <span class="t-disabled text-[10px]">(${sects.length})</span> <span id="${grpId}-arrow" class="t-disabled text-[9px]">▶</span></td>
-        <td class="py-1.5 px-2 text-center font-bold">${summary.total}</td>
-        <td class="py-1.5 px-2 text-center c-ok font-bold">${summary.actifsLeg||'—'}</td>
-        <td class="py-1.5 px-2 text-center c-ok font-bold">${summary.actifsPDV||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${summary.prospects||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${summary.perdus12_24||'—'}</td>
-        <td class="py-1.5 px-2 text-center">${summary.inactifs||'—'}</td>
-        <td class="py-1.5 px-2">${capBar(pct.leg,'bg-blue-400','font-bold w-8 c-action')}</td>
-        <td class="py-1.5 px-2">${capBar(pct.pdv,barColor(pct.pdv),'font-bold w-8')}</td>
+    html+=`<tr class="ar-click tt-group${pIdx===0&&summary.aCapter?' tt-prio':''}" onclick="_toggleSecGrp('${grpId}')">
+        <td><span class="pt-strong">${escapeHtml(pDir)}</span> <span class="pt-small pt-muted">${sects.length} secteurs</span>${pIdx===0&&summary.aCapter?' <span class="ar-tag" data-tone="mid">Priorité</span>':''} <span id="${grpId}-arrow" class="pt-muted pt-small">▶</span></td>
+        <td class="ar-r"><span class="tt-capter tt-static">${summary.aCapter.toLocaleString('fr-FR')}</span></td>
+        ${statCols(summary,pct)}
       </tr>`;
-    sects.forEach(d=>{html+=renderOverviewDataRow(d,idx,{grpId,colSpan,hidden:true});idx++;});
+    const big=sects.filter(d=>d.total>=SMALL),small=sects.filter(d=>d.total<SMALL);
+    big.forEach(d=>{html+=renderOverviewDataRow(d,idx,{grpId,colSpan,hidden:true});idx++;});
+    if(small.length){
+      const sm=_sum(small),smGrp=grpId+'-small';
+      html+=`<tr class="${grpId} ar-click tt-small" style="display:none" onclick="event.stopPropagation();document.querySelectorAll('.${smGrp}').forEach(r=>r.style.display=r.style.display==='none'?'':'none')">
+        <td class="tt-indent pt-muted">+ ${small.length} petits secteurs (moins de ${SMALL} clients)</td>
+        <td class="ar-r pt-num pt-muted">${sm.aCapter||'—'}</td><td class="pt-num ar-r pt-muted">${sm.total}</td><td colspan="${colSpan-3}"></td></tr>`;
+      small.forEach(d=>{html+=renderOverviewDataRow(d,idx,{grpId:grpId+' '+smGrp,colSpan,hidden:true});idx++;});
+    }
   });
   return html;
 }
 
 export function renderOverviewL2Table(metiersArr,{direction,canalSuffix=''}){
-  if(!metiersArr.length)return '<div class="px-4 py-3 t-disabled text-xs">Aucun client pour ce filtre.</div>';
+  if(!metiersArr.length)return '<div class="pt-small pt-muted" style="padding:10px 12px">Aucun client pour ce filtre.</div>';
   const dirEnc=encodeURIComponent(direction);
-  const headCols=`<th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${canalSuffix}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${canalSuffix}</th><th class="py-1.5 px-2 text-center">🔍</th>`;
   const rows=metiersArr.map((m,mIdx)=>{
     const pct=pctPair(m);
     const mEnc=encodeURIComponent(m.metier);
     const rowId=`overviewL3-${dirEnc}-${mIdx}`;
-    return `<tr class="border-t b-light hover:i-danger-bg cursor-pointer font-semibold" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
-      <td class="py-1.5 px-2">${escapeHtml(m.metier)}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]" title="Métier stratégique Legallais">⭐</span>':''} <span id="${rowId}-arrow" class="t-disabled text-[9px]">▼</span></td>
-      <td class="py-1.5 px-2 text-center font-bold">${m.total}</td>
-      ${statCell(m.actifsLeg,'c-ok font-bold')}
-      ${statCell(m.actifsPDV,'c-ok font-bold')}
-      ${statCell(m.prospects,'c-action')}
-      ${statCell(m.perdus12_24,'c-caution font-bold')}
-      ${statCell(m.inactifs,'t-secondary')}
-      <td class="py-1.5 px-2">${capBar(pct.leg,'bg-blue-400','w-7 c-action')}</td>
-      <td class="py-1.5 px-2">${capBar(pct.pdv,barColor(pct.pdv),'w-7')}</td>
-      <td class="py-1.5 px-2 text-center"><button class="diag-btn i-danger-bg c-danger" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
+    return `<tr class="ar-click" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
+      <td><span class="pt-strong">${escapeHtml(m.metier)}</span>${_isMetierStrategique(m.metier)?' <span title="Métier stratégique Legallais">⭐</span>':''} <span id="${rowId}-arrow" class="pt-muted pt-small">▼</span>
+        <button type="button" class="pt-link pt-small" style="padding:0 0 0 6px" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))" title="Diagnostic du métier">diagnostic</button></td>
+      ${capterCell(m,`_ttCapter('${dirEnc}','${mEnc}')`)}
+      ${statCols(m,pct)}
     </tr>
-    <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 i-info-bg"><div id="${rowId}-inner" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
+    <tr id="${rowId}" class="tt-sub" style="display:none"><td colspan="10"><div id="${rowId}-inner" class="pt-small pt-muted" style="padding:8px 12px">Chargement…</div></td></tr>`;
   }).join('');
-  return `<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="i-danger-bg c-danger font-bold"><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="tt-nest"><table class="pt-table"><thead><tr><th>Métier</th>${HEAD_STATS(canalSuffix)}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix=''}){
-  if(!sectsArr.length)return '<div class="px-4 py-3 t-disabled text-xs">Aucun secteur identifié.</div>';
+  if(!sectsArr.length)return '<div class="pt-small pt-muted" style="padding:10px 12px">Aucun secteur identifié.</div>';
   const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
-  const headCols=`<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV${canalSuffix}</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV${canalSuffix}</th>`;
   const rows=sectsArr.map((s,sIdx)=>{
     const pct=pctPair(s);
     const sEnc=encodeURIComponent(s.secteur);
     const rowId=`overviewL4-${dirEnc}-${mEnc}-${sIdx}`;
-    return `<tr class="border-t border-violet-200 hover:i-info-bg cursor-pointer" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
-      <td class="py-1.5 px-2 font-semibold">${escapeHtml(s.secteur)} <span id="${rowId}-arrow" class="t-disabled text-[9px]">▼</span></td>
-      <td class="py-1.5 px-2 t-secondary">${escapeHtml(s.commercial)}</td>
-      <td class="py-1.5 px-2 text-center font-bold">${s.total}</td>
-      ${statCell(s.actifsLeg,'c-ok font-bold')}
-      ${statCell(s.actifsPDV,'c-ok font-bold')}
-      ${statCell(s.prospects,'c-action')}
-      ${statCell(s.perdus12_24,'c-caution font-bold')}
-      ${statCell(s.inactifs,'t-secondary')}
-      <td class="py-1.5 px-2">${capBar(pct.leg,'bg-blue-400','w-7 c-action')}</td>
-      <td class="py-1.5 px-2">${capBar(pct.pdv,barColor(pct.pdv),'w-7')}</td>
+    return `<tr class="ar-click" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
+      <td><span class="pt-strong">${escapeHtml(s.secteur)}</span> <span class="pt-small pt-muted">· ${escapeHtml(s.commercial)}</span> <span id="${rowId}-arrow" class="pt-muted pt-small">▼</span></td>
+      <td class="ar-r pt-num pt-strong">${s.aCapter||'<span class="pt-muted">0</span>'}</td>
+      ${statCols(s,pct)}
     </tr>
-    <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 i-info-bg"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
+    <tr id="${rowId}" class="tt-sub" style="display:none"><td colspan="10"><div id="${rowId}-inner" class="pt-small" style="padding:8px 12px">Chargement…</div></td></tr>`;
   }).join('');
-  return `<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="s-hover t-primary font-bold"><tr>${headCols}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="tt-nest"><table class="pt-table"><thead><tr><th>Secteur · commercial</th>${HEAD_STATS(canalSuffix)}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function renderOverviewL4Table({clients,show,more,direction,metier,secteur,canal}){
