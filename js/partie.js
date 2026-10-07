@@ -55,6 +55,35 @@ function _stockScore(c) {
   return Math.round(100 * (PARTIE_STOCK_W_SERVICE * service + (1 - PARTIE_STOCK_W_SERVICE) * propre));
 }
 
+/**
+ * Domaine Stock de la partie — partagé avec l'écran Arbitrage (même score des deux côtés).
+ * Mêmes définitions que le cockpit (renderDashboardAndCockpit), sur finalData complet.
+ * score = null s'il n'y a aucun article fréquent mesurable (plutôt qu'un 100 % trompeur).
+ */
+export function computeStockPartie(fd = _S.finalData || []) {
+  const st = { serviceTotal: 0, serviceOk: 0, stockRefs: 0, saso: 0, rupInService: 0 };
+  const rupArts = [], sasoArts = [];
+  for (const r of fd) {
+    if (r.isParent) continue;
+    const colisOnly = r.V === 0 && r.enleveTotal > 0;
+    const inService = (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !colisOnly;
+    if (inService) { st.serviceTotal++; if (r.stockActuel > 0) st.serviceOk++; }
+    if (r.W >= 3 && r.stockActuel <= 0 && !colisOnly) { rupArts.push(r); if (inService) st.rupInService++; }
+    if (r.stockActuel > 0) st.stockRefs++;
+    if (r.ancienMax > 0 && r.stockActuel > r.ancienMax) { st.saso++; sasoArts.push(r); }
+  }
+  if (!st.serviceTotal) return { score: null, service: null, propre: null, rupArts, sasoArts, stockRefs: st.stockRefs, gainRuptures: 0, gainSaso: 0 };
+  const score = _stockScore(st);
+  return {
+    score,
+    service: Math.round(100 * st.serviceOk / st.serviceTotal),
+    propre: st.stockRefs ? Math.round(100 * (1 - st.saso / st.stockRefs)) : 100,
+    rupArts, sasoArts, stockRefs: st.stockRefs,
+    gainRuptures: rupArts.length ? _stockScore({ ...st, serviceOk: st.serviceOk + st.rupInService }) - score : 0,
+    gainSaso: st.saso ? _stockScore({ ...st, saso: 0 }) - score : 0,
+  };
+}
+
 function _dataKey() {
   const d = _S.consommePeriodMaxFull || _S.consommePeriodMax || new Date();
   return formatLocalYMD(d);
@@ -71,20 +100,10 @@ export function computePartie() {
     if (!f) { f = { k, lib: famLib(k) || k, n: 0, socleArts: [], socleKOArts: [], trousArts: [], stock: 0, pmArts: [], reco: 0, calKOArts: [] }; fams.set(k, f); }
     return f;
   };
-  // ── Stock : mêmes définitions que le cockpit (renderDashboardAndCockpit) ──
-  const st = { serviceTotal: 0, serviceOk: 0, stockRefs: 0, saso: 0, rupArts: [], rupInService: 0, sasoArts: [] };
   let hasSquelette = false;
 
   for (const r of fd) {
-    if (r.isParent) continue;
-    const colisOnly = r.V === 0 && r.enleveTotal > 0;
-    const inService = (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !colisOnly;
-    if (inService) { st.serviceTotal++; if (r.stockActuel > 0) st.serviceOk++; }
-    if (r.W >= 3 && r.stockActuel <= 0 && !colisOnly) { st.rupArts.push(r); if (inService) st.rupInService++; }
-    if (r.stockActuel > 0) st.stockRefs++;
-    if (r.ancienMax > 0 && r.stockActuel > r.ancienMax) { st.saso++; st.sasoArts.push(r); }
-
-    if (!r.famille) continue;
+    if (r.isParent || !r.famille) continue;
     if (r._sqClassif) hasSquelette = true;
     const f = famOf(r.famille);
     f.n++;
@@ -135,9 +154,8 @@ export function computePartie() {
   let num = 0, den = 0;
   for (const f of famList) { num += f.score * f.n; den += f.n; }
   const assort = den ? Math.round(num / den) : null;
-  // Pas d'article fréquent mesurable (consommé non rapproché du stock) → pas de score Stock,
-  // plutôt qu'un 100 % trompeur.
-  const stock = st.serviceTotal ? _stockScore(st) : null;
+  const sp = computeStockPartie(fd);
+  const stock = sp.score;
 
   // ── Actions : gain = points famille (ou Stock) si l'action est menée au bout ──
   const actions = [];
@@ -158,14 +176,8 @@ export function computePartie() {
     if (c.pm) add(2, `Sortir ${c.pm} poids mort${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
     if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
   }
-  if (stock != null && st.rupArts.length) {
-    const gain = _stockScore({ ...st, serviceOk: st.serviceOk + st.rupInService }) - stock;
-    if (gain >= 1) actions.push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', gain, title: `Commander ${st.rupArts.length} articles fréquents en rupture`, where: 'Stock · Taux de service' });
-  }
-  if (stock != null && st.saso) {
-    const gain = _stockScore({ ...st, saso: 0 }) - stock;
-    if (gain >= 1) actions.push({ id: 'stock:saso', fam: null, cockpit: 'saso', gain, title: `Ramener ${st.saso} articles en sur-stock sous leur MAX`, where: 'Stock · Sur-stock' });
-  }
+  if (sp.gainRuptures >= 1) actions.push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', gain: sp.gainRuptures, title: `Commander ${sp.rupArts.length} articles fréquents en rupture`, where: 'Stock · Taux de service' });
+  if (sp.gainSaso >= 1) actions.push({ id: 'stock:saso', fam: null, cockpit: 'saso', gain: sp.gainSaso, title: `Ramener ${sp.sasoArts.length} articles en sur-stock sous leur MAX`, where: 'Stock · Sur-stock' });
   actions.sort((a, b) => b.gain - a.gain);
 
   const parts = [assort, stock].filter(v => v != null);
@@ -174,7 +186,7 @@ export function computePartie() {
   return {
     dataKey: _dataKey(), global, assort, stock, famList, nbStores, hasSquelette,
     actions: actions.slice(0, PARTIE_NB_ACTIONS), nbActionsTotal: actions.length,
-    stockDetail: { service: st.serviceTotal ? Math.round(100 * st.serviceOk / st.serviceTotal) : 100, saso: st.saso, stockRefs: st.stockRefs, ruptures: st.rupArts.length },
+    stockDetail: { service: sp.service ?? 100, saso: sp.sasoArts.length, stockRefs: sp.stockRefs, ruptures: sp.rupArts.length },
     nbArticles: fd.length,
   };
 }

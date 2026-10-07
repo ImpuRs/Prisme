@@ -9,40 +9,26 @@ import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
 // ── Arbitrage Rayon — Performance par emplacement ──────────────
-let _empSort = { col: 'rendement3m', asc: true };
+let _empSort = { col: 'valStock', asc: false };
 
-function computePerfEmplacement() {
+export function computePerfEmplacement() {
   const data = DataStore.finalData;
   if (!data.length) return [];
 
-  // CA période depuis ventes MAGASIN (ventesLocalMagPeriode — MAGASIN uniquement)
-  const caByArticle = new Map();
-  if (_S.ventesLocalMagPeriode) {
-    for (const [, artMap] of _S.ventesLocalMagPeriode) {
+  // Décision d'assortiment (quel emplacement garder / libérer) → 12MG pleine période,
+  // insensible au filtre période (cf. Doctrine temporelle). MAGASIN uniquement, myStore.
+  const caByArticle = new Map();   // CA MAGASIN total (prélevé + enlevé) — classement moteur
+  const caPrelByArticle = new Map(); // CA prélevé — rotation du stock en rayon
+  if (_S.ventesLocalMag12MG) {
+    for (const [, artMap] of _S.ventesLocalMag12MG) {
       for (const [code, d] of artMap) {
         caByArticle.set(code, (caByArticle.get(code) || 0) + (d.sumCA || 0));
+        caPrelByArticle.set(code, (caPrelByArticle.get(code) || 0) + (d.sumCAPrelevee || 0));
       }
     }
   }
 
-  // CA 3 derniers mois depuis _byMonth (CA prélevé réel, pas approximation)
-  const periodEnd = _S.periodFilterEnd || _S.consommePeriodMax || new Date();
-  const m2 = periodEnd.getFullYear() * 12 + periodEnd.getMonth();
-  const last3Months = new Set([m2 - 2, m2 - 1, m2]);
-  const ca3mByArticle = new Map();
-  const byMonth = _S._byMonth;
-  if (byMonth) {
-    for (const [, artMap] of Object.entries(byMonth)) {
-      for (const [code, monthMap] of Object.entries(artMap)) {
-        for (const [midx, agg] of Object.entries(monthMap)) {
-          if (!last3Months.has(parseInt(midx))) continue;
-          ca3mByArticle.set(code, (ca3mByArticle.get(code) || 0) + (agg.sumCAPrelevee || agg.sumPrelevee || 0));
-        }
-      }
-    }
-  }
-
-  // CA + VMB depuis ventesParAgence (même source, même période = ratio cohérent)
+  // Taux de marge depuis ventesParAgence (VMB ÷ CA, même source)
   const vpmByArticle = new Map(); // code → { ca, vmb }
   const myStoreData = _S.ventesParAgence?.[_S.selectedMyStore];
   if (myStoreData) {
@@ -51,209 +37,144 @@ function computePerfEmplacement() {
     }
   }
 
+  const clientsOf = _S.articleClientsFull || _S.articleClients;
   const map = {};
   for (const r of data) {
     const emp = r.emplacement || '(vide)';
-    if (!map[emp]) map[emp] = { caPeriode: 0, ca3m: 0, caVpm: 0, vmb: 0, valStock: 0, nbRef: 0, clients: new Set(), sumW: 0, nbRupture: 0, nbDormant: 0 };
+    if (!map[emp]) map[emp] = { ca: 0, caPrel: 0, caVpm: 0, vmb: 0, valStock: 0, nbRef: 0, clients: new Set(), nbRupture: 0, nbDormant: 0 };
     const e = map[emp];
-
-    const caPeriode = caByArticle.get(r.code) || 0;
     const vpm = vpmByArticle.get(r.code);
-
-    e.caPeriode += caPeriode;
-    e.ca3m += ca3mByArticle.get(r.code) || 0;
+    e.ca += caByArticle.get(r.code) || 0;
+    e.caPrel += caPrelByArticle.get(r.code) || 0;
     e.caVpm += vpm?.ca || 0;
     e.vmb += vpm?.vmb || 0;
     e.valStock += (r.valeurStock || 0);
     e.nbRef++;
-    e.sumW += (r.W || 0);
     if (r.stockActuel === 0 && r.nouveauMin > 0) e.nbRupture++;
     if (r.W === 0 && r.stockActuel > 0) e.nbDormant++;
-    const buyers = _S.articleClients?.get(r.code);
+    const buyers = clientsOf?.get(r.code);
     if (buyers) for (const cc of buyers) e.clients.add(cc);
   }
 
   const rows = Object.entries(map)
-    .filter(([, e]) => !(e.caPeriode === 0 && e.clients.size === 0))
-    .map(([emp, e]) => ({
-      emp,
-      valStock: e.valStock,
-      nbRef: e.nbRef,
-      nbClients: e.clients.size,
-      caPeriode: e.caPeriode,
-      ca3m: e.ca3m,
-      txMarge: e.caVpm > 0 ? Math.round(e.vmb / e.caVpm * 100) : 0,
-      marge3m: 0, // rempli ci-dessous après txMarge
-      rendement3m: e.valStock > 0 ? e.ca3m / e.valStock : 0,
-      nbRupture: e.nbRupture,
-      nbDormant: e.nbDormant,
-      txService: e.nbRef > 0 ? Math.round((e.nbRef - e.nbRupture) / e.nbRef * 100) : 100,
-      statut: '', // rempli ci-dessous
-    }));
-
-  // Marge 3m estimée = ca3m × txMarge
-  for (const r of rows) r.marge3m = Math.round(r.ca3m * r.txMarge / 100);
+    .filter(([emp, e]) => emp !== '(vide)' && !(e.ca === 0 && e.clients.size === 0 && e.valStock === 0))
+    .map(([emp, e]) => {
+      const txMarge = e.caVpm > 0 ? e.vmb / e.caVpm : 0;
+      return {
+        emp,
+        valStock: e.valStock,
+        nbRef: e.nbRef,
+        nbClients: e.clients.size,
+        ca: e.ca,
+        marge: Math.round(e.ca * txMarge),
+        rotation: e.valStock > 0 ? e.caPrel / e.valStock : 0, // CA prélevé 12 mois par € de stock
+        nbRupture: e.nbRupture,
+        nbDormant: e.nbDormant,
+        txService: e.nbRef > 0 ? Math.round((e.nbRef - e.nbRupture) / e.nbRef * 100) : 100,
+        statut: '',
+      };
+    });
 
   // ── Classification MOTEUR / TRAFIC / POIDS MORT (ABC sur CA puis trafic client) ──
-  const caTotal = rows.reduce((s, r) => s + r.caPeriode, 0);
-  const clientsTotal = new Set();
-  if (_S.articleClients) {
-    for (const r of data) {
-      const buyers = _S.articleClients.get(r.code);
-      if (buyers) for (const cc of buyers) clientsTotal.add(cc);
-    }
-  }
-  const nbClientsTotal = clientsTotal.size || 1;
-
-  // Tri par CA décroissant pour ABC
-  const byCa = [...rows].sort((a, b) => b.caPeriode - a.caPeriode);
+  const caTotal = rows.reduce((s, r) => s + r.ca, 0);
+  const byCa = [...rows].sort((a, b) => b.ca - a.ca);
   let cumCA = 0;
   const moteurSet = new Set();
   for (const r of byCa) {
-    cumCA += r.caPeriode;
-    moteurSet.add(r.emp);
     if (cumCA >= caTotal * 0.8) break;
+    cumCA += r.ca;
+    moteurSet.add(r.emp);
   }
 
-  // Tri par trafic client décroissant pour les non-moteurs
   const nonMoteurs = rows.filter(r => !moteurSet.has(r.emp));
   const byClients = [...nonMoteurs].sort((a, b) => b.nbClients - a.nbClients);
   let cumCli = 0;
   const totalCliNonMoteur = nonMoteurs.reduce((s, r) => s + r.nbClients, 0);
   const traficSet = new Set();
   for (const r of byClients) {
+    if (cumCli >= totalCliNonMoteur * 0.8) break;
     cumCli += r.nbClients;
     traficSet.add(r.emp);
-    if (cumCli >= totalCliNonMoteur * 0.8) break;
   }
 
   // Seuil plancher : un rayon avec ≥3 clients n'est jamais Poids Mort, c'est du Trafic minimum
   const SEUIL_CLIENTS_POIDS_MORT = 3;
   for (const r of rows) {
-    if (moteurSet.has(r.emp)) { r.statut = 'moteur'; }
-    else if (traficSet.has(r.emp)) { r.statut = 'trafic'; }
-    else if (r.nbClients >= SEUIL_CLIENTS_POIDS_MORT) { r.statut = 'trafic'; }
-    else { r.statut = 'poids_mort'; }
+    if (moteurSet.has(r.emp)) r.statut = 'moteur';
+    else if (traficSet.has(r.emp) || r.nbClients >= SEUIL_CLIENTS_POIDS_MORT) r.statut = 'trafic';
+    else r.statut = 'poids_mort';
   }
 
   return rows;
 }
 
 const STATUT_BADGE = {
-  moteur:     { icon: '🔥', label: 'Moteur',     color: '#22c55e', bg: 'rgba(34,197,94,0.15)',  border: 'rgba(34,197,94,0.3)',  action: 'Optimiser la marge, accélérer la rotation' },
-  trafic:     { icon: '👥', label: 'Trafic',     color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)', action: 'Fiabiliser le stock, simplifier l\'offre' },
-  poids_mort: { icon: '💀', label: 'Poids mort', color: '#ef4444', bg: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.3)', action: 'Plan de sortie — déstocker ou réattribuer l\'emplacement' },
+  moteur:     { label: 'Moteur',     tone: 'high', action: 'Top 80 % du CA du magasin — soigner la marge et la rotation' },
+  trafic:     { label: 'Trafic',     tone: 'mid',  action: 'Fait venir des clients (≥3) — fiabiliser le stock, simplifier l’offre' },
+  poids_mort: { label: 'Poids mort', tone: 'low',  action: 'Ni CA ni clients (<3 sur 12 mois) — déstocker ou réattribuer l’emplacement' },
 };
 
 let _empFilterStatut = ''; // '' | 'moteur' | 'trafic' | 'poids_mort'
+const _sortRows = (rows, { col, asc }) => rows.sort((a, b) => {
+  const va = a[col], vb = b[col];
+  if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+  return asc ? va - vb : vb - va;
+});
+const _chip = (active, onclick, label, n, tone) =>
+  `<button type="button" class="ar-chip${active ? ' ar-chip-on' : ''}" data-tone="${tone || ''}" onclick="${onclick}" aria-pressed="${active}">${label} <span class="pt-num">${n}</span></button>`;
 
 function _renderArbitrageRayon(rows) {
-  const col = _empSort.col;
-  const asc = _empSort.asc;
-  rows.sort((a, b) => {
-    const va = a[col], vb = b[col];
-    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
-    return asc ? va - vb : vb - va;
-  });
-
-  const marge3mTotal = rows.reduce((s, r) => s + r.marge3m, 0);
-
-  const rendements3m = rows.filter(r => r.ca3m > 0).map(r => r.rendement3m).sort((a, b) => a - b);
-  const median3m = rendements3m.length ? rendements3m[Math.floor(rendements3m.length / 2)] : 0;
-
-  // Compteurs par statut
-  const statutCounts = { moteur: 0, trafic: 0, poids_mort: 0 };
-  for (const r of rows) statutCounts[r.statut]++;
-
-  // Filtre statut
+  _sortRows(rows, _empSort);
+  const counts = { moteur: 0, trafic: 0, poids_mort: 0 };
+  for (const r of rows) counts[r.statut]++;
   const displayed = _empFilterStatut ? rows.filter(r => r.statut === _empFilterStatut) : rows;
-
-  const rdFmt = v => v >= 10 ? v.toFixed(0) + '\xd7' : v.toFixed(1) + '\xd7';
-  const rdCol = v => v >= 2 ? 'c-ok' : v >= 1 ? 'c-caution' : 'c-danger';
-  const arr = k => _empSort.col === k ? (_empSort.asc ? ' \u25b2' : ' \u25bc') : '';
-  const th = (label, key, align) =>
-    `<th class="py-2 px-2 ${align} text-[10px] cursor-pointer hover:t-primary whitespace-nowrap" onclick="window._empSortBy('${key}')">${label}${arr(key)}</th>`;
-
-  // Pilules filtre statut
-  const pills = Object.entries(STATUT_BADGE).map(([k, b]) => {
-    const active = _empFilterStatut === k;
-    const n = statutCounts[k];
-    return `<button onclick="window._empFilterStatut('${k}')" title="${b.action}"
-      class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
-      style="border-color:${b.border};${active ? `background:${b.bg};color:${b.color};box-shadow:0 0 0 1px ${b.color}` : `color:${b.color}`}">${b.icon} ${b.label} <strong>${n}</strong></button>`;
-  }).join('');
+  const arr = k => _empSort.col === k ? (_empSort.asc ? ' ▲' : ' ▼') : '';
+  const th = (label, key, num) => `<th class="${num ? 'ar-r' : ''}"><button type="button" class="ar-th" onclick="window._empSortBy('${key}')">${label}${arr(key)}</button></th>`;
+  const chips = Object.entries(STATUT_BADGE).map(([k, b]) =>
+    _chip(_empFilterStatut === k, `window._empFilterStatut('${k}')`, b.label, counts[k], b.tone)).join('');
 
   const rowsHtml = displayed.map(r => {
-    const sb = STATUT_BADGE[r.statut];
-    const txSrvCol = r.txService >= 98 ? 'c-ok' : r.txService >= 90 ? 'c-caution' : 'c-danger';
-    return `<tr class="hover:s-hover cursor-pointer border-b b-light" onclick="window._filterByEmplacement('${escapeHtml(r.emp)}')">
-      <td class="py-1.5 px-2 font-semibold t-primary">${escapeHtml(r.emp)}</td>
-      <td class="py-1.5 px-2 text-center"><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:${sb.bg};color:${sb.color}" title="${sb.action}">${sb.icon} ${sb.label}</span></td>
-      <td class="py-1.5 px-2 text-right" style="color:#8b5cf6">${r.marge3m > 0 ? formatEuro(r.marge3m) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${r.valStock > 0 ? formatEuro(r.valStock) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center font-bold ${rdCol(r.rendement3m)}">${rdFmt(r.rendement3m)}</td>
-      <td class="py-1.5 px-2 text-center">${r.nbClients || '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center font-bold ${txSrvCol}">${r.txService}%</td>
-      <td class="py-1.5 px-2 text-center">${r.nbDormant || '\u2014'}</td>
+    const b = STATUT_BADGE[r.statut];
+    return `<tr class="ar-click" onclick="window._filterByEmplacement('${escapeHtml(r.emp)}')" title="Voir les articles de ${escapeHtml(r.emp)}">
+      <td class="pt-strong">${escapeHtml(r.emp)}</td>
+      <td><span class="ar-tag" data-tone="${b.tone}">${b.label}</span></td>
+      <td class="pt-num ar-r">${r.nbRef}</td>
+      <td class="pt-num ar-r">${r.valStock > 0 ? formatEuro(r.valStock) : '—'}</td>
+      <td class="pt-num ar-r">${r.ca > 0 ? formatEuro(r.ca) : '—'}</td>
+      <td class="pt-num ar-r">${r.marge > 0 ? formatEuro(r.marge) : '—'}</td>
+      <td class="pt-num ar-r">${r.valStock > 0 ? r.rotation.toFixed(1).replace('.', ',') + ' €' : '—'}</td>
+      <td class="pt-num ar-r">${r.nbClients || '—'}</td>
+      <td class="pt-num ar-r">${r.nbDormant || '—'}</td>
     </tr>`;
   }).join('');
 
-  return `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-weight:800;font-size:13px;color:#cbd5e1">&#128205; Arbitrage rayon</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(marge3mTotal)} marge 3m</span>
-      </div>
-      <span class="acc-arrow" style="color:#cbd5e1">&#9654;</span>
-    </summary>
-    <div class="flex flex-wrap gap-1.5 px-4 py-2 items-center">
-      ${pills}
-      ${_empFilterStatut ? `<button onclick="window._empFilterStatut('')" class="text-[10px] t-disabled hover:t-primary ml-1">✕ Tous</button>` : ''}
-      ${_empFilterStatut ? `<span class="text-[10px] ml-2" style="color:${STATUT_BADGE[_empFilterStatut].color}">→ ${STATUT_BADGE[_empFilterStatut].action}</span>` : ''}
-      <span class="text-[10px] t-disabled ml-auto">${displayed.length} affichés</span>
+  const valPM = rows.filter(r => r.statut === 'poids_mort').reduce((s, r) => s + r.valStock, 0);
+  return `<details class="ar-sec" id="arSecEmp">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Emplacements</span>
+      <span class="pt-small pt-muted">${rows.length} emplacements · ${counts.poids_mort} poids morts immobilisent ${formatEuro(valPM)}</span></span>
+      <span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body">
+      <div class="pt-row" style="gap:8px;flex-wrap:wrap">${chips}
+        ${_empFilterStatut ? `<span class="pt-small pt-muted">${STATUT_BADGE[_empFilterStatut].action}</span>` : ''}</div>
+      <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
+        <thead><tr>${th('Emplacement', 'emp')}${th('Statut', 'statut')}${th('Réf.', 'nbRef', 1)}${th('Stock', 'valStock', 1)}${th('CA 12 mois', 'ca', 1)}${th('Marge 12 mois', 'marge', 1)}${th('CA par € de stock', 'rotation', 1)}${th('Clients', 'nbClients', 1)}${th('Jamais vendus', 'nbDormant', 1)}</tr></thead>
+        <tbody>${rowsHtml}</tbody></table></div>
+        <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px;gap:12px;flex-wrap:wrap">
+          <span>${displayed.length} emplacement${displayed.length > 1 ? 's' : ''} · clic = articles de l’emplacement · ventes MAGASIN 12 mois</span>
+          <button type="button" class="pt-link" onclick="window._empExportCSV()">Exporter en CSV</button>
+        </div></div>
     </div>
-    <div class="overflow-x-auto" style="max-height:500px;overflow-y:auto">
-      <table class="min-w-full text-xs">
-        <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-          <tr>
-            ${th('Emplacement', 'emp', 'text-left')}
-            ${th('Statut', 'statut', 'text-center')}
-            ${th('Marge VMB (3m)', 'marge3m', 'text-right')}
-            ${th('Val. stock', 'valStock', 'text-right')}
-            ${th('Rdt 3m', 'rendement3m', 'text-center')}
-            ${th('Clients', 'nbClients', 'text-center')}
-            ${th('Tx service %', 'txService', 'text-center')}
-            ${th('Dormants', 'nbDormant', 'text-center')}
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>
-    <div class="px-4 py-2 flex items-center gap-3">
-      <button onclick="window._empExportCSV()" class="text-[10px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">\u2b07 CSV</button>
-    </div>
-    <details class="px-4 py-2">
-      <summary class="text-[9px] t-disabled cursor-pointer hover:t-primary select-none">&#128214; Glossaire</summary>
-      <div class="text-[9px] t-disabled mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
-        <div>&#128293; <strong>Moteur</strong> = Top 80% du CA. Centre de profit, optimiser la marge.</div>
-        <div>&#128101; <strong>Trafic</strong> = Top 80% du trafic client (hors moteurs). Centre de service, fiabiliser.</div>
-        <div>&#128128; <strong>Poids mort</strong> = Ni CA ni trafic significatif (&lt;3 clients). Plan de sortie.</div>
-        <div><strong>Rdt 3m</strong> = CA 3 mois \xf7 val. stock. <strong>\u0394</strong> = tendance vs p\xe9riode.</div>
-        <div><strong>Tx service</strong> = % refs sans rupture. <strong>Cli/R\xe9f</strong> = densit\xe9 client par ref.</div>
-        <div><strong>Tx marge</strong> = VMB \xf7 CA. (R) = ruptures. (D) = dormants.</div>
-      </div>
-    </details>
   </details>`;
 }
 
 // ── Enlevés sans rayon — opportunités d'implantation ──────────────
 
-let _enlSort = { col: 'ratioEnl', asc: false };
+let _enlSort = { col: 'caEnl', asc: false };
 let _enlFilter = ''; // '' | 'sansStock' | 'enStock'
 let _enlPage = 0;
 const _ENL_PAGE_SIZE = 30;
 
-function _computeEnlevesSansRayon() {
+export function computeEnlevesSansRayon() {
   const data = DataStore.finalData;
   if (!data.length) return [];
 
@@ -317,173 +238,105 @@ function _computeEnlevesSansRayon() {
 }
 
 function _renderEnlevesSansRayon(rows) {
-  const col = _enlSort.col;
-  const asc = _enlSort.asc;
-  rows.sort((a, b) => {
-    const va = a[col], vb = b[col];
-    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
-    return asc ? va - vb : vb - va;
-  });
-
+  _sortRows(rows, _enlSort);
   const totalCAEnl = rows.reduce((s, r) => s + r.caEnl, 0);
   const nbSansStock = rows.filter(r => r.stockActuel === 0).length;
   const nbEnStock = rows.length - nbSansStock;
-
-  // Filtre
   const displayed = _enlFilter === 'sansStock' ? rows.filter(r => r.stockActuel === 0)
     : _enlFilter === 'enStock' ? rows.filter(r => r.stockActuel > 0)
     : rows;
+  const chips = _chip(_enlFilter === 'sansStock', "window._enlSetFilter('sansStock')", 'Absents du rayon', nbSansStock, 'low')
+    + _chip(_enlFilter === 'enStock', "window._enlSetFilter('enStock')", 'En stock mais passés en livraison', nbEnStock, 'mid');
+  const hint = _enlFilter === 'sansStock' ? 'Stock 0 et commandés en livraison : à implanter pour vendre au comptoir.'
+    : _enlFilter === 'enStock' ? 'En rayon mais vendus en livraison : visibilité en rayon ou habitude vendeur à vérifier.'
+    : 'Articles vendus à plus de 50 % en livraison (enlevé) au MAGASIN sur 12 mois. Fins de série exclues.';
 
-  const _pillBtn = (id, label, n, color) => {
-    const active = _enlFilter === id;
-    return `<button onclick="window._enlSetFilter('${id}')" class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}" style="border-color:${color}33;${active ? `background:${color}22;color:${color};box-shadow:0 0 0 1px ${color}` : `color:${color}`}">${label} <strong>${n}</strong></button>`;
-  };
-  const pills = [
-    _pillBtn('sansStock', '🔴 Stock 0 — vrai manque', nbSansStock, '#ef4444'),
-    _pillBtn('enStock', '🟡 En stock — pratique vendeur', nbEnStock, '#eab308'),
-  ].join('');
-
-  const arr = k => _enlSort.col === k ? (_enlSort.asc ? ' \u25b2' : ' \u25bc') : '';
-  const th = (label, key, align) =>
-    `<th class="py-2 px-2 ${align} text-[10px] cursor-pointer hover:t-primary whitespace-nowrap" onclick="window._enlSortBy('${key}')">${label}${arr(key)}</th>`;
-
+  const arr = k => _enlSort.col === k ? (_enlSort.asc ? ' ▲' : ' ▼') : '';
+  const th = (label, key, num) => `<th class="${num ? 'ar-r' : ''}"><button type="button" class="ar-th" onclick="window._enlSortBy('${key}')">${label}${arr(key)}</button></th>`;
   const totalPages = Math.ceil(displayed.length / _ENL_PAGE_SIZE) || 1;
   if (_enlPage >= totalPages) _enlPage = totalPages - 1;
   const start = _enlPage * _ENL_PAGE_SIZE;
-  const slice = displayed.slice(start, start + _ENL_PAGE_SIZE);
+  const rowsHtml = displayed.slice(start, start + _ENL_PAGE_SIZE).map(r => `<tr>
+      <td class="pt-num pt-muted">${_copyCodeBtn(r.code)}</td>
+      <td>${escapeHtml(r.libelle)}</td>
+      <td class="pt-muted">${escapeHtml(r.famille)}</td>
+      <td class="pt-num ar-r pt-strong">${formatEuro(r.caEnl)}</td>
+      <td class="pt-num ar-r">${r.caPrel > 0 ? formatEuro(r.caPrel) : '—'}</td>
+      <td class="pt-num ar-r">${r.ratioEnl} %</td>
+      <td class="pt-num ar-r">${r.nbClients}</td>
+      <td class="pt-num ar-r">${r.blMono || '—'}</td>
+      <td class="pt-num ar-r">${r.stockActuel === 0 ? '<span class="ar-tag" data-tone="low">0</span>' : r.stockActuel}</td>
+      <td class="pt-num ar-r">${r.nouveauMin}/${r.nouveauMax}</td>
+    </tr>`).join('');
+  const pager = totalPages > 1 ? `<span class="pt-row" style="gap:8px">
+      <button type="button" class="pt-link" onclick="window._enlPageNav(-1)" ${_enlPage <= 0 ? 'disabled' : ''}>← Préc.</button>
+      <span>${start + 1}–${Math.min(start + _ENL_PAGE_SIZE, displayed.length)} sur ${displayed.length}</span>
+      <button type="button" class="pt-link" onclick="window._enlPageNav(1)" ${_enlPage >= totalPages - 1 ? 'disabled' : ''}>Suiv. →</button></span>`
+    : `<span>${displayed.length} article${displayed.length > 1 ? 's' : ''}</span>`;
 
-  const rowsHtml = slice.map(r => {
-    const ratioCol = r.ratioEnl >= 80 ? 'c-danger' : 'c-caution';
-    const stockBadge = r.stockActuel === 0
-      ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:rgba(239,68,68,0.15);color:#f87171">Rupture</span>'
-      : `<span class="text-[10px] font-bold c-ok">${r.stockActuel}</span>`;
-    const minMax = r.nouveauMin === 0 && r.nouveauMax === 0
-      ? '<span class="text-[9px] c-danger font-bold">0/0</span>'
-      : `<span class="text-[10px] t-secondary">${r.nouveauMin}/${r.nouveauMax}</span>`;
-    return `<tr class="hover:s-hover border-b b-light">
-      <td class="py-1.5 px-2 font-mono text-[10px]">${_copyCodeBtn(r.code)}</td>
-      <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</td>
-      <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(r.famille)}</td>
-      <td class="py-1.5 px-2 text-right font-bold c-danger">${formatEuro(r.caEnl)}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${r.caPrel > 0 ? formatEuro(r.caPrel) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center font-bold ${ratioCol}">${r.ratioEnl}%</td>
-      <td class="py-1.5 px-2 text-center">${r.nbClients}</td>
-      <td class="py-1.5 px-2 text-center">${r.blMono > 0 ? `<span class="font-bold c-danger">${r.blMono}</span>` : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center">${stockBadge}</td>
-      <td class="py-1.5 px-2 text-center">${minMax}</td>
-    </tr>`;
-  }).join('');
-
-  const pagerHtml = totalPages > 1 ? `<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">
-    <button onclick="window._enlPageNav(-1)" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${_enlPage <= 0 ? ' opacity-30 pointer-events-none' : ''}">&larr; Préc</button>
-    <span class="text-[10px] t-secondary">${start + 1}–${Math.min(start + _ENL_PAGE_SIZE, displayed.length)} sur ${displayed.length}</span>
-    <button onclick="window._enlPageNav(1)" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${_enlPage >= totalPages - 1 ? ' opacity-30 pointer-events-none' : ''}">Suiv &rarr;</button>
-  </div>` : '';
-
-  return `<details style="background:linear-gradient(135deg,rgba(234,179,8,0.12),rgba(51,65,85,0.08));border:1px solid rgba(234,179,8,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.18),rgba(51,65,85,0.1));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-weight:800;font-size:13px;color:#fbbf24">📦 Enlevés sans rayon</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} articles \xb7 ${formatEuro(totalCAEnl)} CA enlevé \xb7 ${nbSansStock} sans stock</span>
-      </div>
-      <span class="acc-arrow" style="color:#fbbf24">&#9654;</span>
-    </summary>
-    <div id="enlSansRayonInner">
-    <div class="flex flex-wrap gap-1.5 px-4 py-2 items-center">
-      ${pills}
-      ${_enlFilter ? `<button onclick="window._enlSetFilter('')" class="text-[10px] t-disabled hover:t-primary ml-1 cursor-pointer">✕ Tous</button>` : ''}
-      <span class="text-[10px] t-disabled ml-auto">${displayed.length} affichés</span>
-    </div>
-    <p class="px-4 pb-1 text-[9px] t-disabled">${_enlFilter === 'sansStock' ? 'Articles non implantés — stock 0, commandés en livraison. Opportunités d\'implantation directes.' : _enlFilter === 'enStock' ? 'Articles en stock mais commandés en enlevé — vérifier la visibilité en rayon ou la pratique vendeur.' : 'Articles commandés majoritairement en livraison (enlevé ≥50%) par vos vendeurs — implanter pour capter ces ventes au rayon.'}</p>
-    <div class="overflow-x-auto" style="max-height:450px;overflow-y:auto">
-      <table class="min-w-full text-xs">
-        <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-          <tr>
-            ${th('Code', 'code', 'text-left')}
-            ${th('Article', 'libelle', 'text-left')}
-            ${th('Famille', 'famille', 'text-left')}
-            ${th('CA Enlevé', 'caEnl', 'text-right')}
-            ${th('CA Prélevé', 'caPrel', 'text-right')}
-            ${th('% Enlevé', 'ratioEnl', 'text-center')}
-            ${th('Clients', 'nbClients', 'text-center')}
-            ${th('BL mono', 'blMono', 'text-center')}
-            ${th('Stock', 'stockActuel', 'text-center')}
-            ${th('MIN/MAX', 'nouveauMin', 'text-center')}
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>
-    ${pagerHtml}
-    <details class="px-4 py-2">
-      <summary class="text-[9px] t-disabled cursor-pointer hover:t-primary select-none">&#128214; Lecture</summary>
-      <div class="text-[9px] t-disabled mt-1 space-y-0.5">
-        <div><strong>% Enlevé</strong> = CA enlevé ÷ CA total MAGASIN. ≥80% = quasi jamais prélevé au comptoir.</div>
-        <div><strong>BL mono</strong> = BL MAGASIN avec 1 seul article, 100% enlevé. Signal fort de rupture : le client est venu pour cet article, il n'était pas en rayon.</div>
-        <div><strong>Stock 0 + MIN/MAX 0/0</strong> = article non implanté. Forte opportunité si clients comptoir réguliers.</div>
-        <div><strong>Exclus</strong> : fins de série, articles non stockables (code ≠ 6 chiffres).</div>
-      </div>
-    </details>
+  return `<details class="ar-sec" id="arSecEnl">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Vendus en livraison, pas au rayon</span>
+      <span class="pt-small pt-muted">${rows.length} articles · ${formatEuro(totalCAEnl)} de CA en livraison · ${nbSansStock} absents du rayon</span></span>
+      <span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body" id="enlSansRayonInner">
+      <div class="pt-row" style="gap:8px;flex-wrap:wrap">${chips}</div>
+      <p class="pt-small pt-muted" style="margin:0">${hint} <em>BL mono</em> = le client est venu pour ce seul article.</p>
+      <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
+        <thead><tr>${th('Code', 'code')}${th('Article', 'libelle')}${th('Famille', 'famille')}${th('CA livraison', 'caEnl', 1)}${th('CA comptoir', 'caPrel', 1)}${th('% livraison', 'ratioEnl', 1)}${th('Clients', 'nbClients', 1)}${th('BL mono', 'blMono', 1)}${th('Stock', 'stockActuel', 1)}${th('MIN/MAX reco', 'nouveauMin', 1)}</tr></thead>
+        <tbody>${rowsHtml}</tbody></table></div>
+        <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px">${pager}</div></div>
     </div>
   </details>`;
 }
 
+/** Rend les deux sections dans leurs conteneurs (layout fourni par arbitrage.js). */
 export function renderArbitrageRayonBlock() {
-  const el = document.getElementById('arbitrageRayonBlock');
-  if (!el) return;
-  const wasOpen = el.querySelector('details')?.open || false;
-  const wasEnlOpen = el.querySelectorAll('details')[1]?.open || false;
-  const scrollParent = el.closest('.overflow-y-auto') || el.closest('[class*="mainContent"]') || document.getElementById('mainContent');
-  const scrollTop = scrollParent?.scrollTop || 0;
-  const rows = computePerfEmplacement();
-  let html = '';
-  if (rows.length) html += _renderArbitrageRayon(rows);
-  const enlRows = _computeEnlevesSansRayon();
-  if (enlRows.length) html += _renderEnlevesSansRayon(enlRows);
-  if (!html) { el.innerHTML = ''; return; }
-  el.innerHTML = html;
-  requestAnimationFrame(() => {
-    const details = el.querySelectorAll('details');
-    if (wasOpen && details[0]) details[0].open = true;
-    if (wasEnlOpen && details[1]) details[1].open = true;
-    if (scrollParent) scrollParent.scrollTop = scrollTop;
-  });
+  const empEl = document.getElementById('arbitrageRayonBlock');
+  const enlEl = document.getElementById('arbitrageEnlBlock');
+  if (empEl) {
+    const wasOpen = empEl.querySelector('details')?.open || false;
+    const rows = computePerfEmplacement();
+    empEl.innerHTML = rows.length ? _renderArbitrageRayon(rows) : '';
+    if (wasOpen && empEl.firstElementChild) empEl.firstElementChild.open = true;
+  }
+  if (enlEl) {
+    const wasOpen = enlEl.querySelector('details')?.open || false;
+    const rows = computeEnlevesSansRayon();
+    enlEl.innerHTML = rows.length ? _renderEnlevesSansRayon(rows) : '';
+    if (wasOpen && enlEl.firstElementChild) enlEl.firstElementChild.open = true;
+  }
 }
 
-/** Re-render only the enlevé inner content (no details toggle reset) */
-function _rerenderEnleveInner() {
-  const inner = document.getElementById('enlSansRayonInner');
-  if (!inner) { renderArbitrageRayonBlock(); return; }
-  const enlRows = _computeEnlevesSansRayon();
-  if (!enlRows.length) { inner.innerHTML = '<p class="text-xs t-disabled py-4 text-center">Aucun article</p>'; return; }
-  // Re-render only the inner HTML by calling the render and extracting inner content
-  const fullHtml = _renderEnlevesSansRayon(enlRows);
-  const match = fullHtml.match(/<div id="enlSansRayonInner">([\s\S]*)<\/div>\s*<\/details>$/);
-  if (match) inner.innerHTML = match[1];
-  else inner.innerHTML = fullHtml; // fallback
+/** Ouvre une section, applique un filtre et la fait défiler à l'écran (cartes de décision). */
+export function openArbitrageSection(which, filter) {
+  if (which === 'emp') _empFilterStatut = filter || '';
+  else { _enlFilter = filter || ''; _enlPage = 0; }
+  renderArbitrageRayonBlock();
+  const d = document.getElementById(which === 'emp' ? 'arSecEmp' : 'arSecEnl');
+  if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 }
 
 window._enlSetFilter = function(f) {
   _enlFilter = _enlFilter === f ? '' : f;
   _enlPage = 0;
-  _rerenderEnleveInner();
+  renderArbitrageRayonBlock();
 };
 
 window._enlSortBy = function(col) {
   if (_enlSort.col === col) _enlSort.asc = !_enlSort.asc;
   else { _enlSort.col = col; _enlSort.asc = col === 'code' || col === 'libelle' || col === 'famille'; }
   _enlPage = 0;
-  _rerenderEnleveInner();
+  renderArbitrageRayonBlock();
 };
 
 window._enlPageNav = function(dir) {
   _enlPage = Math.max(0, _enlPage + dir);
-  _rerenderEnleveInner();
+  renderArbitrageRayonBlock();
 };
 
 window._empSortBy = function(col) {
   if (_empSort.col === col) _empSort.asc = !_empSort.asc;
-  else { _empSort.col = col; _empSort.asc = col !== 'emp'; }
+  else { _empSort.col = col; _empSort.asc = col === 'emp' || col === 'statut'; }
   renderArbitrageRayonBlock();
 };
 
@@ -496,9 +349,9 @@ window._empExportCSV = function() {
   const rows = computePerfEmplacement();
   if (!rows.length) return;
   const sep = ';';
-  const header = ['Emplacement','Statut','Marge VMB (3m)','Val stock','Rdt 3m','Clients','Tx service %','Dormants'].join(sep);
+  const header = ['Emplacement', 'Statut', 'Réf.', 'Val stock', 'CA 12 mois', 'Marge 12 mois', 'CA prélevé par € de stock', 'Clients', 'Jamais vendus'].join(sep);
   const lines = rows.map(r =>
-    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.marge3m, r.valStock.toFixed(0), r.rendement3m.toFixed(2), r.nbClients, r.txService, r.nbDormant].join(sep)
+    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.nbRef, r.valStock.toFixed(0), Math.round(r.ca), r.marge, r.rotation.toFixed(2).replace('.', ','), r.nbClients, r.nbDormant].join(sep)
   );
   const csv = '\uFEFF' + [header, ...lines].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -515,7 +368,5 @@ window._filterByEmplacement = function(emp) {
     if (typeof window.switchTab === 'function') window.switchTab('table');
   }
 };
-
-
 
 window.renderArbitrageRayonBlock = renderArbitrageRayonBlock;

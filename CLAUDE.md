@@ -49,6 +49,10 @@ js/
   partie.js      — « La partie » (accueil) : score agence gamifié, computePartie,
                    renderPartieTab — score famille 4 critères squelette + Stock,
                    actions « +N pts », historique PRISME_PARTIE
+  arbitrage.js   — Pilotage Stock › Arbitrage : détail du domaine Stock de La partie
+                   (même score via computeStockPartie), valeur stock ventilée,
+                   5 décisions chiffrées, sections emplacements / livraison / matrice
+  emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
@@ -433,6 +437,7 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 | `computeAnimation()` | `ventesLocalMag12MG` | Ciblage marque/conquête |
 | `computeFamillesHors()` | `ventesLocalMag12MG` | Fuite par famille |
 | `computeMonRayon()` | `ventesLocalMag12MG` | Clients par famille |
+| `computePerfEmplacement()` (emplacement.js) | `ventesLocalMag12MG` / `articleClientsFull` | Garder / libérer un emplacement |
 
 ---
 

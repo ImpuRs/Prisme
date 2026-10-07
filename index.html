@@ -1068,30 +1068,6 @@
     .evidence-cta { display: block; font-size: var(--fs-2xs); font-weight: 600; color: var(--c-action); margin-top: var(--sp-2); cursor: pointer; transition: opacity .15s; }
     .evidence-cta:hover { opacity: .75; }
 
-    /* ═══ SECTIONS ACCORDÉONS PREMIUM ═══════════════════════════ */
-    #tabArbitrage details,
-    #tabArbitrage .s-card.rounded-xl {
-      background: var(--s-card);
-      border: 1px solid var(--b-default);
-      border-radius: var(--r-lg);
-      margin-bottom: var(--sp-2);
-      overflow: hidden;
-      transition: border-color .15s;
-    }
-    #tabArbitrage details:hover,
-    #tabArbitrage .s-card.rounded-xl:hover { border-color: var(--b-strong); }
-    #tabArbitrage details > summary {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 11px 14px; cursor: pointer;
-      background: rgba(255,255,255,0.01);
-      transition: background .15s; list-style: none;
-    }
-    #tabArbitrage details > summary:hover { background: rgba(255,255,255,0.03); }
-    #tabArbitrage details > summary h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--t-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
-    #tabArbitrage details > summary .acc-arrow { color: var(--t-disabled); font-size: var(--fs-xs); transition: transform .2s; flex-shrink: 0; }
-    #tabArbitrage details[open] > summary .acc-arrow { transform: rotate(90deg); }
-    #tabArbitrage details > *:not(summary) { border-top: 1px solid var(--b-light); }
-
     /* ═══ SIDEBAR PREMIUM ════════════════════════════════════════ */
     #filterPanel { background: var(--s-sidebar, #0b0e16); border-right: 1px solid var(--b-light); }
     #filterPanel.drawer-open { background: var(--s-sidebar, #0b0e16); }
@@ -1366,6 +1342,49 @@
     .pt-table tr.pt-sep td { padding:6px 12px; font-size:12px; color:var(--t-tertiary); background:var(--s-card-alt); }
     .pt-mini-action { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--s-card-alt); border-radius:12px; }
     .pt-link { background:none; border:0; padding:6px 0; cursor:pointer; color:var(--t-link); font:inherit; font-weight:500; }
+    .pt-link:disabled { opacity:.35; cursor:default; }
+    /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
+    #tabArbitrage { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .ar-head { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+    .ar-stack { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--pt-line); gap:2px; }
+    .ar-stack > span { display:block; height:100%; min-width:3px; }
+    .ar-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px 24px; }
+    .ar-dot { width:10px; height:10px; border-radius:3px; margin-top:4px; flex-shrink:0; }
+    .ar-decs { display:grid; grid-template-columns:repeat(auto-fit,minmax(176px,1fr)); gap:14px; }
+    .ar-dec { display:flex; flex-direction:column; gap:14px; padding:18px; }
+    .ar-dec-unit { font-size:15px; line-height:1.35; }
+    .ar-dec-cta { margin-top:auto; width:100%; text-align:left; }
+    .ar-dec-empty { background:transparent; border-style:dashed; }
+    .ar-sec { background:var(--s-card); border:1px solid var(--pt-line); border-radius:16px; overflow:hidden; }
+    .ar-sec > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 22px; cursor:pointer; list-style:none; min-height:44px; }
+    .ar-sec > summary::-webkit-details-marker { display:none; }
+    .ar-sec > summary:hover { background:var(--s-card-alt); }
+    .ar-chev { width:10px; height:10px; border-right:2px solid var(--t-tertiary); border-bottom:2px solid var(--t-tertiary); transform:rotate(-45deg); transition:transform .2s; flex-shrink:0; }
+    .ar-sec[open] > summary .ar-chev { transform:rotate(45deg); }
+    .ar-sec-body { display:flex; flex-direction:column; gap:12px; padding:4px 22px 22px; }
+    .ar-chip { min-height:36px; padding:0 14px; border-radius:999px; font:inherit; font-size:13px; cursor:pointer; border:1px solid var(--pt-line); background:transparent; color:var(--t-secondary); }
+    .ar-chip:hover { border-color:var(--t-tertiary); }
+    .ar-chip-on { background:var(--s-card-alt); color:var(--t-primary); border-color:var(--t-tertiary); font-weight:600; }
+    .ar-chip[data-tone="low"] .pt-num { color:var(--pt-low); }
+    .ar-chip[data-tone="mid"] .pt-num { color:var(--pt-mid); }
+    .ar-chip[data-tone="high"] .pt-num { color:var(--pt-high); }
+    .ar-tag { display:inline-block; font-size:12px; font-weight:500; padding:2px 8px; border-radius:999px; background:var(--s-card-alt); color:var(--t-secondary); white-space:nowrap; }
+    .ar-tag[data-tone="low"] { color:var(--pt-low); background:color-mix(in srgb, var(--pt-low) 12%, transparent); }
+    .ar-tag[data-tone="mid"] { color:var(--pt-mid); background:color-mix(in srgb, var(--pt-mid) 12%, transparent); }
+    .ar-tag[data-tone="high"] { color:var(--pt-high); background:color-mix(in srgb, var(--pt-high) 12%, transparent); }
+    .ar-th { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer; white-space:nowrap; }
+    .ar-th:hover { color:var(--t-primary); }
+    .pt-table th.ar-r, .pt-table td.ar-r { text-align:right; }
+    .pt-table tr.ar-click { cursor:pointer; }
+    .pt-table tr.ar-click:hover td { background:var(--s-card-alt); }
+    .ar-mx { display:grid; grid-template-columns:72px repeat(3,minmax(170px,1fr)); gap:10px; min-width:600px; }
+    .ar-mx-h { font-weight:600; text-align:center; padding:4px; line-height:1.3; }
+    .ar-mx-row { display:flex; flex-direction:column; justify-content:center; }
+    .ar-cell { display:flex; flex-direction:column; gap:8px; padding:14px; border-radius:12px; border:1px solid var(--pt-line); background:var(--s-card-alt); cursor:pointer; border-left:4px solid var(--t-disabled); }
+    .ar-cell:hover, .ar-cell:focus-visible { border-color:var(--t-tertiary); outline:none; }
+    .ar-cell[data-tone="high"] { border-left-color:var(--pt-high); }
+    .ar-cell[data-tone="mid"] { border-left-color:var(--pt-mid); }
+    .ar-cell[data-tone="low"] { border-left-color:var(--pt-low); }
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -2034,15 +2053,10 @@
         <span id="dashChipSansEmplacement">0</span><span id="dashChipFins">0</span><span id="dashChipSaison">0</span><span id="dashChipSaso">0</span>
         <span id="dashDeadStock"></span><span id="dashDeadPct"></span><span id="dashSurstock"></span><span id="dashSurstockPct"></span><span id="dashCapalin"></span><span id="dashCapalinCount"></span><span id="dashServiceRate"></span><span id="dashServiceDetail"></span><span id="dashCAPerdu"></span><span id="dashCAPerduCount"></span>
       </div>
-      <div id="stockHeroBanner">
-        <div id="stockHeroContent"></div>
-      </div>
       <span id="healthScoreContent" class="hidden"></span>
       <span id="healthScoreInline" class="hidden"></span>
       <span id="valeurStockInline" class="hidden"></span>
       <div id="cockpitBriefing" class="hidden"><div id="cockpitBriefingText"></div></div>
-      <div id="arbitrageRayonBlock"></div>
-      <div id="abcMatrixContainer" class="overflow-x-auto p-4"></div>
       <span id="abcCountBadge" class="hidden"></span>
       <span id="planRayonInline" class="hidden"></span>
       <!-- Compat JS: anciens IDs supprimés, gardés masqués -->

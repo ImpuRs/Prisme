@@ -10,7 +10,7 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau } from './engine.js';
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
@@ -28,7 +28,7 @@ import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSugges
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
 import { renderLaboTab, updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
-import { renderArbitrageRayonBlock } from './emplacement.js';
+import { renderArbitrageTab, isInvendu } from './arbitrage.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js?v=20260425m';
 import { renderPartieTab } from './partie.js';
@@ -1817,7 +1817,7 @@ _S.articleMonthlySales=monthlySales;
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
-      _S.finalData=[];_S.libelleLookup={}; // producteur — _S direct_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+      _S.finalData=[];_S.libelleLookup={}; // producteur — _S direct_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
       _S.parentRefsExcluded=0;
       const NOW=new Date();
 
@@ -2008,7 +2008,7 @@ _S.articleMonthlySales=monthlySales;
     if(_noStockSlot){_noStockSlot.style.display='none';[..._noStockSlot.parentElement.children].forEach(c=>c.style.display='');}
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
-    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
     _S.parentRefsExcluded=0;
     // [Adapter Étape 5] — DataStore.finalData / .filteredData : canaux-invariants
     const dataSource=(DataStore.filteredData.length>0&&DataStore.filteredData.length<DataStore.finalData.length)?DataStore.filteredData:DataStore.finalData;
@@ -2041,6 +2041,7 @@ _S.articleMonthlySales=monthlySales;
     if(r.W>0)lstB.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:r.W,condit:null});
     if(r.isNouveaute&&r.stockActuel>0)lstN.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});
     if(r.enleveTotal>=5&&r.V===0)lstColis.push({code:r.code,lib:r.libelle,i1:r.enleveTotal,i2:r.stockActuel,sv:r.enleveTotal,condit:null});
+    if(isInvendu(r))_S.cockpitLists.invendus.add(r.code);
     if(r.stockActuel<0){lstStockNeg.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.stockneg.add(r.code);}
     if(r.stockActuel>0&&r.prixUnitaire>0){totalArt++;byStatus[r.statut]=(byStatus[r.statut]||0)+lv;const _fLib=famLib(r.famille);byFamily[_fLib]=(byFamily[_fLib]||0)+lv;const isDormant=!r.isNouveaute&&r.ageJours>DORMANT_DAYS;const sl=r.statut.toLowerCase();const isFS=sl.includes('fin de série')||sl.includes('fin de serie')||sl.includes('fin de catalogue');const iFSt=sl.includes('fin de stock');const isFin=isFS||iFSt;
     if(!r.isNouveaute&&r.ageJours>DORMANT_DAYS){dormantStock+=lv;if(lv>50){lstD.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.dormants.add(r.code);}}
@@ -2128,68 +2129,6 @@ _S.articleMonthlySales=monthlySales;
     _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti,caComptoir:_S.canalAgence?.['MAGASIN']?.ca||0};
     renderHealthScore();
     renderTabBadges();
-
-    // ── Bandeau hero Santé + Valeur Stock ──
-    {const heroEl=document.getElementById('stockHeroContent');
-    if(heroEl){
-      // Sparkline CA mensuel
-      const _monthlyCA=Array(12).fill(0);
-      for(const [code,months] of Object.entries(_S.articleMonthlySales||{})){
-        if(DataStore.finalData.some(r=>r.code===code))months.forEach((v,i)=>{_monthlyCA[i]+=v;});
-      }
-      const _sparklineCA=buildSparklineSVG(_monthlyCA,{color:'rgba(255,255,255,0.7)',width:100,height:24,filled:true});
-      // Read health score data from renderHealthScore (already computed)
-      const fd=dataSource;const _totalRefs=fd.length;
-      const _rup=fd.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent).length;
-      const _dorm=fd.filter(r=>r.ageJours>=(_S.DORMANT_DAYS||180)&&r.stockActuel>0&&r.W<=1).length;
-      const _sansMin=fd.filter(r=>r.ancienMin===0&&r.W>=3).length;
-      const _surst=fd.filter(r=>r.ancienMax>0&&r.stockActuel>r.ancienMax*2).length;
-      const _actives=fd.filter(r=>r.W>=1&&!r.isParent);
-      const _activesOk=_actives.filter(r=>r.stockActuel>0).length;
-      const _txSvc=_actives.length>0?Math.round(_activesOk/_actives.length*100):100;
-      const _rupPct=_totalRefs>0?_rup/_totalRefs*100:0;
-      const _dormPct=_totalRefs>0?_dorm/_totalRefs*100:0;
-      const _sansMinPct=_actives.length>0?_sansMin/_actives.length*100:0;
-      const _surstPct=_totalRefs>0?_surst/_totalRefs*100:0;
-      const _score=Math.max(0,Math.min(100,Math.round(_txSvc*0.4+Math.max(0,100-_rupPct*10)*0.25+Math.max(0,100-_dormPct*3)*0.15+Math.max(0,100-_sansMinPct*5)*0.1+Math.max(0,100-_surstPct*5)*0.1)));
-      const _col=_score>=75?'var(--c-ok)':_score>=50?'var(--c-caution)':'var(--c-danger)';
-      const _lbl=_score>=75?'Bonne santé':_score>=50?'À surveiller':'Critique';
-      const _ico=_score>=75?'💚':_score>=50?'🟡':'🔴';
-      const _dims=[
-        {label:'Taux de service',val:_txSvc+'%',ok:_txSvc>=95},
-        {label:'Ruptures',val:_rup,ok:_rup<=5},
-        {label:'Dormants',val:_dorm,ok:_dorm<=_totalRefs*0.05},
-        {label:'Sans MIN',val:_sansMin,ok:_sansMin<=3},
-        {label:'Surstock',val:_surst,ok:_surst<=_totalRefs*0.03},
-      ];
-      const _heroPills = [
-        { label: `Taux service : ${sr}%`,    cls: parseFloat(sr) >= 95 ? 'ok' : parseFloat(sr) >= 85 ? 'caution' : 'danger', fn: `showCockpitInTable('ruptures')` },
-        { label: `Ruptures : ${lstR.length}`, cls: lstR.length === 0 ? 'ok' : 'danger',                                        fn: `showCockpitInTable('ruptures');switchTab('table')` },
-        { label: `Dormants : ${lstD.length}`, cls: lstD.length > 50 ? 'caution' : 'muted',                                     fn: `showCockpitInTable('dormants');switchTab('table')` },
-        { label: `Sans MIN : ${lstA.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('anomalies');switchTab('table')` },
-        { label: `Surstock : ${lstS.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('saso');switchTab('table')` },
-      ].map(p => `<button class="hero-pill hero-pill--${p.cls}" onclick="${p.fn}">${p.label}</button>`).join('');
-      heroEl.innerHTML = `
-<div class="hero-layout">
-  <div class="hero-score-block">
-    <div class="hero-score-num" style="color:${_col}">${_score}</div>
-    <div class="hero-score-bar">
-      <div class="hero-score-fill" style="width:${_score}%;background:${_col}"></div>
-    </div>
-    <div class="hero-score-label">Santé stock</div>
-  </div>
-  <div class="hero-divider"></div>
-  <div class="hero-value-block">
-    <div class="hero-value-label">Valeur stock</div>
-    <div class="hero-value-num kpi-update">${formatEuro(totalValue)}</div>
-    <div class="hero-value-sub">
-      <span>${DataStore.finalData.length.toLocaleString('fr')} réf.</span>
-    </div>
-  </div>
-  <div class="hero-divider"></div>
-  <div class="hero-pills">${_heroPills}</div>
-</div>`;
-    }}
 
     // ── Sidebar pills ──
     _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saso:lstS.length,colis:lstColis.length,rupClients:0};
@@ -2405,46 +2344,36 @@ _S.articleMonthlySales=monthlySales;
     const _countBadge=document.getElementById('abcCountBadge');
     if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
     _renderGhostArticles();
-    const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
-    const LABELS={AF:'🌟 Pépites',AM:'👁️ Piliers',AR:'💰 Projets',BF:'⚙️ Moteur',BM:'➡️ Standard',BR:'❓ Poids Faible',CF:'🔁 Trafic',CM:'📉 Poussière',CR:'❌ Boulet'};
+    // Ton = décision attendue (cf. RECOS) : à tenir / standard / à revoir / à sortir
+    const TONE={AF:'high',AM:'high',BF:'high',CF:'high',BM:'base',AR:'mid',BR:'mid',CM:'mid',CR:'low'};
+    const TONE_LBL={high:'À tenir',base:'Standard',mid:'À revoir',low:'À sortir'};
     const RECOS={
-      AF:'🏆 Capitaines — Zéro rupture. Stock sécurité max, commande auto, emplacement premium. Si AF mais pas Capitaine → problème de classif.',
-      AM:'🏆 Capitaines à cycle long ou 🎯 Lien Fort — Stock tampon faible, supply chain parfaite. Gestion à flux tendu maîtrisé.',
-      AR:'🎯 Spécialistes forte valeur — Zéro stock physique, 100% commande spéciale. Ta force = ta relation fournisseur.',
-      BF:'🏆 Capitaines petit prix + 📦 Bons Soldats — Automatisation Kanban (2 bacs). Objectif : le moins de temps possible à gérer.',
-      BM:'📦 Bons Soldats + 🟡 À Surveiller — Réappro standard. Garder un œil pour ne pas glisser vers BR ou CM.',
-      BR:'🟡 Déclinant qui s\'ignore — Stock min 1 unité, pas de réappro auto. En revue pour sortie potentielle.',
-      CF:'🏆 Incontournable comptoir — Ça doit être là, toujours, en quantité. Son absence crée plus de frustration que son stock ne coûte.',
-      CM:'Zone de simplification — Peut-on remplacer 3 CM par 1 BM ? Vendre en plus grande quantité pour passer en CF ?',
-      CR:'🔴 Poids Mort — Tolérance zéro, on sort. SAUF Ancre Métier : appât pour le gros poisson, garder à 1 unité.'
+      AF:'Capitaines — zéro rupture. Stock de sécurité, commande auto, emplacement premium.',
+      AM:'Gros CA à cycle long — stock tampon faible, réappro maîtrisée.',
+      AR:'Forte valeur, vente rare — viser zéro stock physique, commande spéciale.',
+      BF:'Petits prix qui tournent — automatiser (2 bacs), le moins de temps possible à gérer.',
+      BM:'Réappro standard — surveiller pour ne pas glisser vers BR ou CM.',
+      BR:'Déclinant qui s’ignore — 1 unité max, pas de réappro auto, en revue de sortie.',
+      CF:'Incontournable comptoir — doit toujours être là : son absence frustre plus que son stock ne coûte.',
+      CM:'Zone de simplification — remplacer plusieurs références par une seule ?',
+      CR:'Poids mort — on sort, sauf article d’appel métier (garder 1 unité).'
     };
-    // Matrix table
-    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
-    html+='<th style="width:64px"></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#4ade80">F<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Fréquent ≥12</span></div></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#93c5fd">M<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Moyen 4-11</span></div></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#fbbf24">R<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Rare ≤3</span></div></th>';
-    html+='</tr></thead><tbody>';
-    const rowLabels={A:'<div class="font-extrabold text-xl text-indigo-900">A</div><div class="text-[9px] t-tertiary font-semibold">Top 80%</div>',B:'<div class="font-extrabold text-xl text-indigo-600">B</div><div class="text-[9px] t-tertiary font-semibold">15%</div>',C:'<div class="font-extrabold text-xl text-indigo-400">C</div><div class="text-[9px] t-tertiary font-semibold">5%</div>'};
+    const FMR_LBL={F:'Fréquent<br><span class="pt-muted pt-small">≥12 ventes</span>',M:'Moyen<br><span class="pt-muted pt-small">4 à 11</span>',R:'Rare<br><span class="pt-muted pt-small">≤3</span>'};
+    const ABC_LBL={A:'A<br><span class="pt-muted pt-small">80 % du CA</span>',B:'B<br><span class="pt-muted pt-small">15 %</span>',C:'C<br><span class="pt-muted pt-small">5 %</span>'};
+    let html='<div class="ar-mx"><span></span>'+['F','M','R'].map(f=>`<div class="ar-mx-h">${FMR_LBL[f]}</div>`).join('');
     for(const abc of['A','B','C']){
-      html+=`<tr><td class="p-3 text-center">${rowLabels[abc]}</td>`;
+      html+=`<div class="ar-mx-h ar-mx-row">${ABC_LBL[abc]}</div>`;
       for(const fmr of['F','M','R']){
-        const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0};
-        const bg=CELL_BG[key];
-        html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
-          <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);margin:0;width:14px;height:14px;font-size:9px">ℹ</em>
-          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-2xl);font-weight:800;line-height:1;letter-spacing:-0.02em">${d.count}</div>
-          <div style="font-size:var(--fs-xs);opacity:0.6;margin-top:3px">articles</div>
-          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-sm);font-weight:700;margin-top:var(--sp-2)">${formatEuro(d.stockVal)}</div>
-          <div style="font-size:var(--fs-2xs);opacity:0.5;margin-top:2px">${d.pctTotal.toFixed(1)}% du stock</div>
-          <div style="font-size:var(--fs-2xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.5;margin-top:var(--sp-2)">${key}</div>
-          ${d.count>0?`<button onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" style="margin-top:6px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.25);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,0.4)'" onmouseout="this.style.background='rgba(0,0,0,0.25)'">🔍 Diag.</button>`:''}
-        </div></td>`;
+        const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0},tone=TONE[key];
+        html+=`<div class="ar-cell" data-tone="${tone}" role="button" tabindex="0" title="${key} — ${RECOS[key]}" onclick="filterByAbcFmr('${abc}','${fmr}')" onkeydown="if(event.key==='Enter')filterByAbcFmr('${abc}','${fmr}')">
+          <div class="pt-row pt-between"><span class="pt-num pt-small pt-muted">${key}</span><span class="ar-tag" data-tone="${tone==='base'?'':tone}">${TONE_LBL[tone]}</span></div>
+          <div class="pt-num" style="font-size:28px;font-weight:600;line-height:1.1">${d.count.toLocaleString('fr-FR')}<span class="pt-small pt-muted" style="font-weight:400"> art.</span></div>
+          <div class="pt-row pt-between pt-small"><span class="pt-num pt-strong">${formatEuro(d.stockVal)}</span><span class="pt-num pt-muted">${d.pctTotal.toFixed(0)} % du stock</span></div>
+          ${d.count>0?`<button type="button" class="pt-link pt-small" style="padding:0;text-align:left" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')">Diagnostic →</button>`:''}
+        </div>`;
       }
-      html+='</tr>';
     }
-    html+='</tbody></table>';
-    html+='<p class="text-center text-[10px] t-disabled mt-3">Cliquer sur une case → filtre l\'onglet Articles · Survoler → recommandation</p>';
+    html+='</div><p class="pt-small pt-muted" style="margin:12px 0 0">Clic sur une case : ses articles dans l’onglet Articles. Survol : la règle de gestion.</p>';
     const mc=document.getElementById('abcMatrixContainer');if(mc)mc.innerHTML=html;
     // Attractivité par Famille (migrée depuis Mon Stock)
     const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:i-danger-bg"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${escapeHtml(fam)}">${escapeHtml(fam)}</td><td class="py-2 px-3 text-center t-secondary text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-1.5"><div class="perf-bar bg-c-danger rounded-full" style="width:${barW}%"></div></div><span class="c-danger font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">Aucune donnée famille</td></tr>';}
@@ -2472,7 +2401,7 @@ _S.articleMonthlySales=monthlySales;
       case 'arbitrage':{
         const _ts0=performance.now();
         renderDashboardAndCockpit();
-        renderArbitrageRayonBlock();
+        renderArbitrageTab();
         renderABCTab();
         renderHealthScore();
         renderTabBadges();
