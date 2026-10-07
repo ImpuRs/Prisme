@@ -246,12 +246,12 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'clients', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
+const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'portefeuille', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   partie: 'partie',
   table: 'base',
   plan: 'stock', arbitrage: 'stock', stock: 'stock',
-  commerce: 'commerce', clients: 'commerce',
+  commerce: 'commerce', clients: 'commerce', portefeuille: 'commerce',
   conformite: 'direction', duel: 'direction',
   animation: 'animation', associations: 'animation',
 };

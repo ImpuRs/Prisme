@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // PRISME — partie.js
 // « La partie » : accueil gamifié — score agence à faire monter.
-// Score agence = moyenne des parties disponibles (Assortiment, Stock ; Clients à venir).
+// Score agence = moyenne des parties disponibles (Assortiment, Stock, Clients).
 // Assortiment = moyenne pondérée (nb refs) des scores famille, chaque score famille
 // combinant 4 critères squelette (cf. PARTIE_WEIGHTS) :
 //   0. Socle tenu en rayon   — socle en stock / socle
@@ -24,6 +24,7 @@ import {
   PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS,
 } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
+import { computeClientsPartie } from './clients-decisions.js';
 
 export const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
 const LIST_LIMIT = 100;
@@ -182,11 +183,15 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
   if (sp.gainSaso >= 1) actions.push({ id: 'stock:saso', fam: null, cockpit: 'saso', gain: sp.gainSaso, title: `Ramener ${sp.sasoArts.length} articles en sur-stock sous leur MAX`, where: 'Stock · Sur-stock' });
   actions.sort((a, b) => b.gain - a.gain);
 
-  const parts = [assort, stock].filter(v => v != null);
+  // Clients = fidélité en CA (clients-decisions.js, écran « Tes clients »)
+  let cl = { score: null };
+  try { cl = computeClientsPartie(); } catch (e) { console.warn('[PRISME] partie : score Clients indisponible', e); }
+  const clients = cl.score;
+  const parts = [assort, stock, clients].filter(v => v != null);
   const global = parts.length ? Math.round(parts.reduce((t, v) => t + v, 0) / parts.length) : null;
 
   return {
-    dataKey: _dataKey(), global, assort, stock, famList, nbStores, hasSquelette,
+    dataKey: _dataKey(), global, assort, stock, clients, clientsDetail: cl, famList, nbStores, hasSquelette,
     actions: actions.slice(0, PARTIE_NB_ACTIONS), nbActionsTotal: actions.length,
     stockDetail: { service: sp.service ?? 100, saso: sp.sasoArts.length, stockRefs: sp.stockRefs, ruptures: sp.rupArts.length },
     nbArticles: fd.length,
@@ -377,7 +382,9 @@ function _render() {
         ${p.stock != null
           ? _domainRow('Stock', `Service ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
           : _domainRow('Stock', 'Aucune vente rapprochée des articles en stock', null, true)}
-        ${_domainRow('Clients', 'Arrive dans la prochaine étape de la refonte', null, true)}
+        ${p.clients != null
+          ? _domainRow('Clients', `Fidélité en CA · ${p.clientsDetail.kept} clients revenus sur ${p.clientsDetail.prev}`, p.clients)
+          : _domainRow('Clients', 'Il faut 12 mois d’historique de ventes', null, true)}
       </div>
       <div class="pt-card pt-col" style="gap:12px">
         <div class="pt-eyebrow">Ta progression</div>
@@ -415,7 +422,7 @@ async function _persist(p) {
   const fams = {};
   for (const f of p.famList) fams[f.k] = f.score;
   const [hist, done] = await Promise.all([
-    _savePartieSnapshot(store, { key: p.dataKey, date: p.dataKey, global: p.global, assort: p.assort, stock: p.stock, fams }),
+    _savePartieSnapshot(store, { key: p.dataKey, date: p.dataKey, global: p.global, assort: p.assort, stock: p.stock, clients: p.clients, fams }),
     _loadPartieDone(store, p.dataKey),
   ]);
   _S._partieHist = hist;

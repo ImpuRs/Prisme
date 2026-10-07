@@ -58,6 +58,11 @@ js/
   planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
                    onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
+  clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
+                   CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
+                   derniers ; part de portefeuille en info), 5 décisions triées par enjeu
+                   (relancer, reconquérir, développer, conquérir, rattacher) ; computeClientsPartie
+                   alimente le 3e domaine de La partie
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
@@ -297,7 +302,7 @@ Niveaux du diagnostic :
 
 | Onglet | Source principale | Description |
 |---|---|---|
-| La partie (accueil) | finalData + computeSquelette | Score agence /100 (Assortiment + Stock ; Clients à venir), actions « +N pts », familles notées, courbe de progression |
+| La partie (accueil) | finalData + computeSquelette + _byMonth | Score agence /100 = moyenne Assortiment + Stock + Clients, actions « +N pts », familles notées, courbe de progression |
 | Base articles | finalData | La base (hors Pilotage Stock) : tableau filtrable, MIN/MAX, dernière vente (consommé), export CSV ; bandeau de contexte quand on arrive filtré depuis une décision |
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |

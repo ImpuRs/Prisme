@@ -29,6 +29,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 import { renderLaboTab, updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
+import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js?v=20260425m';
 import { renderPartieTab } from './partie.js';
@@ -2428,6 +2429,9 @@ _S.articleMonthlySales=monthlySales;
         break;
       case 'omni':
         renderOmniTab();
+        break;
+      case 'portefeuille':
+        renderTesClients();
         break;
       case 'clients':
         window._renderPDVTab?.();
