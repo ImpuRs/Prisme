@@ -52,6 +52,11 @@ js/
   arbitrage.js   — Pilotage Stock › Arbitrage : détail du domaine Stock de La partie
                    (même score via computeStockPartie), valeur stock ventilée,
                    5 décisions chiffrées, sections emplacements / livraison / matrice
+  plan-famille.js — Pilotage Stock › Plan › Par famille : familles notées comme La partie,
+                   articles en 5 gestes (sortir, implanter, garder, surveiller, recalibrer) ;
+                   « Pour creuser » = onglets Métiers/Analyse/Réseau de planRayon.js (bridge)
+  planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
+                   onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,

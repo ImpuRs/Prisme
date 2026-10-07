@@ -1385,6 +1385,15 @@
     .ar-cell[data-tone="high"] { border-left-color:var(--pt-high); }
     .ar-cell[data-tone="mid"] { border-left-color:var(--pt-mid); }
     .ar-cell[data-tone="low"] { border-left-color:var(--pt-low); }
+    /* ── Plan › Par famille ── */
+    #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
+    .pf-search { width:100%; min-height:44px; box-sizing:border-box; padding:0 14px; margin-bottom:10px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; }
+    .pf-search:focus { outline:none; border-color:var(--t-tertiary); }
+    .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
+    .pf-g .pt-table td { white-space:nowrap; }
+    .pf-g .pt-table td.pf-lib { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+    .pf-crit { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; }
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -2041,7 +2050,7 @@
 
     <!-- TAB : PLAN DE RAYON -->
     <div id="tabPlan" class="tab-content hidden">
-      <div id="planRayonBlock" class="p-4"></div>
+      <div id="planRayonBlock"></div>
     </div>
 
     <!-- TAB : ARBITRAGE -->

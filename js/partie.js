@@ -25,7 +25,7 @@ import {
 } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 
-const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
+export const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
 const LIST_LIMIT = 100;
 
 // ── Calcul ───────────────────────────────────────────────────
@@ -89,7 +89,8 @@ function _dataKey() {
   return formatLocalYMD(d);
 }
 
-export function computePartie() {
+/** minRefs : taille mini d'une famille pour être notée (Plan passe 1 pour tout voir). */
+export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
   const fd = _S.finalData || [];
   if (!fd.length) return null;
 
@@ -142,7 +143,7 @@ export function computePartie() {
   const famList = [];
   if (hasSquelette) {
     for (const f of fams.values()) {
-      if (f.n < PARTIE_FAM_MIN_REFS) continue;
+      if (f.n < minRefs) continue;
       f.trousArts.sort((a, b) => (b.score || 0) - (a.score || 0));
       f.calKOArts.sort((a, b) => (b.W || 0) - (a.W || 0));
       f.pmArts.sort((a, b) => (b.stockActuel || 0) - (a.stockActuel || 0));
@@ -314,7 +315,8 @@ function _famPanel(p, done) {
   const acts = p.actions.filter(a => a.fam === f.k);
   return `<div class="pt-card pt-detail" id="partieFamPanel">
     <div class="pt-row pt-between" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
-      <div><div class="pt-small pt-muted pt-num">${escapeHtml(f.k)} · ${f.n} articles</div><h3 class="pt-h2" style="margin-top:4px">${escapeHtml(f.lib)}</h3></div>
+      <div><div class="pt-small pt-muted pt-num">${escapeHtml(f.k)} · ${f.n} articles</div><h3 class="pt-h2" style="margin-top:4px">${escapeHtml(f.lib)}</h3>
+        <button type="button" class="pt-link pt-small" onclick="window._pfOpen?.('${escapeHtml(f.k)}')">Tous ses articles dans le Plan →</button></div>
       <div class="pt-num pt-big" style="color:${_col(f.score)}">${f.score}</div>
     </div>
     <div class="pt-col" style="gap:14px">${[0, 1, 2, 3].map(i => _critBlock(f, i, _S._partieCrit === i)).join('')}</div>
