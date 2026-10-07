@@ -10,6 +10,7 @@ import { formatEuro, famLib, escapeHtml } from './utils.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
 import { buildAgenceStore, getAgenceStoreKey } from './agence-store.js';
 import { getCaClientParStoreMap } from './sales.js';
+import { computePepitesStore } from './pepites.js';
 
 // ── État local ──
 let _duelTarget = '';
@@ -25,6 +26,8 @@ let _duelOpenMetier = '';
 let _duelMetierTab = 'partages'; // partages | conquete | fideles
 // _duelClientsTab supprimé — Opportunités clients déplacées vers poches Conquête Terrain
 let _duelAuditOpen = false;
+let _pepMode = 'all';   // 'all' | 'absent' | 'excl'
+let _pepOpen = false;
 
 // Cache local (évite de re-parcourir 40k clients à chaque re-render sur un simple toggle UI)
 
@@ -356,6 +359,7 @@ export function renderDuelTab() {
   const decision = _decisionModel(duel, myStore, _duelTarget);
   html.push(_buildDecisionCockpit(decision, myStore, _duelTarget));
   html.push(_buildDecisionEvidence(decision));
+  html.push(_buildPepites(myStore, _duelTarget));
   html.push(_buildReseauTable(myStore, _duelTarget));
   html.push(_buildAuditDetails(duel, myStore, _duelTarget));
 
@@ -518,6 +522,33 @@ function _buildDecisionEvidence(m) {
       ${metierRows || '<p class="pt-small pt-muted" style="margin:8px 0 0">Aucun métier discriminant.</p>'}
     </div>
   </section>`;
+}
+
+/** Ses spécialités : ce que l'agence comparée vend ≥ 2× la médiane réseau (ex-« Pépites réseau » d'Animation). */
+function _buildPepites(myStore, tgtStore) {
+  const p = computePepitesStore(tgtStore, myStore);
+  if (!p) return '';
+  const absent = p.specialites.filter(a => !a.caMe);
+  const list = _pepMode === 'excl' ? p.exclusifs : _pepMode === 'absent' ? absent : p.specialites;
+  const chip = (k, label, n) => `<button type="button" class="ar-chip${_pepMode === k ? ' ar-chip-on' : ''}" onclick="window._duelPepMode('${k}')">${label} <span class="pt-num">${n}</span></button>`;
+  const rows = list.slice(0, 25).map(a => `<tr class="ar-click" onclick="window.openArticlePanel?.('${a.code}','duel')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(a.lib)}</span><span class="pt-small pt-muted pt-num">${a.code} · ${escapeHtml(a.fam || '')}</span></div></td>
+      <td class="pt-num ar-r">${formatEuro(a.caStore)}</td>
+      <td class="pt-num ar-r">${a.caMe ? formatEuro(a.caMe) : '<span class="ar-tag" data-tone="low">jamais</span>'}</td>
+      <td class="pt-num ar-r pt-muted">${a.median != null ? formatEuro(a.median) : 'seule agence'}</td>
+      <td class="pt-num ar-r pt-strong">${a.ratio != null ? `×${String(a.ratio).replace('.', ',')}` : '—'}</td>
+    </tr>`).join('');
+  return `<details class="ar-sec" style="margin-bottom:20px"${_pepOpen ? ' open' : ''} ontoggle="window._duelPepOpenSet(this.open)">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Ses spécialités</span><span class="pt-small pt-muted">${p.specialites.length} articles que ${escapeHtml(tgtStore)} vend au moins 2× plus que la médiane réseau · ${absent.length} que tu ne vends pas · comptoir, ${p.filtered ? 'période choisie' : '12 mois'}</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body">
+      <div class="pt-row" style="gap:8px;flex-wrap:wrap">${chip('all', 'Toutes', p.specialites.length)}${chip('absent', 'Que tu ne vends pas', absent.length)}${chip('excl', 'Vendus seulement chez lui', p.exclusifs.length)}</div>
+      ${list.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+        <thead><tr><th>Article</th><th class="ar-r">Chez ${escapeHtml(tgtStore)}</th><th class="ar-r">Chez toi</th><th class="ar-r">Médiane réseau</th><th class="ar-r">Écart</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>
+        ${list.length > 25 ? `<span class="pt-small pt-muted">25 premiers sur ${list.length}, triés par écart à la médiane.</span>` : ''}`
+      : '<p class="pt-small pt-muted" style="margin:0">Rien pour ce filtre.</p>'}
+    </div>
+  </details>`;
 }
 
 /** Le réseau en un tableau : pour situer ton agence et choisir avec qui te comparer. */
@@ -1468,6 +1499,8 @@ window._duelToggleFam = function(fam) {
   renderDuelTab();
 };
 
+window._duelPepMode = function(k) { _pepMode = k; _pepOpen = true; renderDuelTab(); };
+window._duelPepOpenSet = function(isOpen) { _pepOpen = !!isOpen; };
 window._duelAuditOpenSet = function(isOpen) {
   _duelAuditOpen = !!isOpen;
 };

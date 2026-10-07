@@ -6,16 +6,10 @@
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _isMetierStrategique } from './utils.js';
-import { FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP } from './constants.js';
+import { FAM_LETTER_UNIVERS } from './constants.js';
 import { computeSquelette } from './engine.js';
 import { _saveSessionToIDB } from './cache.js';
 import { DataStore } from './store.js';
-import { PHYSIGAMME_COPY, getPhysigammeDecision } from './physigamme.js?v=20260425a';
-import { computePhysigamme } from './physigamme-engine.js?v=20261007a';
-import { renderPhysigammeHero, renderPhysigammeKpis, renderPhysigammePerimeterBar, renderPhysigammeOutOfScope } from './physigamme-view.js?v=20260425b';
-import { renderPhysigammeArticleTable } from './physigamme-table.js?v=20260425b';
-import { buildPhysigammeDeployment, renderPhysigammeDeployment } from './physigamme-deployment.js?v=20260425c';
-import { renderMissingPanel, exportMissingOrder, exportStartupKit } from './physigamme-actions.js?v=20260425b';
 import { getVentesHorsMagFullMap } from './sales.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -33,29 +27,6 @@ let _assocMetierFilter = '';
 let _assocStratFilter = '';
 /** Filtre univers pour l'étape 2 : '' | 'E' | 'O' | ... */
 let _assocUniversFilter = '';
-/** Mode du Labo : 'assoc' | 'tronc' */
-let _laboMode = 'assoc';
-/** Filtre univers pour le Tronc Commun */
-let _troncUniversFilter = '';
-/** Filtre périmètre pour le Tronc Commun : 'agence' | 'territoire' | 'reseau' */
-let _troncPerimetre = null; // null = auto-detect at render time
-/** Filtre KPI cliquable : '' | 'tronc' | 'inter' | 'spec' */
-let _troncKpiFilter = '';
-/** Code article ouvert en accordéon (drill-down Rayon X) */
-let _troncExpandedCode = '';
-/** Cluster métiers personnalisé : null = tous strat, Set<string> = sélection custom */
-let _troncCustomMetiers = null;
-/** Mode sélecteur métiers ouvert */
-let _troncMetierPickerOpen = false;
-/** Inclure 100% des clients (ignore le filtre métier stratégique) */
-let _troncIncludeAll = false;
-/** Familles dépliées dans le tableau Tronc Commun */
-let _troncOpenFams = new Set();
-/** Vue active du Tronc Commun : 'articles' | 'carto' */
-let _troncVue = 'articles';
-let _troncLoiAirain = true; // Double validation : Tronc Commun ∩ ≥60% agences
-/** Agences en amorçage — exclues des calculs médiane/conformité */
-let _troncAmorcageStores = new Set();
 
 /** Teste si un client passe le filtre métier + strat actif */
 function _clientPassesAssocFilter(cc) {
@@ -99,12 +70,6 @@ function _vpmForStore(store) {
     return merged;
   }
   return _S.ventesParAgence?.[store] || {};
-}
-
-function _troncStoreKeys() {
-  const vbc = _S.ventesParAgenceByCanal;
-  if (vbc && Object.keys(vbc).length) return Object.keys(vbc).sort();
-  return Object.keys(_S.ventesParAgence || {}).sort();
 }
 
 /**
@@ -374,35 +339,29 @@ function _famLabel(codeFam) {
 function _renderAssociations() {
   _ensureAssoc();
   const assocs = _S._associations;
-  let html = '';
-
-  html += `<div class="mb-4">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-[10px] t-disabled">Mesurez votre taux d'association vs le réseau et identifiez les actions concrètes.${_assocMetierFilter && !_S._assocEditMode ? ` <button onclick="window._assocSetMetier('')" class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer ml-1" style="background:var(--c-action);color:#fff">✕ ${escapeHtml(_assocMetierFilter)}</button>` : ''}</p>
-      <button onclick="window._assocNew()" class="text-[11px] px-3 py-1.5 rounded-lg border-2 cursor-pointer font-bold transition-all hover:shadow-md" style="border-color:var(--c-action);color:var(--c-action)">+ Nouvelle association</button>
+  const head = `<section class="pt-card pt-col" style="gap:14px">
+    <div class="pt-row pt-between" style="gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px;flex:1;min-width:260px">
+        <span class="pt-eyebrow">Associations</span>
+        <h3 class="pt-h2">Vendre la famille qui va avec</h3>
+        <span class="pt-muted">Choisis une famille « moteur » (ex. robinetterie) et celle qui devrait suivre (ex. raccords). PRISME mesure combien de tes clients achètent les deux, te compare au réseau et sort les clients et les articles à travailler.</span>
+      </div>
+      ${_S._assocEditMode ? '' : '<button type="button" class="pt-btn" onclick="window._assocNew()">Nouvelle association</button>'}
     </div>
-  </div>`;
-
-  if (_S._assocEditMode) {
-    html += _renderAssocEditor();
-  }
-
+    ${_assocMetierFilter && !_S._assocEditMode ? `<div><button type="button" class="ar-chip ar-chip-on" onclick="window._assocSetMetier('')">Métier : ${escapeHtml(_assocMetierFilter === '__nonclasse__' ? 'non classé' : _assocMetierFilter)} ✕</button></div>` : ''}
+  </section>`;
+  let html = head;
+  if (_S._assocEditMode) html += `<div class="assoc-legacy">${_renderAssocEditor()}</div>`;
   if (!assocs.length && !_S._assocEditMode) {
-    html += `<div class="text-center py-12 border-2 border-dashed rounded-xl" style="border-color:var(--color-border-tertiary)">
-      <div class="text-3xl mb-3">🔗</div>
-      <p class="t-secondary text-sm font-medium mb-2">Aucune association configurée</p>
-      <p class="t-disabled text-[11px] mb-4">Créez votre première association pour commencer l'analyse.</p>
-      <button onclick="window._assocNew()" class="text-[11px] px-4 py-2 rounded-lg cursor-pointer font-bold" style="background:var(--c-action);color:#fff">+ Créer une association</button>
-    </div>`;
-    return html;
+    html += `<section class="pt-card pt-col" style="gap:10px;align-items:flex-start;border-style:dashed">
+      <h3 class="pt-h3">Aucune association pour l’instant</h3>
+      <span class="pt-small pt-muted">Exemples qui marchent souvent : perçage → fixation, robinetterie → raccords, électroportatif → consommables.</span>
+      <button type="button" class="pt-btn" onclick="window._assocNew()">Créer la première</button>
+    </section>`;
+    return `<div class="pt-wrap" style="gap:20px;padding-top:8px">${html}</div>`;
   }
-
-  // Cards des associations existantes
-  for (const a of assocs) {
-    html += _renderAssocCard(a);
-  }
-
-  return html;
+  html += assocs.map(_renderAssocCard).join('');
+  return `<div class="pt-wrap" style="gap:20px;padding-top:8px">${html}</div>`;
 }
 
 /**
@@ -812,150 +771,91 @@ function _renderAssocCard(assoc) {
   const { famA, famB, id } = assoc;
   const labelA = _famLabel(famA);
   const labelB = _famLabel(famB);
-
-  // Calcul mon agence (taux client)
   const my = _computeAssocMyStore(famA, famB);
-  // Benchmark réseau : indice normalisé (100 = médiane)
   const bench = _benchmarkAssoc(famA, famB);
   const best = bench[0] || null;
   const myIndice = bench._myIndice || 0;
   const targets = _findClientTargets(famA, famB);
   const missingRefs = best ? _findMissingRefs(famB, best.store) : [];
-  // Stocker pour export
   if (!_S._assocMissingRefs) _S._assocMissingRefs = {};
   _S._assocMissingRefs[id] = { refs: missingRefs, famA: labelA, famB: labelB, bestStore: best?.store || '?' };
 
-  // Taux couleur
-  const tauxColor = my.taux >= 50 ? '#22c55e' : my.taux >= 25 ? '#f59e0b' : '#ef4444';
-  const ecartIndice = myIndice - 100; // vs médiane (100)
-  const ecartColor = ecartIndice >= 0 ? '#22c55e' : '#ef4444';
-
+  const tone = v => v >= 0 ? 'var(--pt-high)' : 'var(--pt-low)';
+  const tauxTone = my.taux >= 50 ? 'var(--pt-high)' : my.taux >= 25 ? 'var(--pt-mid)' : 'var(--pt-low)';
   const isOpen = _S._assocOpenId === id;
+  const tile = (label, value, hint, color) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
+      <span class="pt-eyebrow" style="font-size:11px">${label}</span>
+      <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
+      <span class="pt-small pt-muted" style="line-height:1.35">${hint}</span>
+    </div>`;
 
-  return `<div class="s-card rounded-xl border overflow-hidden mb-3">
-    <div class="px-4 py-3 cursor-pointer hover:s-hover flex items-center justify-between" onclick="window._assocToggle('${id}')">
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(139,92,246,0.15);color:#8b5cf6">${escapeHtml(famA)}</span>
-        <span class="t-disabled">→</span>
-        <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);color:#3b82f6">${escapeHtml(famB)}</span>
-        <span class="text-[11px] t-primary font-medium ml-2">${escapeHtml(labelA)} × ${escapeHtml(labelB)}</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-lg font-black" style="color:${tauxColor}">${my.taux}%</span>
-        <span class="text-[10px]" style="color:${ecartColor}">indice ${myIndice} <span class="t-disabled">(méd. 100)</span></span>
-        <button onclick="event.stopPropagation();window._assocDelete('${id}')" class="text-[10px] t-disabled hover:text-red-400 ml-2" title="Supprimer">🗑️</button>
-      </div>
-    </div>
-    ${isOpen ? `<div class="border-t b-light px-4 py-3">
-      <!-- KPIs -->
-      <div class="grid grid-cols-4 gap-3 mb-3">
-        <div class="text-center p-3 rounded-lg" style="background:rgba(139,92,246,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Mon taux</div>
-          <div class="text-2xl font-black" style="color:${tauxColor}">${my.taux}%</div>
-          <div class="text-[10px] t-secondary mt-0.5">${my.clientsAB.size} / ${my.clientsA.size} clients</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(59,130,246,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Mon indice réseau</div>
-          <div class="text-2xl font-black" style="color:${ecartColor}">${myIndice}</div>
-          <div class="text-[10px] t-secondary mt-0.5">${bench.length} agences · méd. = 100</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(34,197,94,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Meilleure agence</div>
-          <div class="text-2xl font-black" style="color:#22c55e">${best ? 'indice ' + best.indice : '—'}</div>
-          <div class="text-[10px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) + ' CA B' : '—'}</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(245,158,11,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Clients cibles</div>
-          <div class="text-2xl font-black" style="color:#f59e0b">${targets.length}</div>
-          <div class="text-[10px] t-secondary mt-0.5">achètent A pas B</div>
-        </div>
-      </div>
+  const sortedRefs = [...missingRefs].sort((a, b) => {
+    const _vo = { implanter: 0, socle: 1, challenger: 2, surveiller: 3 };
+    const va = a.sqClassif ? (_vo[a.sqClassif] ?? 4) : (a.enStock ? 4 : 5);
+    const vb = b.sqClassif ? (_vo[b.sqClassif] ?? 4) : (b.enStock ? 4 : 5);
+    return va - vb || b.bestCa - a.bestCa;
+  });
+  const refRows = sortedRefs.map(r => {
+    const sq = window._getArticleSqInfo?.(r.code);
+    const verdict = sq ? `<span class="ar-tag" title="${escapeHtml(sq.verdict.tip || '')}">${escapeHtml(sq.verdict.label || sq.verdict.name)}</span>`
+      : r.enStock ? '<span class="ar-tag" data-tone="high">En stock</span>' : '<span class="ar-tag">Hors squelette</span>';
+    return `<tr class="ar-click${!sq && !r.enStock ? ' pt-muted' : ''}" onclick="window.openArticlePanel?.('${r.code}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(r.libelle)}</span><span class="pt-small pt-muted pt-num">${r.code}</span></div></td>
+      <td class="pt-num ar-r">${formatEuro(r.bestCa)}</td>
+      <td class="pt-num ar-r">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
+      <td>${verdict}</td>
+    </tr>`;
+  }).join('');
+  const cliRows = targets.map(c => `<tr class="ar-click" onclick="window.openClient360?.('${c.cc}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.metier || '—')}${c.classification ? ' · ' + escapeHtml(c.classification) : ''}</span></div></td>
+      <td class="pt-num ar-r">${formatEuro(c.caA)}</td>
+    </tr>`).join('');
+  const benchRows = bench.slice(0, 15).map(r => `<tr${r.store === _S.selectedMyStore ? ' class="pt-next"' : ''}>
+      <td class="pt-strong">${escapeHtml(r.store)}</td>
+      <td class="pt-num ar-r">${r.ratio} %</td>
+      <td class="pt-num ar-r">${formatEuro(r.caA)}</td>
+      <td class="pt-num ar-r">${formatEuro(r.caB)}</td>
+      <td class="pt-num ar-r">${r.refsB}</td>
+    </tr>`).join('');
 
-      <!-- Geste 1 — Benchmark remonté sous les KPIs, accordéon fermé -->
-      ${bench.length ? `<details class="mb-3">
-        <summary class="text-[11px] font-bold t-primary cursor-pointer py-1.5">📊 Classement ${bench.length} agences · ratio mix CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)}${_assocMetierFilter ? ' <span class="font-normal t-disabled">(benchmark non filtré par métier)</span>' : ''}</summary>
-        <table class="w-full text-[11px] mt-1">
-          <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Agence</th>
-            <th class="py-1 px-2 text-right">Ratio B/A</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelB)}</th>
-            <th class="py-1 px-2 text-right">Refs B</th>
-          </tr></thead>
-          <tbody>${bench.slice(0, 15).map(r => {
-            const c = r.ratio >= 50 ? '#22c55e' : r.ratio >= 25 ? '#f59e0b' : '#ef4444';
-            return `<tr class="border-b b-light text-[11px]">
-              <td class="py-1 px-2 t-primary">${r.store}</td>
-              <td class="py-1 px-2 text-right font-bold" style="color:${c}">${r.ratio}%</td>
-              <td class="py-1 px-2 text-right t-secondary">${formatEuro(r.caA)}</td>
-              <td class="py-1 px-2 text-right t-secondary">${formatEuro(r.caB)}</td>
-              <td class="py-1 px-2 text-right t-secondary">${r.refsB}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </details>` : ''}
-
-      <!-- Geste 2 — Split-Screen : Refs (gauche) + Clients (droite) -->
-      <div class="grid grid-cols-1 ${missingRefs.length && targets.length ? 'lg:grid-cols-2' : ''} gap-4">
-      <!-- Refs manquantes (Geste 3 — triées par verdict) -->
-      ${missingRefs.length ? `<div>
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-[11px] font-bold t-primary">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vs ${best?.store || '?'} (ratio ${best?.ratio || 0}%)</span></h4>
-          <button onclick="window._assocExportTrous('${id}')" class="text-[10px] px-3 py-1 rounded-lg font-bold cursor-pointer" style="background:var(--c-action);color:#fff" title="Exporter Trous + Socles en CSV">📥 Export Action</button>
-        </div>
-        <div style="max-height:350px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Code</th>
-            <th class="py-1 px-2 text-left">Libellé</th>
-            <th class="py-1 px-2 text-right">CA ${best?.store || '?'}</th>
-            <th class="py-1 px-2 text-right">CA moi</th>
-            <th class="py-1 px-2 text-center">Verdict</th>
-          </tr></thead>
-          <tbody>${[...missingRefs].sort((a,b) => {
-            const _vo = {implanter:0,socle:1,challenger:2,surveiller:3};
-            const va = a.sqClassif ? (_vo[a.sqClassif] ?? 4) : (a.enStock ? 4 : 5);
-            const vb = b.sqClassif ? (_vo[b.sqClassif] ?? 4) : (b.enStock ? 4 : 5);
-            return va - vb || b.bestCa - a.bestCa;
-          }).map(r => {
-            const _sqI = window._getArticleSqInfo?.(r.code);
-            const isBruit = !_sqI && !r.enStock;
-            const verdict = _sqI ? `<span title="${_sqI.verdict.tip}" style="color:${_sqI.verdict.color}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
-              : r.enStock ? '<span title="En stock — hors squelette" style="color:#22c55e">● Stock</span>' : '<span title="Hors squelette" style="color:var(--t-disabled)">⚪ Bruit</span>';
-            return `<tr class="border-b b-light${isBruit ? ' opacity-40' : ''}">
-            <td class="py-1 px-2 font-mono t-disabled">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','associations')" title="Voir détail article">🔍</span></td>
-            <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(r.libelle)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:#22c55e">${formatEuro(r.bestCa)}</td>
-            <td class="py-1 px-2 text-right t-secondary">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
-            <td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td>
-          </tr>`;}).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
-
-      <!-- Clients cibles -->
-      ${targets.length ? `<div>
-        <h4 class="text-[11px] font-bold t-primary mb-2">🎯 Clients cibles <span class="text-[9px] t-disabled font-normal">— achètent ${escapeHtml(labelA)} pas ${escapeHtml(labelB)}</span></h4>
-        <div style="max-height:350px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Client</th>
-            <th class="py-1 px-2 text-left">Métier</th>
-            <th class="py-1 px-2 text-left">Classif.</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
-          </tr></thead>
-          <tbody>${targets.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${c.cc}','associations')">
-            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)} <button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${c.cc}','associations')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-0.5" title="Fiche 360°">🔍</button></td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.metier)}</td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.classification)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(c.caA)}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
+  return `<details class="ar-sec"${isOpen ? ' open' : ''}>
+    <summary onclick="event.preventDefault();window._assocToggle('${id}')">
+      <span class="pt-col" style="gap:2px;min-width:0">
+        <span class="pt-h3">${escapeHtml(labelA)} → ${escapeHtml(labelB)}</span>
+        <span class="pt-small pt-muted">${my.clientsAB.size} de tes ${my.clientsA.size} clients ${escapeHtml(labelA)} prennent aussi ${escapeHtml(labelB)} · ${targets.length} à travailler</span>
+      </span>
+      <span class="pt-row" style="gap:16px">
+        <span class="pt-num pt-strong" style="font-size:22px;color:${tauxTone}">${my.taux} %</span>
+        <button type="button" class="pt-link pt-small" style="color:var(--t-tertiary)" onclick="event.preventDefault();event.stopPropagation();window._assocDelete('${id}')">Supprimer</button>
+        <span class="ar-chev" aria-hidden="true"></span>
+      </span>
+    </summary>
+    ${isOpen ? `<div class="ar-sec-body" style="gap:18px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+        ${tile('Ton taux', `${my.taux} %`, `${my.clientsAB.size} / ${my.clientsA.size} clients achètent les deux`, tauxTone)}
+        ${tile('Indice réseau', String(myIndice), `100 = médiane des ${bench.length} agences`, tone(myIndice - 100))}
+        ${tile('Meilleure agence', best ? best.store : '—', best ? `ratio ${best.ratio} % · ${formatEuro(best.caB)} en ${escapeHtml(labelB)}` : '')}
+        ${tile('Clients à travailler', String(targets.length), `achètent ${escapeHtml(labelA)}, pas ${escapeHtml(labelB)}`, 'var(--pt-mid)')}
       </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+        ${targets.length ? `<div class="pt-col" style="gap:8px">
+          <h4 class="pt-h3" style="font-size:16px">Clients à travailler</h4>
+          <div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+            <thead><tr><th>Client</th><th class="ar-r">CA ${escapeHtml(labelA)}</th></tr></thead><tbody>${cliRows}</tbody></table></div></div>
+        </div>` : ''}
+        ${missingRefs.length ? `<div class="pt-col" style="gap:8px">
+          <div class="pt-row pt-between" style="gap:8px"><h4 class="pt-h3" style="font-size:16px">Articles à développer <span class="pt-small pt-muted" style="font-weight:400">vs ${escapeHtml(best?.store || '?')}</span></h4>
+          <button type="button" class="pt-link pt-small" onclick="window._assocExportTrous('${id}')">Exporter</button></div>
+          <div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+            <thead><tr><th>Article</th><th class="ar-r">Chez ${escapeHtml(best?.store || '?')}</th><th class="ar-r">Chez toi</th><th>Verdict</th></tr></thead><tbody>${refRows}</tbody></table></div></div>
+        </div>` : ''}
+      </div>
+      ${bench.length ? `<details class="pt-col"><summary class="pt-link pt-small" style="cursor:pointer">Classement des ${bench.length} agences (CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)})${_assocMetierFilter ? ' — non filtré par métier' : ''}</summary>
+        <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
+          <thead><tr><th>Agence</th><th class="ar-r">Ratio B/A</th><th class="ar-r">CA ${escapeHtml(labelA)}</th><th class="ar-r">CA ${escapeHtml(labelB)}</th><th class="ar-r">Réf. B</th></tr></thead>
+          <tbody>${benchRows}</tbody></table></div></div></details>` : ''}
     </div>` : ''}
-  </div>`;
+  </details>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -983,402 +883,11 @@ function _exportTrous(assocId) {
 window._assocExportTrous = _exportTrous;
 
 // ═══════════════════════════════════════════════════════════════
-// Physigamme — couverture métiers
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Calcule la couverture métiers pour chaque article d'un univers.
- * @param {string} universLetter — lettre univers ('E','O',...) ou '' pour tout
- * @param {Set<string>|null} metiersSet — métiers à analyser, null = tous stratégiques
- * @returns {{ articles: Array, totalMetiers: number, troncCount: number, interCount: number, specCount: number }}
- */
-function _getEffectivePerimetre() {
-  if (_troncPerimetre) return _troncPerimetre;
-  // Auto-detect : réseau si consommé multi-agences, sinon agence
-  const si = _S.storesIntersection;
-  return (si?.size > 1 || Object.keys(_S.ventesParAgence || {}).length > 1) ? 'reseau' : 'agence';
-}
-
-function _computeTroncCommun(universLetter, metiersSet) {
-  return computePhysigamme({
-    universLetter,
-    metiersSet,
-    includeAll: _troncIncludeAll,
-    perimetre: _getEffectivePerimetre()
-  });
-}
-
-function _troncEffectiveMetiers() {
-  const chal = _S.chalandiseData;
-  const allStrat = new Set();
-  const allMetiers = new Set();
-  if (!chal?.size) return { effectiveMetiers: allStrat, allStrat, allMetiers, isCustom: false };
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStrat.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allMetiers : allStrat);
-  return { effectiveMetiers, allStrat, allMetiers, isCustom };
-}
-
-function _troncActionContext(store, { excludeStore = false } = {}) {
-  const storesAll = _troncStoreKeys();
-  const stores = excludeStore ? storesAll.filter(s => s !== store) : storesAll;
-  const storeSnapshots = new Map(storesAll.map(s => [s, _vpmForStore(s)]));
-  const { effectiveMetiers } = _troncEffectiveMetiers();
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers);
-  let troncArts = data.articles.filter(a => a.indice >= 60);
-
-  if (_troncLoiAirain && stores.length > 1) {
-    const storeThreshold = Math.ceil(stores.length * 60 / 100);
-    troncArts = troncArts.filter(a => {
-      let sc = 0;
-      for (const s of stores) {
-        const d = storeSnapshots.get(s)?.[a.code];
-        if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
-      }
-      return sc >= storeThreshold;
-    });
-  }
-
-  return { storesAll, stores, storeSnapshots, troncArts };
-}
-
-function _renderTroncCommun() {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) {
-    return `<div class="text-center t-disabled py-8">Chargez la zone de chalandise pour activer la Physigamme.</div>`;
-  }
-
-  // ── All métiers available ──
-  const allStratMetiers = new Set();
-  const allMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStratMetiers.add(info.metier);
-    }
-  }
-  // Le picker montre tous les métiers, pas seulement les strat
-  const pickerMetiers = allMetiers;
-
-  // Univers buttons supprimés — pilotés par le sidebar Direction
-
-  // ── Périmètre : PDV omnicanal agence, réseau consommé, territoire Qlik ──
-  const hasTerrain = _S.territoireReady && _S.ventesTerrain?.length > 0;
-  const _perimTooltips = {
-    agence: 'Consommé de mon agence, tous canaux PDV (MAGASIN/Web/Rep/DCS)',
-    reseau: 'Ventes de toutes les agences du fichier consommé',
-    territoire: 'Tous canaux du fichier Qlik (PDV + Réseau + Livraisons DCS/Web)'
-  };
-  const _perimBtn = (id, icon, label, needsTerrain) => {
-    const sel = _getEffectivePerimetre() === id;
-    const disabled = needsTerrain && !hasTerrain;
-    const tip = _perimTooltips[id] || '';
-    if (disabled) {
-      return `<button disabled class="text-[10px] px-2.5 py-1 rounded font-bold transition-all opacity-40 cursor-not-allowed" style="background:var(--bg-card)" title="⚠️ Chargez le fichier Territoire (Qlik) pour débloquer">${icon} ${label}</button>`;
-    }
-    return `<button onclick="window._troncSetPerimetre('${id}')" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}" title="${tip}">${icon} ${label}</button>`;
-  };
-
-  // ── Effective métiers set ──
-  // null + 100% → tous les métiers ; null → strat seulement ; Set = sélection custom
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom
-    ? _troncCustomMetiers
-    : (_troncIncludeAll ? allMetiers : allStratMetiers);
-
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-
-  if (!_troncUniversFilter) {
-    return `<div class="text-center t-disabled py-8 text-[11px]">← Sélectionnez un univers dans le panneau de gauche</div>`;
-  }
-
-  // ── Loi d'Airain globale : filtre ≥60% agences sur TOUT le Tronc Commun ──
-  let _airainApplied = false;
-  let _airainTotal = data.articles.length;
-  if (_troncLoiAirain) {
-    const stores = _troncStoreKeys();
-    const storeData = new Map(stores.map(s => [s, _vpmForStore(s)]));
-    if (stores.length > 1) {
-      const storeThreshold = Math.ceil(stores.length * 60 / 100);
-      data.articles = data.articles.filter(a => {
-        let sc = 0;
-        for (const s of stores) {
-          const d = storeData.get(s)?.[a.code];
-          if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
-        }
-        return sc >= storeThreshold;
-      });
-      _airainApplied = true;
-      // Recount KPI categories
-      data.troncCount = data.articles.filter(a => a.indice >= 60).length;
-      data.interCount = data.articles.filter(a => a.indice >= 30 && a.indice < 60).length;
-      data.specCount = data.articles.filter(a => a.indice < 30).length;
-    }
-  }
-
-  // ── Filtre famille/sous-famille depuis sidebar Direction ──
-  const _dirFam = typeof window._dirGetFamilleFilter === 'function' ? window._dirGetFamilleFilter() : '';
-  const _dirSF = typeof window._dirGetSousFamilleFilter === 'function' ? window._dirGetSousFamilleFilter() : '';
-  if (_dirFam) {
-    data.articles = data.articles.filter(a => (a.famille || '') === _dirFam);
-    if (_dirSF) {
-      data.articles = data.articles.filter(a => {
-        const sf = _S.catalogueFamille?.get(a.code)?.sousFam || '';
-        return sf === _dirSF;
-      });
-    }
-    data.troncCount = data.articles.filter(a => a.indice >= 60).length;
-    data.interCount = data.articles.filter(a => a.indice >= 30 && a.indice < 60).length;
-    data.specCount = data.articles.filter(a => a.indice < 30).length;
-  }
-
-  // ── Geste 2 : KPI cards cliquables (filtrent le tableau) ──
-  const _kpiBtn = (filterId, label, value, color, sub) => {
-    const sel = _troncKpiFilter === filterId;
-    const ring = sel ? `outline:2px solid ${color};outline-offset:2px;` : '';
-    return `<button onclick="window._troncSetKpiFilter('${filterId}')" class="rounded-lg p-3 text-center cursor-pointer transition-all w-full" style="background:var(--bg-card);${ring}">
-      <div class="text-2xl font-black" style="color:${color}">${value}</div>
-      <div class="text-[10px] font-bold t-primary">${label}</div>
-      ${sub ? `<div class="text-[9px] t-disabled mt-0.5">${sub}</div>` : ''}
-    </button>`;
-  };
-
-  // ── Geste 3 : Cluster métier picker ──
-  const defaultLabel = _troncIncludeAll ? `${allMetiers.size} métiers` : `${allStratMetiers.size} strat.`;
-  const clusterLabel = isCustom ? `${_troncCustomMetiers.size} métier${_troncCustomMetiers.size > 1 ? 's' : ''}` : defaultLabel;
-  let metierPickerHtml = '';
-  if (_troncMetierPickerOpen) {
-    // Build direction → métiers mapping from chalandise
-    const dirMetiers = new Map(); // direction → Set<metier>
-    for (const info of chal.values()) {
-      if (!info.metier) continue;
-      const metier = info.metier;
-      if (!pickerMetiers.has(metier)) continue;
-      const sectCode = info.secteur || '';
-      const dir = sectCode ? (SECTEUR_DIR_MAP[sectCode.charAt(0).toUpperCase()] || 'Non classé') : 'Non classé';
-      if (!dirMetiers.has(dir)) dirMetiers.set(dir, new Set());
-      dirMetiers.get(dir).add(metier);
-    }
-    // Also add métiers not found in chalandise secteurs to "Non classé"
-    for (const m of pickerMetiers) {
-      let found = false;
-      for (const s of dirMetiers.values()) { if (s.has(m)) { found = true; break; } }
-      if (!found) {
-        if (!dirMetiers.has('Non classé')) dirMetiers.set('Non classé', new Set());
-        dirMetiers.get('Non classé').add(m);
-      }
-    }
-    // Sort directions (Non classé last)
-    const dirOrder = [...dirMetiers.keys()].sort((a, b) => {
-      if (a === 'Non classé') return 1;
-      if (b === 'Non classé') return -1;
-      return a.localeCompare(b);
-    });
-
-    let groupsHtml = '';
-    for (const dir of dirOrder) {
-      const metiers = [...dirMetiers.get(dir)].sort();
-      const allChecked = metiers.every(m => effectiveMetiers.has(m));
-      const someChecked = metiers.some(m => effectiveMetiers.has(m));
-      const dirColor = allChecked ? '#22c55e' : someChecked ? '#f59e0b' : 'var(--border)';
-      const checks = metiers.map(m => {
-        const checked = effectiveMetiers.has(m);
-        return `<label class="flex items-center gap-1.5 text-[10px] cursor-pointer py-0.5 ${checked ? 't-primary font-bold' : 't-disabled'}">
-          <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._troncToggleMetier('${escapeHtml(m)}')" class="cursor-pointer accent-cyan-500" />
-          ${escapeHtml(m)}
-        </label>`;
-      }).join('');
-      groupsHtml += `<div class="rounded px-2 py-1.5" style="background:var(--bg-surface);border-left:3px solid ${dirColor}">
-        <div class="flex items-center justify-between mb-1">
-          <button onclick="window._troncToggleDirection('${escapeHtml(dir)}')" class="text-[10px] font-bold cursor-pointer hover:brightness-110 ${allChecked ? 't-primary' : someChecked ? '' : 't-disabled'}" style="${allChecked ? 'color:#22c55e' : someChecked ? 'color:#f59e0b' : ''}" title="Cliquer pour (dé)sélectionner tout le groupe">
-            ${allChecked ? '✅' : someChecked ? '◐' : '○'} ${escapeHtml(dir)} <span class="text-[8px] t-disabled">(${metiers.length})</span>
-          </button>
-        </div>
-        <div class="grid grid-cols-2 gap-x-3">${checks}</div>
-      </div>`;
-    }
-
-    metierPickerHtml = `<div class="rounded-lg p-3 mt-2 space-y-2" style="background:var(--bg-card);border:1px solid var(--border)">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-[10px] font-bold t-primary">👥 Cluster de métiers par Direction</span>
-        <div class="flex gap-1">
-          <button onclick="window._troncSelectAllMetiers()" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:var(--bg-surface);color:var(--c-action)">Tous</button>
-          <button onclick="window._troncClearMetiers()" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:var(--bg-surface);color:#ef4444">Aucun</button>
-        </div>
-      </div>
-      <div class="space-y-1.5">${groupsHtml}</div>
-    </div>`;
-  }
-
-  const perimLabels = PHYSIGAMME_COPY.perimeters;
-
-  let html = `<div class="space-y-3">
-    ${renderPhysigammeHero({ articleCount: data.articles.length, perimLabel: perimLabels[_getEffectivePerimetre()] })}
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex gap-1">
-        <button onclick="window._troncToggleMetierPicker()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncMetierPickerOpen ? 'text-white' : 'text-white hover:brightness-110'}" style="background:${_troncMetierPickerOpen ? 'var(--c-action)' : '#6366f1'};${_troncMetierPickerOpen ? 'outline:2px solid var(--c-action);outline-offset:1px' : ''}" title="Cliquer pour choisir les métiers du cluster">👥 ${isCustom ? _troncCustomMetiers.size + ' métiers' : clusterLabel} ▾</button>
-        <button onclick="window._troncToggleIncludeAll()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncIncludeAll ? 'text-white' : 't-disabled hover:t-primary'}" style="${_troncIncludeAll ? 'background:#22c55e' : 'background:var(--bg-card)'}" title="Inclure 100% des clients du fichier, même sans métier stratégique">📂 100%</button>
-        <span class="text-[8px] t-disabled mx-1">│</span>
-        ${_perimBtn('agence', '🏢', 'PDV', false)}${_perimBtn('reseau', '🏪', 'Réseau', false)}${_perimBtn('territoire', '🌍', 'Territoire', true)}
-      </div>
-    </div>
-    ${metierPickerHtml}
-    ${renderPhysigammeKpis({ data, includeAll: _troncIncludeAll, isCustom, renderKpi: _kpiBtn })}`;
-
-  // ── Bandeau périmètre actif + "Hors radar" ──
-  html += renderPhysigammePerimeterBar({ perimLabel: perimLabels[_getEffectivePerimetre()], articleCount: data.articles.length, totalMetiers: data.totalMetiers });
-  html += renderPhysigammeOutOfScope({ clients: data.clientsHorsMetier, ca: data.caHorsMetier });
-
-  if (!data.articles.length) {
-    html += `<div class="text-center t-disabled py-4">Aucun article trouvé pour cet univers.</div></div>`;
-    return html;
-  }
-
-  // ── Toggle vue Articles / Cartographie ──
-  const _vueBtn = (id, icon, label) => {
-    const sel = _troncVue === id;
-    return `<button onclick="window._troncSetVue('${id}')" class="text-[10px] px-3 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}">${icon} ${label}</button>`;
-  };
-  const hasVpm = _S.ventesParAgence && Object.keys(_S.ventesParAgence).length > 1;
-  html += `<div class="flex gap-1">${_vueBtn('articles', '📋', 'Décisions articles')}${_vueBtn('carto', '🗺️', 'Cartographie Métiers')}${hasVpm ? _vueBtn('conformite', '🚨', 'Déploiement agences') : ''}</div>`;
-
-  // ══════════════ VUE CARTOGRAPHIE (Heatmap Famille × Métier) ══════════════
-  if (_troncVue === 'carto') {
-    // Agréger : Famille → Métier → { ca, clients }
-    const famMetierMatrix = new Map(); // famCode → Map<metier, {ca, clients: Set}>
-    const allMetiersInData = new Set();
-    const famCATotals = new Map(); // famCode → total CA
-    for (const art of data.articles) {
-      const cf = art.famille;
-      if (!cf) continue;
-      if (!famMetierMatrix.has(cf)) famMetierMatrix.set(cf, new Map());
-      const mm = famMetierMatrix.get(cf);
-      for (const [metier, d] of art.metierDetail) {
-        allMetiersInData.add(metier);
-        if (!mm.has(metier)) mm.set(metier, { ca: 0, clients: new Set() });
-        const e = mm.get(metier);
-        e.ca += d.ca;
-        for (const c of d.clients) e.clients.add(c);
-      }
-      famCATotals.set(cf, (famCATotals.get(cf) || 0) + art.caTotal);
-    }
-
-    // Trier métiers par CA total desc
-    const metierTotals = new Map();
-    for (const [, mm] of famMetierMatrix) {
-      for (const [m, d] of mm) metierTotals.set(m, (metierTotals.get(m) || 0) + d.ca);
-    }
-    const metiersOrdered = [...allMetiersInData].sort((a, b) => (metierTotals.get(b) || 0) - (metierTotals.get(a) || 0));
-
-    // Trier familles par CA total desc
-    const famsOrdered = [...famMetierMatrix.keys()].sort((a, b) => (famCATotals.get(b) || 0) - (famCATotals.get(a) || 0));
-
-    // Max CA pour la heatmap (échelle)
-    let maxCellCA = 0;
-    for (const [, mm] of famMetierMatrix) {
-      for (const [, d] of mm) { if (d.ca > maxCellCA) maxCellCA = d.ca; }
-    }
-
-    // Render heatmap
-    html += `<div class="overflow-x-auto" style="max-height:70vh;overflow-y:auto">
-      <table class="w-full text-[10px]" style="border-collapse:collapse">
-      <thead><tr>
-        <th class="text-left py-1 px-2 sticky left-0" style="background:var(--bg-base);z-index:2;min-width:100px">Famille</th>
-        ${metiersOrdered.map(m => `<th class="py-1 px-1 text-center" style="writing-mode:vertical-lr;text-orientation:mixed;min-width:28px;max-width:32px;height:120px;font-size:9px;font-weight:600" title="${escapeHtml(m)}">${escapeHtml(m.length > 18 ? m.slice(0, 16) + '…' : m)}</th>`).join('')}
-        <th class="text-right py-1 px-2 text-[9px] t-disabled">Total</th>
-      </tr></thead><tbody>`;
-
-    for (const cf of famsOrdered) {
-      const mm = famMetierMatrix.get(cf);
-      const famTotal = famCATotals.get(cf) || 0;
-      html += `<tr style="border-bottom:1px solid var(--border)">
-        <td class="py-1 px-2 font-bold t-primary sticky left-0 text-[9px]" style="background:var(--bg-base);z-index:1;white-space:nowrap">${_famLabel(cf)}</td>`;
-      for (const m of metiersOrdered) {
-        const cell = mm?.get(m);
-        if (cell && cell.ca > 0) {
-          const intensity = Math.round((cell.ca / maxCellCA) * 100);
-          // Couleur : du transparent au cyan vif
-          const alpha = Math.max(0.08, intensity / 100);
-          const bg = `rgba(34,211,238,${alpha.toFixed(2)})`;
-          const textColor = intensity > 50 ? '#fff' : 'var(--t-primary)';
-          html += `<td class="py-0.5 px-0.5 text-center cursor-default" style="background:${bg};color:${textColor}" title="${escapeHtml(m)} × ${_famLabel(cf)}\nCA: ${formatEuro(cell.ca)}\nClients: ${cell.clients.size}">
-            <div class="text-[8px] font-bold">${cell.ca >= 1000 ? Math.round(cell.ca / 1000) + 'k' : Math.round(cell.ca)}</div>
-          </td>`;
-        } else {
-          html += `<td class="py-0.5 px-0.5"></td>`;
-        }
-      }
-      html += `<td class="text-right py-1 px-2 text-[9px] t-disabled font-bold">${formatEuro(famTotal)}</td></tr>`;
-    }
-
-    // Ligne total métier
-    html += `<tr style="border-top:2px solid var(--border)">
-      <td class="py-1 px-2 font-bold text-[9px] sticky left-0" style="background:var(--bg-base);z-index:1">Total</td>`;
-    for (const m of metiersOrdered) {
-      const total = metierTotals.get(m) || 0;
-      html += `<td class="py-1 px-0.5 text-center text-[8px] font-bold t-disabled">${total >= 1000 ? Math.round(total / 1000) + 'k' : Math.round(total)}</td>`;
-    }
-    const grandTotal = [...famCATotals.values()].reduce((s, v) => s + v, 0);
-    html += `<td class="text-right py-1 px-2 text-[9px] font-bold t-primary">${formatEuro(grandTotal)}</td></tr>`;
-
-    html += `</tbody></table></div></div>`;
-    return html;
-  }
-
-  // ══════════════ VUE DÉPLOIEMENT AGENCES ══════════════
-  if (_troncVue === 'conformite') {
-    const stores = _troncStoreKeys();
-    const storeSnapshots = new Map(stores.map(s => [s, _vpmForStore(s)]));
-    const deployment = buildPhysigammeDeployment({
-      articles: data.articles,
-      stores,
-      storeSnapshots,
-      amorcageStores: _troncAmorcageStores,
-      airainApplied: _airainApplied,
-      airainTotal: _airainTotal,
-      totalMetiers: data.totalMetiers
-    });
-    html += renderPhysigammeDeployment({ deployment, myStore: _S.selectedMyStore });
-    return html;
-  }
-
-  // ══════════════ VUE ARTICLES / DÉCISIONS PHYSIGAMME ══════════════
-  const verdictMap = new Map();
-  for (const r of (DataStore.finalData || [])) {
-    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
-  }
-
-  html += renderPhysigammeArticleTable({
-    data,
-    kpiFilter: _troncKpiFilter,
-    effectiveMetiers,
-    verdictMap,
-    openFams: _troncOpenFams,
-    expandedCode: _troncExpandedCode,
-    famLabel: _famLabel
-  });
-  return html;
-}
-
-// ═══════════════════════════════════════════════════════════════
 // Rendu onglet complet
 // ═══════════════════════════════════════════════════════════════
 
 export function renderAssociationsTab() {
   _famStatsCache = null; // Invalider le cache stats à chaque rendu
-
-  // Si l'onglet Direction > Physigamme (conformite) est actif, rendre là-bas
-  const confEl = document.getElementById('conformiteContent');
-  const confTab = document.getElementById('tabConformite');
-  if (confEl && confTab && !confTab.classList.contains('hidden')) {
-    confEl.innerHTML = `<div class="container mx-auto">${_renderTroncCommun()}</div>`;
-    return;
-  }
 
   const el = document.getElementById('assocContent');
   if (el) el.innerHTML = _renderAssociations();
@@ -1500,252 +1009,4 @@ window._assocSetStrat = function(mode) {
 window._assocSetUnivers = function(letter) {
   _assocUniversFilter = _assocUniversFilter === letter ? '' : letter;
   renderAssociationsTab();
-};
-
-window._laboSetMode = function(mode) {
-  _laboMode = mode || 'assoc';
-  renderAssociationsTab();
-};
-
-window._troncSetUnivers = function(letter) {
-  _troncUniversFilter = _troncUniversFilter === letter ? '' : letter;
-  renderAssociationsTab();
-};
-
-// Silent setter — direction.js syncs its sidebar filter without triggering re-render
-window._troncSetUniversSilent = function(letter) { _troncUniversFilter = letter; };
-
-// State getter for Loi d'Airain — used by direction.js sidebar
-window._troncLoiAirainState = function() { return _troncLoiAirain; };
-
-window._troncSetPerimetre = function(perim) {
-  // Sécurité : seul Territoire nécessite le fichier Qlik
-  const hasTerr = _S.territoireReady && _S.ventesTerrain?.length > 0;
-  if (perim === 'territoire' && !hasTerr) return;
-  _troncPerimetre = (perim === 'agence' || perim === 'reseau' || perim === 'territoire') ? perim : 'agence';
-  renderAssociationsTab();
-};
-
-// Geste 1 : Accordéon drill-down
-window._troncToggleRow = function(code) {
-  _troncExpandedCode = _troncExpandedCode === code ? '' : code;
-  renderAssociationsTab();
-};
-
-// Toggle famille ouverte/fermée dans le tableau Tronc Commun
-window._troncToggleFam = function(fam) {
-  if (_troncOpenFams.has(fam)) _troncOpenFams.delete(fam);
-  else _troncOpenFams.add(fam);
-  renderAssociationsTab();
-};
-
-// Toggle vue Articles / Cartographie
-window._troncSetVue = function(vue) {
-  _troncVue = (vue === 'carto' || vue === 'conformite') ? vue : 'articles';
-  renderAssociationsTab();
-};
-
-// ── Actions Déploiement Physigamme ─────────────────────────────
-window._troncConfShowMissing = function(store) {
-  const panel = document.getElementById('troncConfMissingPanel');
-  if (!panel) return;
-  const ctx = _troncActionContext(store);
-  panel.innerHTML = renderMissingPanel({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    famLabel: _famLabel,
-    libelleLookup: _S.libelleLookup,
-    articleFamille: _S.articleFamille
-  });
-};
-
-window._troncConfExport = function(store) {
-  const ctx = _troncActionContext(store);
-  exportMissingOrder({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    famLabel: _famLabel,
-    libelleLookup: _S.libelleLookup,
-    articleFamille: _S.articleFamille
-  });
-};
-
-// Geste 2 : KPI filter cliquable
-window._troncSetKpiFilter = function(filterId) {
-  _troncKpiFilter = _troncKpiFilter === filterId ? '' : filterId;
-  renderAssociationsTab();
-};
-
-// Geste 3 : Cluster métier picker
-window._troncToggleMetierPicker = function() {
-  _troncMetierPickerOpen = !_troncMetierPickerOpen;
-  // Initialise le custom set si premier usage
-  if (_troncMetierPickerOpen && !_troncCustomMetiers) {
-    const chal = _S.chalandiseData;
-    _troncCustomMetiers = new Set();
-    if (chal?.size) {
-      for (const info of chal.values()) {
-        if (info.metier && _isMetierStrategique(info.metier)) _troncCustomMetiers.add(info.metier);
-      }
-    }
-  }
-  renderAssociationsTab();
-};
-
-window._troncToggleMetier = function(metier) {
-  if (!_troncCustomMetiers) _troncCustomMetiers = new Set();
-  if (_troncCustomMetiers.has(metier)) _troncCustomMetiers.delete(metier);
-  else _troncCustomMetiers.add(metier);
-  renderAssociationsTab();
-};
-
-// Toggle direction entière (sélectionne/désélectionne tous les métiers d'une direction)
-window._troncToggleDirection = function(dir) {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return;
-  // Build métiers de cette direction
-  const dirMetiers = new Set();
-  for (const info of chal.values()) {
-    if (!info.metier || info.metier.length <= 2) continue;
-    const sectCode = info.secteur || '';
-    const d = sectCode ? (SECTEUR_DIR_MAP[sectCode.charAt(0).toUpperCase()] || 'Non classé') : 'Non classé';
-    if (d === dir) dirMetiers.add(info.metier);
-  }
-  if (!dirMetiers.size) return;
-  if (!_troncCustomMetiers) _troncCustomMetiers = new Set();
-  // Si tous sont déjà cochés → décocher, sinon → cocher
-  const allIn = [...dirMetiers].every(m => _troncCustomMetiers.has(m));
-  if (allIn) {
-    for (const m of dirMetiers) _troncCustomMetiers.delete(m);
-  } else {
-    for (const m of dirMetiers) _troncCustomMetiers.add(m);
-  }
-  renderAssociationsTab();
-};
-
-window._troncSelectAllMetiers = function() {
-  _troncCustomMetiers = null; // null = tous les strat cochés par défaut
-  renderAssociationsTab();
-};
-
-window._troncClearMetiers = function() {
-  _troncCustomMetiers = new Set();
-  renderAssociationsTab();
-};
-
-window._troncToggleIncludeAll = function() {
-  _troncIncludeAll = !_troncIncludeAll;
-  renderAssociationsTab();
-};
-
-// Expose Tronc Commun engine for Direction → Radar de Conformité
-window._computeTroncCommunForRadar = function(universLetter) {
-  // Calcul identique au Labo avec métiers stratégiques par défaut
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return { articles: [], totalMetiers: 0, troncCount: 0 };
-  const stratMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && _isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
-  }
-  return _computeTroncCommun(universLetter, stratMetiers, false);
-};
-
-// Expose Tronc Commun render for Direction > Conformité
-window._renderTroncCommun = _renderTroncCommun;
-
-window._troncToggleLoiAirain = function() {
-  _troncLoiAirain = !_troncLoiAirain;
-  // Re-render : si on est dans Direction > Conformité, re-render là-bas
-  const confEl = document.getElementById('conformiteContent');
-  const confTab = document.getElementById('tabConformite');
-  if (confEl && confTab && !confTab.classList.contains('hidden')) {
-    if (typeof window.renderConformiteTab === 'function') window.renderConformiteTab();
-  } else {
-    renderAssociationsTab();
-  }
-};
-
-// ── Mode Implantation Initiale ──────────────────────────────────
-
-window._troncToggleAmorcage = function(store) {
-  if (_troncAmorcageStores.has(store)) _troncAmorcageStores.delete(store);
-  else _troncAmorcageStores.add(store);
-  // Re-render conformité
-  const confTab = document.getElementById('tabConformite');
-  if (confTab && !confTab.classList.contains('hidden') && typeof window.renderConformiteTab === 'function') {
-    window.renderConformiteTab();
-  } else {
-    renderAssociationsTab();
-  }
-};
-
-window._troncKitDemarrage = function(store) {
-  const ctx = _troncActionContext(store, { excludeStore: true });
-  if (!ctx.stores.length) return;
-  if (!ctx.troncArts.length) {
-    if (window.showToast) window.showToast('Aucun article Socle PDV à exporter', 'warning');
-    return;
-  }
-  const result = exportStartupKit({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    finalData: DataStore.finalData
-  });
-  if (window.showToast) window.showToast(`Kit de Démarrage ${store} : ${result.totalRefs} réf. · ${formatEuro(result.totalVal)} BFR`, 'success');
-};
-
-// Geste 5 : Export CSV
-window._troncExport = function() {
-  const chal = _S.chalandiseData;
-  if (!chal?.size || !_troncUniversFilter) return;
-  const allStrat = new Set();
-  const allMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStrat.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom
-    ? _troncCustomMetiers : (_troncIncludeAll ? allMetiers : allStrat);
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-  if (!data.articles.length) { if (window.showToast) window.showToast('Aucun article à exporter', 'warning'); return; }
-
-  let filtered = data.articles;
-  if (_troncKpiFilter === 'tronc') filtered = filtered.filter(a => a.indice >= 60);
-  else if (_troncKpiFilter === 'inter') filtered = filtered.filter(a => a.indice >= 30 && a.indice < 60);
-  else if (_troncKpiFilter === 'spec') filtered = filtered.filter(a => a.indice < 30);
-
-  const verdictMap = new Map();
-  for (const r of (DataStore.finalData || [])) {
-    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
-  }
-
-  const sep = ';';
-  const header = ['Code', 'Article', 'Famille', 'Métiers', 'Couverture métiers %', 'CA', 'Clients', 'Décision Physigamme', 'Signal stock', 'Métiers achètent', 'Métiers ignorent'].join(sep);
-  const rows = filtered.map(a => {
-    const metiersQui = [...a.metierDetail.keys()].sort().join(', ');
-    const metiersNon = [...effectiveMetiers].filter(m => !a.metierDetail.has(m)).sort().join(', ');
-    const vd = verdictMap.get(a.code);
-    const decision = getPhysigammeDecision(a, vd);
-    const signalStock = vd ? (vd.classif || '') : '';
-    return [a.code, `"${(a.libelle||'').replace(/"/g,'""')}"`, `"${a.famLib}"`, `${a.nbMetiers}/${data.totalMetiers}`, a.indice, Math.round(a.caTotal), a.nbClients, `"${decision.label}"`, signalStock, `"${metiersQui}"`, `"${metiersNon}"`].join(sep);
-  });
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const univName = FAM_LETTER_UNIVERS[_troncUniversFilter] || _troncUniversFilter;
-  a.download = `physigamme_${univName.replace(/\s+/g, '_')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  if (window.showToast) window.showToast(`📥 ${filtered.length} articles Physigamme exportés`, 'success');
 };

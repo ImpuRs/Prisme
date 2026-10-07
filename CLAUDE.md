@@ -66,6 +66,14 @@ js/
                    familles à proposer = opportuniteNette) ; computeClientsPartie alimente le 3e
                    domaine de La partie. Remplace l'onglet Fidélisation PDV (retiré oct. 2026 :
                    switchTab('clients') redirige ; renderMesClients n'est plus appelé)
+  animation.js   — Animation › Action commerciale : « Préparer une animation » par marque (fournisseur
+                   catalogue) : marques où une agence de ta taille fait mieux (médiane réseau ramenée à
+                   ton CA, 12 mois tous canaux, _byMonthStoreArtCanal), rayon prêt (ruptures + trous réseau),
+                   qui inviter (fidèles / sans la machine / à relancer / concurrence, export tournée)
+  associations.js — Animation › Associations : couples famille moteur → famille associée (Tronc Commun /
+                   Physigamme retirés oct. 2026 avec les modules physigamme-*.js)
+  pepites.js     — computePepitesStore : spécialités (≥ 2× médiane réseau) et exclusifs d'une agence,
+                   affichés dans le Duel agence (« Ses spécialités »)
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
@@ -315,8 +323,9 @@ Niveaux du diagnostic :
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
 | Conquête Terrain (« Ton territoire ») | chalandise + consommé | 4 chiffres (zone, actifs Leg., clients agence, à capter) + tableau direction → métier → secteur → clients trié par « à capter » (actifs Leg. non clients agence, aggregateACapter) ; clic = liste + CSV |
+| Animation | catalogue marques + consommé réseau | Préparer une animation (marque → rayon prêt → qui inviter) ; Associations |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
-| Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée). Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
+| Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée) ; « Ses spécialités » = ex-Pépites réseau d'Animation. Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
 | Promo | consommé | Recherche article multi-agences, mode action, tournée |
 
 ---

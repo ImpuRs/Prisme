@@ -2359,8 +2359,8 @@ export function computeAnimation(marque) {
     trousCritiques,
     clients: {
       acheteurs: clientsActifs,
-      conquete: clientsConquete.slice(0, 80),
-      labo: clientsLabo.slice(0, 50),
+      conquete: clientsConquete,
+      labo: clientsLabo,
       prospects: clientsProspects.slice(0, 100),
       reconquete: clientsReconquete,
     },
