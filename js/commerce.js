@@ -1644,6 +1644,8 @@ function _buildChalandiseOverview(){
   if (document.getElementById('tabClients')) {
     renderMesClients();
   }
+  // Tes clients : mêmes filtres clients que Fidélisation / Conquête
+  if (_S._activeCommerceTab === 'portefeuille') window.renderTesClients?.();
   _buildChalandiseOverviewInner();
 }
 // _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner

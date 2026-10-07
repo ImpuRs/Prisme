@@ -131,7 +131,7 @@ _S._distanceMaxKm = 0; // 0 = pas de filtre distance
 export function _defaultTacticalFilters() {
   return { distanceMaxKm:0, selectedDepts:new Set(), selectedMetier:'', filterStrategiqueOnly:false, selectedClassifs:new Set(), selectedStatuts:new Set(), selectedActivitesPDV:new Set(), selectedStatutDetaille:'', includePerdu24m:false, selectedDirections:new Set(), selectedUnivers:new Set() };
 }
-_S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() };
+_S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters(), portefeuille: _defaultTacticalFilters() };
 _S._activeCommerceTab = '';  // 'commerce' | 'clients' — onglet tactique courant
 _S._cpCoords = null; // table CP → [lat, lon], chargée au démarrage
 _S._agenceCoords = null; // [lat, lon] de l'agence sélectionnée
@@ -399,7 +399,7 @@ export function resetAppState() {
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
   _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false; _S._filterHorsAgence = false; _S._terrClientSearch = ''; _S._distanceMaxKm = 0; _S._agenceCoords = null;
-  _S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() }; _S._activeCommerceTab = '';
+  _S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters(), portefeuille: _defaultTacticalFilters() }; _S._activeCommerceTab = '';
   _S._clientDominantUnivers = new Map();
   _S._clientsActiveTab = 'priorites';
   _S._hasStock = false;

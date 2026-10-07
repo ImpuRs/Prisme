@@ -6,7 +6,8 @@
 //   Affichés en info, hors score : fidélité en nombre de clients, part de portefeuille
 //   (CA comptoir N-1 ÷ CA Legallais N-1 de la chalandise — structurellement basse en B2B).
 //   5 décisions triées par enjeu : relancer, reconquérir, développer, conquérir, rattacher.
-// Commerce → filtre commercial respecté dans les listes (pas dans le score agence).
+// Commerce → les listes suivent les filtres clients de la barre latérale (mêmes que Fidélisation /
+// Conquête : commercial, métier, classification, département, direction, distance…), pas le score.
 // Sources : _byMonth (client → article → mois, MAGASIN de l'agence), clientLastOrder, chalandiseData.
 // Dépend de : state.js, utils.js, engine.js
 // ═══════════════════════════════════════════════════════════════
@@ -14,7 +15,7 @@
 
 import { _S } from './state.js';
 import { escapeHtml, formatEuro, defaultPeriodRange } from './utils.js';
-import { clientMatchesCommercialFilter } from './engine.js';
+import { _clientPassesFilters } from './engine.js';
 
 const ROWS = 60;
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -96,7 +97,11 @@ function _decisions() {
   const b = _base();
   if (!b) return null;
   const chal = _S.chalandiseData || new Map();
-  const okCom = (cc) => { const i = chal.get(cc); return !_S._selectedCommercial || (i && clientMatchesCommercialFilter(i)); };
+  const anyFilter = !!(_S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._distanceMaxKm
+    || _S._selectedClassifs?.size || _S._selectedDepts?.size || _S._selectedDirections?.size || _S._selectedStatuts?.size
+    || _S._selectedActivitesPDV?.size || _S._selectedStatutDetaille);
+  // Sans fiche chalandise, un client ne peut satisfaire aucun filtre client : visible seulement sans filtre.
+  const okCom = (cc) => { const i = chal.get(cc); return i ? _clientPassesFilters(i, cc) : !anyFilter; };
   const row = (cc, extra) => {
     const i = chal.get(cc);
     return { cc, nom: i?.nom || _S.clientNomLookup?.[cc] || cc, metier: i?.metier || '', commercial: i?.commercial || '', ville: i?.ville || '', classif: i?.classification || '', ...extra };
@@ -202,6 +207,7 @@ export function renderTesClients() {
   if (!dec) { host.innerHTML = ''; return; }
   const dt = _S.consommePeriodMaxFull || _S.consommePeriodMax;
   const com = _S._selectedCommercial;
+  const nbFiltres = [_S._selectedCommercial, _S._selectedMetier, _S._filterStrategiqueOnly, _S._distanceMaxKm, _S._selectedClassifs?.size, _S._selectedDepts?.size, _S._selectedDirections?.size, _S._selectedStatuts?.size, _S._selectedActivitesPDV?.size, _S._selectedStatutDetaille].filter(Boolean).length;
   const scoreCard = sc.score == null
     ? `<div class="pt-card pt-muted">Pas encore de score Clients : il faut au moins 12 mois d’historique de ventes.</div>`
     : `<div class="pt-card pt-col" style="gap:18px">
@@ -224,7 +230,7 @@ export function renderTesClients() {
     <header class="pt-col" style="gap:6px">
       <span class="pt-eyebrow">Pilotage commercial</span>
       <h2 class="pt-h2" style="font-size:28px">Tes clients</h2>
-      <span class="pt-small pt-muted">${escapeHtml(_S.selectedMyStore || '')} · ventes au comptoir${dt ? ` · données au ${new Date(dt).toLocaleDateString('fr-FR')}` : ''}${com ? ` · listes filtrées sur ${escapeHtml(com)}` : ''}</span>
+      <span class="pt-small pt-muted">${escapeHtml(_S.selectedMyStore || '')} · ventes au comptoir${dt ? ` · données au ${new Date(dt).toLocaleDateString('fr-FR')}` : ''}${nbFiltres ? ` · listes filtrées (${nbFiltres} filtre${nbFiltres > 1 ? 's' : ''}${com ? ` dont ${escapeHtml(com)}` : ''}) — le score reste celui de l’agence` : ''}</span>
     </header>
     <section class="ar-head">
       ${scoreCard}
@@ -264,3 +270,4 @@ window._tcCsv = (key) => {
   const a = document.createElement('a'); a.href = url; a.download = `PRISME_${_S.selectedMyStore}_clients_${d.verb.replace(/\s+/g, '-')}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+window.renderTesClients = renderTesClients;
