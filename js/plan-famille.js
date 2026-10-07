@@ -16,6 +16,7 @@ import { escapeHtml, formatEuro } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_FAM_MIN_REFS, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { computeSquelette, verdictLabel } from './engine.js';
 import { computePartie, CRIT_LABELS } from './partie.js';
+import { getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 
 const ROW_LIMIT = 60;
 
@@ -208,8 +209,7 @@ function _detail() {
         <div class="pt-col" style="align-items:flex-end;gap:6px">
           <div class="pt-num pt-big" style="color:${_col(f.score)}">${f.score}</div>
           <span class="pt-row" style="gap:12px">
-            ${_bridge?.hasDiag ? `<button type="button" class="pt-link pt-small" onclick="window._prExportDiag('${escapeHtml(f.k)}')">Diagnostic</button>
-            <button type="button" class="pt-link pt-small" onclick="window._prCopyForLLM('${escapeHtml(f.k)}')">Copier pour une IA</button>` : ''}
+            <button type="button" class="pt-link pt-small" id="pfAiBtn" onclick="_pfCopyAI()" title="Copie un prompt + les données de cette famille, à coller dans ChatGPT, Claude, Gemini…">Préparer pour une IA</button>
           </span>
         </div>
       </div>
@@ -250,7 +250,7 @@ function _renderListOnly() {
   if (l) l.innerHTML = _famList();
 }
 
-/** Point d'entrée — host : élément conteneur ; bridge : { deepDive(codeFam) → html, hasDiag }. */
+/** Point d'entrée — host : élément conteneur ; bridge : { deepDive(codeFam) → html }. */
 export function renderPlanFamille(host, bridge) {
   _host = host; _bridge = bridge;
   _p = computePartie({ minRefs: 1 });
@@ -309,6 +309,142 @@ window._pfCsv = (key) => {
   el.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+// ── Préparer pour une IA ─────────────────────────────────────
+// Un prompt court + les données exactes de l'écran (note, 4 critères, 5 gestes), à coller
+// dans n'importe quelle IA. Aucune donnée Qlik : la demande « ailleurs » vient du consommé.
+const AI_PROMPT = `Tu es chef de rayon dans une agence de distribution B2B (quincaillerie et fournitures pour artisans et entreprises du bâtiment). Tu prépares ce que l'équipe fait en rayon dès lundi.
+
+RÈGLES
+- Utilise uniquement les données ci-dessous. Si une information manque, écris « à vérifier » (conditionnement, quantité, emplacement…). N'invente aucun chiffre, aucune prévision.
+- Cite chaque article par son code et son libellé, avec le lien https://www.legallais.com/article/CODE
+- Chaque action dit : quoi faire physiquement ou commercialement, sur quels articles, et la raison chiffrée tirée des données.
+- Les gestes viennent de l'outil PRISME : « Sortir » = en rayon sans vente depuis 12 mois ; « Implanter » = absent du rayon mais demandé ailleurs (prioritaire = vendu par ≥60 % des agences à ≥200 €/an chacune, ou ≥5 clients de la zone) ; « Garder » = socle (≥3 clients et ≥3 ventes) ; « Surveiller » = se vend mais pas assez pour le socle ; « Recalibrer » = MIN/MAX de l'ERP éloigné de la reco PRISME.
+- Tu peux contester un geste si les données le justifient (ex. un invendu récent, une référence de dépannage indispensable) : dis-le en une ligne.
+
+FORMAT DE RÉPONSE
+1. Diagnostic — 3 lignes maximum : ce qui va, ce qui coince, le levier principal.
+2. Plan d'action — 10 actions maximum, réparties en « Cette semaine » / « Ce mois-ci » / « À surveiller ». Pour chaque action : le geste, les articles (code + libellé + lien), la raison chiffrée.
+3. À vérifier en rayon — 3 à 5 questions concrètes que seules l'équipe peut trancher.
+
+Style : direct, phrases courtes, pas de tableau si une liste suffit.
+
+DONNÉES
+`;
+
+function _aiPack(f) {
+  const cat = _S.catalogueFamille;
+  const inSf = (code) => !_sf || cat?.get(code)?.codeSousFam === _sf;
+  const sfLib = _sf ? (cat ? [...cat.values()].find(c => c.codeSousFam === _sf)?.sousFam : '') || _sf : '';
+  const { reseau, nbStores, cliFull } = _ctx;
+  const last = getArticleLastSaleMonthIdx();
+  const _d = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  const ref = _d ? monthIdxFromDate(new Date(_d)) : null;
+  const lastSale = (code) => { const m = last?.get(code); return m == null || ref == null ? 'jamais' : ref - m === 0 ? 'ce mois' : `il y a ${ref - m} mois`; };
+  const val = (r) => r.valeurStock != null ? r.valeurStock : (r.stockActuel || 0) * (r.prixUnitaire || 0);
+  const eur = (v) => formatEuro(Math.round(v || 0));
+  const res = (code) => { const x = reseau(code); return `réseau ${x.n}/${nbStores}${x.n ? ` · ${eur(x.ca / x.n)}/agence` : ''}`; };
+  const L = [];
+  const famCodes = new Set();
+  for (const r of _S.finalData || []) if (r.famille === f.k) famCodes.add(r.code);
+
+  // ── Contexte ──
+  L.push(`Agence : ${_S.selectedMyStore || '?'} · Famille : ${f.lib} (${f.k})${sfLib ? ` · Sous-famille : ${sfLib}` : ''}`);
+  L.push(`Période : ventes au comptoir (MAGASIN) sur l'historique chargé${_d ? `, jusqu'au ${new Date(_d).toLocaleDateString('fr-FR')}` : ''}`);
+  L.push('');
+  L.push(`NOTE DE LA FAMILLE : ${f.score}/100 (même note que l'écran La partie)`);
+  f.crit.forEach((c, i) => L.push(`- ${CRIT_LABELS[i]} (${Math.round(PARTIE_WEIGHTS[i] * 100)} % de la note) : ${c} %`));
+  let ca = 0, stockVal = 0, inv = 0;
+  for (const r of _S.finalData || []) {
+    if (r.famille !== f.k || !inSf(r.code)) continue;
+    ca += r.caAnnuel || 0; if (r.stockActuel > 0) stockVal += val(r);
+  }
+  for (const r of f.pmArts) if (inSf(r.code)) inv += val(r);
+  L.push(`- ${f.n} articles en catalogue, ${f.stock} en stock · valeur du stock ${eur(stockVal)} · CA comptoir ${eur(ca)} · invendus ${eur(inv)}`);
+
+  // ── Benchmark réseau (famille entière) ──
+  const vpm = _S.ventesParAgence || {};
+  const my = _S.selectedMyStore;
+  const caStore = (s) => { let t = 0; const a = vpm[s] || {}; for (const c of famCodes) t += a[c]?.sumCA || 0; return t; };
+  const others = Object.keys(vpm).filter(s => s !== my).map(caStore).sort((a, b) => a - b);
+  if (others.length) {
+    const med = others[others.length >> 1], mine = caStore(my);
+    L.push(`- CA famille tous canaux : ${eur(mine)} chez toi vs ${eur(med)} médiane des ${others.length} autres agences (${med ? `${mine >= med ? '+' : ''}${Math.round((mine - med) / med * 100)} %` : 'n/a'})`);
+  }
+
+  // ── Métiers acheteurs (comptoir) ──
+  const chal = _S.chalandiseData;
+  if (chal?.size) {
+    const byMet = new Map();
+    for (const [cc, arts] of _S.ventesLocalMag12MG || []) {
+      let t = 0; for (const [code, d] of arts) if (famCodes.has(code) && inSf(code)) t += d.sumCA || 0;
+      if (t <= 0) continue;
+      const m = chal.get(cc)?.metier || 'Hors zone / non renseigné';
+      const e = byMet.get(m) || { ca: 0, n: 0 }; e.ca += t; e.n++; byMet.set(m, e);
+    }
+    const top = [...byMet].sort((a, b) => b[1].ca - a[1].ca).slice(0, 6);
+    if (top.length) { L.push(''); L.push('MÉTIERS QUI ACHÈTENT CETTE FAMILLE CHEZ TOI'); top.forEach(([m, e]) => L.push(`- ${m} : ${e.n} clients, ${eur(e.ca)}`)); }
+  }
+
+  // ── Les 5 gestes (mêmes listes que l'écran, plafonnées) ──
+  const groups = _groups(f);
+  const CAP = { sortir: 25, implanter: 15, garder: 15, surveiller: 10, recalibrer: 15 };
+  const line = {
+    sortir: (r) => `${r.code} | ${r.libelle} | stock ${r.stockActuel} (${eur(val(r))}) | dernière vente : ${lastSale(r.code)} | MIN/MAX ERP ${r.ancienMin || 0}/${r.ancienMax || 0} | ${res(r.code)}${r.emplacement ? ` | empl. ${r.emplacement}` : ''}${verdictLabel(r._sqVerdict) && verdictLabel(r._sqVerdict) !== 'À sortir' ? ` | ${verdictLabel(r._sqVerdict)}` : ''}`,
+    implanter: (a) => `${a.code} | ${a.libelle || ''} | ${res(a.code)} | ${a.nbClientsZone || 0} clients de la zone${f.trousArts.some(t => t.code === a.code) ? ' | PRIORITAIRE' : ''}`,
+    garder: (r) => `${r.code} | ${r.libelle} | stock ${r.stockActuel}${r.stockActuel <= 0 ? ' (RUPTURE)' : ''} | ${r.W || 0} ventes · ${cliFull.get(r.code)?.size || 0} clients | MIN/MAX ERP ${r.ancienMin || 0}/${r.ancienMax || 0}${r.emplacement ? ` | empl. ${r.emplacement}` : ''}`,
+    surveiller: (r) => `${r.code} | ${r.libelle} | stock ${r.stockActuel} | ${r.W || 0} ventes · ${cliFull.get(r.code)?.size || 0} clients | dernière vente : ${lastSale(r.code)}${verdictLabel(r._sqVerdict) !== 'À surveiller' ? ` | ${verdictLabel(r._sqVerdict)}` : ''}`,
+    recalibrer: (r) => `${r.code} | ${r.libelle} | stock ${r.stockActuel} | ${r.W || 0} ventes | MIN/MAX ERP ${r.ancienMin || 0}/${r.ancienMax || 0} → reco PRISME ${r.nouveauMin}/${r.nouveauMax}`,
+  };
+  for (const g of groups) {
+    const arts = g.arts.filter(a => inSf(a.code));
+    // « Garder » : on n'envoie que ce qui demande une action (ruptures) puis les plus vendus
+    const list = g.key === 'garder' ? [...arts.filter(r => r.stockActuel <= 0), ...arts.filter(r => r.stockActuel > 0)] : arts;
+    L.push('');
+    L.push(`${g.verb.toUpperCase()} — ${arts.length} article${arts.length > 1 ? 's' : ''}${arts.length > CAP[g.key] ? ` (les ${CAP[g.key]} plus importants ci-dessous)` : ''}`);
+    if (!arts.length) { L.push('- rien'); continue; }
+    list.slice(0, CAP[g.key]).forEach(a => L.push(`- ${line[g.key](a)}`));
+  }
+
+  // ── Ce que les clients de la zone achètent ailleurs (consommé multi-agences) ──
+  const net = _S.ventesReseauTousCanaux;
+  if (chal?.size && net?.size) {
+    const inStock = new Set((_S.finalData || []).filter(r => r.stockActuel > 0).map(r => r.code));
+    const agg = new Map();
+    for (const [cc] of chal) {
+      const arts = net.get(cc); if (!arts) continue;
+      const mag = _S.ventesLocalMag12MG?.get(cc), hors = _S.ventesLocalHorsMag?.get(cc);
+      for (const [code, d] of arts) {
+        if ((_S.articleFamille?.[code] || '') !== f.k || !inSf(code) || inStock.has(code)) continue;
+        if (mag?.has(code) || hors?.has(code)) continue;
+        const e = agg.get(code) || { ca: 0, n: 0 }; e.ca += d.sumCA || 0; e.n++; agg.set(code, e);
+      }
+    }
+    const top = [...agg].filter(([, e]) => e.n >= 2).sort((a, b) => b[1].n - a[1].n || b[1].ca - a[1].ca).slice(0, 12);
+    if (top.length) {
+      L.push('');
+      L.push(`ACHETÉ AILLEURS PAR LES CLIENTS DE TA ZONE — absent de ton stock (consommé des ${nbStores + 1} agences, tous canaux)`);
+      top.forEach(([code, e]) => L.push(`- ${code} | ${_S.libelleLookup?.[code] || ''} | ${e.n} clients de ta zone · ${eur(e.ca)} dans les autres agences`));
+    }
+  }
+  return AI_PROMPT + L.join('\n') + '\n';
+}
+
+window._pfCopyAI = () => {
+  const f = _p?.famList.find(x => x.k === _sel);
+  if (!f) return;
+  const txt = _aiPack(f);
+  const btn = document.getElementById('pfAiBtn');
+  const done = (msg) => { if (!btn) return; const o = btn.textContent; btn.textContent = msg; setTimeout(() => { btn.textContent = o; }, 2200); };
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = `PRISME_${_S.selectedMyStore}_${f.k}_pour-IA.txt`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000); done('Fichier téléchargé');
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => done('Copié ✓ — colle-le dans ton IA'), download);
+  else download();
+};
+window._pfAIText = () => { const f = _p?.famList.find(x => x.k === _sel); return f ? _aiPack(f) : ''; };
 
 /** Ouvre une famille depuis un autre écran (ex. La partie). */
 window._pfOpen = (k) => { _sel = k; _sf = ''; _hl = ''; _more.clear(); window.switchTab?.('plan'); window._prSetTopView?.('famille'); };
