@@ -23,7 +23,7 @@ function renderSqBadge(code) {
   const colors={socle:'#22c55e',implanter:'#3b82f6',challenger:'#ef4444',surveiller:'#94a3b8'};
   const labels={socle:'Socle',implanter:'Implanter',challenger:'Challenger',surveiller:'Surveiller'};
   const cBadge=`<span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:${colors[sq.classif]}20;color:${colors[sq.classif]}">${labels[sq.classif]}</span>`;
-  const vBadge=sq.verdict?.name&&sq.verdict.name!=='—'?`<br><span class="text-[8px] t-inverse-muted" title="${escapeHtml(sq.verdict.tip||'')}">${sq.verdict.icon} ${escapeHtml(sq.verdict.name)}</span>`:'';
+  const vBadge=sq.verdict?.name&&sq.verdict.name!=='—'?`<br><span class="text-[8px] t-inverse-muted" title="${escapeHtml(sq.verdict.tip||'')}">${sq.verdict.icon} ${escapeHtml(sq.verdict.label||sq.verdict.name)}</span>`:'';
   return cBadge+vBadge;
 }
 

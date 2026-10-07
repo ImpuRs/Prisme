@@ -16,7 +16,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { computeSquelette } from './engine.js';
+import { computeSquelette, verdictLabel } from './engine.js';
 import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import {
   PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE,
@@ -262,7 +262,7 @@ function _critArticles(f, i) {
   const cols = [
     { arts: f.socleKOArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.'], row: r => [r.stockActuel, mm(r), r.emplacement || '—'] },
     { arts: f.trousArts, head: ['Réseau', 'Clients zone', 'Score'], row: a => [ag(a), a.nbClientsZone || 0, a.score || 0] },
-    { arts: f.pmArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.', 'Verdict'], row: r => [r.stockActuel, mm(r), r.emplacement || '—', r._sqVerdict || ''] },
+    { arts: f.pmArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.', 'Verdict'], row: r => [r.stockActuel, mm(r), r.emplacement || '—', verdictLabel(r._sqVerdict)] },
     { arts: f.calKOArts, head: ['Stock', 'ERP → reco', 'Empl.'], row: r => [r.stockActuel, `${mm(r)} → ${r.nouveauMin}/${r.nouveauMax}`, r.emplacement || '—'] },
   ][i];
   return cols;

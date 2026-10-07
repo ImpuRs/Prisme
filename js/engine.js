@@ -1512,6 +1512,34 @@ export function computeSquelette(directionFilter) {
   return _result;
 }
 
+// ── Libellés de verdict affichés ─────────────────────────────
+// Le moteur garde ses 16 verdicts internes (_sqVerdict : rôle × classification) ;
+// l'écran n'en montre que 9, un par geste réellement différent.
+export const VERDICT_PLAIN = {
+  'Le Capitaine': 'À garder', 'Le Lien Fort': 'À garder', 'La Bonne Pioche': 'À garder', 'Le Bon Soldat': 'À garder',
+  "L'Alerte Rouge": 'Incontournable qui ralentit',
+  'Le Point de Rupture': 'Client stratégique qui ralentit',
+  'Le Stagiaire': 'À surveiller', 'Le Déclinant': 'À surveiller',
+  'Le Poids Mort': 'À sortir', "L'Erreur de Casting": 'À sortir',
+  'La Réf Schizo': 'À sortir · le réseau le vend',
+  'La Trahison': 'À sortir · appeler le client',
+  'Ancre Métier': 'Gardé à 1 · métier clé',
+  'Le Trou Critique': 'À implanter', 'Le Pari du Réseau': 'À implanter', 'La Conquête': 'À implanter', "L'Opportunité Locale": 'À implanter',
+  'Le Bouclier': 'Ne pas acheter',
+};
+export const VERDICT_PLAIN_ICON = {
+  'À garder': '🟢', 'Incontournable qui ralentit': '⚠️', 'Client stratégique qui ralentit': '📞', 'À surveiller': '👁️',
+  'À sortir': '⛔', 'À sortir · le réseau le vend': '🔎', 'À sortir · appeler le client': '📞', 'Gardé à 1 · métier clé': '📌',
+  'À implanter': '➕', 'Ne pas acheter': '🚫',
+};
+/** Libellé affiché d'un verdict interne (vide si inconnu). */
+export function verdictLabel(v) { return VERDICT_PLAIN[v] || ''; }
+/** Libellé d'une ligne finalData (les articles « implanter » n'ont pas de verdict détaillé). */
+export function rowVerdictLabel(r) {
+  if (!r?._sqClassif) return '';
+  return r._sqClassif === 'implanter' ? 'À implanter' : verdictLabel(r._sqVerdict);
+}
+
 /** Invendu 12 mois : en stock, aucune vente locale sur la période, hors nouveautés et références père. */
 export function isInvendu(r) {
   return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;

@@ -12,7 +12,7 @@ import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { calcPriorityScore, computeHealthScore, computeSquelette } from './engine.js';
+import { calcPriorityScore, computeHealthScore, rowVerdictLabel } from './engine.js';
 
 
 // ── ToastManager — file FIFO avec priorités ───────────────────
@@ -444,20 +444,10 @@ export function getFilteredData() {
   const verdict = document.getElementById('filterVerdict')?.value || '';
   const searchQuery = document.getElementById('searchInput').value.trim();
   const univers = document.getElementById('filterMetier')?.value || '';
-  // Verdict Squelette — build map lazily
-  let verdictMap = null;
-  if (verdict) {
-    const sqData = _S._prSqData || computeSquelette();
-    _S._prSqData = sqData;
-    verdictMap = new Map();
-    if (sqData?.directions) {
-      for (const dir of sqData.directions) {
-        for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
-          if (dir[cat]) for (const a of dir[cat]) verdictMap.set(a.code, cat);
-        }
-      }
-    }
-  }
+  // Verdict — libellé en clair (rowVerdictLabel) ; anciennes valeurs = classification squelette
+  const _oldClassif = { socle: 1, implanter: 1, challenger: 1, surveiller: 1 };
+  const verdictOf = verdict ? (r) => _oldClassif[verdict] ? r._sqClassif : rowVerdictLabel(r) : null;
+
   const _cFam = fam ? compileQuery(fam) : null;
   const _cSFam = sFam ? compileQuery(sFam) : null;
   const _cEmp = emp ? compileQuery(emp) : null;
@@ -475,7 +465,7 @@ export function getFilteredData() {
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
     if (univers && (_S.articleUnivers?.[r.code] || '') !== univers) return false;
-    if (verdict && verdictMap) { const v = verdictMap.get(r.code); if (v !== verdict) return false; }
+    if (verdictOf && verdictOf(r) !== verdict) return false;
     if (_cSearch) { return matchCompiled(_cSearch, normalizeStr(r.code+' '+r.libelle+' '+famLib(r.famille || '')), r.code); }
     return true;
   });

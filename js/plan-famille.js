@@ -5,7 +5,7 @@
 //   • à droite  : la famille choisie — 4 critères, puis ses articles rangés en 5 gestes
 //                 (garder, implanter, sortir, surveiller, recalibrer), chacun avec son « pourquoi »
 //   • pour creuser : Métiers / Analyse / Réseau (rendus historiques de planRayon.js, via bridge)
-// Les verdicts (Capitaine, Réf Schizo…) restent lisibles en infobulle, plus en vocabulaire principal.
+// Verdicts affichés en clair (verdictLabel : 9 gestes) ; le détail du verdict interne passe en infobulle.
 // Assortiment → 12MG pleine période (finalData, articleClientsFull, squelette).
 // Dépend de : state.js, utils.js, constants.js, engine.js, partie.js
 // ═══════════════════════════════════════════════════════════════
@@ -14,7 +14,7 @@
 import { _S } from './state.js';
 import { escapeHtml, formatEuro } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_FAM_MIN_REFS, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
-import { computeSquelette } from './engine.js';
+import { computeSquelette, verdictLabel } from './engine.js';
 import { computePartie, CRIT_LABELS } from './partie.js';
 
 const ROW_LIMIT = 60;
@@ -83,7 +83,8 @@ const VERDICT_TIP = {
   'Le Poids Mort': 'Ne se vend plus : on sort, on libère le cash et la place.',
   'Ancre Métier': 'Invendu gardé exprès à 1 exemplaire : dernier lien avec un métier clé.',
 };
-const _tag = (v) => v ? `<span class="ar-tag" title="${escapeHtml(VERDICT_TIP[v] || '')}">${escapeHtml(v)}</span>` : '';
+const TAG_TONE = { 'À garder': 'high', 'Gardé à 1 · métier clé': 'high', 'Incontournable qui ralentit': 'mid', 'Client stratégique qui ralentit': 'mid', 'À surveiller': '', 'À sortir': 'low', 'À sortir · le réseau le vend': 'low', 'À sortir · appeler le client': 'low' };
+const _tag = (v, sameAs = '') => { const l = verdictLabel(v); return l && l !== sameAs ? `<span class="ar-tag" data-tone="${TAG_TONE[l] || ''}" title="${escapeHtml(VERDICT_TIP[v] || '')}">${escapeHtml(l)}</span>` : ''; };
 const _mm = (r) => `${r.ancienMin || 0}/${r.ancienMax || 0}`;
 const _age = (j) => j == null || j >= 999 ? '—' : j >= 365 ? `${(j / 365).toFixed(1).replace('.', ',')} an${j >= 730 ? 's' : ''}` : `${j} j`;
 
@@ -101,8 +102,8 @@ function _groups(f) {
     { key: 'sortir', verb: 'Sortir', arts: [...f.pmArts].sort((a, b) => val(b) - val(a)),
       why: 'En rayon sans aucune vente en 12 mois. Retour centrale ou déstockage.',
       euro: (arts) => `${formatEuro(arts.reduce((s, r) => s + val(r), 0))} immobilisés`,
-      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP', 'Verdict'],
-      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r), _tag(r._sqVerdict)] },
+      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP', 'Précision'],
+      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r), _tag(r._sqVerdict, 'À sortir')] },
     { key: 'implanter', verb: 'Implanter', arts: impl,
       why: `Absents de ton rayon, demandés ailleurs. <span class="ar-tag" data-tone="high">Prioritaire</span> = ≥60 % du réseau à ≥${SQ_RESEAU_FORT_CA_AGENCE} €/an par agence, ou ≥5 clients de ta zone.`,
       euro: (arts) => `${arts.filter(a => prio.has(a.code)).length} prioritaire${arts.filter(a => prio.has(a.code)).length > 1 ? 's' : ''}`,
@@ -114,13 +115,13 @@ function _groups(f) {
     { key: 'garder', verb: 'Garder en rayon', arts: socle,
       why: 'Le socle : ≥3 clients et ≥3 ventes en 12 mois. Ceux en rupture remontent en tête.',
       euro: (arts) => { const k = arts.filter(r => r.stockActuel <= 0).length; return k ? `${k} en rupture` : 'tous en stock'; },
-      head: ['Stock', 'Ventes', 'Clients', 'Réseau', 'Verdict'],
-      row: (r) => [r.stockActuel <= 0 ? '<span class="ar-tag" data-tone="low">Rupture</span>' : r.stockActuel, r.W || 0, cli(r.code), ag(r.code), _tag(r._sqVerdict)] },
+      head: ['Stock', 'Ventes', 'Clients', 'Réseau', 'Précision'],
+      row: (r) => [r.stockActuel <= 0 ? '<span class="ar-tag" data-tone="low">Rupture</span>' : r.stockActuel, r.W || 0, cli(r.code), ag(r.code), _tag(r._sqVerdict, 'À garder')] },
     { key: 'surveiller', verb: 'Surveiller', arts: surv,
       why: 'Se vend, mais pas encore assez (moins de 3 clients ou 3 ventes) pour faire partie du socle.',
       euro: (arts) => `${arts.filter(r => r.stockActuel > 0).length} en stock`,
-      head: ['Stock', 'Ventes', 'Clients', 'Réseau', 'Verdict'],
-      row: (r) => [r.stockActuel, r.W || 0, cli(r.code), ag(r.code), _tag(r._sqVerdict)] },
+      head: ['Stock', 'Ventes', 'Clients', 'Réseau', 'Précision'],
+      row: (r) => [r.stockActuel, r.W || 0, cli(r.code), ag(r.code), _tag(r._sqVerdict, 'À surveiller')] },
     { key: 'recalibrer', verb: 'Recalibrer le MIN/MAX', arts: [...f.calKOArts],
       why: 'MIN/MAX ERP éloigné de la reco PRISME (écart > 1 sur le MIN ou > 2 sur le MAX).',
       euro: () => 'ERP → reco',

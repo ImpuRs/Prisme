@@ -1,7 +1,7 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
-import { computeSquelette, computeMonRayon, computeArticleZoneIndex } from './engine.js';
+import { computeSquelette, computeMonRayon, computeArticleZoneIndex, verdictLabel, VERDICT_PLAIN_ICON } from './engine.js';
 import { articleLib, articleZoneFiltered } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup, switchTab } from './ui.js';
@@ -198,6 +198,11 @@ const VERDICT_MATRIX = {
   },
 };
 const _ANCRE_METIER = { name: 'Ancre Métier', icon: '🎯', color: '#8b5cf6', tip: 'Trahison pardonnée — dernier lien avec un métier clé. Stock de survie 1/1.' };
+// Affichage : libellé en clair (9 gestes) — `name` reste le verdict interne (packs IA, tris).
+for (const e of [...Object.values(VERDICT_MATRIX).flatMap(Object.values), _ANCRE_METIER]) {
+  e.label = verdictLabel(e.name) || e.name;
+  e.icon = VERDICT_PLAIN_ICON[e.label] || e.icon;
+}
 
 function _prVerdict(classif, role, code) {
   // Bouclier Squelette : si le moteur central a muté ce verdict, priorité absolue
@@ -2545,7 +2550,7 @@ function _prBuildLLMPack(codeFam) {
     const role = _roles.get(a.code) || 'standard';
     const roleTag = ROLE_EMOJI[role] || '';
     const v = _prVerdict(classif, role, a.code);
-    const verdictTag = v.name !== '—' ? ` → ${v.name}` : '';
+    const verdictTag = v.name !== '—' ? ` → ${v.label || v.name}` : '';
     const cliStr = a.nbClientsPDV ? ` cli:${a.nbClientsPDV}` : '';
     const _fd = _fdMap2.get(a.code);
     const _W = _fd?.W || 0;
@@ -2683,7 +2688,7 @@ function _prBuildLLMPack(codeFam) {
     if (_SECTION_HEADERS[vn]) pack += _SECTION_HEADERS[vn];
     const v = g.verdict;
     const tipShort = v.tip.split('ACTION')[0].replace(/\.\s*$/, '').trim();
-    pack += `${v.icon} ${vn} (${g.items.length}) — ${tipShort}\n`;
+    pack += `${v.icon} ${v.label || vn} (${g.items.length}) — ${tipShort}\n`;
     // Cap Opportunités Locales à top 10 par CAzone
     let _vitems = g.items;
     if (vn === "L'Opportunité Locale" && _vitems.length > 10) {
@@ -3395,7 +3400,7 @@ function _renderMetierBody() {
       const _vc = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
       const _vl = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
       verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
-      if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.name)}</span>`;
+      if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.label || _sqA.verdict.name)}</span>`;
     }
     const _nbAg = a.nbAgencesReseau || 0;
     const _agColor = _nbAg >= 5 ? '#22c55e' : _nbAg >= 3 ? '#f59e0b' : 'var(--t-secondary)';

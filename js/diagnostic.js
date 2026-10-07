@@ -595,7 +595,7 @@ function _renderClient360(clientCode,source){
       const _sqI=window._getArticleSqInfo?.(code);
       if(_sqI&&_sqI.verdict?.name&&_sqI.verdict.name!=='—'){
         const _vc=_sqI.verdict.color||'#94a3b8';
-        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.name)}</span>`;
+        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.label||_sqI.verdict.name)}</span>`;
       }
       return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${verdictBadge}</td></tr>`;
     };
@@ -642,7 +642,7 @@ function _renderClient360(clientCode,source){
       else if(isSpecial&&!r){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold">⛔ Spécial</span>';}
       else if(!r){
         const _sq=window._getArticleSqInfo?.(code);
-        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;}
+        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;}
         else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';}
       }
       else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture</span>';}
@@ -940,7 +940,7 @@ function openArticlePanel(code,source){
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
-    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
     panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
@@ -1085,7 +1085,7 @@ function openArticlePanel(code,source){
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
       const _sqI=window._getArticleSqInfo?.(c.code);
-      const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
+      const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
         :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
@@ -1094,7 +1094,7 @@ function openArticlePanel(code,source){
   }
   // Verdict Squelette pour onglet Perf
   const _sqInfo = window._getArticleSqInfo?.(code);
-  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.name}` : '⚪ Hors squelette';
+  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.label||_sqInfo.verdict.name}` : '⚪ Hors squelette';
   const _sqBadge = `<span class="text-[10px] font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
   // Sparklines
   const _artSpk = _articleSparkline(code);
@@ -1323,7 +1323,7 @@ function _renderReseauTab(v3) {
   const inStockNotSold=v3.inStockNotSold||[];
   if(!missing.length&&!inStockNotSold.length)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-sm">✅ Votre gamme est bien alignée avec le réseau — aucun trou détecté.</p></div>`;
   // Squelette verdicts — source unique via _getArticleSqInfo
-  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;};
+  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;};
   const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
   // KPI cards
   const cards=[

@@ -919,7 +919,7 @@ function _renderAssocCard(assoc) {
           }).map(r => {
             const _sqI = window._getArticleSqInfo?.(r.code);
             const isBruit = !_sqI && !r.enStock;
-            const verdict = _sqI ? `<span title="${_sqI.verdict.tip}" style="color:${_sqI.verdict.color}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
+            const verdict = _sqI ? `<span title="${_sqI.verdict.tip}" style="color:${_sqI.verdict.color}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
               : r.enStock ? '<span title="En stock — hors squelette" style="color:#22c55e">● Stock</span>' : '<span title="Hors squelette" style="color:var(--t-disabled)">⚪ Bruit</span>';
             return `<tr class="border-b b-light${isBruit ? ' opacity-40' : ''}">
             <td class="py-1 px-2 font-mono t-disabled">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','associations')" title="Voir détail article">🔍</span></td>
