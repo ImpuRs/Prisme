@@ -10,7 +10,7 @@
 'use strict';
 import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection, defaultPeriodRange } from './utils.js';
 import { articleLib } from './article-store.js';
 import { getVentesClientMagFull, getClientsActiveSetInPeriod } from './sales.js';
 
@@ -994,117 +994,117 @@ export function computePriceGap(code) {
   return { myPU: Math.round(myPU * 100) / 100, avgPUTop3: Math.round(avgPUTop3 * 100) / 100, ecartPct, tropCher: ecartPct >= 10 };
 }
 
-// ── Helper interne : suivi famille × canal pour le score omnicanal ───────
-function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
-  if (!fam) return;
-  const prev = famCanalState.get(fam);
-  if (!prev) { famCanalState.set(fam, canal); return; }
-  if (prev !== '*' && prev !== canal) {
-    famCanalState.set(fam, '*');
-    nbFamsCrossRef[0]++;
-  }
-}
+// ── Profil canal client (ex « score omnicanal ») ─────────────────────────
+// Comment un client achète auprès de l'agence — doctrine : pleine période (historique chargé),
+// insensible au filtre période. Sources :
+//   • CA comptoir / autres canaux sur 12 mois complets : _byMonthClientCAByCanal (mois → canal → client)
+//     (repli si absent : caClientParStore[myStore] et ventesLocalMag12MG, historique chargé)
+//   • canaux utilisés : clientLastOrderByCanal (dernière commande par canal, 12 mois glissants)
+//   • achats dans les autres agences : ventesClientAutresAgences (consommé) ou lignes EXTÉRIEUR Qlik
+// Profils :
+//   comptoir     = n'achète qu'au comptoir
+//   mixte        = comptoir + représentant / internet / DCS
+//   sansComptoir = achète à l'agence sans jamais passer au comptoir
+//   ailleurs     = au moins 30 % de ses achats réseau se font dans d'autres agences
+// Résultat : _S.clientOmniScore = Map<cc, {segment, partComptoir, caComptoir, caHors, caAgence,
+//   caAutres, canaux:[{canal, jours}], nbCanaux, silenceDays, score, sur12m}> (score = partComptoir, compat)
+export const OMNI_PROFILS = {
+  comptoir:     { label: 'Comptoir seul', icon: '🏪', piste: 'Client fidèle au comptoir. Pour le dépannage hors horaires, lui proposer la commande web.' },
+  mixte:        { label: 'Comptoir + autres canaux', icon: '🔀', piste: 'Client complet : il passe au comptoir et commande aussi à distance. À garder.' },
+  sansComptoir: { label: 'Sans comptoir', icon: '📦', piste: 'Achète à ton agence sans jamais venir au comptoir : l’inviter (dépannage, nouveautés, rayon de son métier).' },
+  ailleurs:     { label: 'Aussi ailleurs', icon: '🌐', piste: 'Une part importante de ses achats se fait dans d’autres agences : comprendre pourquoi (proximité, gamme, accueil) et le capter.' },
+};
+const _OMNI_CANAL_JOURS = 365;
+const _OMNI_AILLEURS_MIN = 50;    // € — en dessous, un dépannage isolé
+const _OMNI_AILLEURS_PART = 0.3;  // part des achats réseau faite ailleurs pour le profil « Aussi ailleurs »
 
-// ── Score omnicanalité par client ─────────────────────────────────────────
-// Segmente chaque client en : mono / hybride / digital / dormant
-// Segmentation par nombre de canaux distincts :
-//   purComptoir = MAGASIN uniquement (1 canal)
-//   purHors     = jamais MAGASIN, uniquement DCS/Internet/Représentant/Autre
-//   hybride     = MAGASIN + 1 ou 2 autres canaux (2-3 canaux)
-//   full        = 4+ canaux distincts
-// Score omnicanal composite 0-100 : canaux(30) + équilibre PDV/hors(30) + récence PDV(20) + familles cross-canal(20)
-// Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays}>
 export function computeOmniScores() {
   const scores = new Map();
-  const nowTs = Date.now();
-  // Index ventesTerrain par client (une seule passe sur les 250k lignes)
-  const _terrByClient = new Map();
+  const refD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  const refTs = refD ? new Date(refD).getTime() : Date.now();
+  const agence = _S.caClientParStore?.[_S.selectedMyStore] || new Map();
+  const mag = _vcaFull() || new Map();
+  const byCanal = _S.clientLastOrderByCanal || new Map();
+  // Qlik (si chargé) : CA EXTÉRIEUR par client = achats hors agence
+  const terrExt = new Map();
   if (_S.ventesTerrain?.length) {
     for (const l of _S.ventesTerrain) {
-      if (!l.clientCode || l.canal === 'MAGASIN') continue;
-      if (!_terrByClient.has(l.clientCode)) _terrByClient.set(l.clientCode, []);
-      _terrByClient.get(l.clientCode).push(l);
+      if (!l.clientCode || l.canal !== 'EXTÉRIEUR') continue;
+      terrExt.set(l.clientCode, (terrExt.get(l.clientCode) || 0) + (l.ca || 0));
     }
   }
-  const allCc = new Set();
-  const _vcaOmni = _vcaFull();
-  if (_vcaOmni) for (const cc of _vcaOmni.keys()) allCc.add(cc);
-  if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
-  for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
-  // Sans fichier Livraisons (Qlik) : le consommé multi-agences voit les achats dans les autres
-  // agences qu'il couvre → signal AUTRES_AGENCES (même rôle que les lignes EXTÉRIEUR de Qlik).
-  const _useConsoReseau = !_terrByClient.size && _S.ventesClientAutresAgences?.size > 0;
-  const _AUTRES_MIN = 50; // € — en dessous, bruit (un dépannage isolé)
-  if (_useConsoReseau && _S.chalandiseData?.size) {
-    for (const [cc, ca] of _S.ventesClientAutresAgences) if (ca >= _AUTRES_MIN && _S.chalandiseData.has(cc)) allCc.add(cc);
+  const autresOf = (cc) => terrExt.size ? (terrExt.get(cc) || 0) : (_S.ventesClientAutresAgences?.get(cc) || 0);
+
+  const allCc = new Set([...agence.keys(), ...mag.keys()]);
+  // Clients de la zone qui n'achètent qu'ailleurs : profil « Aussi ailleurs » (cibles de conquête)
+  if (_S.chalandiseData?.size) {
+    const src = terrExt.size ? terrExt : (_S.ventesClientAutresAgences || new Map());
+    for (const [cc, ca] of src) if (ca >= _OMNI_AILLEURS_MIN && _S.chalandiseData.has(cc)) allCc.add(cc);
   }
+
+  // CA par canal sur 12 mois complets (même fenêtre que la période par défaut)
+  const bmc = _S._byMonthClientCAByCanal;
+  const range = defaultPeriodRange(refD);
+  let ca12 = null;
+  if (bmc && range) {
+    ca12 = new Map();
+    const hi = range.end.getFullYear() * 12 + range.end.getMonth(), lo = hi - 11;
+    for (const mk in bmc) {
+      const mi = +mk; if (mi < lo || mi > hi) continue;
+      for (const canal in bmc[mk]) {
+        const byCc = bmc[mk][canal];
+        for (const cc in byCc) {
+          let e = ca12.get(cc); if (!e) { e = { mag: 0, hors: 0 }; ca12.set(cc, e); }
+          if (canal === 'MAGASIN') e.mag += byCc[cc] || 0; else e.hors += byCc[cc] || 0;
+        }
+      }
+    }
+    for (const cc of ca12.keys()) allCc.add(cc);
+  }
+
   for (const cc of allCc) {
-    const pdvArts = _vcaOmni?.get(cc);
-    const horArts = _S.ventesLocalHorsMag?.get(cc);
-    let caPDV = 0;
-    if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
-    let caHors = 0;
-    const canaux = new Set();
-    if (caPDV > 0) canaux.add('MAGASIN');
-    if (horArts) {
-      for (const [, v] of horArts) {
-        caHors += v.sumCA || 0;
-        if (v.canal) canaux.add(v.canal);
-      }
+    let caComptoir = 0, caHors = 0;
+    if (ca12) {
+      const e = ca12.get(cc);
+      caComptoir = Math.max(0, e?.mag || 0); caHors = Math.max(0, e?.hors || 0);
+    } else {
+      const m = mag.get(cc);
+      if (m) for (const [, v] of m) caComptoir += v.sumCA || 0;
+      caHors = Math.max(0, (agence.get(cc) || 0) - caComptoir);
     }
-    // Enrichir avec ventesTerrain (Qlik) — canaux + CA hors agence
-    const _terrLines = _terrByClient.get(cc);
-    if (_terrLines) {
-      for (const l of _terrLines) {
-        const tCanal = l.canal || 'EXTÉRIEUR';
-        if (tCanal === 'EXTÉRIEUR') canaux.add('AUTRES_AGENCES');
-        else canaux.add(tCanal);
-        caHors += l.ca || 0;
-      }
+    const caAgence = caComptoir + caHors;
+    const caAutres = autresOf(cc);
+    if (caAgence <= 0 && caAutres < _OMNI_AILLEURS_MIN && !byCanal.get(cc)) continue;
+
+    // Canaux utilisés sur 12 mois glissants (à la date des données)
+    const canaux = [];
+    const bc = byCanal.get(cc);
+    if (bc) for (const [canal, d] of bc) {
+      const jours = Math.round((refTs - new Date(d).getTime()) / 86400000);
+      if (jours <= _OMNI_CANAL_JOURS) canaux.push({ canal, jours });
     }
-    const _caAutres = _useConsoReseau ? (_S.ventesClientAutresAgences.get(cc) || 0) : 0;
-    if (_caAutres >= _AUTRES_MIN) { canaux.add('AUTRES_AGENCES'); caHors += _caAutres; }
-    const nbCanaux = canaux.size;
-    const caTotal = caPDV + caHors;
-    if (caTotal <= 0) continue; // ignorer les clients sans CA effectif
-    const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
-    const _csRec = _S.clientStore?.get(cc);
-    const lastPDV = _csRec?.lastOrderPDV || _S.clientLastOrder?.get(cc);
-    const silenceDays = _csRec?.silenceDaysPDV ?? (lastPDV ? Math.round((nowTs - lastPDV) / 86400000) : 999);
-    // Segment par nombre de canaux
+    canaux.sort((a, b) => a.jours - b.jours);
+    const viaComptoir = canaux.some(c => c.canal === 'MAGASIN') || (!bc && caComptoir > 0);
+    const viaAutres = canaux.some(c => c.canal !== 'MAGASIN') || (!bc && caHors > 0);
+
     let segment;
-    if (nbCanaux >= 4) segment = 'full';
-    else if (canaux.has('MAGASIN') && nbCanaux >= 2) segment = 'hybride';
-    else if (!canaux.has('MAGASIN') && nbCanaux >= 1) segment = 'purHors';
-    else segment = 'purComptoir'; // MAGASIN uniquement (ou aucun canal avec CA)
-    // Score composite 0-100
-    // 1. Nb canaux (30pts)
-    const _sCanaux = nbCanaux >= 4 ? 30 : nbCanaux === 3 ? 22 : nbCanaux === 2 ? 15 : 5;
-    // 2. Équilibre PDV/hors-agence (30pts)
-    const _sEquilibre = (caPDV > 0 && caHors > 0) ? Math.round(Math.min(caPDV, caHors) / Math.max(caPDV, caHors) * 30) : 0;
-    // 3. Récence PDV (20pts)
-    const _sRecence = silenceDays <= 30 ? 20 : silenceDays <= 90 ? 15 : silenceDays <= 180 ? 10 : 0;
-    // 4. Profondeur familles cross-canal (20pts) : familles achetées sur 2+ canaux distincts
-    const _famCanalState = new Map(); // fam -> first canal, or '*'
-    const _nbFamsCrossRef = [0];
-    if (pdvArts) for (const [code] of pdvArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'MAGASIN');
-    if (horArts) for (const [code, v] of horArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], v.canal || 'HORS');
-    // Enrichir familles cross-canal avec ventesTerrain (index pré-calculé)
-    if (_terrLines) {
-      for (const l of _terrLines) {
-        _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[l.code], l.canal === 'EXTÉRIEUR' ? 'AUTRES_AGENCES' : (l.canal || 'HORS'));
-      }
-    }
-    if (_caAutres >= _AUTRES_MIN) {
-      const _net = _S.ventesReseauTousCanaux?.get(cc);
-      if (_net) for (const [code] of _net) {
-        if (pdvArts?.has(code) || horArts?.has(code)) continue;
-        _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'AUTRES_AGENCES');
-      }
-    }
-    const _sFams = _nbFamsCrossRef[0] >= 5 ? 20 : _nbFamsCrossRef[0] >= 3 ? 13 : _nbFamsCrossRef[0] >= 1 ? 6 : 0;
-    const score = Math.min(100, _sCanaux + _sEquilibre + _sRecence + _sFams);
-    scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });
+    // Comparaison sur la même fenêtre (historique chargé des deux côtés)
+    let magFull = 0; const mf = mag.get(cc); if (mf) for (const [, v] of mf) magFull += v.sumCA || 0;
+    const caAgenceFull = Math.max(agence.get(cc) || 0, magFull);
+    if (caAutres >= _OMNI_AILLEURS_MIN && caAutres / (caAutres + caAgenceFull) >= _OMNI_AILLEURS_PART) segment = 'ailleurs';
+    else if (viaComptoir && viaAutres) segment = 'mixte';
+    else if (viaComptoir) segment = 'comptoir';
+    else if (viaAutres || caHors > 0) segment = 'sansComptoir';
+    else segment = caComptoir > 0 ? 'comptoir' : 'sansComptoir';
+
+    const partComptoir = caAgence > 0 ? Math.round(100 * caComptoir / caAgence) : 0;
+    const lastPDV = _S.clientLastOrder?.get(cc);
+    const silenceDays = lastPDV ? Math.round((refTs - new Date(lastPDV).getTime()) / 86400000) : 999;
+    scores.set(cc, {
+      segment, partComptoir, score: partComptoir,
+      caComptoir, caHors, caAgence, caAutres, caPDV: caComptoir, caTotal: caAgence,
+      canaux, nbCanaux: canaux.length, silenceDays, sur12m: !!ca12,
+    });
   }
   _S.clientOmniScore = scores;
 }

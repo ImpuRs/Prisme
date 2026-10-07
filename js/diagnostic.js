@@ -9,7 +9,7 @@
 
 import { RADAR_LABELS } from './constants.js';
 import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
-import { computeSquelette } from './engine.js';
+import { computeSquelette, OMNI_PROFILS } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
@@ -489,35 +489,31 @@ function _renderClient360(clientCode,source){
     if(artMap)for(const[code,d]of artMap){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;famsPDV.set(f,(famsPDV.get(f)||0)+(d.sumCA||0));}
     const famsHors=new Map();
     if(horsMag)for(const[code,d]of horsMag){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;if(!famsHors.has(f))famsHors.set(f,{ca:0,canal:d.canal||''});famsHors.get(f).ca+=d.sumCA||0;}
-    const total=omni.caPDV+omni.caHors;
-    const pdvShare=total>0?omni.caPDV/total:0;
-    const nbCanaux=omni.nbCanaux||omni.score||1;
-    const SEG={purComptoir:{icon:'🏪',label:'Pur Comptoir',color:'var(--c-ok)',desc:'Uniquement MAGASIN — 1 canal.'},purHors:{icon:'📦',label:'Pur Hors-Magasin',color:'var(--c-danger)',desc:'Jamais au comptoir — uniquement DCS/Internet/Représentant.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'MAGASIN + 1 ou 2 autres canaux.'},full:{icon:'⭐',label:'Full Omnicanal',color:'var(--c-caution)',desc:'4+ canaux distincts — client pleinement omnicanal.'}};
-    const seg=SEG[omni.segment]||SEG.purComptoir;
-    const scoreColor=omni.score>=70?'var(--c-ok)':omni.score>=40?'var(--c-caution)':'var(--c-danger)';
-    const barRow=(label,val,max,color)=>`<div class="flex items-center gap-2 mb-1"><span class="text-[9px] t-inverse-muted w-20 shrink-0">${label}</span><div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div style="width:${Math.round(val/max*100)}%;background:${color}" class="h-full rounded-full"></div></div><span class="text-[9px] font-bold t-inverse w-10 text-right">${val}/${max}</span></div>`;
+    const P=OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir;
+    const CANAL_LBL={MAGASIN:'Comptoir',REPRESENTANT:'Représentant',INTERNET:'Internet',DCS:'DCS',AUTRE:'Autre'};
+    const part=omni.partComptoir||0;
     const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const onlyPDV=[...famsPDV.entries()].filter(([f])=>!famsHors.has(f)).sort((a,b)=>b[1]-a[1]).slice(0,6);
     const famTag=(f,ca,color)=>`<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:${color};border-color:${color};opacity:0.85">${escapeHtml(f)}${ca?' '+formatEuro(ca):''}</span>`;
     omniContent=`<div class="p-3">
   <div class="flex items-start gap-3 mb-4">
-    <div class="flex-1">
-      <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] t-inverse-muted uppercase tracking-wide">Canaux</span><span class="text-[24px] font-extrabold leading-none" style="color:${scoreColor}">${omni.nbCanaux||omni.score}</span><span class="text-[10px] t-inverse-muted">canal${(omni.nbCanaux||omni.score)>1?'x':''}</span></div>
-      <div class="h-2 rounded-full bg-white/10 overflow-hidden mb-3"><div style="width:${Math.min(nbCanaux/4*100,100)}%;background:${scoreColor}" class="h-full rounded-full"></div></div>
-      ${barRow('CA PDV',omni.caPDV>0?1:0,1,'var(--c-ok)')}
-      ${barRow('CA hors-agence',omni.caHors>0?1:0,1,'var(--c-info,#3b82f6)')}
+    <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[130px]">
+      <div class="text-[22px]">${P.icon}</div>
+      <div class="text-[11px] font-bold mt-0.5 t-inverse">${P.label}</div>
+      <div class="text-[9px] t-inverse-muted mt-1">profil canal</div>
     </div>
-    <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[90px]">
-      <div class="text-[22px]">${seg.icon}</div>
-      <div class="text-[10px] font-bold mt-0.5" style="color:${seg.color}">${seg.label}</div>
-      <div class="text-[8px] t-inverse-muted mt-1 leading-tight max-w-[85px]">${seg.desc}</div>
+    <div class="flex-1">
+      <p class="text-[11px] t-inverse leading-relaxed">${P.piste}</p>
+      <p class="text-[9px] t-inverse-muted uppercase tracking-wide mt-3 mb-1">Canaux utilisés sur 12 mois · dernière commande</p>
+      <div class="flex flex-wrap gap-1">${(omni.canaux||[]).length?omni.canaux.map(c=>`<span class="text-[10px] px-2 py-0.5 rounded-full border b-dark t-inverse">${CANAL_LBL[c.canal]||c.canal} · ${c.jours<=0?'ce jour':c.jours+' j'}</span>`).join(''):'<span class="text-[10px] t-inverse-muted">aucune commande sur 12 mois</span>'}</div>
     </div>
   </div>
   <div class="mb-4 p-2.5 rounded-lg s-panel-inner border b-dark">
-    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">Répartition CA</p>
-    <div class="flex h-3 rounded-full overflow-hidden mb-1.5">${total>0?`<div style="width:${Math.round(pdvShare*100)}%;background:var(--c-ok)" title="PDV"></div><div style="width:${Math.round((1-pdvShare)*100)}%;background:var(--c-caution)" title="Digital"></div>`:'<div style="width:100%;background:#ffffff20"></div>'}</div>
-    <div class="flex justify-between text-[9px]"><span style="color:var(--c-ok)">🏪 PDV\u00a0: <strong>${formatEuro(omni.caPDV)}</strong>${total>0?` (${Math.round(pdvShare*100)}%)`:''}</span><span style="color:var(--c-caution)">📱 Digital\u00a0: <strong>${formatEuro(omni.caHors)}</strong>${total>0?` (${Math.round((1-pdvShare)*100)}%)`:''}</span></div>
+    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">CA dans ton agence · ${omni.sur12m?'12 mois':'historique chargé'} · tous canaux</p>
+    ${omni.caAgence>0?`<div class="flex h-3 rounded-full overflow-hidden mb-1.5"><div style="width:${part}%;background:var(--c-ok)" title="Comptoir"></div><div style="width:${100-part}%;background:var(--c-info,#3b82f6)" title="Autres canaux"></div></div>`:''}
+    <div class="flex justify-between flex-wrap gap-2 text-[10px]"><span style="color:var(--c-ok)">🏪 Comptoir : <strong>${formatEuro(omni.caComptoir)}</strong>${omni.caAgence>0?` (${part} %)`:''}</span><span style="color:var(--c-info,#60a5fa)">📦 Représentant, internet, DCS : <strong>${formatEuro(omni.caHors)}</strong></span></div>
+    ${omni.caAutres>0?`<p class="text-[10px] mt-1.5" style="color:var(--c-caution)">🌐 Dans les autres agences (historique chargé) : <strong>${formatEuro(omni.caAutres)}</strong></p>`:''}
   </div>
   ${onlyHors.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
   ${both.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
@@ -563,7 +559,7 @@ function _renderClient360(clientCode,source){
   if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
   if(livreMagArts.length)tabs.push({id:'livremag',label:`🚚 Livré MAG — ${livreMagArts.length} art.`});
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
-  if(omni)tabs.push({id:'omni',label:`📡 Omni — ${omni.score}/100`});
+  if(omni)tabs.push({id:'omni',label:`📡 Canaux — ${(OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir).label}`});
 
   const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
 
@@ -744,7 +740,6 @@ function _c360CopyResume(clientCode){
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
   const omni=_S.clientOmniScore?.get(clientCode);
-  const SEG_LABEL={purComptoir:'Pur Comptoir 🏪',purHors:'Pur Hors-Magasin 📦',hybride:'Hybride 🔀',full:'Full Omnicanal ⭐'};
   const total=(omni?.caPDV||0)+(omni?.caHors||0);
   const pctDigital=total>0?Math.round((omni?.caHors||0)/total*100):0;
   // Canal dominant hors-agence
@@ -770,7 +765,7 @@ function _c360CopyResume(clientCode){
     `CA Magasin : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
     caHors>0?`CA Digital : ${formatEuro(caHors)}${total>0?` (${pctDigital}%)`:''} · Canal : ${CANAL_TEXT[mainCanal]||mainCanal||'—'}`:'',
     daysSince!==null?`Dernière commande PDV : il y a ${daysSince}j${priorite}`:'',
-    omni?`Canaux : ${omni.nbCanaux||omni.score} · Segment : ${SEG_LABEL[omni.segment]||omni.segment}`:'',
+    omni?`Profil canal : ${(OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir).label} · comptoir ${omni.partComptoir} % du CA agence${omni.caAutres>0?` · ${formatEuro(omni.caAutres)} dans d'autres agences`:''}`:'',
     `─────────────────────────────────────────────`,
     fuyantes.length?`Familles fuyantes (hors agence, pas au PDV) :`:'',
     ...fuyantes.map(([r,ca])=>`  - ${famLib(r)||r} : ${formatEuro(ca)}`),

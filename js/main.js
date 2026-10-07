@@ -2817,7 +2817,6 @@ window._toggleHorsAgence = function() {
 };
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
 window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
-window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;window._renderSegmentsOmnicanaux?.();};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 

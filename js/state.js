@@ -74,7 +74,7 @@ _S._showHorsAgence = false; // dérivé de _clientView
 _S._showHorsZone   = false; // dérivé de _clientView
 _S._horsZonePage = 0; // 0=top5, >=1=page paginée (20/page) — Clients PDV hors zone
 _S._clientView = 'tous'; // 'tous' | 'potentiels' | 'captes' | 'horszone' | 'multicanaux'
-_S._omniSegmentFilter = ''; // '' | 'purComptoir' | 'purHors' | 'hybride' | 'full'
+_S._omniSegmentFilter = ''; // '' | 'comptoir' | 'mixte' | 'sansComptoir' | 'ailleurs'
 _S._captationFilter = ''; // '' | 'captes' | 'potentiels' | 'fideles'
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'

@@ -405,46 +405,7 @@ function _passesAllFilters(cc){
   function _invalidateKpiCache() { _kpiCache = new Map(); }
 
   // ── Segments omnicanaux — affiché au-dessus de Familles à fort achat en ligne ──
-  const SEG_LABELS={purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'};
-  function _renderSegmentsOmnicanaux(){
-    const el=document.getElementById('terrSegmentsOmni');
-    if(!el)return;
-    if(!_S.clientOmniScore?.size){el.innerHTML='';return;}
-    // Count segments WITHOUT the segment filter itself (to show totals always)
-    const savedSeg=_S._omniSegmentFilter;
-    _S._omniSegmentFilter='';
-    const segs={purComptoir:{n:0,ca:0},purHors:{n:0,ca:0},hybride:{n:0,ca:0},full:{n:0,ca:0}};
-    for(const[cc,o]of _S.clientOmniScore){
-      if(!_passesAllFilters(cc))continue;
-      const s=segs[o.segment];if(s){s.n++;s.ca+=o.caTotal||0;}
-    }
-    _S._omniSegmentFilter=savedSeg;
-    const total=Object.values(segs).reduce((s,v)=>s+v.n,0)||1;
-    const pctPC=Math.round(segs.purComptoir.n/total*100),pctPH=Math.round(segs.purHors.n/total*100),pctHy=Math.round(segs.hybride.n/total*100),pctFu=Math.max(0,100-pctPC-pctPH-pctHy);
-    const _totalTip=`${total} clients analysés — segmentés par nombre de canaux d'achat distincts (MAGASIN, INTERNET, REPRÉSENTANT, DCS…). Score = nb canaux.`;
-    const panierMoyen=(s)=>s.n>0?formatEuro(s.ca/s.n):'—';
-    const _segTips={
-      'Pur Comptoir':`Uniquement MAGASIN (1 canal). ${segs.purComptoir.n} clients · panier moyen ${panierMoyen(segs.purComptoir)}.`,
-      'Pur Hors-Magasin':`Jamais au comptoir — uniquement DCS, Internet, Représentant. ${segs.purHors.n} clients.`,
-      'Hybride':`MAGASIN + 1 ou 2 autres canaux (2-3 canaux). ${segs.hybride.n} clients · panier moyen ${panierMoyen(segs.hybride)}.`,
-      'Full Omnicanal':`4+ canaux distincts — client pleinement omnicanal. ${segs.full.n} clients · panier moyen ${panierMoyen(segs.full)}.`};
-    const af=_S._omniSegmentFilter||'';
-    const filterLabel=af?`<div class="mt-2 text-[10px]"><span class="cursor-pointer hover:underline" style="color:var(--c-action)" onclick="window._toggleOmniSegment('')">✕ Filtre actif : ${SEG_LABELS[af]||af}</span></div>`:'';
-    const tiles=[
-      ['purComptoir',segs.purComptoir,'Pur Comptoir','🏪','var(--c-ok)'],
-      ['purHors',segs.purHors,'Pur Hors-Magasin','📦','var(--c-danger)'],
-      ['hybride',segs.hybride,'Hybride','🔀','var(--c-info,#3b82f6)'],
-      ['full',segs.full,'Full Omnicanal','⭐','var(--c-caution)']
-    ];
-    const tilesHtml=tiles.map(([segKey,s,label,icon,color])=>{
-      if(!s.n)return'';
-      const isActive=af===segKey;
-      const pm=panierMoyen(s);
-      return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="window._toggleOmniSegment('${segKey}')"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold ${isActive?'t-inverse':'t-primary'}">${s.n}</span><span class="text-[9px] ${isActive?'t-inverse-muted':'t-disabled'}">${label}</span><span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(s.ca)}</span><span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">panier ${pm}</span></div>`;
-    }).join('');
-    el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span><span class="text-[10px] font-normal t-disabled ml-2">· ${_S._globalPeriodePreset||'période sélectionnée'}</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${tilesHtml}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctPC}%;background:var(--c-ok)"></div><div style="width:${pctPH}%;background:var(--c-danger);opacity:0.6"></div><div style="width:${pctHy}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctFu}%;background:var(--c-caution)"></div></div>${filterLabel}</div>`;
-  }
-
+  const SEG_LABELS={comptoir:'Comptoir seul',mixte:'Comptoir + autres canaux',sansComptoir:'Sans comptoir',ailleurs:'Aussi ailleurs'};
   // ── Sous-vue Omni — rendu dans cm-tab-content ────────────────────────────
   function renderOmniContent() {
     const s = window._S || {};
@@ -480,7 +441,6 @@ window.getKPIsByCanal = getKPIsByCanal;
 window._invalidateKpiCache = _invalidateKpiCache;
 window.computePhantomArticles = computePhantomArticles;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
-window._renderSegmentsOmnicanaux  = _renderSegmentsOmnicanaux;
 window.SEG_LABELS = SEG_LABELS;
 
 // ── ESM exports ──
