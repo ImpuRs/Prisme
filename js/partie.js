@@ -133,7 +133,9 @@ export function computePartie() {
   let num = 0, den = 0;
   for (const f of famList) { num += f.score * f.n; den += f.n; }
   const assort = den ? Math.round(num / den) : null;
-  const stock = _stockScore(st);
+  // Pas d'article fréquent mesurable (consommé non rapproché du stock) → pas de score Stock,
+  // plutôt qu'un 100 % trompeur.
+  const stock = st.serviceTotal ? _stockScore(st) : null;
 
   // ── Actions : gain = points famille (ou Stock) si l'action est menée au bout ──
   const actions = [];
@@ -151,18 +153,18 @@ export function computePartie() {
     if (c.pm) add(2, `Sortir ${c.pm} poids mort${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
     if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
   }
-  if (st.rupArts.length) {
+  if (stock != null && st.rupArts.length) {
     const gain = _stockScore({ ...st, serviceOk: st.serviceOk + st.rupInService }) - stock;
     if (gain >= 1) actions.push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', gain, title: `Commander ${st.rupArts.length} articles fréquents en rupture`, where: 'Stock · Taux de service' });
   }
-  if (st.saso) {
+  if (stock != null && st.saso) {
     const gain = _stockScore({ ...st, saso: 0 }) - stock;
     if (gain >= 1) actions.push({ id: 'stock:saso', fam: null, cockpit: 'saso', gain, title: `Ramener ${st.saso} articles en sur-stock sous leur MAX`, where: 'Stock · Sur-stock' });
   }
   actions.sort((a, b) => b.gain - a.gain);
 
   const parts = [assort, stock].filter(v => v != null);
-  const global = Math.round(parts.reduce((t, v) => t + v, 0) / parts.length);
+  const global = parts.length ? Math.round(parts.reduce((t, v) => t + v, 0) / parts.length) : null;
 
   return {
     dataKey: _dataKey(), global, assort, stock, famList, nbStores, hasSquelette,
@@ -307,6 +309,18 @@ function _render() {
     tab.innerHTML = `<div class="pt-wrap"><div class="pt-card pt-muted">Charge un consommé et un état du stock pour lancer la partie.</div></div>`;
     return;
   }
+  if (p.global == null) {
+    tab.innerHTML = `<div class="pt-wrap"><div class="pt-card pt-col" style="gap:12px;max-width:720px">
+      <div class="pt-eyebrow">La partie</div>
+      <h2 class="pt-h2">Pas encore de score pour ces données</h2>
+      <p class="pt-muted" style="margin:0;line-height:1.6">${p.nbArticles.toLocaleString('fr-FR')} articles chargés, mais rien à mesurer :</p>
+      <ul class="pt-muted" style="margin:0;padding-left:20px;line-height:1.8">
+        <li><strong style="color:var(--t-primary)">Assortiment</strong> — le squelette a besoin d'un consommé et d'un état du stock <em>multi-agences</em>.</li>
+        <li><strong style="color:var(--t-primary)">Stock</strong> — aucun article fréquent : les ventes du consommé ne se rapprochent pas des articles du stock (période ou agence différente ?).</li>
+      </ul>
+    </div></div>`;
+    return;
+  }
   const done = _S._partieDone || {};
   const hist = _S._partieHist?.length ? _S._partieHist : [];
   const prev = hist.length >= 2 ? hist[hist.length - 2] : null;
@@ -336,7 +350,9 @@ function _render() {
         ${p.hasSquelette
           ? _domainRow('Assortiment', `Squelette · ${p.famList.length} familles`, p.assort)
           : _domainRow('Assortiment', 'Charge un consommé multi-agences pour activer le squelette', null, true)}
-        ${_domainRow('Stock', `Service ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)}
+        ${p.stock != null
+          ? _domainRow('Stock', `Service ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
+          : _domainRow('Stock', 'Aucune vente rapprochée des articles en stock', null, true)}
         ${_domainRow('Clients', 'Arrive dans la prochaine étape de la refonte', null, true)}
       </div>
       <div class="pt-card pt-col" style="gap:12px">
@@ -368,7 +384,7 @@ let _persistedKey = '';
 
 async function _persist(p) {
   const store = _S.selectedMyStore;
-  if (!store) return;
+  if (!store || p.global == null) return;
   const key = `${store}|${p.dataKey}`;
   if (key === _persistedKey) return;
   _persistedKey = key;
