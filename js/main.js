@@ -31,7 +31,7 @@ import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
-import { renderAssociationsTab } from './associations.js?v=20260425m';
+import { renderAssociationsTab } from './associations.js?v=20261007a';
 import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
@@ -115,12 +115,14 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
           // Sauvegarder les données période-invariantes avant hydratation
           const _savedFull=_S.ventesLocalMag12MG.size?_S.ventesLocalMag12MG:new Map([..._S.ventesLocalMagPeriode].map(([cc,arts])=>[cc,new Map(arts)]));
           const _savedHors=_S.ventesLocalHorsMag;
+          const _savedHorsFull=_S.ventesLocalHorsMagFull;
           const _savedLastOrderAll=_S.clientLastOrderAll;
           const _savedLastOrderByCanal=_S.clientLastOrderByCanal;
           _hydrateStateFromParseResult(parseResult,_S.selectedMyStore);
           // Restaurer les invariants période (hors-MAGASIN ne change pas au refilter)
           if(!_S.ventesLocalMag12MG.size&&_savedFull.size)_S.ventesLocalMag12MG=_savedFull;
           if(!_S.ventesLocalHorsMag.size&&_savedHors.size)_S.ventesLocalHorsMag=_savedHors;
+          if(!_S.ventesLocalHorsMagFull?.size&&_savedHorsFull?.size)_S.ventesLocalHorsMagFull=_savedHorsFull;
           if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
           if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
           enrichPrixUnitaire();_enrichFinalDataWithCA();
@@ -1184,6 +1186,7 @@ _S.canalAgence=newCanalAgence;
     _S.ventesLocalMag12MG = new Map((r.ventesLocalMag12MG||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesReseauTousCanaux = new Map((r.ventesReseauTousCanaux||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesLocalHorsMag = new Map((r.ventesLocalHorsMag||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesLocalHorsMagFull = new Map((r.ventesLocalHorsMagFull||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
     _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
     _S.clientLastOrderByCanal  = new Map((r.clientLastOrderByCanal||[]).map(([k,v]) => [k, new Map(v)]));

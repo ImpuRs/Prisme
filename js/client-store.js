@@ -7,7 +7,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { getClientsActiveSetInPeriod } from './sales.js';
+import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
 
 /**
  * Construit _S.clientStore = Map<cc, ClientRecord> à partir de toutes les
@@ -29,7 +29,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   if (!pdvOnly) {
     const allCc = new Set();
     if (_S.ventesLocalMagPeriode) for (const cc of _S.ventesLocalMagPeriode.keys()) allCc.add(cc);
-    if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
+    if (getVentesHorsMagFullMap()) for (const cc of getVentesHorsMagFullMap().keys()) allCc.add(cc);
     if (_S.chalandiseData) for (const cc of _S.chalandiseData.keys()) allCc.add(cc);
     if (_S.clientLastOrder) for (const cc of _S.clientLastOrder.keys()) allCc.add(cc);
     if (_S.clientLastOrderAll) for (const cc of _S.clientLastOrderAll.keys()) allCc.add(cc);
@@ -46,7 +46,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
       const omni = _S.clientOmniScore?.get(cc);
 
       // Hors-MAGASIN agrégats
-      const horArts = _S.ventesLocalHorsMag?.get(cc);
+      const horArts = getVentesHorsMagFullMap().get(cc);
       let caHors = 0;
       const canaux = new Set();
       if (horArts) {
@@ -203,7 +203,7 @@ export function getClient(cc) {
 
 /** @returns {boolean} true si au moins une source client est peuplée */
 function _hasClientSources() {
-  return !!(_S.ventesLocalMagPeriode?.size || _S.ventesLocalHorsMag?.size
+  return !!(_S.ventesLocalMagPeriode?.size || getVentesHorsMagFullMap().size
     || _S.chalandiseData?.size || _S.clientLastOrder?.size || _S.clientsMagasin?.size);
 }
 

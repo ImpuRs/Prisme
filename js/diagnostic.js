@@ -13,7 +13,7 @@ import { computeSquelette, OMNI_PROFILS } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci } from './sales.js';
+import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci, getVentesHorsMagFullMap } from './sales.js';
 import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
@@ -229,7 +229,7 @@ function _renderClient360(clientCode,source){
   const artMapPeriod=DataStore.ventesLocalMagPeriode?.get(clientCode);
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.ventesTerrain?.length>0;
   // All-channels last order: prefer clientStore (pre-aggregated)
   const _rec=_S.clientStore?.get(clientCode);
@@ -681,7 +681,7 @@ function _c360CopyResume(clientCode){
   const _artP=DataStore.ventesLocalMagPeriode?.get(clientCode);
   const _artF=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   const _rec2=_S.clientStore?.get(clientCode);
   const caPDV=_rec2?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const caHors=_rec2?.caHors||(horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
@@ -732,7 +732,7 @@ function _c360ExportRadio(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   // Agréger CA par famille — Ici (PDV 12MG)
   const famIci={};
   if(artMapFull)for(const[code,d]of artMapFull){
@@ -938,7 +938,7 @@ function openArticlePanel(code,source){
   if(buyers&&buyers.size){
     for(const cc of buyers){
       const _magCA=((DataStore.ventesLocalMagPeriode.get(cc)||new Map()).get(code)||{}).sumCA||0;
-      const _hmCA=((_S.ventesLocalHorsMag?.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _hmCA=((getVentesHorsMagFullMap().get(cc)||new Map()).get(code)||{}).sumCA||0;
       const caArt=_magCA+_hmCA;
       const rec=_S.clientStore?.get(cc);
       const lastDate=rec?.lastOrderPDV||null;

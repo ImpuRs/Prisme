@@ -16,7 +16,7 @@ import { escapeHtml, formatEuro } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_FAM_MIN_REFS, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { computeSquelette, verdictLabel } from './engine.js';
 import { computePartie, CRIT_LABELS } from './partie.js';
-import { getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
+import { getArticleLastSaleMonthIdx, monthIdxFromDate, getVentesHorsMagFullMap } from './sales.js';
 
 const ROW_LIMIT = 60;
 
@@ -413,7 +413,7 @@ function _aiPack(f) {
     const agg = new Map();
     for (const [cc] of chal) {
       const arts = net.get(cc); if (!arts) continue;
-      const mag = _S.ventesLocalMag12MG?.get(cc), hors = _S.ventesLocalHorsMag?.get(cc);
+      const mag = _S.ventesLocalMag12MG?.get(cc), hors = getVentesHorsMagFullMap().get(cc);
       for (const [code, d] of arts) {
         if ((_S.articleFamille?.[code] || '') !== f.k || !inSf(code) || inStock.has(code)) continue;
         if (mag?.has(code) || hors?.has(code)) continue;

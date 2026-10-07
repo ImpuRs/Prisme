@@ -151,6 +151,10 @@ _S.ventesLocalMag12MG        // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sum
                               // Dev: utiliser la façade `js/sales.js` (getVentesClientMagFull, getClientCAFullAllCanaux)
 _S.ventesLocalHorsMag        // Map<cc, Map<code, {sumCA,sumPrelevee,sumCAPrelevee,countBL,canal}>>
                               // Source : tous canaux hors-MAGASIN
+                              // ⚠ FILTRÉ PAR LA PÉRIODE AU PARSING, non recalculé si la période change
+_S.ventesLocalHorsMagFull    // même structure, PLEINE PÉRIODE (oct. 2026) — analyses structurelles
+                              // (fiche client, Plan, squelette, familles hors agence, opportunités…)
+                              // Accès : sales.getVentesClientHorsMagFull(cc) / getVentesHorsMagFullMap()
 _S.clientOmniScore           // Map<cc, {segment,score,caPDV,caHors,caTotal,nbCanaux,nbBL,silenceDays}>
                               // Score omnicanal enrichi avec ventesTerrain (Qlik)
 _S.clientLastOrder           // Map<cc, Date> — dernière commande PDV
@@ -285,7 +289,7 @@ Niveaux du diagnostic :
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).
 8. **Articles spéciaux** : code ≠ 6 chiffres exactement → non stockable, exclu du calcul MIN/MAX.
-9. **Dualité PDV/hors-agence** : `ventesLocalMagPeriode` = MAGASIN only (period-filtered) ; `ventesLocalMag12MG` = MAGASIN only (pleine période 12MG) ; `ventesLocalHorsMag` = tout sauf MAGASIN. Ne jamais mélanger.
+9. **Dualité PDV/hors-agence** : `ventesLocalMagPeriode` = MAGASIN only (period-filtered) ; `ventesLocalMag12MG` = MAGASIN only (pleine période 12MG) ; `ventesLocalHorsMag` = tout sauf MAGASIN, filtré période ; `ventesLocalHorsMagFull` = tout sauf MAGASIN, pleine période (structurel). Ne jamais mélanger.
 10. **Reset colonne cache** : appeler `_resetColCache()` entre parsing consommé et stock (colonnes différentes).
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
@@ -395,7 +399,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
-`finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`,
+`finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`, `ventesLocalHorsMagFull`,
 `caClientParStore`, `chalandiseData`, `ventesTerrain`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
 `benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,

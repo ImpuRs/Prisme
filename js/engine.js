@@ -12,7 +12,7 @@ import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection, defaultPeriodRange } from './utils.js';
 import { articleLib } from './article-store.js';
-import { getVentesClientMagFull, getClientsActiveSetInPeriod } from './sales.js';
+import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
 const _vcaFull = () => getVentesClientMagFull();
@@ -737,7 +737,7 @@ export function computeReconquestCohort() {
 // mais qui achète via d'autres canaux/agences (ventesLocalHorsMag) des articles
 // dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
-  if (!_S.ventesLocalHorsMag?.size || !_S.finalData?.length) {
+  if (!getVentesHorsMagFullMap().size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
@@ -748,7 +748,7 @@ export function computeOpportuniteNette() {
     if (fam) rayonFamSet.add(fam);
   }
   const results = [];
-  for (const [cc, horsArts] of _S.ventesLocalHorsMag.entries()) {
+  for (const [cc, horsArts] of getVentesHorsMagFullMap().entries()) {
     if (!horsArts.size) continue;
     // 2a. caParFamMoi = CA chez AG22 par famille pour ce client
     const caParFamMoi = new Map();
@@ -1114,12 +1114,12 @@ export function computeOmniScores() {
 // les acheter au comptoir → signal de gamme manquante ou de captation partielle
 // Résultat : _S.famillesHors = [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 export function computeFamillesHors() {
-  if (!_vcaFull()?.size || !_S.ventesLocalHorsMag?.size) {
+  if (!_vcaFull()?.size || !getVentesHorsMagFullMap().size) {
     _S.famillesHors = [];
     return;
   }
   const famData = new Map(); // rawFam → {nbClients, caHors, canalCount:Map, clients}
-  for (const [cc, horArts] of _S.ventesLocalHorsMag) {
+  for (const [cc, horArts] of getVentesHorsMagFullMap()) {
     const pdvArts = _vcaFull().get(cc);
     if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
     // Familles achetées en PDV
@@ -1217,7 +1217,7 @@ export function computeArticleZoneIndex() {
     }
   }
   // Source 2 : ventesLocalHorsMag (Internet, Représentant, DCS)
-  for (const [cc, artMap] of (_S.ventesLocalHorsMag || new Map())) {
+  for (const [cc, artMap] of (getVentesHorsMagFullMap() || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
       if (!_isSixDigitCode(code)) continue;
@@ -1737,8 +1737,8 @@ export function applyVerdictOverrides() {
 
   // Index hors-magasin : code → cc[] (array, pas Set — moins d'alloc)
   const hmBuyers = new Map();
-  if (_S.ventesLocalHorsMag) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (getVentesHorsMagFullMap()) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       for (const code of artMap.keys()) {
         if (!finalCodes.has(code)) continue;
         let arr = hmBuyers.get(code);
@@ -1951,7 +1951,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     if (!_distOk(cc)) continue;
     const chal = _S.chalandiseData.get(cc);
     const vca = _vcaFull()?.get(cc);
-    const vcaHors = _S.ventesLocalHorsMag?.get(cc);
+    const vcaHors = getVentesHorsMagFullMap().get(cc);
     if (!vca && !vcaHors) {
       // Prospect sans achats
       clientDetails.push({

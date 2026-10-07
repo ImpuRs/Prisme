@@ -11,11 +11,12 @@ import { computeSquelette } from './engine.js';
 import { _saveSessionToIDB } from './cache.js';
 import { DataStore } from './store.js';
 import { PHYSIGAMME_COPY, getPhysigammeDecision } from './physigamme.js?v=20260425a';
-import { computePhysigamme } from './physigamme-engine.js?v=20260425b';
+import { computePhysigamme } from './physigamme-engine.js?v=20261007a';
 import { renderPhysigammeHero, renderPhysigammeKpis, renderPhysigammePerimeterBar, renderPhysigammeOutOfScope } from './physigamme-view.js?v=20260425b';
 import { renderPhysigammeArticleTable } from './physigamme-table.js?v=20260425b';
 import { buildPhysigammeDeployment, renderPhysigammeDeployment } from './physigamme-deployment.js?v=20260425c';
 import { renderMissingPanel, exportMissingOrder, exportStartupKit } from './physigamme-actions.js?v=20260425b';
+import { getVentesHorsMagFullMap } from './sales.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Données persistées : _S._associations = [{id, famA, famB, famC?, label, dateCreated}]
@@ -156,8 +157,8 @@ function _omniClientArticles() {
     }
   }
   // Source 2 : hors-MAGASIN (Web, Représentant, DCS)
-  if (_S.ventesLocalHorsMag?.size) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (getVentesHorsMagFullMap().size) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
       if (!merged.has(cc)) merged.set(cc, new Map());
       const m = merged.get(cc);
@@ -437,7 +438,7 @@ function _famStats() {
   }
 
   // Source 1b : ventesLocalHorsMag (Web, Représentant, DCS) — même structure
-  const vhm = _S.ventesLocalHorsMag;
+  const vhm = getVentesHorsMagFullMap();
   if (vhm?.size) {
     for (const [cc, artMap] of vhm) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;

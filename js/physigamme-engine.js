@@ -7,6 +7,7 @@
 import { _S } from './state.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
 import { _isMetierStrategique } from './utils.js';
+import { getVentesHorsMagFullMap } from './sales.js';
 
 function _physigammeFamLabel(codeFam) {
   const catFam = _S.catalogueFamille;
@@ -95,7 +96,7 @@ export function computePhysigamme({
   if (perimetre === 'agence') {
     // Consommé de mon agence : MAGASIN + canaux PDV hors comptoir (Web/Rep/DCS).
     processClientArticleMap(_S.ventesLocalMag12MG);
-    processClientArticleMap(_S.ventesLocalHorsMag);
+    processClientArticleMap(getVentesHorsMagFullMap());
   } else if (perimetre === 'reseau') {
     processClientArticleMap(_S.ventesReseauTousCanaux);
   } else if (perimetre === 'territoire' && _S.territoireReady && _S.ventesTerrain?.length) {

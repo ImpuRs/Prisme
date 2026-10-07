@@ -10,6 +10,7 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml, famLib, _copyCodeBtn, readExcel, readExcelAsObjects, extractClientCode, parseCSVTextToHR } from './utils.js';
 import { computeAnimation } from './engine.js';
 import { renderAssociationsTab } from './associations.js';
+import { getVentesHorsMagFullMap } from './sales.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Data Fournisseur — fichier BL national chargé par l'utilisateur
@@ -157,7 +158,7 @@ function _crossBrandData(lines, marque) {
       cp: chal?.cp || '',
       inZone: !!chal,
       // Est-ce qu'il achète chez moi ?
-      acheteChezMoi: !!(_S.ventesLocalMag12MG?.has(cc) || _S.ventesLocalHorsMag?.has(cc)),
+      acheteChezMoi: !!(_S.ventesLocalMag12MG?.has(cc) || getVentesHorsMagFullMap().has(cc)),
     };
     if (chal) clientsZone.push(entry);
     else clientsHorsZone.push(entry);

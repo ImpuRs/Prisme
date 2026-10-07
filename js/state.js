@@ -156,6 +156,7 @@ _S.ventesLocalMag12MG = new Map();
 _S.ventesReseauTousCanaux = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesLocalHorsMag = new Map();
+_S.ventesLocalHorsMagFull = new Map(); // même structure, pleine période (fiche client, familles hors agence) — via sales.getVentesClientHorsMagFull
 // CA MAGASIN dans d'autres agences : cc → totalCA (comptoir ailleurs)
 _S.ventesClientAutresAgences = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
@@ -382,7 +383,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesLocalMagPeriode = new Map(); _S.ventesLocalMag12MG = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesLocalHorsMag = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesLocalMagPeriode = new Map(); _S.ventesLocalMag12MG = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesLocalHorsMag = new Map(); _S.ventesLocalHorsMagFull = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.clientsByStoreUnivers = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise

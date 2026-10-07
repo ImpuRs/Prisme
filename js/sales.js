@@ -459,7 +459,7 @@ export function getClientArticlesJamaisIci(cc) {
   const net = _S.ventesReseauTousCanaux?.get(cc);
   if (!net) return res;
   const mag = _S.ventesLocalMag12MG?.get(cc);
-  const hors = _S.ventesLocalHorsMag?.get(cc);
+  const hors = getVentesClientHorsMagFull(cc);
   for (const [code, d] of net) {
     if (mag?.has(code) || hors?.has(code)) continue;
     const ca = d?.sumCA || 0;
@@ -467,3 +467,17 @@ export function getClientArticlesJamaisIci(cc) {
   }
   return res;
 }
+
+// ── Ventes hors comptoir d'un client, pleine période ─────────────
+// ventesLocalHorsMag est filtré par la période AU PARSING et n'est pas recalculé quand la période
+// change : les analyses structurelles client (fiche, familles hors agence) lisent la version pleine
+// période. Repli sur la version filtrée pour une session chargée avant son introduction.
+export function getVentesClientHorsMagFull(cc) {
+  const full = _S.ventesLocalHorsMagFull;
+  if (full?.size) return full.get(cc) || null;
+  return _S.ventesLocalHorsMag?.get(cc) || null;
+}
+export function getVentesHorsMagFullMap() {
+  return _S.ventesLocalHorsMagFull?.size ? _S.ventesLocalHorsMagFull : (_S.ventesLocalHorsMag || new Map());
+}
+

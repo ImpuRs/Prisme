@@ -5,7 +5,7 @@ import { computeSquelette, verdictLabel, VERDICT_PLAIN_ICON } from './engine.js'
 import { articleLib } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
-import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange } from './sales.js';
+import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange, getVentesHorsMagFullMap } from './sales.js';
 import { renderPlanFamille } from './plan-famille.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ function _prComputeRoles(codeFam) {
 
   // Index inversé hors-magasin : code → Set<cc> (construit une seule fois)
   const hmBuyers = new Map();
-  const vchm = _S.ventesLocalHorsMag;
+  const vchm = getVentesHorsMagFullMap();
   if (vchm) {
     for (const [cc, artMap] of vchm) {
       for (const code of artMap.keys()) {
@@ -344,7 +344,7 @@ function _prAgenceVocationCtx() {
   _prAgenceCtxStore = currentStore;
   const cd = _S.chalandiseData;
   const vca = getVentesClientMagFull();
-  const vcm = _S.ventesLocalHorsMag;
+  const vcm = getVentesHorsMagFullMap();
   const metierCA = new Map();   // metier → CA total
   const segCA = { chantier: 0, erp: 0, deco: 0, source: 0 };
   if (cd && (vca || vcm)) {
@@ -600,8 +600,8 @@ function computePlanStock() {
       }
     }
   }
-  if (_S.ventesLocalHorsMag) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (getVentesHorsMagFullMap()) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       const isStrat = stratClients.has(cc);
       for (const [code, data] of artMap) {
         if (!filteredCodes.has(code)) continue;
@@ -915,8 +915,8 @@ function _prRenderMetiers(fam) {
   }
   // Aussi les canaux hors-MAGASIN — seulement si ventesLocalMag12MG n'existe pas
   // (Full contient déjà TOUS les canaux, évite le double-comptage)
-  if (!hasFull && _S.ventesLocalHorsMag?.size) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (!hasFull && getVentesHorsMagFullMap().size) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || 'Non renseigné';
@@ -1699,7 +1699,7 @@ function _prComputeMetierFull(metier) {
       }
     }
     // Source 2: ventesLocalHorsMag (hors-MAGASIN → caZone only)
-    const hmArts = _S.ventesLocalHorsMag?.get(cc);
+    const hmArts = getVentesHorsMagFullMap().get(cc);
     if (hmArts) {
       for (const [code, data] of hmArts) {
         if (!/^\d{6}$/.test(code)) continue;
@@ -1835,7 +1835,7 @@ function _prComputeMetierFull(metier) {
     let caMag = 0, caLivre = 0;
     const myArts = _S.ventesLocalMagPeriode?.get(cc);
     if (myArts) for (const [, d] of myArts) caMag += +(d.sumCA || 0);
-    const hmArts = _S.ventesLocalHorsMag?.get(cc);
+    const hmArts = getVentesHorsMagFullMap().get(cc);
     if (hmArts) for (const [, d] of hmArts) caLivre += +(d.sumCA || 0);
     const total = caMag + caLivre;
     if (total > 100) clientCanal.set(cc, { caMag, caLivre, pctLivre: Math.round(caLivre / total * 100) });
@@ -1932,7 +1932,7 @@ function _prApplyMetierDist() {
         }
       };
       addArts(_S.ventesLocalMagPeriode?.get(cc), true);
-      addArts(_S.ventesLocalHorsMag?.get(cc), false);
+      addArts(getVentesHorsMagFullMap().get(cc), false);
     }
 
     if (livresClients.length) {
