@@ -298,7 +298,7 @@ Niveaux du diagnostic :
 | Onglet | Source principale | Description |
 |---|---|---|
 | La partie (accueil) | finalData + computeSquelette | Score agence /100 (Assortiment + Stock ; Clients à venir), actions « +N pts », familles notées, courbe de progression |
-| Articles | finalData | Tableau filtrable, MIN/MAX, ABC/FMR, export CSV |
+| Base articles | finalData | La base (hors Pilotage Stock) : tableau filtrable, MIN/MAX, dernière vente (consommé), export CSV ; bandeau de contexte quand on arrive filtré depuis une décision |
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
