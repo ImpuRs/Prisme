@@ -246,13 +246,13 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'portefeuille', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
+const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'portefeuille', commerce: 'commerce', direction: 'duel', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   partie: 'partie',
   table: 'base',
   plan: 'stock', arbitrage: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce', portefeuille: 'commerce',
-  conformite: 'direction', duel: 'direction',
+  duel: 'direction',
   animation: 'animation', associations: 'animation',
 };
 
@@ -317,6 +317,7 @@ export function switchTab(id) {
   if (id === 'stock') id = 'arbitrage'; // ancien stock → arbitrage
   if (id === 'omni') { switchTab('commerce'); return; }
   if (id === 'clients') id = 'portefeuille'; // Fidélisation PDV retirée → Tes clients
+  if (id === 'conformite') id = 'duel'; // Physigamme (Direction) retirée → Duel agence
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -357,16 +358,15 @@ export function switchTab(id) {
     }
   }
   // Update filter panel groups based on active tab
-  const _DIR_TABS = new Set(['conformite', 'duel']);
-  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan', direction: 'filterGroupDirection' };
-  const activeGroup = _DIR_TABS.has(id) ? 'direction' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';
+  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
+  const activeGroup = id === 'duel' ? '' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action' || id === 'conformite');
+  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action' || id === 'duel');
   // Recherche client — tout en haut, visible sur Commerce/Fidélisation
   const _CANAL_TABS = new Set(['commerce', 'clients']);
   const tsb = document.getElementById('terrSearchBlock');
@@ -382,7 +382,7 @@ export function switchTab(id) {
     _swapTacticalFilters(id);
   }
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', portefeuille: 'Filtres clients', plan: 'Filtres Plan', animation: 'Animation', associations: 'Associations', conformite: 'Direction', duel: 'Direction' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', portefeuille: 'Filtres clients', plan: 'Filtres Plan', animation: 'Animation', associations: 'Associations', duel: 'Duel agence' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;

@@ -316,6 +316,7 @@ Niveaux du diagnostic :
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
 | Conquête Terrain (« Ton territoire ») | chalandise + consommé | 4 chiffres (zone, actifs Leg., clients agence, à capter) + tableau direction → métier → secteur → clients trié par « à capter » (actifs Leg. non clients agence, aggregateACapter) ; clic = liste + CSV |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
+| Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée). Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
 | Promo | consommé | Recherche article multi-agences, mode action, tournée |
 
 ---

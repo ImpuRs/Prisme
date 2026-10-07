@@ -2442,9 +2442,6 @@ _S.articleMonthlySales=monthlySales;
       case 'associations':
         renderAssociationsTab();
         break;
-      case 'conformite':
-        window.renderConformiteTab?.();
-        break;
       case 'duel':
         window.renderDuelTab?.();
         break;
