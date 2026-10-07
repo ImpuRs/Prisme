@@ -8,7 +8,7 @@
 // Dépend de : constants.js, utils.js, state.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
+import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 import { articleLib } from './article-store.js';
@@ -1512,6 +1512,11 @@ export function computeSquelette(directionFilter) {
   return _result;
 }
 
+/** Invendu 12 mois : en stock, aucune vente locale sur la période, hors nouveautés et références père. */
+export function isInvendu(r) {
+  return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // BOUCLIER SQUELETTE — Verdicts + overrides MIN/MAX
 // Le Merchandising pilote la Supply Chain.
@@ -1746,10 +1751,16 @@ export function applyVerdictOverrides() {
     else if (r.isNouveaute) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
-    // Fix Poids Mort : challenger avec demande externe → upgrade rôle
-    if (role === 'standard' && classif === 'challenger') {
-      if (nbSt >= 3 || detention >= 0.3) role = 'incontournable';
-      else if (nbCliMetierStrat >= 1) role = 'specialiste';
+    // Challenger (jamais vendu ici) : « incontournable » = Réf Schizo seulement si le réseau
+    // le vend vraiment (cf. SQ_RESEAU_FORT_*). 3 agences à 40 €/an ne font pas une Réf Schizo.
+    if (classif === 'challenger') {
+      const caR = caReseauByCode.get(r.code) || 0;
+      const reseauFort = detention >= SQ_RESEAU_FORT_DETENTION && nbSt > 0 && caR / nbSt >= SQ_RESEAU_FORT_CA_AGENCE;
+      if (role === 'incontournable' && !reseauFort) role = 'standard';
+      if (role === 'standard') {
+        if (reseauFort) role = 'incontournable';
+        else if (nbCliMetierStrat >= 1) role = 'specialiste';
+      }
     }
 
     r._sqRole = role;
@@ -1765,8 +1776,9 @@ export function applyVerdictOverrides() {
   for (const r of (_S.finalData || [])) {
     if (r._sqClassif !== 'challenger') continue;
 
-    if (r._sqRole === 'standard' || r._sqRole === 'nouveaute') {
-      // Poids Mort / Erreur de Casting → couper les vivres
+    if (r._sqRole !== 'specialiste') {
+      // Poids Mort / Erreur de Casting / Réf Schizo → couper les vivres.
+      // Réf Schizo garde son alerte (enquête commerciale) mais pas de réappro tant qu'elle ne vend pas ici.
       if (r.nouveauMin > 0 || r.nouveauMax > 0) {
         r.nouveauMin = 0; r.nouveauMax = 0;
         r._vitesseReseau = false;
@@ -1779,7 +1791,6 @@ export function applyVerdictOverrides() {
       if (!trahisonsByFam.has(fam)) trahisonsByFam.set(fam, []);
       trahisonsByFam.get(fam).push(r);
     }
-    // Réf Schizo (incontournable) → garder, nécessite investigation commerciale
   }
 
   // Passe 2 : Ancre Métier — top 5 par famille (prix décroissant), reste purgé

@@ -176,8 +176,8 @@ _S.caClientParStore          // {store → Map<cc, totalCA>} — TOUS canaux, PL
 ```js
 _S.ventesParAgence           // {store: {code: {sumPrelevee, sumCA, countBL}}}
                               // Agrégat par agence — TOUS canaux (prélevé+enlevé)
-_S.ventesReseauTousCanaux    // Map<store, Map<cc, Map<code, {sumPrelevee,sumCA,countBL}>>>
-                              // Ventes détaillées par agence×client×article — TOUS canaux
+_S.ventesReseauTousCanaux    // Map<cc, Map<code, {sumCA,countBL,...}>> — clients de TOUTES les agences confondues
+                              // Ventes détaillées client×article, tout le réseau — TOUS canaux
                               // Source : consommé multi-agences, parse-worker
 ```
 
@@ -280,6 +280,8 @@ Niveaux du diagnostic :
 17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `ventesTerrain`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
+    **Exclusion invendus** (oct. 2026) : un article EN STOCK sans aucune vente locale (`isInvendu()` engine.js : W=0, stock>0, hors nouveauté/père) ne reçoit ni Vitesse Réseau ni médiane ERP — l'historique local nul prime.
+20. **Bouclier Squelette** (`applyVerdictOverrides`, engine.js) : un challenger (référencé, W=0) n'est « incontournable » (→ Réf Schizo) que si le réseau le vend vraiment : ≥60 % des autres agences ET ≥200 € de CA moyen par agence vendeuse (`SQ_RESEAU_FORT_*`, constants.js). Tous les challengers passent à MIN/MAX 0/0, Réf Schizo comprise (alerte gardée, pas de réappro) ; seule l'Ancre Métier (Trahison pardonnée, top 5/famille) garde 1/1.
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
 15. **Filtre Fin de Vie** : un article ne peut PAS être classé "implanter" dans le squelette si (a) son statut ERP contient "fin de série"/"fin de stock", OU (b) TOUTES les agences réseau qui le vendent ont MIN/MAX = 0/0 dans `stockParMagasin` (= produit bloqué nationalement). Exception : s'il est physiquement en stock local, il reste visible (classé challenger/poids mort pour la purge).
 19. **nbClientsPDV squelette — pleine période** : `computeSquelette()` utilise `_S.articleClientsFull` (Map<code, Set<cc>>, pleine période 12MG, hoisté hors filtre période) pour calculer `nbClientsPDV`. NE PAS utiliser `articleClients` (period-filtered) ni `clientsMagasin` (period-filtered). Même pattern que `ventesLocalMag12MG` pour `caAnnuel`.

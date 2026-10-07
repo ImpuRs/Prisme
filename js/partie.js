@@ -6,7 +6,7 @@
 // combinant 4 critères squelette (cf. PARTIE_WEIGHTS) :
 //   0. Socle tenu en rayon   — socle en stock / socle
 //   1. Trous comblés         — socle / (socle + trous prioritaires à implanter)
-//   2. Rayon propre          — 1 − poids morts en stock / refs en stock
+//   2. Rayon propre          — 1 − invendus en stock (challengers hors Ancre Métier) / refs en stock
 //   3. MIN/MAX calibrés      — ERP proche de la reco PRISME / refs en stock avec reco
 // Stock = taux de service (définition cockpit) × 60% + part hors sur-stock (SASO) × 40%.
 // Merchandising → 12MG pleine période : s'appuie sur finalData + computeSquelette(),
@@ -110,7 +110,8 @@ export function computePartie() {
     if (r._sqClassif === 'socle') { f.socleArts.push(r); if (r.stockActuel <= 0) f.socleKOArts.push(r); }
     if (r.stockActuel > 0) {
       f.stock++;
-      if (r._sqVerdict === 'Le Poids Mort') f.pmArts.push(r);
+      // Tout challenger en stock (Poids Mort, Réf Schizo, Erreur de Casting…) sauf l'Ancre Métier, gardée exprès
+      if (r._sqClassif === 'challenger' && r._sqVerdict !== 'Ancre Métier') f.pmArts.push(r);
       if (r.nouveauMax > 0) { f.reco++; if (!_calOk(r)) f.calKOArts.push(r); }
     }
   }
@@ -173,7 +174,7 @@ export function computePartie() {
         : `Implanter ${k} article${k > 1 ? 's' : ''} prioritaire${k > 1 ? 's' : ''}`;
       add(1, title, { socle: c.socle + k, trous: c.trous - k });
     }
-    if (c.pm) add(2, `Sortir ${c.pm} poids mort${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
+    if (c.pm) add(2, `Sortir ${c.pm} invendu${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
     if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
   }
   if (sp.gainRuptures >= 1) actions.push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', gain: sp.gainRuptures, title: `Commander ${sp.rupArts.length} articles fréquents en rupture`, where: 'Stock · Taux de service' });
@@ -260,7 +261,7 @@ function _critArticles(f, i) {
   const cols = [
     { arts: f.socleKOArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.'], row: r => [r.stockActuel, mm(r), r.emplacement || '—'] },
     { arts: f.trousArts, head: ['Réseau', 'Clients zone', 'Score'], row: a => [ag(a), a.nbClientsZone || 0, a.score || 0] },
-    { arts: f.pmArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.'], row: r => [r.stockActuel, mm(r), r.emplacement || '—'] },
+    { arts: f.pmArts, head: ['Stock', 'MIN/MAX ERP', 'Empl.', 'Verdict'], row: r => [r.stockActuel, mm(r), r.emplacement || '—', r._sqVerdict || ''] },
     { arts: f.calKOArts, head: ['Stock', 'ERP → reco', 'Empl.'], row: r => [r.stockActuel, `${mm(r)} → ${r.nouveauMin}/${r.nouveauMax}`, r.emplacement || '—'] },
   ][i];
   return cols;
@@ -272,7 +273,7 @@ function _critBlock(f, i, open) {
   const detail = [
     n ? `${n} incontournable${n > 1 ? 's' : ''} en rupture` : 'Tous les incontournables sont en stock',
     n ? `${n} article${n > 1 ? 's' : ''} prioritaire${n > 1 ? 's' : ''} à implanter (≥${Math.round(PARTIE_TROU_DETENTION * 100)} % du réseau à ≥${PARTIE_TROU_CA_AGENCE} €/an par agence, ou ≥${PARTIE_TROU_CLIENTS} clients de ta zone)` : 'Aucun trou prioritaire',
-    n ? `${n} poids mort${n > 1 ? 's' : ''} encore en rayon` : 'Aucun poids mort en rayon',
+    n ? `${n} article${n > 1 ? 's' : ''} en rayon sans aucune vente en 12 mois` : 'Aucun invendu en rayon',
     n ? `${n} MIN/MAX éloigné${n > 1 ? 's' : ''} de la reco PRISME` : 'MIN/MAX alignés',
   ][i];
   let list = '';

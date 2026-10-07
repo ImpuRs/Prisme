@@ -15,6 +15,7 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
 import { PARTIE_STOCK_W_SERVICE } from './constants.js';
 import { computeStockPartie } from './partie.js';
+import { isInvendu } from './engine.js';
 import { computePerfEmplacement, computeEnlevesSansRayon, renderArbitrageRayonBlock, openArbitrageSection } from './emplacement.js';
 
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -23,10 +24,6 @@ const _val = (r) => r.valeurStock != null ? r.valeurStock : (r.stockActuel || 0)
 const _n = (v) => Number(v || 0).toLocaleString('fr-FR');
 const _plural = (n, s, p) => n > 1 ? p : s;
 
-/** Invendus 12 mois : en stock, aucune vente sur la période, hors nouveautés et références père. */
-export function isInvendu(r) {
-  return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;
-}
 
 function _compute() {
   const fd = _S.finalData || [];

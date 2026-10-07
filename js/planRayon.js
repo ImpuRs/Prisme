@@ -221,9 +221,11 @@ const _ANCRE_METIER = { name: 'Ancre Métier', icon: '🎯', color: '#8b5cf6', t
 
 function _prVerdict(classif, role, code) {
   // Bouclier Squelette : si le moteur central a muté ce verdict, priorité absolue
+  // et son rôle fait foi pour les articles en catalogue (même verdict que La partie / Articles).
   if (code) {
     const fd = _prGetFdMap().get(code);
     if (fd?._sqVerdict === 'Ancre Métier') return _ANCRE_METIER;
+    if (fd?._sqRole && fd._sqClassif === classif) role = fd._sqRole;
   }
   return VERDICT_MATRIX[classif]?.[role] || { name: '—', icon: '', color: '#94a3b8', tip: '' };
 }
