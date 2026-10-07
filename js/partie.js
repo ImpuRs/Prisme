@@ -150,7 +150,10 @@ export function computePartie() {
     if (c.socleKO) add(0, `Remettre en stock ${c.socleKO} incontournable${c.socleKO > 1 ? 's' : ''} en rupture`, { socleKO: 0 });
     if (c.trous) {
       const k = Math.min(PARTIE_TROUS_PAR_ACTION, c.trous);
-      add(1, `Implanter ${k} article${k > 1 ? 's' : ''} prioritaire${k > 1 ? 's' : ''}`, { socle: c.socle + k, trous: c.trous - k });
+      const title = c.trous > k
+        ? `Implanter les ${k} premiers des ${c.trous} articles prioritaires`
+        : `Implanter ${k} article${k > 1 ? 's' : ''} prioritaire${k > 1 ? 's' : ''}`;
+      add(1, title, { socle: c.socle + k, trous: c.trous - k });
     }
     if (c.pm) add(2, `Sortir ${c.pm} poids mort${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
     if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
@@ -263,11 +266,15 @@ function _critBlock(f, i, open) {
   let list = '';
   if (open && n) {
     const spec = _critArticles(f, i);
-    const rows = spec.arts.slice(0, LIST_LIMIT).map(a => {
+    // Trous : l'action « Implanter » porte sur les PARTIE_TROUS_PAR_ACTION premiers → on les distingue.
+    const kNext = i === 1 && n > PARTIE_TROUS_PAR_ACTION ? PARTIE_TROUS_PAR_ACTION : 0;
+    const rows = spec.arts.slice(0, LIST_LIMIT).map((a, j) => {
       const cells = spec.row(a);
-      return `<tr><td class="pt-num pt-muted">${escapeHtml(a.code)}</td><td>${escapeHtml(a.libelle || '')}</td>${cells.map(v => `<td class="pt-num">${escapeHtml(String(v))}</td>`).join('')}</tr>`;
+      const sep = kNext && j === kNext ? `<tr class="pt-sep"><td colspan="${2 + cells.length}">Ensuite</td></tr>` : '';
+      return `${sep}<tr${j < kNext ? ' class="pt-next"' : ''}><td class="pt-num pt-muted">${escapeHtml(a.code)}</td><td>${escapeHtml(a.libelle || '')}</td>${cells.map(v => `<td class="pt-num">${escapeHtml(String(v))}</td>`).join('')}</tr>`;
     }).join('');
-    list = `<div class="pt-list">
+    const head = kNext ? `<div class="pt-small pt-muted" style="padding:10px 12px 0">Les ${kNext} premiers = l’action « Implanter » (meilleur score d’abord)</div>` : '';
+    list = `<div class="pt-list">${head}
       <div class="pt-scroll"><table class="pt-table"><thead><tr><th>Code</th><th>Libellé</th>${spec.head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
       <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px">
         <span>${n > LIST_LIMIT ? `${LIST_LIMIT} premiers sur ${n}` : `${n} article${n > 1 ? 's' : ''}`}</span>
