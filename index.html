@@ -1388,6 +1388,31 @@
     /* ── Articles (la base) ── */
     #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tableContext.hidden { display:none; }
+    /* ── Écran de chargement ── */
+    .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+    .ob-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+    .ob-card { position:relative; display:flex; flex-direction:column; gap:8px; padding:20px; min-height:180px; box-sizing:border-box; border-radius:20px; border:1px solid var(--pt-line); background:var(--s-card); cursor:pointer; transition:border-color .15s, background .15s; }
+    .ob-card:hover, .ob-card:focus-within, .ob-card.ob-drag { border-color:var(--t-tertiary); }
+    .ob-card.ob-drag { background:var(--s-card-alt); }
+    .ob-card.file-loaded { border-color:var(--pt-high) !important; background:color-mix(in srgb, var(--pt-high) 8%, var(--s-card)) !important; }
+    .ob-top { display:flex; justify-content:space-between; align-items:center; }
+    .ob-ico { font-size:22px; line-height:1; }
+    .ob-status { font-size:15px; line-height:1; filter:grayscale(1); opacity:.45; }
+    .file-loaded .ob-status { filter:none; opacity:1; }
+    .ob-title { font-size:18px; font-weight:600; }
+    .ob-req .ob-title::after { content:'requis'; margin-left:8px; font-size:12px; font-weight:500; color:var(--t-tertiary); vertical-align:middle; }
+    .ob-desc { font-size:13px; color:var(--t-tertiary); line-height:1.45; }
+    .ob-files { margin-top:auto; padding:10px 12px; border-radius:10px; border:1px dashed var(--pt-line); font-size:13px; color:var(--t-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ob-card.file-loaded .ob-files { border-style:solid; border-color:var(--pt-high); color:var(--t-primary); }
+    .ob-input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .ob-legacy { padding:12px 16px; border-radius:14px; border:1px dashed var(--pt-line); font-size:14px; color:var(--t-secondary); }
+    .ob-legacy > summary { display:flex; justify-content:space-between; align-items:center; cursor:pointer; list-style:none; min-height:28px; }
+    .ob-legacy > summary::-webkit-details-marker { display:none; }
+    .ob-store { padding:18px 20px; }
+    .ob-go { width:100%; min-height:56px; border:0; border-radius:16px; font:inherit; font-size:17px; font-weight:600; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); transition:transform .1s, opacity .15s; }
+    .ob-go:hover:not(:disabled) { transform:translateY(-1px); }
+    .ob-go:disabled { opacity:.35; cursor:not-allowed; }
     /* ── Plan › Par famille ── */
     #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
@@ -1901,93 +1926,98 @@
 
 
     <!-- ONBOARDING STEP 0 — premier lancement -->
-    <div id="onboardingStep0" class="mb-3">
-      <div class="flex items-center justify-between mb-3 pt-1">
-        <div>
-          <h1 class="text-lg font-extrabold t-primary leading-tight">Bonjour 👋</h1>
-          <p id="welcomeMsg" class="text-xs t-secondary mt-0.5"></p>
+    <div id="onboardingStep0" class="ob-wrap">
+      <header class="ob-head">
+        <div class="pt-col" style="gap:6px">
+          <span class="pt-eyebrow">PRISME · Voir juste, piloter vite</span>
+          <h1 class="pt-h2" style="font-size:30px">Bonjour 👋</h1>
+          <p id="welcomeMsg" class="pt-muted" style="margin:0"></p>
           <script>
             (function(){const h=new Date().getHours();const m=h<12?'Chargez vos fichiers pour démarrer la journée.':h<14?'Reprenez où vous en étiez.':h<18?'Vos données vous attendent.':'Un dernier point avant de terminer ?';document.getElementById('welcomeMsg').textContent=m;})();
           </script>
         </div>
-        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] c-action font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
-      </div>
+        <div class="pt-row" style="gap:16px">
+          <button type="button" class="pt-link pt-small" onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})">Glossaire</button>
+          <span id="importZoneCancelBtn" class="hidden"><button type="button" class="pt-btn" onclick="collapseImportZone()">Annuler</button></span>
+        </div>
+      </header>
 
       <!-- Zone de dépôt principale -->
-      <div id="importZone">
-        <div id="importZoneCancelBtn" class="hidden" style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-2)">
-          <button onclick="collapseImportZone()" style="font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--t-tertiary);background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);cursor:pointer" onmouseover="this.style.background='var(--s-hover)'" onmouseout="this.style.background='var(--s-card-alt)'">✕ Annuler</button>
-        </div>
+      <div id="importZone" class="pt-col" style="gap:28px">
 
-        <!-- Étape 1 — Obligatoire -->
-        <div class="onboarding-step-required mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="chip chip-sm chip-info">① Obligatoire</span>
-            <span class="text-[10px] t-tertiary">Analyse du stock · ABC/FMR · MIN/MAX · Réseau</span>
+        <section class="pt-col" style="gap:12px">
+          <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+            <h3 class="pt-h3">Pour démarrer</h3>
+            <span class="pt-small pt-muted">Ces deux fichiers suffisent : stock, MIN/MAX, squelette, réseau</span>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div id="dropConsomme" class="onboarding-dropzone onboarding-dropzone--required">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-action">📊 Ventes (Consommé)</span>
-                <span id="statusConsomme" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] c-action mb-2">Fichier(s) consommé — .xlsx ou .csv (multi-fichiers OK)</p>
-              <input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" multiple onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropStock" class="onboarding-dropzone onboarding-dropzone--required">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-action">📦 État du Stock</span>
-                <span id="statusStock" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] c-action mb-2">Statuts, Valeurs, MIN/MAX</p>
-              <input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/>
-            </div>
+          <div class="ob-grid">
+            <label id="dropConsomme" class="ob-card ob-req" for="fileConsomme">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">📊</span><span id="statusConsomme" class="ob-status">⭕</span></span>
+              <span class="ob-title">Ventes (consommé)</span>
+              <span class="ob-desc">Export consommé multi-agences, .xlsx ou .csv. Plusieurs fichiers possibles (ex. 2025 + 2026).</span>
+              <span class="ob-files">Choisir ou glisser les fichiers</span>
+              <input type="file" id="fileConsomme" class="ob-input" accept=".xlsx,.xls,.csv" multiple onchange="onFileSelected(this,'dropConsomme')"/>
+            </label>
+            <label id="dropStock" class="ob-card ob-req" for="fileStock">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">📦</span><span id="statusStock" class="ob-status">⭕</span></span>
+              <span class="ob-title">État du stock</span>
+              <span class="ob-desc">État du stock à l’article, par dépôt : statuts, valeurs, MIN/MAX.</span>
+              <span class="ob-files">Choisir ou glisser le fichier</span>
+              <input type="file" id="fileStock" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')"/>
+            </label>
           </div>
-        </div>
+        </section>
 
-        <!-- Étape 2 — Optionnel : toujours visible -->
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="chip chip-sm chip-caution">② Optionnel</span>
-            <span class="text-[10px] t-tertiary">Commerce · Cockpit client · Terrain · Livraisons</span>
+        <section class="pt-col" style="gap:12px">
+          <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+            <h3 class="pt-h3">Pour aller plus loin</h3>
+            <span class="pt-small pt-muted">Facultatif · active Pilotage Commercial et les fiches clients</span>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div id="dropChalandise" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">🗺️ Zone de Chalandise</span>
-                <span id="statusChalandise" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">Export Qlik clients — active Commerce · multi-agences possible</p>
-              <input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropLivraisons" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">📋 Livraisons</span>
-                <span id="statusLivraisons" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">BL livrés domicile — export Qlik</p>
-              <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropForcage" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">🔗 Rattachement Commercial</span>
-                <span id="statusForcage" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">Table de forçage locale — Code Client | Commercial</p>
-              <input type="file" id="fileForcage" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
+          <div class="ob-grid">
+            <label id="dropChalandise" class="ob-card ob-opt" for="fileChalandise">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">🗺️</span><span id="statusChalandise" class="ob-status">⭕</span></span>
+              <span class="ob-title">Zone de chalandise</span>
+              <span class="ob-desc">Export Qlik des clients de la zone : métier, classification, commercial, CA Legallais.</span>
+              <span class="ob-files">Choisir ou glisser les fichiers</span>
+              <input type="file" id="fileChalandise" class="ob-input" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)"/>
+            </label>
+            <label id="dropForcage" class="ob-card ob-opt" for="fileForcage">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">🔗</span><span id="statusForcage" class="ob-status">⭕</span></span>
+              <span class="ob-title">Rattachement commercial</span>
+              <span class="ob-desc">Ta table locale Code client → Commercial, pour corriger les portefeuilles.</span>
+              <span class="ob-files">Choisir ou glisser le fichier</span>
+              <input type="file" id="fileForcage" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)"/>
+            </label>
           </div>
-        </div>
+          <!-- Livraisons (Qlik) : plus extractible depuis oct. 2026 — replié, gardé si l'export revient -->
+          <details id="dropLivraisons" class="ob-legacy">
+            <summary><span>📋 Livraisons Qlik <span class="pt-muted">· plus nécessaire</span></span><span id="statusLivraisons" class="ob-status">⭕</span></summary>
+            <p class="pt-small pt-muted" style="margin:8px 0">PRISME lit les achats de tes clients dans les autres agences directement dans le consommé multi-agences. À charger seulement si tu as encore un export Qlik des BL livrés.</p>
+            <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="pt-small"/>
+          </details>
+        </section>
 
         <!-- Sélecteur magasin -->
-        <div id="storeSelector" class="hidden mb-3 p-3 i-info-bg border-2 b-dark rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold t-primary mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)" class="w-full p-2 border-2 b-dark rounded-lg text-sm font-bold t-primary s-card"><option value="">—</option></select></div><div><button id="btnRecalculer" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden bg-c-action t-inverse font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs t-secondary"></div></div></div>
-        <div id="storeWarnings" class="hidden mb-3 p-3 i-caution-bg border b-light rounded-xl text-xs c-caution"></div>
+        <div id="storeSelector" class="hidden pt-card ob-store"><div class="pt-row" style="gap:16px;flex-wrap:wrap;align-items:flex-end"><div class="pt-col" style="gap:6px;flex:1 1 220px"><label for="selectMyStore" class="pt-strong">🏪 Mon agence</label><select id="selectMyStore" class="pf-select" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)"><option value="">—</option></select></div><button id="btnRecalculer" type="button" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden pt-btn">Recalculer</button><div id="storeInfo" class="pt-small pt-muted"></div></div></div>
+        <div id="storeWarnings" class="hidden pt-card pt-small" style="color:var(--pt-mid)"></div>
 
         <!-- Bouton Analyser -->
-        <div class="text-center mb-3">
-          <button id="btnCalculer" onclick="processData()" disabled class="w-full md:w-2/3 s-panel-inner hover:s-card-alt t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button>
-        </div>
+        <button id="btnCalculer" type="button" onclick="processData()" disabled class="ob-go">Analyser</button>
       </div><!-- /importZone -->
+      <script>
+        // Glisser-déposer sur les cartes + nom des fichiers choisis
+        (function(){
+          const name=(f)=>[...f].slice(0,2).map(x=>x.name).join(' · ')+(f.length>2?` · +${f.length-2}`:'');
+          document.querySelectorAll('#importZone .ob-card').forEach(card=>{
+            const inp=card.querySelector('.ob-input'),out=card.querySelector('.ob-files'),hint=out.textContent;
+            inp.addEventListener('change',()=>{out.textContent=inp.files.length?name(inp.files):hint;});
+            ['dragenter','dragover'].forEach(t=>card.addEventListener(t,e=>{e.preventDefault();card.classList.add('ob-drag');}));
+            ['dragleave','drop'].forEach(t=>card.addEventListener(t,()=>card.classList.remove('ob-drag')));
+            card.addEventListener('drop',e=>{e.preventDefault();const fs=e.dataTransfer?.files;if(!fs?.length)return;
+              const dt=new DataTransfer();[...fs].slice(0,inp.multiple?fs.length:1).forEach(f=>dt.items.add(f));inp.files=dt.files;inp.dispatchEvent(new Event('change',{bubbles:true}));});
+          });
+        })();
+      </script>
     </div><!-- /onboardingStep0 -->
 
     <!-- ENRICH BANNER — visible après premier chargement si optionnels manquants -->
