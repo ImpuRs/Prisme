@@ -37,7 +37,7 @@ import { renderPartieTab } from './partie.js';
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
 import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitRupClients, renderMesClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './commerce.js?v=20261007a';
+import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _buildDegradedCockpit, _setCrossFilter, _setClientView, _toggleHorsMagasin } from './commerce.js?v=20261007a';
 
 // Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
 // version aux Web Workers pour éviter les mismatchs (browser cache très agressif).
@@ -2433,9 +2433,6 @@ _S.articleMonthlySales=monthlySales;
       case 'portefeuille':
         renderTesClients();
         break;
-      case 'clients':
-        window._renderPDVTab?.();
-        break;
       case 'animation':
         await renderAnimationTab();
         break;
@@ -2790,7 +2787,6 @@ window.onChalandiseSelected = async function(input) {
 };
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
-window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
@@ -2842,7 +2838,6 @@ window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
-window.renderMesClients = renderMesClients;
 window.renderCurrentTab = renderCurrentTab;
 window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
@@ -2867,7 +2862,6 @@ window.copyReportText = copyReportText;
 window.switchReportTab = switchReportTab;
 window.generateReportText = generateRegionReportText;
 window.generateRegionReportText = generateRegionReportText;
-window.importExclusionsJSON = importExclusionsJSON;
 window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
@@ -2921,11 +2915,6 @@ window.openClient360 = openClient360;
 window._c360SwitchTab = _c360SwitchTab;
 window._c360CopyResume = _c360CopyResume;
 window._c360ExportRadio = _c360ExportRadio;
-window.excludeClient = _showExcludePrompt;
-window.confirmExclude = _confirmExclude;
-window._showExcludePrompt = _showExcludePrompt;
-window._confirmExclude = _confirmExclude;
-window._unexcludeClient = _unexcludeClient;
 window.renderComparison = renderComparison;
 window.renderHealthScore = renderHealthScore;
 window.exportAgenceSnapshot = exportAgenceSnapshot;
@@ -3179,11 +3168,6 @@ window.importKPIhistory = importKPIhistory;
 window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
-window._cockpitToggleSection    = _cockpitToggleSection;
-window._cockpitToggleFullList   = _cockpitToggleFullList;
-window.exportCockpitCSV         = exportCockpitCSV;
-window.exportCockpitCSVAll      = exportCockpitCSVAll;
-window.exportExclusionsJSON     = exportExclusionsJSON;
 // Territoire / Vue Terrain — toggles direction/métier/secteur/famille (onclick HTML généré)
 window._toggleOverviewL2        = _toggleOverviewL2;
 window._toggleOverviewL3        = _toggleOverviewL3;
@@ -3199,8 +3183,6 @@ window.toggleTerrDirStatus      = toggleTerrDirStatus;
 window.toggleTerrFam            = toggleTerrFam;
 window.toggleContribDirection   = toggleContribDirection;
 // Cockpit Client — exclusions & liste masquée
-window._toggleExcludedList      = _toggleExcludedList;
-window._unexcludeAll            = _unexcludeAll;
 // Promo — accordion inline (also wired at processData)
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)

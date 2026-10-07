@@ -527,7 +527,6 @@ function resetTerrFilters(){
   document.querySelectorAll('.contrib-dir-detail.open,.contrib-sect-detail.open,.contrib-client-detail.open').forEach(el=>el.classList.remove('open'));
   document.querySelectorAll('.contrib-dir-row.open,.contrib-sect-row.open,.contrib-client-row.open').forEach(el=>el.classList.remove('open'));
   window.renderTerritoireTab();
-  window.renderMesClients?.();
 }
 
 // VOLET 2bis: Export CSV — tous les secteurs avec leurs métriques

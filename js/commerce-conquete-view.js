@@ -25,7 +25,6 @@ export function renderOverviewHead(axisLabel,captSub=''){
   return `<tr><th>${axisLabel}</th>${HEAD_STATS(captSub)}</tr>`;
 }
 
-export function renderTerrainFocusCoach(){ return ''; } // remplacé par la ligne « Priorité » du tableau
 
 function renderOverviewDataRow(d,idx,{grpId='',colSpan=10,hidden=false,prio=false}={}){
   const pct=pctPair(d);
