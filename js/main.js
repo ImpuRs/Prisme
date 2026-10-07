@@ -31,7 +31,7 @@ import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js?v=20261007b';
-import { renderAssociationsTab } from './associations.js?v=20261007b';
+import { renderAssociationsTab } from './associations.js?v=20261007c';
 import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées

@@ -1,15 +1,13 @@
 // © 2026 Jawad El Barkaoui — Tous droits réservés
 // PRISME — associations.js
-// Animation des ventes associées : benchmark réseau × familles croisées
+// Associations : familles qui s'achètent ensemble chez toi (détectées, lift) + paires manuelles
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _isMetierStrategique } from './utils.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
-import { computeSquelette } from './engine.js';
 import { _saveSessionToIDB } from './cache.js';
-import { DataStore } from './store.js';
 import { getVentesHorsMagFullMap } from './sales.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -50,54 +48,6 @@ function _assocId() { return Date.now().toString(36) + Math.random().toString(36
 // ═══════════════════════════════════════════════════════════════
 // Calcul du taux d'association par agence (via ventesParAgence)
 // ═══════════════════════════════════════════════════════════════
-
-/**
- * Agrège ventesParAgenceByCanal pour un store (tous canaux confondus).
- * Retourne un objet {code → {sumCA, countBL}} — sensible au filtre période.
- * Fallback sur ventesParAgence (pleine période) si byCanal absent.
- */
-function _vpmForStore(store) {
-  const vbc = _S.ventesParAgenceByCanal;
-  if (vbc && vbc[store]) {
-    const merged = {};
-    for (const canal in vbc[store]) {
-      for (const [code, data] of Object.entries(vbc[store][canal])) {
-        if (!merged[code]) merged[code] = { sumCA: 0, countBL: 0 };
-        merged[code].sumCA += data.sumCA || 0;
-        merged[code].countBL += data.countBL || 0;
-      }
-    }
-    return merged;
-  }
-  return _S.ventesParAgence?.[store] || {};
-}
-
-/**
- * Pour une agence du réseau, calcule le mix A/B :
- * caA, caB, refsA, refsB, blA, blB + ratio brut caB/caA.
- * Utilise ventesParAgenceByCanal (sensible période) avec fallback ventesParAgence.
- */
-function _computeAssocForStore(store, famA, famB) {
-  const sd = _vpmForStore(store);
-  if (!sd || !Object.keys(sd).length) return { blA: 0, blB: 0, ratioRaw: 0, caA: 0, caB: 0, refsA: 0, refsB: 0 };
-
-  const catFam = _S.catalogueFamille;
-  let caA = 0, caB = 0, blA = 0, blB = 0, refsA = 0, refsB = 0;
-  for (const [code, data] of Object.entries(sd)) {
-    if (!/^\d{6}$/.test(code)) continue;
-    const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    const bl = data.countBL || 0;
-    if (bl <= 0) continue;
-    if (cf === famA) { caA += data.sumCA || 0; blA += bl; refsA++; }
-    if (cf === famB) { caB += data.sumCA || 0; blB += bl; refsB++; }
-  }
-
-  return {
-    blA, blB, refsA, refsB,
-    ratioRaw: caA > 0 ? caB / caA : 0,
-    caA, caB
-  };
-}
 
 /**
  * Vue omnicanale unifiée par client : merge ventesLocalMag12MG + ventesLocalHorsMag.
@@ -150,217 +100,259 @@ function _omniClientArticles() {
   return merged;
 }
 
-/**
- * Calcul complet pour mon agence — omnicanal (MAGASIN + Web + Représentant + DCS)
- */
-function _computeAssocMyStore(famA, famB) {
-  const catFam = _S.catalogueFamille;
-  const omni = _omniClientArticles();
-  if (!omni.size) return { clientsA: new Set(), clientsAB: new Set(), taux: 0, caA: 0, caB: 0, caBdetail: new Map() };
-
-  const clientsA = new Set();
-  const clientsAB = new Set();
-  let caA = 0, caB = 0;
-  const caBdetail = new Map(); // code → {ca, clients: Set}
-
-  for (const [cc, artMap] of omni) {
-    let hasA = false, hasB = false;
-    for (const [code, v] of artMap) {
-      const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (cf === famA) { hasA = true; caA += v.sumCA || 0; }
-      if (cf === famB) {
-        hasB = true;
-        const ca = v.sumCA || 0;
-        caB += ca;
-        if (!caBdetail.has(code)) caBdetail.set(code, { ca: 0, clients: new Set() });
-        const d = caBdetail.get(code);
-        d.ca += ca;
-        d.clients.add(cc);
-      }
-    }
-    if (hasA) clientsA.add(cc);
-    if (hasA && hasB) clientsAB.add(cc);
-  }
-
-  return {
-    clientsA,
-    clientsAB,
-    taux: clientsA.size > 0 ? Math.round(clientsAB.size / clientsA.size * 100) : 0,
-    caA, caB, caBdetail
-  };
-}
-
-/**
- * Benchmark réseau : indice d'association normalisé par agence.
- * Indice = (caB/caA)_store / median(caB/caA)_réseau × 100
- * 100 = niveau médiane, >100 = vend mieux l'association, <100 = en retard.
- * Trié par indice décroissant — qui cross-sell le mieux ?
- */
-function _benchmarkAssoc(famA, famB) {
-  // Lister les stores depuis ventesParAgenceByCanal (sensible période) ou ventesParAgence
-  const vbc = _S.ventesParAgenceByCanal || {};
-  const vpm = _S.ventesParAgence || {};
-  const allStores = new Set([...Object.keys(vbc), ...Object.keys(vpm)]);
-  const myStore = _S.selectedMyStore;
-  const raw = [];
-
-  for (const store of allStores) {
-    const r = _computeAssocForStore(store, famA, famB);
-    if (r.caA > 0 && r.blA >= 5) {
-      raw.push({ store, ...r });
-    }
-  }
-
-  if (raw.length === 0) return [];
-
-  // Médiane du ratio brut caB/caA sur l'ensemble du réseau
-  const ratios = raw.map(r => r.ratioRaw).sort((a, b) => a - b);
-  const medRatio = ratios[Math.floor(ratios.length / 2)];
-
-  // Indice normalisé pour chaque agence (100 = médiane)
-  const results = [];
-  for (const r of raw) {
-    if (r.store === myStore) continue;
-    r.indice = medRatio > 0 ? Math.round(r.ratioRaw / medRatio * 100) : 0;
-    r.ratio = Math.round(r.ratioRaw * 100);
-    results.push(r);
-  }
-
-  // Mon indice aussi
-  const myR = raw.find(r => r.store === myStore);
-  const myIndice = myR && medRatio > 0 ? Math.round(myR.ratioRaw / medRatio * 100) : 0;
-
-  results.sort((a, b) => b.indice - a.indice || b.caB - a.caB);
-  results._myIndice = myIndice;
-  results._medRatio = medRatio;
-  return results;
-}
-
-/**
- * Refs vendues par la meilleure agence sur famB que mon agence ne vend pas bien
- */
-function _findMissingRefs(famB, bestStore) {
-  const myStore = _S.selectedMyStore;
-  const catFam = _S.catalogueFamille;
-  const myData = _vpmForStore(myStore);
-  const bestData = _vpmForStore(bestStore);
-
-  // Lookup squelette code → classification
-  const sqResult = _S._prSqData || computeSquelette();
-  const sqMap = new Map();
-  if (sqResult?.directions) {
-    for (const dir of sqResult.directions) {
-      for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
-        if (dir[cat]) for (const a of dir[cat]) sqMap.set(a.code, a.classification || cat);
-      }
-    }
-  }
-
-  const refs = [];
-  for (const [code, data] of Object.entries(bestData)) {
-    const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    if (cf !== famB) continue;
-    const myCa = myData[code]?.sumCA || 0;
-    const bestCa = data.sumCA || 0;
-    if (bestCa > myCa * 1.5) { // l'autre vend au moins 50% de plus
-      const fd = DataStore.finalData?.find(r => r.code === code);
-      refs.push({
-        code,
-        libelle: _S.libelleLookup?.[code] || code,
-        bestCa,
-        myCa,
-        bestBL: data.countBL || 0,
-        myBL: myData[code]?.countBL || 0,
-        enStock: (fd?.stockActuel || 0) > 0,
-        stock: fd?.stockActuel || 0,
-        sqClassif: sqMap.get(code) || null,
-        ecart: bestCa > 0 ? Math.round((bestCa - myCa) / bestCa * 100) : 0
-      });
-    }
-  }
-
-  refs.sort((a, b) => (b.bestCa - b.myCa) - (a.bestCa - a.myCa));
-  return refs.slice(0, 20);
-}
-
-/**
- * Clients cibles : achètent A mais pas B
- */
-function _findClientTargets(famA, famB) {
-  const catFam = _S.catalogueFamille;
-  const omni = _omniClientArticles();
-  if (!omni.size) return [];
-
-  const targets = [];
-  for (const [cc, artMap] of omni) {
-    let hasA = false, caA = 0, hasB = false;
-    for (const [code, v] of artMap) {
-      const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (cf === famA) { hasA = true; caA += v.sumCA || 0; }
-      if (cf === famB) hasB = true;
-    }
-    if (hasA && !hasB) {
-      // Uniquement clients PDV (au moins 1 achat MAGASIN)
-      if (!_S.ventesLocalMag12MG?.has(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      targets.push({
-        cc,
-        nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
-        metier: info?.metier || '',
-        classification: info?.classification || '',
-        commercial: info?.commercial || '',
-        caA
-      });
-    }
-  }
-
-  targets.sort((a, b) => b.caA - a.caA);
-  return targets.slice(0, 30);
-}
-
 // ═══════════════════════════════════════════════════════════════
 // Lookup libellé famille
 // ═══════════════════════════════════════════════════════════════
 
-function _famLabel(codeFam) {
-  const catFam = _S.catalogueFamille;
-  if (catFam) {
-    for (const f of catFam.values()) {
-      if (f.codeFam === codeFam && f.libFam) return f.libFam;
-    }
-  }
-  return codeFam;
-}
+function _famLabel(codeFam) { return _famName(codeFam); }
 
 // ═══════════════════════════════════════════════════════════════
 // Rendu
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// Associations détectées — les familles qui s'achètent ensemble chez toi
+// Clients du comptoir (au moins un achat MAGASIN), achats tous canaux, 12 mois (structurel).
+// « Prend aussi B » est comparé à la part de TOUS les clients qui prennent B (lift) :
+// une association n'existe que si l'écart est net.
+// ═══════════════════════════════════════════════════════════════
+
+const ASSOC_MIN_A = 40;      // clients acheteurs de la famille moteur
+const ASSOC_MIN_AB = 12;     // clients qui prennent les deux
+const ASSOC_MIN_TAUX = 0.2;  // part des acheteurs de A qui prennent B
+const ASSOC_MIN_LIFT = 4;    // vs part de tous les clients qui prennent B (en dessous : effet « gros client qui achète de tout »)
+
+let _famIdx = null;
+let _autoCache = null;
+let _famLibCache = null;
+let _sel = null;             // { A, B } paire affichée
+let _selAll = false;
+
+function _famIndex() {
+  const hm = getVentesHorsMagFullMap();
+  const key = `${_S.selectedMyStore}|${_S.ventesLocalMag12MG?.size || 0}|${hm.size}|${_assocMetierFilter}|${_assocStratFilter}`;
+  if (_famIdx?.key === key) return _famIdx;
+  const omni = _omniClientArticles();
+  const catFam = _S.catalogueFamille;
+  const famOf = code => catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+  const byClient = new Map(); // cc → Map<fam, ca>
+  const famCount = new Map();
+  for (const [cc, arts] of omni) {
+    if (!_S.ventesLocalMag12MG?.has(cc)) continue;
+    const m = new Map();
+    for (const [code, v] of arts) {
+      const f = famOf(code);
+      if (/^[A-Z]\d{2}$/.test(f)) m.set(f, (m.get(f) || 0) + (v.sumCA || 0));
+    }
+    for (const [f, ca] of m) if (ca <= 0) m.delete(f);
+    if (!m.size) continue;
+    byClient.set(cc, m);
+    for (const f of m.keys()) famCount.set(f, (famCount.get(f) || 0) + 1);
+  }
+  _famIdx = { key, byClient, famCount, n: byClient.size, omni };
+  return _famIdx;
+}
+
+function _famName(code) {
+  if (!_famLibCache) {
+    _famLibCache = new Map();
+    for (const f of (_S.catalogueFamille?.values() || [])) if (f.codeFam && f.libFam && !_famLibCache.has(f.codeFam)) _famLibCache.set(f.codeFam, f.libFam);
+  }
+  return _famLibCache.get(code) || code;
+}
+
+function _pairStats(A, B) {
+  const ix = _famIndex();
+  let nA = 0, nAB = 0, caB = 0;
+  for (const m of ix.byClient.values()) {
+    if (!m.has(A)) continue;
+    nA++;
+    if (m.has(B)) { nAB++; caB += m.get(B); }
+  }
+  const pB = ix.n ? (ix.famCount.get(B) || 0) / ix.n : 0;
+  const taux = nA ? nAB / nA : 0;
+  return { A, B, nA, nAB, taux, pB, lift: pB ? taux / pB : 0, gap: nA - nAB, caBMoy: nAB ? caB / nAB : 0 };
+}
+
+/** Les paires les plus nettes : support suffisant, lift fort, une direction par paire, 2 max par famille moteur. */
+function _autoPairs() {
+  const ix = _famIndex();
+  if (_autoCache?.key === ix.key) return _autoCache.list;
+  // Co-achats en matrice d'entiers (familles fréquentes seulement) — rapide même avec ~300 familles
+  const fams = [...ix.famCount].filter(([, n]) => n >= ASSOC_MIN_AB).map(([f]) => f);
+  const pos = new Map(fams.map((f, i) => [f, i]));
+  const F = fams.length;
+  const co = new Uint32Array(F * F);
+  const buf = new Int32Array(F);
+  for (const m of ix.byClient.values()) {
+    let k = 0;
+    for (const f of m.keys()) { const i = pos.get(f); if (i !== undefined) buf[k++] = i; }
+    for (let a = 0; a < k; a++) { const row = buf[a] * F; for (let b = 0; b < k; b++) if (a !== b) co[row + buf[b]]++; }
+  }
+  const best = [];
+  for (let x = 0; x < F; x++) for (let y = x + 1; y < F; y++) {
+    const nAB = co[x * F + y];
+    if (nAB < ASSOC_MIN_AB) continue;
+    const dirs = [[fams[x], fams[y]], [fams[y], fams[x]]].map(([A, B]) => {
+      const nA = ix.famCount.get(A), pB = ix.famCount.get(B) / ix.n, taux = nAB / nA;
+      return { A, B, nA, nAB, taux, pB, lift: taux / pB, gap: nA - nAB };
+    }).filter(d => d.nA >= ASSOC_MIN_A && d.taux >= ASSOC_MIN_TAUX && d.lift >= ASSOC_MIN_LIFT && d.gap > 0);
+    if (!dirs.length) continue;
+    dirs.sort((a, b) => b.gap * b.taux - a.gap * a.taux);
+    dirs[0].excess = nAB - dirs[0].nA * dirs[0].pB; // co-acheteurs au-delà du hasard
+    best.push(dirs[0]);
+  }
+  best.sort((a, b) => b.excess - a.excess);
+  const perA = new Map(), list = [];
+  for (const p of best) {
+    const n = perA.get(p.A) || 0;
+    if (n >= 2) continue;
+    perA.set(p.A, n + 1);
+    list.push(p);
+    if (list.length >= 15) break;
+  }
+  _autoCache = { key: ix.key, list };
+  return list;
+}
+
+/** Clients qui prennent A sans B ; « métier qui en prend » = dans son métier, les acheteurs de A prennent B nettement plus que la moyenne. */
+function _pairTargets(A, B, st) {
+  const ix = _famIndex();
+  const byMetier = new Map(); // métier → {nA, nAB}
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A)) continue;
+    const mt = _S.chalandiseData?.get(cc)?.metier || '';
+    const e = byMetier.get(mt) || { nA: 0, nAB: 0 };
+    e.nA++; if (m.has(B)) e.nAB++;
+    byMetier.set(mt, e);
+  }
+  const out = [];
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A) || m.has(B)) continue;
+    const info = _S.chalandiseData?.get(cc);
+    const mt = info?.metier || '';
+    const e = byMetier.get(mt);
+    const mTaux = e && e.nA >= 5 ? e.nAB / e.nA : null;
+    out.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: mt, commercial: info?.commercial || '',
+      caA: m.get(A), mTaux, pertinent: mTaux != null && mTaux >= Math.max(st.taux, 2 * st.pB) && mt.length > 2 });
+  }
+  out.sort((a, b) => (b.pertinent - a.pertinent) || b.caA - a.caA);
+  return out;
+}
+
+/** Ce que prennent dans B les clients qui achètent les deux — ce qu'il faut proposer. */
+function _pairTopArticles(A, B) {
+  const ix = _famIndex();
+  const catFam = _S.catalogueFamille;
+  const famOf = code => catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+  const cnt = new Map();
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A) || !m.has(B)) continue;
+    for (const [code, v] of ix.omni.get(cc) || []) {
+      if (famOf(code) !== B || !(v.sumCA > 0)) continue;
+      cnt.set(code, (cnt.get(code) || 0) + 1);
+    }
+  }
+  const fd = new Map((_S.finalData || []).map(r => [r.code, r]));
+  return [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([code, n]) => {
+    const r = fd.get(code);
+    const lib = _S.libelleLookup?.[code] || _S.catalogueDesignation?.get(code) || code;
+    return { code, n, lib: /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib, stock: r ? (r.stockActuel || 0) : null };
+  });
+}
+
+const _pct = v => `${Math.round(v * 100)} %`;
+const _x = v => `×${(Math.round(v * 10) / 10).toLocaleString('fr-FR')}`;
+
+function _renderPairDetail(A, B) {
+  const st = _pairStats(A, B);
+  const la = escapeHtml(_famName(A)), lb = escapeHtml(_famName(B));
+  const targets = _pairTargets(A, B, st);
+  const nPert = targets.filter(t => t.pertinent).length;
+  const shown = _selAll ? targets : targets.slice(0, 30);
+  const arts = _pairTopArticles(A, B);
+  const tile = (label, value, hint, color) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
+      <span class="pt-eyebrow" style="font-size:11px">${label}</span>
+      <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
+      <span class="pt-small pt-muted" style="line-height:1.35">${hint}</span>
+    </div>`;
+  const nette = st.lift >= ASSOC_MIN_LIFT;
+  const cli = shown.map(c => `<tr class="ar-click" onclick="window.openClient360?.('${c.cc}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.metier || 'métier non renseigné')}${c.commercial ? ' · ' + escapeHtml(c.commercial) : ''}</span></div></td>
+      <td>${c.pertinent ? `<span class="ar-tag" data-tone="high" title="Dans ce métier, ${_pct(c.mTaux)} des acheteurs de ${la} prennent ${lb}">son métier en prend</span>` : ''}</td>
+      <td class="pt-num ar-r">${formatEuro(c.caA)}</td>
+    </tr>`).join('');
+  const artRows = arts.map(a => `<tr class="ar-click" onclick="window.openArticlePanel?.('${a.code}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(a.lib)}</span><span class="pt-small pt-muted pt-num">${a.code}</span></div></td>
+      <td class="pt-num ar-r">${a.n}</td>
+      <td class="ar-r">${a.stock == null ? '<span class="ar-tag">pas en stock</span>' : a.stock > 0 ? `<span class="pt-num">${a.stock}</span>` : '<span class="ar-tag" data-tone="low">rupture</span>'}</td>
+    </tr>`).join('');
+  return `<section class="pt-card pt-col" id="assocDetail" style="gap:18px;scroll-margin-top:120px">
+    <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px;flex:1;min-width:260px">
+        <span class="pt-eyebrow">Association</span>
+        <h3 class="pt-h2">${la} → ${lb}</h3>
+        <span class="pt-muted">${nette ? `Un client ${la} prend ${lb} ${_x(st.lift)} plus souvent que la moyenne de tes clients.` : `Pas d’association nette chez toi : un client ${la} prend ${lb} à peine plus souvent que la moyenne (${_x(st.lift)}).`}</span>
+      </div>
+      ${targets.length ? `<button type="button" class="pt-btn" onclick="window._assocExportTargets('${A}','${B}')">Exporter les ${targets.length} clients</button>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+      ${tile(`Prennent aussi ${lb}`, _pct(st.taux), `${st.nAB} de tes ${st.nA} clients ${la}`, nette ? 'var(--pt-high)' : 'var(--t-primary)')}
+      ${tile('Moyenne de tes clients', _pct(st.pB), `tous clients confondus · écart ${_x(st.lift)}`)}
+      ${tile('À travailler', String(st.gap), `achètent ${la}, pas ${lb}${nPert ? ` · ${nPert} dans un métier qui en prend` : ''}`, 'var(--pt-mid)')}
+      ${tile(`${lb} par client`, formatEuro(st.caBMoy), 'CA moyen chez ceux qui prennent les deux · 12 mois')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+      <div class="pt-col" style="gap:8px">
+        <h4 class="pt-h3" style="font-size:16px">Clients à travailler</h4>
+        ${targets.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+          <thead><tr><th>Client</th><th></th><th class="ar-r">CA ${la}</th></tr></thead><tbody>${cli}</tbody></table></div></div>
+          ${targets.length > shown.length ? `<button type="button" class="pt-link pt-small" style="align-self:flex-start" onclick="window._assocSelAll()">Voir les ${targets.length} clients</button>` : ''}` : '<p class="pt-small pt-muted" style="margin:0">Tous tes clients concernés prennent déjà les deux.</p>'}
+      </div>
+      <div class="pt-col" style="gap:8px">
+        <h4 class="pt-h3" style="font-size:16px">Quoi leur proposer <span class="pt-small pt-muted" style="font-weight:400">ce que prennent ceux qui achètent les deux</span></h4>
+        ${arts.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+          <thead><tr><th>Article ${lb}</th><th class="ar-r">Clients</th><th class="ar-r">Stock</th></tr></thead><tbody>${artRows}</tbody></table></div></div>` : '<p class="pt-small pt-muted" style="margin:0">—</p>'}
+      </div>
+    </div>
+  </section>`;
+}
+
 function _renderAssociations() {
   _ensureAssoc();
   const assocs = _S._associations;
-  const head = `<section class="pt-card pt-col" style="gap:14px">
+  const auto = _autoPairs();
+  if (!_sel && auto.length) _sel = { A: auto[0].A, B: auto[0].B };
+  const ix = _famIndex();
+  const isSel = (A, B) => _sel && _sel.A === A && _sel.B === B;
+  const rows = auto.map(p => `<tr class="ar-click${isSel(p.A, p.B) ? ' pt-next' : ''}" onclick="window._assocSelect('${p.A}','${p.B}')">
+      <td><span class="pt-strong">${escapeHtml(_famName(p.A))}</span> <span class="pt-muted">→</span> <span class="pt-strong">${escapeHtml(_famName(p.B))}</span></td>
+      <td class="pt-num ar-r">${_pct(p.taux)}</td>
+      <td class="pt-num ar-r pt-muted">${_pct(p.pB)}</td>
+      <td class="pt-num ar-r pt-strong" style="color:var(--pt-high)">${_x(p.lift)}</td>
+      <td class="pt-num ar-r">${p.gap}</td>
+    </tr>`).join('');
+  const mine = assocs.length ? `<div class="pt-row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="pt-small pt-muted">Tes paires :</span>
+      ${assocs.map(a => `<span class="ar-chip${isSel(a.famA, a.famB) ? ' ar-chip-on' : ''}" style="display:inline-flex;align-items:center;gap:8px"><button type="button" class="pt-link" style="padding:0;color:inherit;font-weight:inherit" onclick="window._assocSelect('${a.famA}','${a.famB}')">${escapeHtml(_famName(a.famA))} → ${escapeHtml(_famName(a.famB))}</button><button type="button" class="pt-link" style="padding:0;color:var(--t-tertiary)" title="Retirer" onclick="window._assocDelete('${a.id}')">✕</button></span>`).join('')}
+    </div>` : '';
+  let html = `<section class="pt-card pt-col" style="gap:14px">
     <div class="pt-row pt-between" style="gap:16px;flex-wrap:wrap;align-items:flex-start">
       <div class="pt-col" style="gap:4px;flex:1;min-width:260px">
         <span class="pt-eyebrow">Associations</span>
-        <h3 class="pt-h2">Vendre la famille qui va avec</h3>
-        <span class="pt-muted">Choisis une famille « moteur » (ex. robinetterie) et celle qui devrait suivre (ex. raccords). PRISME mesure combien de tes clients achètent les deux, te compare au réseau et sort les clients et les articles à travailler.</span>
+        <h3 class="pt-h2">Les familles qui s’achètent ensemble chez toi</h3>
+        <span class="pt-muted">Sur tes ${ix.n.toLocaleString('fr-FR')} clients du comptoir (achats tous canaux, 12 mois). Une paire n’apparaît que si les acheteurs de la première prennent la seconde au moins ${String(ASSOC_MIN_LIFT).replace('.', ',')} fois plus souvent que la moyenne.</span>
       </div>
-      ${_S._assocEditMode ? '' : '<button type="button" class="pt-btn" onclick="window._assocNew()">Nouvelle association</button>'}
+      ${_S._assocEditMode ? '' : '<button type="button" class="pt-btn" onclick="window._assocNew()">Ajouter une paire à la main</button>'}
     </div>
-    ${_assocMetierFilter && !_S._assocEditMode ? `<div><button type="button" class="ar-chip ar-chip-on" onclick="window._assocSetMetier('')">Métier : ${escapeHtml(_assocMetierFilter === '__nonclasse__' ? 'non classé' : _assocMetierFilter)} ✕</button></div>` : ''}
+    ${_assocMetierFilter || _assocStratFilter ? `<div><button type="button" class="ar-chip ar-chip-on" onclick="window._assocSetMetier('');window._assocSetStrat('${_assocStratFilter}')">Filtre : ${escapeHtml(_assocMetierFilter === '__nonclasse__' ? 'métier non classé' : _assocMetierFilter || (_assocStratFilter === 'strat' ? 'métiers stratégiques' : 'hors stratégiques'))} ✕</button></div>` : ''}
+    ${auto.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll" style="max-height:none"><table class="pt-table">
+      <thead><tr><th>Si le client achète… → il prend aussi</th><th class="ar-r">Prennent les deux</th><th class="ar-r">Moyenne</th><th class="ar-r">Écart</th><th class="ar-r">À travailler</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>` : '<p class="pt-small pt-muted" style="margin:0">Pas assez de clients pour détecter des associations nettes.</p>'}
+    ${mine}
   </section>`;
-  let html = head;
   if (_S._assocEditMode) html += `<div class="assoc-legacy">${_renderAssocEditor()}</div>`;
-  if (!assocs.length && !_S._assocEditMode) {
-    html += `<section class="pt-card pt-col" style="gap:10px;align-items:flex-start;border-style:dashed">
-      <h3 class="pt-h3">Aucune association pour l’instant</h3>
-      <span class="pt-small pt-muted">Exemples qui marchent souvent : perçage → fixation, robinetterie → raccords, électroportatif → consommables.</span>
-      <button type="button" class="pt-btn" onclick="window._assocNew()">Créer la première</button>
-    </section>`;
-    return `<div class="pt-wrap" style="gap:20px;padding-top:8px">${html}</div>`;
-  }
-  html += assocs.map(_renderAssocCard).join('');
+  if (_sel) html += _renderPairDetail(_sel.A, _sel.B);
   return `<div class="pt-wrap" style="gap:20px;padding-top:8px">${html}</div>`;
 }
 
@@ -767,120 +759,10 @@ function _renderAssocEditor() {
   </div>`;
 }
 
-function _renderAssocCard(assoc) {
-  const { famA, famB, id } = assoc;
-  const labelA = _famLabel(famA);
-  const labelB = _famLabel(famB);
-  const my = _computeAssocMyStore(famA, famB);
-  const bench = _benchmarkAssoc(famA, famB);
-  const best = bench[0] || null;
-  const myIndice = bench._myIndice || 0;
-  const targets = _findClientTargets(famA, famB);
-  const missingRefs = best ? _findMissingRefs(famB, best.store) : [];
-  if (!_S._assocMissingRefs) _S._assocMissingRefs = {};
-  _S._assocMissingRefs[id] = { refs: missingRefs, famA: labelA, famB: labelB, bestStore: best?.store || '?' };
-
-  const tone = v => v >= 0 ? 'var(--pt-high)' : 'var(--pt-low)';
-  const tauxTone = my.taux >= 50 ? 'var(--pt-high)' : my.taux >= 25 ? 'var(--pt-mid)' : 'var(--pt-low)';
-  const isOpen = _S._assocOpenId === id;
-  const tile = (label, value, hint, color) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-      <span class="pt-eyebrow" style="font-size:11px">${label}</span>
-      <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
-      <span class="pt-small pt-muted" style="line-height:1.35">${hint}</span>
-    </div>`;
-
-  const sortedRefs = [...missingRefs].sort((a, b) => {
-    const _vo = { implanter: 0, socle: 1, challenger: 2, surveiller: 3 };
-    const va = a.sqClassif ? (_vo[a.sqClassif] ?? 4) : (a.enStock ? 4 : 5);
-    const vb = b.sqClassif ? (_vo[b.sqClassif] ?? 4) : (b.enStock ? 4 : 5);
-    return va - vb || b.bestCa - a.bestCa;
-  });
-  const refRows = sortedRefs.map(r => {
-    const sq = window._getArticleSqInfo?.(r.code);
-    const verdict = sq ? `<span class="ar-tag" title="${escapeHtml(sq.verdict.tip || '')}">${escapeHtml(sq.verdict.label || sq.verdict.name)}</span>`
-      : r.enStock ? '<span class="ar-tag" data-tone="high">En stock</span>' : '<span class="ar-tag">Hors squelette</span>';
-    return `<tr class="ar-click${!sq && !r.enStock ? ' pt-muted' : ''}" onclick="window.openArticlePanel?.('${r.code}','associations')">
-      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(r.libelle)}</span><span class="pt-small pt-muted pt-num">${r.code}</span></div></td>
-      <td class="pt-num ar-r">${formatEuro(r.bestCa)}</td>
-      <td class="pt-num ar-r">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
-      <td>${verdict}</td>
-    </tr>`;
-  }).join('');
-  const cliRows = targets.map(c => `<tr class="ar-click" onclick="window.openClient360?.('${c.cc}','associations')">
-      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.metier || '—')}${c.classification ? ' · ' + escapeHtml(c.classification) : ''}</span></div></td>
-      <td class="pt-num ar-r">${formatEuro(c.caA)}</td>
-    </tr>`).join('');
-  const benchRows = bench.slice(0, 15).map(r => `<tr${r.store === _S.selectedMyStore ? ' class="pt-next"' : ''}>
-      <td class="pt-strong">${escapeHtml(r.store)}</td>
-      <td class="pt-num ar-r">${r.ratio} %</td>
-      <td class="pt-num ar-r">${formatEuro(r.caA)}</td>
-      <td class="pt-num ar-r">${formatEuro(r.caB)}</td>
-      <td class="pt-num ar-r">${r.refsB}</td>
-    </tr>`).join('');
-
-  return `<details class="ar-sec"${isOpen ? ' open' : ''}>
-    <summary onclick="event.preventDefault();window._assocToggle('${id}')">
-      <span class="pt-col" style="gap:2px;min-width:0">
-        <span class="pt-h3">${escapeHtml(labelA)} → ${escapeHtml(labelB)}</span>
-        <span class="pt-small pt-muted">${my.clientsAB.size} de tes ${my.clientsA.size} clients ${escapeHtml(labelA)} prennent aussi ${escapeHtml(labelB)} · ${targets.length} à travailler</span>
-      </span>
-      <span class="pt-row" style="gap:16px">
-        <span class="pt-num pt-strong" style="font-size:22px;color:${tauxTone}">${my.taux} %</span>
-        <button type="button" class="pt-link pt-small" style="color:var(--t-tertiary)" onclick="event.preventDefault();event.stopPropagation();window._assocDelete('${id}')">Supprimer</button>
-        <span class="ar-chev" aria-hidden="true"></span>
-      </span>
-    </summary>
-    ${isOpen ? `<div class="ar-sec-body" style="gap:18px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-        ${tile('Ton taux', `${my.taux} %`, `${my.clientsAB.size} / ${my.clientsA.size} clients achètent les deux`, tauxTone)}
-        ${tile('Indice réseau', String(myIndice), `100 = médiane des ${bench.length} agences`, tone(myIndice - 100))}
-        ${tile('Meilleure agence', best ? best.store : '—', best ? `ratio ${best.ratio} % · ${formatEuro(best.caB)} en ${escapeHtml(labelB)}` : '')}
-        ${tile('Clients à travailler', String(targets.length), `achètent ${escapeHtml(labelA)}, pas ${escapeHtml(labelB)}`, 'var(--pt-mid)')}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
-        ${targets.length ? `<div class="pt-col" style="gap:8px">
-          <h4 class="pt-h3" style="font-size:16px">Clients à travailler</h4>
-          <div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
-            <thead><tr><th>Client</th><th class="ar-r">CA ${escapeHtml(labelA)}</th></tr></thead><tbody>${cliRows}</tbody></table></div></div>
-        </div>` : ''}
-        ${missingRefs.length ? `<div class="pt-col" style="gap:8px">
-          <div class="pt-row pt-between" style="gap:8px"><h4 class="pt-h3" style="font-size:16px">Articles à développer <span class="pt-small pt-muted" style="font-weight:400">vs ${escapeHtml(best?.store || '?')}</span></h4>
-          <button type="button" class="pt-link pt-small" onclick="window._assocExportTrous('${id}')">Exporter</button></div>
-          <div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
-            <thead><tr><th>Article</th><th class="ar-r">Chez ${escapeHtml(best?.store || '?')}</th><th class="ar-r">Chez toi</th><th>Verdict</th></tr></thead><tbody>${refRows}</tbody></table></div></div>
-        </div>` : ''}
-      </div>
-      ${bench.length ? `<details class="pt-col"><summary class="pt-link pt-small" style="cursor:pointer">Classement des ${bench.length} agences (CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)})${_assocMetierFilter ? ' — non filtré par métier' : ''}</summary>
-        <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
-          <thead><tr><th>Agence</th><th class="ar-r">Ratio B/A</th><th class="ar-r">CA ${escapeHtml(labelA)}</th><th class="ar-r">CA ${escapeHtml(labelB)}</th><th class="ar-r">Réf. B</th></tr></thead>
-          <tbody>${benchRows}</tbody></table></div></div></details>` : ''}
-    </div>` : ''}
-  </details>`;
-}
-
 // ═══════════════════════════════════════════════════════════════
 // Export CSV des 🔴 Trous
 // ═══════════════════════════════════════════════════════════════
 
-function _exportTrous(assocId) {
-  const data = _S._assocMissingRefs?.[assocId];
-  if (!data) return;
-  const trous = data.refs.filter(r => r.sqClassif === 'implanter');
-  if (!trous.length) { if (window.showToast) window.showToast('Aucun 🔴 Trou dans cette association', 'warning'); return; }
-  const sep = ';';
-  const header = ['Code', 'Libelle', 'CA ' + data.bestStore, 'CA moi', 'Ecart %', 'Verdict'].join(sep);
-  const rows = trous.map(r => [r.code, `"${(r.libelle || '').replace(/"/g, '""')}"`, Math.round(r.bestCa), Math.round(r.myCa), r.ecart + '%', 'Trou critique'].join(sep));
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `trous_${data.famA.replace(/\s+/g, '_')}_x_${data.famB.replace(/\s+/g, '_')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  if (window.showToast) window.showToast(`📥 ${trous.length} ref(s) 🔴 Trou exportées`, 'success');
-}
-window._assocExportTrous = _exportTrous;
 
 // ═══════════════════════════════════════════════════════════════
 // Rendu onglet complet
@@ -941,7 +823,7 @@ window._assocPickB = function(famB) {
     const existing = _S._associations.find(a => a.famA === famA && a.famB === famB);
     _S._assocEditMode = false;
     _S._assocEditing = null;
-    _S._assocOpenId = existing.id;
+    _sel = { A: famA, B: famB }; _selAll = false;
     renderAssociationsTab();
     return;
   }
@@ -957,7 +839,7 @@ window._assocPickB = function(famB) {
   _S._assocEditMode = false;
   _S._assocEditing = null;
   _S._assocSearchA = '';
-  _S._assocOpenId = _S._associations[_S._associations.length - 1].id;
+  _sel = { A: famA, B: famB }; _selAll = false;
 
   _saveSessionToIDB();
   renderAssociationsTab();
@@ -972,14 +854,28 @@ window._assocCancel = function() {
 
 window._assocDelete = function(id) {
   _ensureAssoc();
+  const gone = _S._associations.find(a => a.id === id);
+  if (gone && _sel && _sel.A === gone.famA && _sel.B === gone.famB) _sel = null;
   _S._associations = _S._associations.filter(a => a.id !== id);
   _saveSessionToIDB();
   renderAssociationsTab();
 };
 
-window._assocToggle = function(id) {
-  _S._assocOpenId = _S._assocOpenId === id ? null : id;
+window._assocSelect = function(A, B) {
+  _sel = { A, B }; _selAll = false;
   renderAssociationsTab();
+  document.getElementById('assocDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+window._assocSelAll = function() { _selAll = true; renderAssociationsTab(); };
+window._assocExportTargets = function(A, B) {
+  const st = _pairStats(A, B);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = _pairTargets(A, B, st).map(c => [c.cc, q(c.nom), q(c.metier), q(c.commercial), c.pertinent ? 'oui' : '', Math.round(c.caA)].join(';'));
+  const csv = '\uFEFF' + ['Code client', 'Nom', 'Métier', 'Commercial', 'Son métier en prend', `CA ${_famName(A)}`].join(';') + '\n' + rows.join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `PRISME_Association_${_famName(A)}_${_famName(B)}.csv`.replace(/[^\w.-]+/g, '_');
+  a.click(); URL.revokeObjectURL(url);
 };
 
 window._assocSetMetier = function(metier) {

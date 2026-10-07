@@ -70,8 +70,11 @@ js/
                    catalogue) : marques où une agence de ta taille fait mieux (médiane réseau ramenée à
                    ton CA, 12 mois tous canaux, _byMonthStoreArtCanal), rayon prêt (ruptures + trous réseau),
                    qui inviter (fidèles / sans la machine / à relancer / concurrence, export tournée)
-  associations.js — Animation › Associations : couples famille moteur → famille associée (Tronc Commun /
-                   Physigamme retirés oct. 2026 avec les modules physigamme-*.js)
+  associations.js — Animation › Associations : paires de familles DÉTECTÉES (clients du comptoir, achats
+                   tous canaux 12 mois) : P(B|A) ≥ 20 %, ≥ 4× la part de tous les clients qui prennent B (lift),
+                   ≥ 40 acheteurs de A, ≥ 12 des deux ; classées par co-acheteurs au-delà du hasard. Détail :
+                   clients A sans B (tag « son métier en prend »), articles B à proposer, export. Paires manuelles
+                   en option (éditeur en tuiles). Indice réseau / refs manquantes / Tronc Commun retirés oct. 2026
   pepites.js     — computePepitesStore : spécialités (≥ 2× médiane réseau) et exclusifs d'une agence,
                    affichés dans le Duel agence (« Ses spécialités »)
   promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
