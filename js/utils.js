@@ -13,6 +13,27 @@ export function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/**
+ * Période par défaut après chargement : 12 mois glissants complets.
+ * Le mois du dernier jour de données n'est compté que s'il en contient au moins 15 jours
+ * (consommé arrêté au 5 octobre → fin au 30 septembre). Dupliqué dans parse-worker.js.
+ */
+export function defaultPeriodRange(maxD) {
+  if (!maxD) return null;
+  const d = new Date(maxD);
+  let y = d.getFullYear(), m = d.getMonth();
+  if (d.getDate() < 15) { m--; if (m < 0) { m = 11; y--; } }
+  return { start: new Date(y, m - 11, 1), end: new Date(y, m + 1, 0, 23, 59, 59) };
+}
+
+/** Vrai si la période active est l'ancien défaut « mois en cours » sur un mois de moins de 15 jours de données. */
+export function isShortAutoPeriod(start, end, maxD) {
+  if (!start || !end || !maxD) return false;
+  const s = new Date(start), e = new Date(end), d = new Date(maxD);
+  return s.getDate() === 1 && s.getFullYear() === d.getFullYear() && s.getMonth() === d.getMonth()
+    && e.getMonth() === s.getMonth() && d.getDate() < 15;
+}
+
 export function formatLocalYMD(d) {
   const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
   return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

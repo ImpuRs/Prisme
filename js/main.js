@@ -10,7 +10,7 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, defaultPeriodRange, isShortAutoPeriod, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
@@ -1275,16 +1275,12 @@ _S.canalAgence=newCanalAgence;
       if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 
-      // Positionner sur le mois le plus récent par défaut (INIT ONLY — pas de render ici)
+      // Période par défaut : 12 mois glissants complets (INIT ONLY — pas de render ici)
       // C'est le SEUL endroit hors applyPeriodFilter() qui écrit periodFilterStart/End,
       // justifié car les données ne sont pas encore prêtes pour un render complet.
       if (_S._byMonth && !_S.periodFilterStart) {
-        const _maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
-        if (_maxD) {
-          const _y = _maxD.getFullYear(), _m = _maxD.getMonth();
-          _S.periodFilterStart = new Date(_y, _m, 1);
-          _S.periodFilterEnd = new Date(_y, _m+1, 0, 23, 59, 59);
-        }
+        const _r = defaultPeriodRange(_S.consommePeriodMaxFull || _S.consommePeriodMax);
+        if (_r) { _S.periodFilterStart = _r.start; _S.periodFilterEnd = _r.end; }
       }
       // Initialiser canalAgence depuis byMonthCanal (pleine période ou filtre actif)
       if (_S._byMonth) _refilterFromByMonth();
@@ -2593,6 +2589,9 @@ _S.articleMonthlySales=monthlySales;
       _S._parsingInProgress=false;
       switchTab('partie');_mc('switchTab partie');
       collapseImportZone();
+      // Sessions enregistrées avec l'ancien défaut « mois en cours » sur un mois quasi vide → 12 mois
+      {const _mx=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+       if(_S._byMonth&&isShortAutoPeriod(_S.periodFilterStart,_S.periodFilterEnd,_mx)){const _r=defaultPeriodRange(_mx);if(_r)applyPeriodFilter(_r.start.getTime(),_r.end.getTime());}}
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
       if(!_S.ventesLocalMag12MG.size&&_S.ventesLocalMagPeriode.size){

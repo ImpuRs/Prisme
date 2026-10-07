@@ -436,3 +436,34 @@ export function getArticleLastSaleMonthIdx() {
   return res;
 }
 
+
+// ── Achats d'un client dans les autres agences du consommé ─────
+// Remplace le fichier Livraisons (Qlik) quand il est absent : le consommé multi-agences voit
+// les achats tous canaux des clients dans chaque agence qu'il couvre (historique chargé complet).
+
+/** [{ store, ca }] — CA du client dans chaque autre agence, décroissant. */
+export function getClientCAParAutreAgence(cc) {
+  const out = [];
+  const my = _S.selectedMyStore;
+  for (const [store, m] of Object.entries(_S.caClientParStore || {})) {
+    if (store === my || !m?.get) continue;
+    const ca = m.get(cc) || 0;
+    if (ca > 0) out.push({ store, ca });
+  }
+  return out.sort((a, b) => b.ca - a.ca);
+}
+
+/** Map<code, ca> — articles achetés ailleurs dans le réseau et jamais pris dans mon agence (tous canaux). */
+export function getClientArticlesJamaisIci(cc) {
+  const res = new Map();
+  const net = _S.ventesReseauTousCanaux?.get(cc);
+  if (!net) return res;
+  const mag = _S.ventesLocalMag12MG?.get(cc);
+  const hors = _S.ventesLocalHorsMag?.get(cc);
+  for (const [code, d] of net) {
+    if (mag?.has(code) || hors?.has(code)) continue;
+    const ca = d?.sumCA || 0;
+    if (ca > 0) res.set(code, ca);
+  }
+  return res;
+}

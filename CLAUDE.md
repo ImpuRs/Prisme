@@ -282,7 +282,7 @@ Niveaux du diagnostic :
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
 16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesLocalMag12MG.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesLocalMagPeriode` (period-filtered) ni `ventesParAgence` (tous canaux prélevé+enlevé).
-17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `ventesTerrain`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
+17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `ventesTerrain`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes). **Sans Qlik** (fichier Livraisons plus extractible depuis oct. 2026) : `ventesClientAutresAgences` (consommé multi-agences, tous canaux) joue ce rôle — client ≥50 € dans une autre agence → canal AUTRES_AGENCES, jamais « Pur Comptoir ». Fiche client « Ailleurs » : `getClientCAParAutreAgence` / `getClientArticlesJamaisIci` (sales.js). Utilisé seulement si `ventesTerrain` est vide (pas de double compte).
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
     **Exclusion invendus** (oct. 2026) : un article EN STOCK sans aucune vente locale (`isInvendu()` engine.js : W=0, stock>0, hors nouveauté/père) ne reçoit ni Vitesse Réseau ni médiane ERP — l'historique local nul prime.
@@ -399,7 +399,8 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 |---|---|---|
 | `resetAppState()` | state.js | Reset complet → `null` |
 | `applyPeriodFilter(start,end)` | main.js | **Setter unique runtime** — refilter + render + save IDB |
-| `_postParseMain()` | main.js | Init post-parse → mois récent si pas déjà set |
+| `_postParseMain()` | main.js | Init post-parse → 12 mois glissants complets (`defaultPeriodRange`, utils.js) si pas déjà set |
+| `_initFromCache()` | main.js | Session à l'ancien défaut « mois en cours » < 15 j de données → `applyPeriodFilter(12 mois)` |
 | `_restoreSessionFromIDB()` | cache.js | Hydratation au démarrage |
 
 **NE PAS écrire `_S.periodFilterStart/End` ailleurs.** Toute mutation user doit passer par `applyPeriodFilter()`.

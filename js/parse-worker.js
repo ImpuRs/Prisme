@@ -570,9 +570,11 @@ async function _handleParseMessage(data) {
         if (_pd && !isNaN(_pd)) { var ts = _pd.getTime(); if (ts > _ps_maxTs) _ps_maxTs = ts; }
       }
       if (_ps_maxTs > 0) {
+        // 12 mois glissants complets — même règle que defaultPeriodRange() (utils.js)
         var _pD = new Date(_ps_maxTs);
         var _py = _pD.getFullYear(), _pm = _pD.getMonth();
-        periodFilterStart = new Date(_py, _pm, 1);
+        if (_pD.getDate() < 15) { _pm--; if (_pm < 0) { _pm = 11; _py--; } }
+        periodFilterStart = new Date(_py, _pm - 11, 1);
         periodFilterEnd = new Date(_py, _pm + 1, 0, 23, 59, 59);
       }
     }

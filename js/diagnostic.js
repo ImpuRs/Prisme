@@ -13,7 +13,7 @@ import { computeSquelette } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange } from './sales.js';
+import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci } from './sales.js';
 import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
@@ -470,6 +470,9 @@ function _renderClient360(clientCode,source){
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
   if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
+  // Sans Qlik : articles achetés dans les autres agences du consommé et jamais pris ici
+  const _autresAg=!hasTerr?getClientCAParAutreAgence(clientCode):[];
+  if(!hasTerr)for(const[code,ca]of getClientArticlesJamaisIci(clientCode)){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:'Autres agences'});ailleursMap.get(code).ca+=ca;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
@@ -694,7 +697,7 @@ function _renderClient360(clientCode,source){
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${iciRows}</tbody></table>`,
       livremag:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${livreMagRows}</tbody></table>`,
-      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      ailleurs:`${_autresAg.length?`<div class="text-[11px] t-inverse-muted mb-2 px-1">Achète aussi dans : ${_autresAg.slice(0,6).map(a=>`<strong class="t-inverse">${escapeHtml(a.store)}</strong> ${formatEuro(a.ca)}`).join(' · ')}${_autresAg.length>6?` · +${_autresAg.length-6} agences`:''} <span class="t-disabled">(consommé, tous canaux, historique chargé — « Autres agences » = articles jamais pris ici)</span></div>`:''}<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 

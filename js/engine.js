@@ -1031,6 +1031,13 @@ export function computeOmniScores() {
   if (_vcaOmni) for (const cc of _vcaOmni.keys()) allCc.add(cc);
   if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
   for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
+  // Sans fichier Livraisons (Qlik) : le consommé multi-agences voit les achats dans les autres
+  // agences qu'il couvre → signal AUTRES_AGENCES (même rôle que les lignes EXTÉRIEUR de Qlik).
+  const _useConsoReseau = !_terrByClient.size && _S.ventesClientAutresAgences?.size > 0;
+  const _AUTRES_MIN = 50; // € — en dessous, bruit (un dépannage isolé)
+  if (_useConsoReseau && _S.chalandiseData?.size) {
+    for (const [cc, ca] of _S.ventesClientAutresAgences) if (ca >= _AUTRES_MIN && _S.chalandiseData.has(cc)) allCc.add(cc);
+  }
   for (const cc of allCc) {
     const pdvArts = _vcaOmni?.get(cc);
     const horArts = _S.ventesLocalHorsMag?.get(cc);
@@ -1055,6 +1062,8 @@ export function computeOmniScores() {
         caHors += l.ca || 0;
       }
     }
+    const _caAutres = _useConsoReseau ? (_S.ventesClientAutresAgences.get(cc) || 0) : 0;
+    if (_caAutres >= _AUTRES_MIN) { canaux.add('AUTRES_AGENCES'); caHors += _caAutres; }
     const nbCanaux = canaux.size;
     const caTotal = caPDV + caHors;
     if (caTotal <= 0) continue; // ignorer les clients sans CA effectif
@@ -1084,6 +1093,13 @@ export function computeOmniScores() {
     if (_terrLines) {
       for (const l of _terrLines) {
         _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[l.code], l.canal === 'EXTÉRIEUR' ? 'AUTRES_AGENCES' : (l.canal || 'HORS'));
+      }
+    }
+    if (_caAutres >= _AUTRES_MIN) {
+      const _net = _S.ventesReseauTousCanaux?.get(cc);
+      if (_net) for (const [code] of _net) {
+        if (pdvArts?.has(code) || horArts?.has(code)) continue;
+        _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'AUTRES_AGENCES');
       }
     }
     const _sFams = _nbFamsCrossRef[0] >= 5 ? 20 : _nbFamsCrossRef[0] >= 3 ? 13 : _nbFamsCrossRef[0] >= 1 ? 6 : 0;

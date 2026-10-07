@@ -187,17 +187,16 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   if (iz) iz.classList.add('hidden');
   if (ob) ob.classList.add('hidden');
   banner.classList.remove('hidden');
-  // Banner enrichissement si optionnels manquants
+  // Banner enrichissement : seule la chalandise manque vraiment (Commerce & Clients en dépendent).
+  // Le fichier Livraisons (Qlik) reste un plus facultatif — on ne le réclame plus.
   const hasChal = _S.chalandiseReady || !!document.getElementById('fileChalandise')?.files[0];
-  const hasLiv  = _S.livraisonsReady || !!document.getElementById('fileLivraisons')?.files[0];
   const enrichEl = document.getElementById('enrichBanner');
   const enrichMsg = document.getElementById('enrichBannerMsg');
-  if (enrichEl && (!hasChal || !hasLiv)) {
-    const missing = [];
-    if (!hasChal) missing.push('Zone de Chalandise');
-    if (!hasLiv)  missing.push('Livraisons');
-    if (enrichMsg) enrichMsg.textContent = `Ajoutez ${missing.join(' + ')} pour activer Commerce & Clients`;
-    enrichEl.classList.remove('hidden');
+  if (enrichEl) {
+    if (!hasChal) {
+      if (enrichMsg) enrichMsg.textContent = 'Ajoutez la Zone de Chalandise pour activer Commerce & Clients';
+      enrichEl.classList.remove('hidden');
+    } else enrichEl.classList.add('hidden');
   }
   const navKpisEl = document.getElementById('navKpis');
   if (navKpisEl) navKpisEl.style.display = 'flex';
