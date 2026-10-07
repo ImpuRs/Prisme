@@ -31,6 +31,8 @@ const iMax = header.findIndex(h => /qte\s*max/.test(h));
 const iEmpl = header.findIndex(h => h === 'emplacement');
 const iStatut = header.findIndex(h => h === 'statut');
 const iLibelle = header.findIndex(h => h.startsWith('libelle'));
+const iFam = header.findIndex(h => h === 'famille');
+const iSousFam = header.findIndex(h => h === 'sous-famille');
 
 console.log(`Colonnes détectées: article=${iArticle} stock=${iStock} min=${iMin} max=${iMax} empl=${iEmpl} statut=${iStatut}`);
 
@@ -47,6 +49,8 @@ for (let i = 1; i < lines.length; i++) {
     empl: cols[iEmpl] || '',
     statut: cols[iStatut] || '',
     libelle: cols[iLibelle] || '',
+    famille: iFam >= 0 ? cols[iFam] || '' : '',
+    sousFamille: iSousFam >= 0 ? cols[iSousFam] || '' : '',
   });
 }
 console.log(`ZZAT: ${zzat.size} articles parsés`);
@@ -74,10 +78,53 @@ for (const a of articles) {
   }
 }
 
+// Articles du ZZAT absents du JSON (nouvelles implantations) → fiche minimale
+// enrichie par le catalogue (libellé, sous-famille, ref fournisseur, EAN).
+// Pas d'analyse PRISME pour eux : reco MIN/MAX = ERP, squelette « Non analysé ».
+const CAT_PATH = path.join(__dirname, '..', 'js', 'catalogue-marques.json');
+const cat = fs.existsSync(CAT_PATH) ? JSON.parse(fs.readFileSync(CAT_PATH, 'utf8')) : null;
+const eansByCode = new Map();
+if (cat?.E) for (const [ean, code] of Object.entries(cat.E)) {
+  if (!eansByCode.has(code)) eansByCode.set(code, []);
+  eansByCode.get(code).push(ean);
+}
+const known = new Set(articles.map(a => a.code));
+let added = 0, eanAdded = 0;
+if (!scan.ean) scan.ean = {};
+for (const [code, z] of zzat) {
+  if (known.has(code)) continue;
+  const c = cat?.A?.[code];
+  const f = c ? cat.F[c[1]] : null; // [codeFam, libFam, codeSF, libSF]
+  articles.push({
+    code,
+    libelle: c?.[2] || z.libelle,
+    famille: z.famille || f?.[0] || '',
+    sousFamille: f?.[2] && f?.[3] ? `${f[2]} - ${f[3]}` : z.sousFamille,
+    emplacement: z.empl,
+    statut: z.statut,
+    stockActuel: z.stock,
+    W: 0, V: 0,
+    ancienMin: z.min, ancienMax: z.max,
+    nouveauMin: z.min, nouveauMax: z.max,
+    couvertureJours: null,
+    abcClass: '', fmrClass: '', matriceVerdict: '',
+    _sqClassif: '', _sqRole: '', _sqVerdict: 'Non analysé',
+    _vitesseReseau: false, _fallbackERP: true, isParent: false,
+    _refFourn: cat?.R?.[code] || '',
+  });
+  for (const ean of eansByCode.get(code) || []) {
+    if (!scan.ean[ean]) { scan.ean[ean] = code; eanAdded++; }
+  }
+  added++;
+}
+scan.articles = articles;
+scan.count = articles.length;
+
 // Mettre à jour le timestamp
 scan.timestamp = Date.now();
 
 // Sauvegarder
 fs.writeFileSync(jsonPath, JSON.stringify(scan));
-console.log(`✓ ${updated} articles mis à jour, ${unchanged} inchangés`);
+console.log(`✓ ${updated} articles mis à jour, ${unchanged} inchangés, ${added} ajoutés (${eanAdded} EAN)`);
+if (!cat) console.log('⚠ catalogue-marques.json introuvable — articles ajoutés sans enrichissement catalogue');
 console.log(`→ ${jsonPath}`);
