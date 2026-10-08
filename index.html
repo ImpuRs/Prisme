@@ -629,6 +629,7 @@
     .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;height:100%}#filterDrawerBtn{display:none!important}}
     body.no-sidebar #filterPanel, body.no-sidebar #filterDrawerBtn{display:none!important}
+    body.no-period #tabPeriodBlock{display:none!important}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
     details>summary{position:relative}
@@ -1396,6 +1397,11 @@
     /* ── Articles (la base) ── */
     #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tableContext.hidden { display:none; }
+    /* ── Base articles : lisibilité (tailles 9–11 px héritées → 12–13 px) ── */
+    #tabTable { font-family:'Geist',system-ui,sans-serif; }
+    #tabTable .text-\[9px\], #tabTable .text-\[10px\] { font-size:12px !important; }
+    #tabTable .text-\[11px\], #tabTable .text-xs { font-size:13px !important; }
+    #tabTable table td, #tabTable table th { padding-top:8px; padding-bottom:8px; }
     /* ── Écran de chargement ── */
     .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
@@ -1455,7 +1461,7 @@
     .pf-search:focus { outline:none; border-color:var(--t-tertiary); }
     .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
     .pf-g .pt-table td { white-space:nowrap; }
-    .pf-g .pt-table td.pf-lib { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+    .pf-g .pt-table td.pf-lib { white-space:normal; min-width:200px; max-width:320px; line-height:1.3; }
     .pf-crit { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; }
   </style>
 </head>
@@ -1547,7 +1553,7 @@
       <div id="tabPeriodBlock" style="display:none;width:100%">
         <div onclick="window.toggleTabPeriodDropdown()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:0 4px">
           <span style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase">Période</span>
-          <span id="tabPeriodLabel" style="font-size:0.72rem;font-weight:700;color:var(--t-secondary)">— ▼</span>
+          <span id="tabPeriodLabel" title="La période agit sur Conquête, le Duel et la fiche client. Les autres écrans comptent toujours sur 12 mois." style="font-size:0.72rem;font-weight:700;color:var(--t-secondary)">— ▼</span>
         </div>
         <div id="tabPeriodDropdown" class="hidden" style="position:absolute;left:0;top:100%;width:100%;min-width:380px;z-index:210;padding:10px;background:var(--s-card);border:1px solid var(--b-default);border-top:none;border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(0,0,0,.3)" onclick="event.stopPropagation()">
         </div>
@@ -1622,24 +1628,7 @@
           <div id="terrSearchSuggest" class="hidden" style="position:absolute;top:100%;left:0;right:0;z-index:50;max-height:220px;overflow-y:auto;border-radius:0 0 8px 8px;border:1px solid rgba(148,163,184,0.3);border-top:none;background:var(--s-card);box-shadow:0 4px 12px rgba(0,0,0,0.3)"></div>
         </div>
 
-        <!-- CANAL GLOBAL — visible sur action/territoire/promo -->
-        <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
-          <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            <button onclick="window._setGlobalCanal('')"             class="terr-canal-chip active" data-global-canal="" style="--chip-color:#6366f1">Tous</button>
-            <button onclick="window._setGlobalCanal('MAGASIN')"      class="terr-canal-chip" data-global-canal="MAGASIN" style="--chip-color:#7c3aed">🏪 Magasin</button>
-            <button onclick="window._setGlobalCanal('INTERNET')"     class="terr-canal-chip" data-global-canal="INTERNET" style="--chip-color:#0891b2">🌐 Internet</button>
-            <button onclick="window._setGlobalCanal('REPRESENTANT')" class="terr-canal-chip" data-global-canal="REPRESENTANT" style="--chip-color:#059669">👔 Repré.</button>
-            <button onclick="window._setGlobalCanal('DCS')"          class="terr-canal-chip" data-global-canal="DCS" style="--chip-color:#d97706">📦 DCS</button>
-            <button onclick="window._setGlobalCanal('AUTRE')"        class="terr-canal-chip" data-global-canal="AUTRE" style="--chip-color:#6b7280">Autre</button>
-          </div>
-          <!-- Sous-pills Prélevé/Enlevé — visibles quand Magasin actif -->
-          <div id="globalMagasinModeBar" class="hidden flex gap-1 mt-1 pl-1">
-            <button id="globalMagModeAll"  class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('all')">Pré. + Enl.</button>
-            <button id="globalMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('preleve')">✅ Prélevé</button>
-            <button id="globalMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('enleve')">✅ Enlevé</button>
-          </div>
-        </div>
+
 
         <!-- GROUP Stock: Articles / Mon Stock / Cockpit / Radar -->
         <div id="filterGroupStock">
@@ -1728,16 +1717,52 @@
               <span id="terrCommercialKPISidebar" class="text-[9px] t-disabled font-semibold"></span>
             </div>
 
-            <!-- ── SÉPARATEUR : Périmètre ↔ Tactique ── -->
-            <div id="filterScopeBar" class="flex items-center gap-2 mt-1 mb-0.5 px-1">
-              <div class="flex-1" style="border-top:2px solid rgba(99,102,241,0.2)"></div>
-              <span class="text-[7px] font-extrabold tracking-widest uppercase" style="color:rgba(99,102,241,0.4);white-space:nowrap">Filtres tactiques</span>
-              <div class="flex-1" style="border-top:2px solid rgba(99,102,241,0.2)"></div>
+            <!-- ═══ ZONE — distance, départements ═══ -->
+            <div class="flex flex-col gap-1.5" style="border:1px solid var(--b-light);border-radius:10px;padding:8px 10px">
+              <label class="text-[11px] font-bold t-secondary uppercase tracking-wider">Zone</label>
+                <div id="distKmWrap" class="flex flex-col gap-0.5">
+                  <label class="text-[10px] font-semibold t-secondary">📍 Distance max</label>
+                  <div class="flex flex-wrap gap-1" id="distChips">
+                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Tous</button>
+                    <button onclick="window._setDistanceQuick(2)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">2 km</button>
+                    <button onclick="window._setDistanceQuick(5)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">5 km</button>
+                    <button onclick="window._setDistanceQuick(10)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">10 km</button>
+                    <button onclick="window._setDistanceQuick(15)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">15 km</button>
+                    <button onclick="window._setDistanceQuick(30)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">30 km</button>
+                  </div>
+                </div>
+                <div id="terrDeptDropdownWrap">
+                  <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
+                    <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+                  </div>
+                </div>
             </div>
 
-            <!-- Reset tactique — juste sous la ligne, n'efface que le bas -->
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full" style="margin-bottom:2px">↺ Reset filtres tactiques</button>
-
+            <!-- ═══ PLUS DE FILTRES — canal, organisation, ciblage, activité ═══ -->
+            <details id="moreCommerceFilters" class="filter-group">
+              <summary class="filter-group-header"><span>Plus de filtres</span><span class="filter-group-arrow">▶</span></summary>
+              <div class="filter-group-body" style="gap:8px">
+                <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full" style="margin-bottom:2px">↺ Reset filtres tactiques</button>
+                <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <button onclick="window._setGlobalCanal('')"             class="terr-canal-chip active" data-global-canal="" style="--chip-color:#6366f1">Tous</button>
+            <button onclick="window._setGlobalCanal('MAGASIN')"      class="terr-canal-chip" data-global-canal="MAGASIN" style="--chip-color:#7c3aed">🏪 Magasin</button>
+            <button onclick="window._setGlobalCanal('INTERNET')"     class="terr-canal-chip" data-global-canal="INTERNET" style="--chip-color:#0891b2">🌐 Internet</button>
+            <button onclick="window._setGlobalCanal('REPRESENTANT')" class="terr-canal-chip" data-global-canal="REPRESENTANT" style="--chip-color:#059669">👔 Repré.</button>
+            <button onclick="window._setGlobalCanal('DCS')"          class="terr-canal-chip" data-global-canal="DCS" style="--chip-color:#d97706">📦 DCS</button>
+            <button onclick="window._setGlobalCanal('AUTRE')"        class="terr-canal-chip" data-global-canal="AUTRE" style="--chip-color:#6b7280">Autre</button>
+          </div>
+          <!-- Sous-pills Prélevé/Enlevé — visibles quand Magasin actif -->
+          <div id="globalMagasinModeBar" class="hidden flex gap-1 mt-1 pl-1">
+            <button id="globalMagModeAll"  class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('all')">Pré. + Enl.</button>
+            <button id="globalMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('preleve')">✅ Prélevé</button>
+            <button id="globalMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('enleve')">✅ Enlevé</button>
+          </div>
+        </div>
             <!-- ═══ BLOC 2 : ORGANISATION — L'Offre ═══ -->
             <details id="filterGroupOrga" class="filter-group" open>
               <summary class="filter-group-header">
@@ -1768,25 +1793,6 @@
                 <span class="filter-group-arrow">▶</span>
               </summary>
               <div class="filter-group-body">
-                <div id="distKmWrap" class="flex flex-col gap-0.5">
-                  <label class="text-[10px] font-semibold t-secondary">📍 Distance max</label>
-                  <div class="flex flex-wrap gap-1" id="distChips">
-                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Tous</button>
-                    <button onclick="window._setDistanceQuick(2)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">2 km</button>
-                    <button onclick="window._setDistanceQuick(5)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">5 km</button>
-                    <button onclick="window._setDistanceQuick(10)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">10 km</button>
-                    <button onclick="window._setDistanceQuick(15)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">15 km</button>
-                    <button onclick="window._setDistanceQuick(30)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">30 km</button>
-                  </div>
-                </div>
-                <div id="terrDeptDropdownWrap">
-                  <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
-                  </button>
-                  <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
-                    <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
-                  </div>
-                </div>
                 <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
                 <button id="btnSansMetier" onclick="_toggleSansMetier()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-rose-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🚫 Sans métier renseigné</button>
                 <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
@@ -1826,6 +1832,8 @@
                   <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
                   <span class="t-secondary font-semibold">Inclure inactifs &gt;12m</span>
                 </label>
+              </div>
+            </details>
               </div>
             </details>
           </div>
@@ -2102,7 +2110,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008i';
+    var ASSET_V = '20261008o';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

@@ -1200,7 +1200,6 @@ function _buildChalandiseOverview(){
   }
   // Rafraîchir le sous-onglet actif + overview data
   _buildOverviewFilterChips();
-  if (document.getElementById('livSansPDVBlock')) _renderLivSansPDV('livSansPDVBlock');
   // Fidélisation PDV retirée (remplacée par « Tes clients ») : plus de rendu en arrière-plan
   // Tes clients : mêmes filtres clients que Fidélisation / Conquête
   if (_S._activeCommerceTab === 'portefeuille') window.renderTesClients?.();
@@ -1435,71 +1434,7 @@ function _buildDegradedCockpit(){
 
 // ── Export CSV Hors Zone → Table de Forçage prête à remplir ──
 
-export {
-  _renderHorsZone,
-  _passesAllFilters,
-  _syncPDVToggles,
-  computeTerritoireKPIs,
-  renderTerritoireTab,
-  renderCockpitRupClients,
-  _toggleOverviewClassif,
-  _toggleOverviewDirection,
-  _onActPDVSelect,
-  _onStatutDetailleSelect,
-  _onStatutSelect,
-  _onUniversSelect,
-  _getAllDepts,
-  _buildDeptFilter,
-  _toggleDept,
-  _resetChalandiseFilters,
-  _closeAllDropPanels,
-  _toggleDeptDropdown,
-  _toggleClassifDropdown,
-  _toggleDirectionDropdown,
-  _toggleStrategiqueFilter,
-  _onCommercialFilter,
-  _updateDistQuickBtns,
-  _onTerrClientSearch,
-  _onMetierFilter,
-  _navigateToOverviewMetier,
-  _toggleExcludeActifsConsomme,
-  _togglePerdu24m,
-  _buildOverviewFilterChips,
-  _buildChalandiseOverview,
-  _toggleOverviewL2,
-  _renderOverviewL2,
-  _toggleOverviewL3,
-  _renderOverviewL3,
-  _toggleOverviewL4,
-  _overviewClientSort,
-  _renderOverviewL4,
-  _populateTerrFamilleFilter,
-  _buildDegradedCockpit,
-  renderCommerceTab
-};
-
-// ── Livrés sans PDV — accordéon Conquête Terrain ─────────────────────────
-function _renderLivSansPDV(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  const raw = _S.livraisonsSansPDV || [];
-  const _com = _S._selectedCommercial || '';
-  const _comSet = _com ? (_S.clientsByCommercial?.get(_com) || new Set()) : null;
-  const filtered = _comSet ? raw.filter(r => _comSet.has(r.cc)) : raw;
-  const list = filtered.filter(r => r.caLivraison >= 500 && r.metier && _isMetierStrategique(r.metier));
-  if (!list.length) {
-    el.innerHTML = _S.livraisonsReady ? `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">0 clients</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>` : '';
-    return;
-  }
-  const _mkRow = r => {
-    const _clCls = r.classification?.startsWith('FID') ? 'c-ok' : r.classification?.startsWith('OCC') ? 'c-caution' : 't-disabled';
-    return `<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier || '—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification || '—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial || '—')}</td></tr>`;
-  };
-  const thStr = `<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">CA livraison</th><th class="py-2 px-2 text-right">Nb BL</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
-  const top10 = list.slice(0, 10).map(_mkRow).join('');
-  const moreHtml = list.length > 10 ? `<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${list.length - 10} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${list.slice(10).map(_mkRow).join('')}</tbody></table></div></details>` : '';
-  el.innerHTML = `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${list.length} clients · Prospects à conquérir</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
-}
+export { _renderHorsZone, _passesAllFilters, _syncPDVToggles, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _getAllDepts, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _closeAllDropPanels, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _toggleExcludeActifsConsomme, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _renderOverviewL2, _toggleOverviewL3, _renderOverviewL3, _toggleOverviewL4, _overviewClientSort, _renderOverviewL4, _populateTerrFamilleFilter, _buildDegradedCockpit, renderCommerceTab };
 
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
@@ -1520,11 +1455,8 @@ function renderCommerceTab() {
     <div id="terrainFocusCoach" class="hidden"></div>
     <div id="terrOmniBlock"></div>
     <div id="ttCapterPanel"></div>
-    <div id="livSansPDVBlock"></div>
   </div>`;
   // (4 « poches » / angles de captation retirés : montants additionnés non captables)
-  // 2d. Livrés sans PDV (conquête — déplacé depuis Fidélisation)
-  _renderLivSansPDV('livSansPDVBlock');
   // 4. KPI bar chalandise + territoire (différé pour ne pas bloquer)
   if (_commerceRafId) cancelAnimationFrame(_commerceRafId);
   _commerceRafId = requestAnimationFrame(() => {

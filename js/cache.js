@@ -187,20 +187,6 @@ export function _showCacheBanner() {
   document.getElementById('insightsBanner')?.classList.remove('hidden');
 }
 
-// Afficher la zone d'import sans purger les données (l'utilisateur veut re-uploader)
-export function _onReloadFiles() {
-  document.getElementById('cacheBanner').classList.add('hidden');
-  document.getElementById('importZone')?.classList.remove('hidden');
-  document.getElementById('onboardingStep0')?.classList.remove('hidden');
-  if (_S.storesIntersection && _S.storesIntersection.size > 1) {
-    document.getElementById('storeSelector')?.classList.remove('hidden');
-  }
-  if (_S.finalData.length > 0) {
-    const btn = document.getElementById('importZoneCancelBtn');
-    if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
-  }
-}
-
 // Purger IndexedDB + préférences localStorage + reload
 export async function _onPurgeCache() {
   if (!confirm('Effacer les données gardées dans ce navigateur ? Il faudra recharger les fichiers. (L’historique de La partie est conservé.)')) return;

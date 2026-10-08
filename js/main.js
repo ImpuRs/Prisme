@@ -15,7 +15,7 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
 import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
+import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -2841,7 +2841,6 @@ window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
 window.toggleTabPeriodDropdown = toggleTabPeriodDropdown;
 window._onPurgeCache = _onPurgeCache;
-window._onReloadFiles = _onReloadFiles;
 window._clearCache = _clearCache;
 window._cancelLoad = function() {
   _S._activeClientWorker?.terminate();

@@ -1,7 +1,7 @@
 'use strict';
 
-import { _classifShort, _isMetierStrategique, escapeHtml, formatEuro } from './utils.js';
-import { _clientStatusBadge, _crossBadge, _isGlobalActif, _isPerdu, _isProspect, _unikLink } from './engine.js';
+import { _isMetierStrategique, escapeHtml, formatEuro } from './utils.js';
+import { _isGlobalActif, _isPerdu, _isProspect } from './engine.js';
 
 function pctPair(row){
   const base=(row.total||0)-(row.prospects||0);
@@ -110,33 +110,30 @@ export function renderOverviewL3Table(sectsArr,{direction,metier,canalSuffix=''}
 }
 
 export function renderOverviewL4Table({clients,show,more,direction,metier,secteur,canal}){
-  if(!clients.length)return '<div class="t-disabled text-xs py-2">Aucun client.</div>';
-  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-right">CA N-1</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
-  for(const c of show){
-    const globActif=_isGlobalActif(c),perdu=_isPerdu(c);
-    const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu&&!c._pdvActif?'i-danger-bg':'';
-    // Badge cohérent avec capteSet (même source que L3 comptage + sort)
-    const badge=c._pdvActif
-      ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>'
-      : globActif
-        ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>'
-        : _isProspect(c)
-          ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>'
-          : perdu&&(c.caN1||0)>0
-            ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>'
-            : '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
+  if(!clients.length)return '<p class="pt-small pt-muted" style="margin:8px 0">Aucun client.</p>';
+  const tag=(c)=>{
+    if(c._pdvActif)return '<span class="ar-tag" data-tone="high">Client agence</span>';
+    if(_isGlobalActif(c))return '<span class="ar-tag" data-tone="mid">À capter</span>';
+    if(_isProspect(c))return '<span class="ar-tag">Prospect</span>';
+    if(_isPerdu(c)&&(c.caN1||0)>0)return '<span class="ar-tag" data-tone="low">Perdu 12-24 m</span>';
+    return '<span class="ar-tag">Inactif</span>';
+  };
+  const rows=show.map(c=>{
     const code=escapeHtml(c.code);
-    html+=`<tr class="border-t border-blue-100 ${pdvBg} hover:i-info-bg">
-      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${code}</span>${_crossBadge(c.code)} <span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="openClient360('${code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${badge}</td>
-      <td class="py-1 px-2 text-[9px] t-tertiary">${escapeHtml(c.commercial||'—')}</td>
-      <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.caLeg>0?'c-caution':'t-disabled'}">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
-      <td class="py-1 px-2 text-right text-[9px] ${c.caN1>0?(c.caLeg>0&&c.caLeg<c.caN1*0.5?'c-danger font-bold':'t-secondary'):'t-disabled'}">${c.caN1>0?formatEuro(c.caN1):'—'}</td>
-      <td class="py-1 px-2 text-[9px] t-tertiary">${escapeHtml(c.ville||'—')}</td>
+    const baisse=c.caN1>0&&c.caLeg>0&&c.caLeg<c.caN1*0.5;
+    return `<tr class="ar-click" onclick="openClient360('${code}','reseau')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.ville||'—')} · <span class="pt-num">${code}</span></span></div></td>
+      <td>${tag(c)}</td>
+      <td class="pt-small">${escapeHtml(c.commercial||'—')}</td>
+      <td class="pt-small">${escapeHtml(c.classification||'—')}</td>
+      <td class="pt-num ar-r">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
+      <td class="pt-num ar-r">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
+      <td class="pt-num ar-r"${baisse?' style="color:var(--pt-low)" title="CA Legallais divisé par plus de 2 sur un an"':''}>${c.caN1>0?formatEuro(c.caN1):'—'}</td>
     </tr>`;
-  }
-  html+=`</tbody></table></div>`;
-  if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${show.length+50})">▼ Voir plus (${more} restants)</button>`;
+  }).join('');
+  let html=`<div class="pt-list" style="margin:8px 0"><div class="pt-scroll" style="max-height:420px"><table class="pt-table">
+    <thead><tr><th>Client</th><th>Statut</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA agence</th><th class="ar-r">CA Leg. 2026</th><th class="ar-r">CA Leg. 2025</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+  if(more>0)html+=`<button type="button" class="pt-link pt-small" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${show.length+50})">Voir ${Math.min(50,more)} de plus (${more} restants)</button>`;
   return html;
 }
