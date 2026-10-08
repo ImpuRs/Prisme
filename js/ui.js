@@ -166,9 +166,11 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
   if (!bannerRight || !banner) return;
-  const _btnStyle = `font-size:var(--fs-xs);color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s`;
-  const _btnHover = `onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'"`;
-  bannerRight.innerHTML = `<button onclick="expandImportZone()" style="${_btnStyle}" ${_btnHover}>Modifier les fichiers</button><button onclick="_onPurgeCache()" style="${_btnStyle};margin-left:6px" ${_btnHover}>🗑️ Purger le cache</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" style="${_btnStyle};margin-left:6px" ${_btnHover}>Glossaire</button>`;
+  const _btn = (label, onclick) => `<button type="button" onclick="${onclick}" class="ib-btn">${label}</button>`;
+  bannerRight.innerHTML = _btn('Fichiers', 'expandImportZone()') + _btn('Glossaire', "document.getElementById('glossaire').classList.toggle('hidden')");
+  // Résumé des données à gauche (une fois analysé ; la restauration IDB l'écrit aussi, cf. _showCacheBanner)
+  const left = document.getElementById('insightsBannerLeft');
+  if (left && nbArts) left.innerHTML = `<span class="ib-sum">Analysé à l’instant · ${Number(nbArts).toLocaleString('fr-FR')} articles · ${store || '—'}${elapsed ? ` · ${elapsed} s` : ''}</span>`;
   if (iz) iz.classList.add('hidden');
   if (ob) ob.classList.add('hidden');
   banner.classList.remove('hidden');

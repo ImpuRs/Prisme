@@ -689,6 +689,9 @@
     #insightsBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:28px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.6);font-weight:var(--fw-normal);gap:0 12px}
     #insightsBannerLeft{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;flex:1;min-width:0}
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
+    .ib-btn{font:inherit;font-size:13px;color:rgba(255,255,255,0.75);background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:3px 12px;cursor:pointer;margin-left:6px}
+    .ib-btn:hover{color:#fff;border-color:rgba(255,255,255,0.45)}
+    .ib-sum{font-size:13px;color:rgba(255,255,255,0.55)}
     #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
     #cacheBanner.hidden{display:none!important}
     /* ═══ Tab bar premium ════════════════════════════════════ */
@@ -1946,6 +1949,7 @@
         </div>
         <div class="pt-row" style="gap:16px">
           <button type="button" class="pt-link pt-small" onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})">Glossaire</button>
+          <button type="button" class="pt-link pt-small" style="color:var(--pt-low)" title="Efface les données gardées dans ce navigateur (session, historique de score conservé)" onclick="_onPurgeCache()">Purger le cache</button>
           <span id="importZoneCancelBtn" class="hidden"><button type="button" class="pt-btn" onclick="collapseImportZone()">Annuler</button></span>
         </div>
       </header>
@@ -2173,7 +2177,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008e';
+    var ASSET_V = '20261008f';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

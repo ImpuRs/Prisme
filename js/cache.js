@@ -177,23 +177,14 @@ export function _showCacheUpdateBanner() {
 let _idbTimestamp = null; // renseigné par _restoreSessionFromIDB()
 
 export function _showCacheBanner() {
-  const banner = document.getElementById('cacheBanner');
-  if (!banner) return;
+  // Plus de bandeau séparé : le résumé des données va dans la barre du haut (insightsBannerLeft).
+  const left = document.getElementById('insightsBannerLeft');
+  if (!left) return;
   const dateStr = _idbTimestamp
     ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
-  const nArt = _S.finalData.length.toLocaleString('fr');
-  const store = _S.selectedMyStore || '—';
-  const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
-  const btnDanger = 'padding:2px 10px;border-radius:4px;background:#7f1d1d;color:#fca5a5;font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.1)';
-  banner.innerHTML =
-    `<span>📂 Données restaurées du ${dateStr} · ${nArt} articles · Agence ${store}</span>` +
-    `<div style="display:flex;gap:6px">` +
-    `<button onclick="document.getElementById('cacheBanner').classList.add('hidden')" style="${btnStyle}">Continuer</button>` +
-    `<button onclick="_onReloadFiles()" style="${btnStyle}">Recharger les fichiers</button>` +
-    `<button onclick="_onPurgeCache()" style="${btnDanger}">Purger le cache</button>` +
-    `</div>`;
-  banner.classList.remove('hidden');
+  left.innerHTML = `<span class="ib-sum">Données du ${dateStr} · ${_S.finalData.length.toLocaleString('fr')} articles · ${_S.selectedMyStore || '—'}</span>`;
+  document.getElementById('insightsBanner')?.classList.remove('hidden');
 }
 
 // Afficher la zone d'import sans purger les données (l'utilisateur veut re-uploader)
@@ -212,6 +203,7 @@ export function _onReloadFiles() {
 
 // Purger IndexedDB + préférences localStorage + reload
 export async function _onPurgeCache() {
+  if (!confirm('Effacer les données gardées dans ce navigateur ? Il faudra recharger les fichiers. (L’historique de La partie est conservé.)')) return;
   await _clearIDB();
   _clearCache();
   localStorage.removeItem('prisme_selectedStore');
