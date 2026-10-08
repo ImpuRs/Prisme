@@ -1456,7 +1456,7 @@
     .pf-search:focus { outline:none; border-color:var(--t-tertiary); }
     .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
     .pf-g .pt-table td { white-space:nowrap; }
-    .pf-g .pt-table td.pf-lib { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+    .pf-g .pt-table td.pf-lib { white-space:normal; min-width:200px; max-width:320px; line-height:1.3; }
     .pf-crit { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; }
   </style>
 </head>
@@ -2105,7 +2105,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008k';
+    var ASSET_V = '20261008m';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

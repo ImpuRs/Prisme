@@ -124,8 +124,9 @@ function _groups(f) {
     { key: 'sortir', verb: 'Sortir', arts: [...f.pmArts].sort((a, b) => val(b) - val(a)),
       why: 'En rayon sans aucune vente au comptoir en 12 mois. Retour centrale ou déstockage. « Vérifier » / « Prévenir » : un dernier contrôle avant de sortir.',
       euro: (arts) => `${formatEuro(arts.reduce((s, r) => s + val(r), 0))} immobilisés`,
-      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP', 'Avant de sortir'],
-      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r), _avantSortir(r)] },
+      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP'],
+      note: _avantSortir,
+      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r)] },
     { key: 'implanter', verb: 'Implanter', arts: impl,
       why: `Absents de ton rayon, demandés ailleurs. <span class="ar-tag" data-tone="high">Prioritaire</span> = ≥60 % du réseau à ≥${SQ_RESEAU_FORT_CA_AGENCE} €/an par agence, ou ≥5 clients de ta zone.`,
       euro: (arts) => `${arts.filter(a => prio.has(a.code)).length} prioritaire${arts.filter(a => prio.has(a.code)).length > 1 ? 's' : ''}`,
@@ -192,7 +193,7 @@ function _group(g) {
   const open = _open.has(g.key) || (_hl && arts.some(a => a.code === _hl));
   const shown = _more.has(g.key) ? arts : arts.slice(0, ROW_LIMIT);
   const rows = shown.map(a => `<tr${a.code === _hl ? ' class="pt-next" id="pfHl"' : ''}>
-      <td class="pt-num pt-muted">${escapeHtml(a.code)}</td><td class="pf-lib" title="${escapeHtml(a.libelle || '')}">${escapeHtml(a.libelle || '')}</td>
+      <td class="pf-lib" title="${escapeHtml(a.libelle || '')}"><span class="pt-strong">${escapeHtml(a.libelle || '')}</span><br><span class="pt-small pt-muted pt-num">${escapeHtml(a.code)}</span>${g.note ? ((x) => x ? `<div style="margin-top:4px">${x}</div>` : '')(g.note(a)) : ''}</td>
       ${g.row(a).map(v => `<td class="pt-num ar-r">${v}</td>`).join('')}</tr>`).join('');
   return `<details class="ar-sec pf-g" data-g="${g.key}" ${open ? 'open' : ''} ontoggle="_pfToggle('${g.key}', this.open)">
     <summary><span class="pt-row" style="gap:14px;align-items:baseline;flex-wrap:wrap">
@@ -202,7 +203,7 @@ function _group(g) {
     ${n ? `<div class="ar-sec-body">
       <p class="pt-small pt-muted" style="margin:0">${g.why}</p>
       <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
-        <thead><tr><th>Code</th><th>Libellé</th>${g.head.map(h => `<th class="ar-r">${h}</th>`).join('')}</tr></thead>
+        <thead><tr><th>Article</th>${g.head.map(h => `<th class="ar-r">${h}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody></table></div>
         <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px;gap:12px;flex-wrap:wrap">
           <span>${n > shown.length ? `${shown.length} sur ${n} · <button type="button" class="pt-link" onclick="_pfMore('${g.key}')">tout afficher</button>` : `${n} article${n > 1 ? 's' : ''}`}</span>
