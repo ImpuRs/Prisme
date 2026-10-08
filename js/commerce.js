@@ -1271,7 +1271,7 @@ function _buildChalandiseOverviewInner(force){
       ${_k('Clients de ton agence',pctCapte+' %',`${totalActifsPDV.toLocaleString('fr-FR')} clients${_oCanal?' · '+_canalLabel:' · tous canaux'}`,'var(--pt-high)')}
       ${_k('À capter',_aCapterTot.toLocaleString('fr-FR'),'actifs chez Legallais, pas chez toi','var(--pt-mid)')}
     </div>
-    <p class="pt-small pt-muted" style="margin:8px 2px 0">${_horsZoneCount?`${_horsZoneCount.toLocaleString('fr-FR')} clients de ton comptoir hors chalandise (à rattacher dans Tes clients)`:''}${_horsZoneCount&&totalExcluded24m&&!_S._includePerdu24m?' · ':''}${(!_S._includePerdu24m&&totalExcluded24m)?`${totalExcluded24m.toLocaleString('fr-FR')} clients inactifs depuis plus de 24 mois exclus`:''}</p>`;
+    <p class="pt-small pt-muted" style="margin:8px 2px 0">${_horsZoneCount?`${_horsZoneCount.toLocaleString('fr-FR')} clients de ton comptoir hors chalandise (à rattacher dans Tes clients)`:''}${_horsZoneCount&&totalExcluded24m&&!_S._includePerdu24m?' · ':''}${(!_S._includePerdu24m&&totalExcluded24m)?`${totalExcluded24m.toLocaleString('fr-FR')} clients sans achat depuis plus de 12 mois exclus (perdus 12-24 et >24 mois)`:''}</p>`;
     bar.style.cssText='display:block;margin-bottom:20px';
     bar.classList.remove('hidden');
   }}
