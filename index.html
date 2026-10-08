@@ -1397,6 +1397,11 @@
     /* ── Articles (la base) ── */
     #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tableContext.hidden { display:none; }
+    /* ── Base articles : lisibilité (tailles 9–11 px héritées → 12–13 px) ── */
+    #tabTable { font-family:'Geist',system-ui,sans-serif; }
+    #tabTable .text-\[9px\], #tabTable .text-\[10px\] { font-size:12px !important; }
+    #tabTable .text-\[11px\], #tabTable .text-xs { font-size:13px !important; }
+    #tabTable table td, #tabTable table th { padding-top:8px; padding-bottom:8px; }
     /* ── Écran de chargement ── */
     .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
@@ -2105,7 +2110,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008m';
+    var ASSET_V = '20261008o';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
