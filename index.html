@@ -628,6 +628,7 @@
     .canal-pill-btn:hover{background:var(--s-hover);color:var(--t-primary)}
     .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;height:100%}#filterDrawerBtn{display:none!important}}
+    body.no-sidebar #filterPanel, body.no-sidebar #filterDrawerBtn{display:none!important}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
     details>summary{position:relative}
@@ -2177,7 +2178,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008f';
+    var ASSET_V = '20261008g';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

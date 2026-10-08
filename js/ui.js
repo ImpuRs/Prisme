@@ -344,6 +344,8 @@ export function switchTab(id) {
       renderCurrentTab();
     }
   }
+  // Barre latérale : seulement là où ses filtres agissent (Plan, Base articles, Tes clients, Conquête)
+  document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'duel', 'animation', 'associations'].includes(id));
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
   const activeGroup = id === 'duel' ? '' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';
