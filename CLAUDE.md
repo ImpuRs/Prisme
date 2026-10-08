@@ -40,7 +40,7 @@ js/
                    computeOpportuniteNette, computeReseauHeatmap, computeOmniScores,
                    computeBenchMetier, computePriceGap, _clientPassesFilters
   parser.js      — pipeline données : parseChalandise, parseTerritoireFile,
-                   launchTerritoireWorker, launchClientWorker, launchReseauWorker,
+                   launchTerritoireWorker, launchClientWorker,
                    computeBenchmark
   cache.js       — persistance IndexedDB : _saveSessionToIDB, _restoreSessionFromIDB,
                    _saveExclusions, _restoreExclusions, _migrateIDB

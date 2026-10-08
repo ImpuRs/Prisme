@@ -25,7 +25,6 @@ import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès console DevTools
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
-import { updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
 import { renderTesClients } from './clients-decisions.js';
@@ -1366,7 +1365,7 @@ _S.canalAgence=newCanalAgence;
         // launchClientWorker — toujours lancé (gère chalandise vide en interne)
         // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
         launchClientWorker().then(async()=>{
-          if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+          if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();showToast('📊 Agrégats clients calculés','success');}
           if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
         }).catch(err=>console.warn('Client worker error:',err));
       } else {
@@ -1923,7 +1922,7 @@ _S.articleMonthlySales=monthlySales;
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesLocalHorsMag unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
       if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');
       if(!isRefilter){_syncTabAccess();}
@@ -2773,7 +2772,7 @@ window.onChalandiseSelected = async function(input) {
     launchClientWorker().then(() => {
       resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors();
       buildClientStore(); _applyForcageCommercial();
-      renderTabBadges(); updateLaboTiles();
+      renderTabBadges(); 
       showToast('📊 Agrégats clients calculés', 'success');
       if (_S.selectedMyStore) _saveSessionToIDB();
     }).catch(err => console.warn('Client worker error:', err));
