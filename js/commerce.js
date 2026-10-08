@@ -41,7 +41,7 @@ import {
   renderOverviewL2Table,
   renderOverviewL3Table,
   renderOverviewL4Table
-} from './commerce-conquete-view.js?v=20261007a';
+} from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────

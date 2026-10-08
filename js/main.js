@@ -27,17 +27,17 @@ window._S = _S; // debug + accès console DevTools
 import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
 import { renderLaboTab, updateLaboTiles } from './labo.js';
-import { renderPlanRayon, renderPlanStock } from './planRayon.js?v=20261008a';
+import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
 import { renderTesClients } from './clients-decisions.js';
-import { renderAnimationTab, loadCatalogueMarques } from './animation.js?v=20261007b';
-import { renderAssociationsTab } from './associations.js?v=20261007c';
+import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
+import { renderAssociationsTab } from './associations.js';
 import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
 import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _buildDegradedCockpit, _setCrossFilter, _setClientView, _toggleHorsMagasin } from './commerce.js?v=20261008a';
+import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _buildDegradedCockpit, _setCrossFilter, _setClientView, _toggleHorsMagasin } from './commerce.js';
 
 // Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
 // version aux Web Workers pour éviter les mismatchs (browser cache très agressif).

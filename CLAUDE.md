@@ -379,6 +379,10 @@ Réflexion stratégique sur claude.ai
 ```
 
 ### Conventions de code
+- **Versions des modules** : une seule valeur `ASSET_V` dans `index.html` (import map générée en tête de page).
+  La changer à chaque mise en ligne d'un fichier JS. Les `import` restent SANS `?v=` (sinon double instance
+  du module). Nouveau fichier `js/*.js` → l'ajouter à la liste `F` de l'import map. Les Web Workers
+  reprennent la version via `import.meta.url` de main.js.
 - ESM natif strict mode (`'use strict'`)
 - Pas de classes, fonctions nommées
 - Mutations uniquement via `_S.xxx` — jamais via DataStore

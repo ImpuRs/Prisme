@@ -6,7 +6,7 @@ import { articleLib } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange, getVentesHorsMagFullMap } from './sales.js';
-import { renderPlanFamille } from './plan-famille.js?v=20261008a';
+import { renderPlanFamille } from './plan-famille.js';
 
 // ── State local ──────────────────────────────────────────────────────
 let _prFilterClassif = '';

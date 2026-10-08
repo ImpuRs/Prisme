@@ -2211,7 +2211,24 @@
   <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
 
   <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
-  <script type="module" src="js/duel-agence.js?v=20261007c"></script>
-  <script type="module" src="js/main.js?v=20261008a"></script>
+  <!-- Versions des modules : UNE seule valeur à changer à chaque mise en ligne (ASSET_V).
+       Chaque fichier js/*.js est servi avec ?v=ASSET_V via l'import map → jamais de mélange
+       ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
+  <script>
+  (function () {
+    var ASSET_V = '20261008b';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'labo', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'promo', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
+    var map = {};
+    F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
+    var s = document.createElement('script');
+    s.type = 'importmap';
+    s.textContent = JSON.stringify({ imports: map });
+    document.currentScript.after(s);
+  })();
+  </script>
+  <script type="module">
+    import './js/duel-agence.js';
+    import './js/main.js';
+  </script>
 </body>
 </html>
