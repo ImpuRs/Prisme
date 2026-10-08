@@ -7,7 +7,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
+import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientCAThisYearMap } from './sales.js';
 
 /**
  * Construit _S.clientStore = Map<cc, ClientRecord> à partir de toutes les
@@ -153,16 +153,18 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     }
   }
 
-  // ── Garde-fou mathématique : CA LEG (ca2026 = Qlik) ≥ CA Total (Consommé local) ──
-  // Le tout est toujours ≥ la partie. Décalages fréquents : période Qlik vs Consommé,
-  // filtre micro-clients dans l'export Qlik. On corrige dans le store ET dans chalandiseData
-  // pour que tous les renders (scorecard, bandeau, poches) voient la valeur corrigée.
-  for (const rec of store.values()) {
-    if (rec.ca2026 < rec.caTotal) {
-      rec.ca2026 = rec.caTotal;
-      // Synchroniser chalandiseData pour les renders qui lisent directement info.ca2026
-      const chalInfo = _S.chalandiseData?.get(rec.cc);
-      if (chalInfo) chalInfo.ca2026 = rec.caTotal;
+  // ── CA Legallais de l'année : le consommé à jour fait foi sur la chalandise ──
+  // ca2026 (chalandise) relevé au CA consommé DE L'ANNÉE, toutes agences (_byMonthStoreClientCA).
+  // Valeur d'origine gardée dans _ca2026Chal ; on repart toujours d'elle (idempotent).
+  // Avant oct. 2026 on comparait au CA 12 mois glissants : des ventes 2025 gonflaient le « CA 2026 ».
+  const _caYear = getClientCAThisYearMap();
+  if (_S.chalandiseData?.size) {
+    for (const [cc, info] of _S.chalandiseData) {
+      if (info._ca2026Chal == null) info._ca2026Chal = info.ca2026 || 0;
+      const caY = _caYear ? (_caYear.get(cc) || 0) : 0;
+      info.ca2026 = Math.max(info._ca2026Chal, caY);
+      const rec = store.get(cc);
+      if (rec) rec.ca2026 = info.ca2026;
     }
   }
 

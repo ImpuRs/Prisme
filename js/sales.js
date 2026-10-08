@@ -365,3 +365,26 @@ export function getClientsBoughtThisYear() {
   return out;
 }
 
+/** CA consommé de l'année (année des dernières données), toutes agences, par client — Map<cc, CA>. */
+let _caYearCache = { src: null, key: '', map: null };
+export function getClientCAThisYearMap() {
+  const src = _S._byMonthStoreClientCA;
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!src || !maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  if (_caYearCache.src === src && _caYearCache.key === String(y)) return _caYearCache.map;
+  const min = y * 12, max = y * 12 + 11;
+  const out = new Map();
+  for (const store in src) {
+    const months = src[store];
+    for (const k in months) {
+      const m = +k;
+      if (m < min || m > max) continue;
+      const byCc = months[k];
+      for (const cc in byCc) out.set(cc, (out.get(cc) || 0) + (byCc[cc] || 0));
+    }
+  }
+  _caYearCache = { src, key: String(y), map: out };
+  return out;
+}
+

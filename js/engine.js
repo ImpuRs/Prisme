@@ -414,10 +414,9 @@ export function _clientPassesFilters(info, cc='') {
   // Univers : NE PAS filtrer les clients ici. Le filtre univers agit sur les MONTANTS (CA),
   // pas sur la visibilité des clients. Un client sans achats dans l'univers filtré est une
   // cible de conquête, pas un client à cacher. Voir getUniversFilteredCA().
-  // Distance : client qui a acheté ICI (myStore) → vient déjà au comptoir, ne pas exclure par distance
-  // NE PAS utiliser _isPDVActif (trop large : inclut réseau/Qlik/hors-agence)
-  const _boughtHere = cc && (_S.clientsMagasin?.has(cc) || _S.ventesLocalMag12MG?.has(cc));
-  const distOk = clientMatchesDistanceFilter(info) || _boughtHere;
+  // Distance : vraie distance (CP du client → agence), sans exception. Avant oct. 2026, un client
+  // ayant acheté ici passait toujours : « à 2 km » comptait alors tous les clients de l'agence.
+  const distOk = clientMatchesDistanceFilter(info);
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
     clientMatchesActivitePDVFilter(info) && clientMatchesDirectionFilter(info) &&
