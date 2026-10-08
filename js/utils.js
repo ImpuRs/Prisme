@@ -497,15 +497,6 @@ export function _normalizeClassif(c) {
   return 'NC';
 }
 
-export function _classifShort(c) {
-  const n = _normalizeClassif(c);
-  if (n === 'FID Pot+') return '<span class="text-emerald-600 font-bold">FID+</span>';
-  if (n === 'OCC Pot+') return '<span class="text-blue-600 font-bold">OCC+</span>';
-  if (n === 'FID Pot-') return '<span class="text-gray-500">FID-</span>';
-  if (n === 'OCC Pot-') return '<span class="text-gray-400">OCC-</span>';
-  return '<span class="text-gray-300">NC</span>';
-}
-
 // ── Copy-code helpers ──────────────────────────────────────────────────────
 export function _doCopyCode(btn, code) {
   navigator.clipboard.writeText(code).catch(() => {});

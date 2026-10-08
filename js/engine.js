@@ -12,7 +12,7 @@ import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection, defaultPeriodRange } from './utils.js';
 import { articleLib } from './article-store.js';
-import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
+import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientsBoughtThisYear } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
 const _vcaFull = () => getVentesClientMagFull();
@@ -228,12 +228,12 @@ export function calcCouverture(stock, V) {
 
 export function formatCouv(j) { if (j >= 999) return '—'; return j + 'j'; }
 
-// ── Client classification helpers ─────────────────────────────
-export function _isGlobalActif(info) {
-  if (info.activiteLeg) return info.activiteLeg.startsWith('Actif');
-  const aG = (info.activiteGlobale || info.activite || '').toLowerCase();
-  const s = (info.statut || '').toLowerCase();
-  return aG.includes('actif') || (s.includes('actif') && !s.includes('inactif'));
+/** Capté Legallais = a acheté chez Legallais dans l'année (règle user, oct. 2026) :
+ *  CA de l'année > 0 dans la chalandise, OU achat dans le consommé (toutes agences, tous canaux)
+ *  depuis le 1er janvier — le consommé à jour fait foi sur la chalandise. */
+export function isCapteLegallais(cc, info) {
+  if ((info?.ca2026 || 0) > 0) return true;
+  return !!getClientsBoughtThisYear()?.has(cc);
 }
 
 export function _isPDVActif(cc) {
@@ -290,7 +290,7 @@ export function computeClientCrossing() {
   }
   for (const [cc, info] of _S.chalandiseData.entries()) {
     if (!pdvSet.has(cc)) {
-      if (_isGlobalActif(info)) potentiels.add(cc);
+      if (isCapteLegallais(cc, info)) potentiels.add(cc);
     }
   }
   // Fidèles PDV : clients ayant acheté en canal MAGASIN avec fréquence >= 2
@@ -302,11 +302,11 @@ export function computeClientCrossing() {
 
 export function _clientStatusBadge(cc, info) {
   const pdvActif = _isPDVActif(cc);
-  const globalActif = _isGlobalActif(info);
+  const globalActif = isCapteLegallais(cc, info);
   if (pdvActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>';
   if (globalActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>';
   if (_isProspect(info)) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>';
-  if (_isPerdu(info) && (info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>';
+  if ((info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>';
   return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
 }
 
@@ -318,14 +318,6 @@ export function _unikLink(code) {
 export function _legallaisArticleLink(code) {
   if (!code || !_isSixDigitCode(code)) return '';
   return `<a href="https://www.legallais.com/article/${code}" target="_blank" rel="noopener" title="Voir sur legallais.com" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
-}
-
-export function _crossBadge(cc) {
-  if (!_S.crossingStats) return '';
-  if (_S.crossingStats.captes.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
-  if (_S.crossingStats.potentiels.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Potentiel non capté — dans la zone, n\'est pas encore venu en agence">🔴</span>';
-  if (_S.crossingStats.fideles.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Fidèle hors zone — vient en agence malgré la distance">🟣</span>';
-  return '';
 }
 
 export function _passesClientCrossFilter(cc) {

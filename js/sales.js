@@ -340,3 +340,28 @@ export function getVentesHorsMagFullMap() {
   return _S.ventesLocalHorsMagFull?.size ? _S.ventesLocalHorsMagFull : (_S.ventesLocalHorsMag || new Map());
 }
 
+// ── Capté Legallais : a acheté depuis le 1er janvier (année des dernières données) ──
+// Toutes agences du consommé, tous canaux (byMonthStoreClients). Le consommé à jour fait foi
+// sur le statut de la chalandise ; la chalandise complète via son « CA 2026 » (cf. isCapteLegallais).
+let _boughtYearCache = { src: null, key: '', set: null };
+export function getClientsBoughtThisYear() {
+  const src = _S._byMonthStoreClients;
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!src || !maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  const key = String(y);
+  if (_boughtYearCache.src === src && _boughtYearCache.key === key) return _boughtYearCache.set;
+  const min = y * 12, max = y * 12 + 11;
+  const out = new Set();
+  for (const store in src) {
+    const months = src[store];
+    for (const k in months) {
+      const m = +k;
+      if (m < min || m > max) continue;
+      for (const cc of months[k]) out.add(cc);
+    }
+  }
+  _boughtYearCache = { src, key, set: out };
+  return out;
+}
+

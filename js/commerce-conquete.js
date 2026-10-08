@@ -1,7 +1,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { _clientPassesFilters, _isPDVActif, _isPerdu, _isPerdu24plus, _isProspect, _passesClientCrossFilter } from './engine.js';
+import { _clientPassesFilters, _isPDVActif, _isPerdu24plus, _isProspect, _passesClientCrossFilter, isCapteLegallais } from './engine.js';
 import { getClientCAFullInMonthRange } from './sales.js';
 import { getSecteurDirection } from './utils.js';
 
@@ -59,7 +59,7 @@ export function passesOverviewClient(info,cc,capteSet=null,opts={}){
   if(!info)return !!opts.allowMissing;
   if(!_clientPassesFilters(info,cc))return false;
   if(_S._excludeActifsConsomme&&capteSet?.has(cc))return false;
-  if(!_S._includePerdu24m&&_isPerdu24plus(info)){
+  if(!_S._includePerdu24m&&_isPerdu24plus(info)&&!capteSet?.has(cc)&&!isCapteLegallais(cc,info)){
     if(opts.countExcluded)opts.countExcluded.value++;
     return false;
   }
@@ -93,15 +93,17 @@ export function getOverviewDirection(info){
 function addClientBucketStats(bucket,info,cc,capteSet){
   bucket.total++;
   const pdvActif=capteSet?capteSet.has(cc):false;
-  if(_isProspect(info)){
-    bucket.prospects++;
-  }else if(_isPerdu(info)&&!pdvActif){
-    if((info.ca2025||0)>0)bucket.perdus12_24++;
-    else bucket.inactifs++;
-  }else{
+  // Capté Legallais = achat dans l'année (chalandise CA 2026 ou consommé) ; capté PDV = achat chez toi
+  if(pdvActif||isCapteLegallais(cc,info)){
     bucket.actifsLeg++;
-    // À capter : actif chez Legallais, pas (encore) client de l'agence
+    // À capter : capté Legallais, pas (encore) client de l'agence
     if(!pdvActif)bucket.aCapter++;
+  }else if(_isProspect(info)){
+    bucket.prospects++;
+  }else if((info.ca2025||0)>0){
+    bucket.perdus12_24++;
+  }else{
+    bucket.inactifs++;
   }
   if(pdvActif)bucket.actifsPDV++;
   bucket.caPDVZone+=(info.caPDVN||0);
@@ -178,6 +180,7 @@ export function aggregateOverviewClients({direction,metier,secteur,range,capteSe
       caMag:getClientCAFullInMonthRange(cc,range)||0,
       ville:info.ville||'',
       _pdvActif:capteSet?capteSet.has(cc):_isPDVActif(cc),
+      _capteLeg:isCapteLegallais(cc,info),
       _pdvActifGlobal:_isPDVActif(cc)
     });
   }
@@ -191,9 +194,8 @@ export function aggregateACapter({direction,metier=null,capteSet=null}){
   for(const[cc,info] of getFilteredChalandiseEntries(capteSet).entries){
     if(direction&&getOverviewDirection(info)!==direction)continue;
     if(metier&&(info.metier||'Autre')!==metier)continue;
-    if(_isProspect(info))continue;
     const pdv=capteSet?capteSet.has(cc):false;
-    if(pdv||_isPerdu(info))continue;
+    if(pdv||!isCapteLegallais(cc,info))continue;
     out.push({cc,nom:info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',secteur:info.secteur||'',ville:info.ville||'',
       classification:info.classification||'',caN1:info.ca2025||0,caN:info.ca2026||0,dist:info.distanceKm});
   }

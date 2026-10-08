@@ -1,7 +1,7 @@
 'use strict';
 
 import { _isMetierStrategique, escapeHtml, formatEuro } from './utils.js';
-import { _isGlobalActif, _isPerdu, _isProspect } from './engine.js';
+import { _isProspect } from './engine.js';
 
 function pctPair(row){
   const base=(row.total||0)-(row.prospects||0);
@@ -113,9 +113,9 @@ export function renderOverviewL4Table({clients,show,more,direction,metier,secteu
   if(!clients.length)return '<p class="pt-small pt-muted" style="margin:8px 0">Aucun client.</p>';
   const tag=(c)=>{
     if(c._pdvActif)return '<span class="ar-tag" data-tone="high">Client agence</span>';
-    if(_isGlobalActif(c))return '<span class="ar-tag" data-tone="mid">À capter</span>';
+    if(c._capteLeg)return '<span class="ar-tag" data-tone="mid">À capter</span>';
     if(_isProspect(c))return '<span class="ar-tag">Prospect</span>';
-    if(_isPerdu(c)&&(c.caN1||0)>0)return '<span class="ar-tag" data-tone="low">Perdu 12-24 m</span>';
+    if((c.caN1||0)>0)return '<span class="ar-tag" data-tone="low">Perdu 12-24 m</span>';
     return '<span class="ar-tag">Inactif</span>';
   };
   const rows=show.map(c=>{
