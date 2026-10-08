@@ -14,7 +14,7 @@ function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci, getVentesHorsMagFullMap } from './sales.js';
-import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, isCapteLegallais, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -945,7 +945,7 @@ function openArticlePanel(code,source){
       const daysSince=rec?.silenceDaysPDV??null;
       const nom=rec?.nom||_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc;
       let statusBadge='';
-      if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(_isGlobalActif(info))statusBadge='<span class="diag-badge diag-warn">Actif Leg</span>';else statusBadge='<span class="diag-badge diag-error">Perdu</span>';}}
+      if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(isCapteLegallais(cc,info))statusBadge='<span class="diag-badge diag-warn">Actif Legallais (pas chez toi)</span>';else statusBadge='<span class="diag-badge diag-error">Sans achat cette année</span>';}}
       buyerList.push({cc,nom,caArt,daysSince,lastDate,statusBadge});
     }
     buyerList.sort((a,b)=>b.caArt-a.caArt);

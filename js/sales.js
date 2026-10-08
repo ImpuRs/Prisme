@@ -234,7 +234,7 @@ export function getClientsActiveSetInPeriod(canal = '', opts = {}) {
 
   // Tous canaux : réutiliser le Set pré-calculé par _refilterFromByMonth quand dispo.
   if (!canalKey) {
-    if (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size) return _S._clientsTousCanaux;
+    if (!opts.range && _S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size) return _S._clientsTousCanaux;
     const src = _S._byMonthClients;
     if (!src) return null;
     const key = range.min + '|' + range.max + '|ALL';
@@ -338,5 +338,61 @@ export function getVentesClientHorsMagFull(cc) {
 }
 export function getVentesHorsMagFullMap() {
   return _S.ventesLocalHorsMagFull?.size ? _S.ventesLocalHorsMagFull : (_S.ventesLocalHorsMag || new Map());
+}
+
+// ── Capté Legallais : a acheté depuis le 1er janvier (année des dernières données) ──
+// Toutes agences du consommé, tous canaux (byMonthStoreClients). Le consommé à jour fait foi
+// sur le statut de la chalandise ; la chalandise complète via son « CA 2026 » (cf. isCapteLegallais).
+let _boughtYearCache = { src: null, key: '', set: null };
+export function getClientsBoughtThisYear() {
+  const src = _S._byMonthStoreClients;
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!src || !maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  const key = String(y);
+  if (_boughtYearCache.src === src && _boughtYearCache.key === key) return _boughtYearCache.set;
+  const min = y * 12, max = y * 12 + 11;
+  const out = new Set();
+  for (const store in src) {
+    const months = src[store];
+    for (const k in months) {
+      const m = +k;
+      if (m < min || m > max) continue;
+      for (const cc of months[k]) out.add(cc);
+    }
+  }
+  _boughtYearCache = { src, key, set: out };
+  return out;
+}
+
+/** CA consommé de l'année (année des dernières données), toutes agences, par client — Map<cc, CA>. */
+let _caYearCache = { src: null, key: '', map: null };
+export function getClientCAThisYearMap() {
+  const src = _S._byMonthStoreClientCA;
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!src || !maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  if (_caYearCache.src === src && _caYearCache.key === String(y)) return _caYearCache.map;
+  const min = y * 12, max = y * 12 + 11;
+  const out = new Map();
+  for (const store in src) {
+    const months = src[store];
+    for (const k in months) {
+      const m = +k;
+      if (m < min || m > max) continue;
+      const byCc = months[k];
+      for (const cc in byCc) out.set(cc, (out.get(cc) || 0) + (byCc[cc] || 0));
+    }
+  }
+  _caYearCache = { src, key: String(y), map: out };
+  return out;
+}
+
+/** Plage de mois de l'année en cours (année des dernières données) — {min, max} en monthIdx. */
+export function currentYearMonthRange() {
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  return { min: y * 12, max: y * 12 + 11, year: y };
 }
 

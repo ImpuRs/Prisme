@@ -1553,7 +1553,7 @@
       <div id="tabPeriodBlock" style="display:none;width:100%">
         <div onclick="window.toggleTabPeriodDropdown()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:0 4px">
           <span style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase">Période</span>
-          <span id="tabPeriodLabel" title="La période agit sur Conquête, le Duel et la fiche client. Les autres écrans comptent toujours sur 12 mois." style="font-size:0.72rem;font-weight:700;color:var(--t-secondary)">— ▼</span>
+          <span id="tabPeriodLabel" title="La période agit sur le Duel et la fiche client. Conquête compte sur l’année en cours, les autres écrans sur 12 mois." style="font-size:0.72rem;font-weight:700;color:var(--t-secondary)">— ▼</span>
         </div>
         <div id="tabPeriodDropdown" class="hidden" style="position:absolute;left:0;top:100%;width:100%;min-width:380px;z-index:210;padding:10px;background:var(--s-card);border:1px solid var(--b-default);border-top:none;border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(0,0,0,.3)" onclick="event.stopPropagation()">
         </div>
@@ -2110,7 +2110,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008o';
+    var ASSET_V = '20261008w';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

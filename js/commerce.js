@@ -4,12 +4,12 @@
 import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, daysBetween, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection, formatLocalYMD } from './utils.js';
-import { _clientPassesFilters, _unikLink, _passesClientCrossFilter, _isGlobalActif, _isPerdu, _isPerdu24plus, getUniversFilteredCA } from './engine.js';
+import { _clientPassesFilters, _unikLink, _passesClientCrossFilter, _isPerdu, _isPerdu24plus, getUniversFilteredCA } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
-import { getClientsActiveSetInPeriod } from './sales.js';
+import { getClientsActiveSetInPeriod, currentYearMonthRange } from './sales.js';
 import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
 import { renderOverviewHead, renderOverviewL1Rows, renderOverviewL2Table, renderOverviewL3Table, renderOverviewL4Table } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
@@ -1224,7 +1224,10 @@ function _buildChalandiseOverviewInner(force){
   const _isSec=getOverviewMode()==='secteur';
   // Set de clients captés PDV — canal-aware (consommé = toujours à l'agence)
   const _oCanal=_S._globalCanal||'';
-  let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
+  // Capté PDV = achat dans l'agence sur l'ANNÉE EN COURS (même fenêtre que « capté Legallais »,
+  // règle user oct. 2026) — indépendant du sélecteur de période.
+  const _yr = currentYearMonthRange();
+  let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all', range: _yr || undefined });
   if (!_captePDVSet) {
     // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
     if(!_oCanal){
@@ -1271,7 +1274,7 @@ function _buildChalandiseOverviewInner(force){
       ${_k('Clients de ton agence',pctCapte+' %',`${totalActifsPDV.toLocaleString('fr-FR')} clients${_oCanal?' · '+_canalLabel:' · tous canaux'}`,'var(--pt-high)')}
       ${_k('À capter',_aCapterTot.toLocaleString('fr-FR'),'actifs chez Legallais, pas chez toi','var(--pt-mid)')}
     </div>
-    <p class="pt-small pt-muted" style="margin:8px 2px 0">${_horsZoneCount?`${_horsZoneCount.toLocaleString('fr-FR')} clients de ton comptoir hors chalandise (à rattacher dans Tes clients)`:''}${_horsZoneCount&&totalExcluded24m&&!_S._includePerdu24m?' · ':''}${(!_S._includePerdu24m&&totalExcluded24m)?`${totalExcluded24m.toLocaleString('fr-FR')} clients inactifs depuis plus de 24 mois exclus`:''}</p>`;
+    <p class="pt-small pt-muted" style="margin:8px 2px 0">${_horsZoneCount?`${_horsZoneCount.toLocaleString('fr-FR')} clients de ton comptoir hors chalandise (à rattacher dans Tes clients)`:''}${_horsZoneCount&&totalExcluded24m&&!_S._includePerdu24m?' · ':''}${(!_S._includePerdu24m&&totalExcluded24m)?`${totalExcluded24m.toLocaleString('fr-FR')} clients sans achat depuis plus de 12 mois exclus (perdus 12-24 et >24 mois)`:''}</p>`;
     bar.style.cssText='display:block;margin-bottom:20px';
     bar.classList.remove('hidden');
   }}
@@ -1329,25 +1332,19 @@ function _renderOverviewL3(el,direction,metier){
 }
 function _overviewClientSort(a,b){
   // Actifs globaux Inactifs PDV first, then Perdus récents FID Pot+, then rest
-  const aGlobActif=_isGlobalActif(a),bGlobActif=_isGlobalActif(b);
+  const aGlobActif=!!a._capteLeg,bGlobActif=!!b._capteLeg;
   const aPDV=a._pdvActif,bPDV=b._pdvActif;
   // Priority: 1=global actif + PDV inactif, 2=perdu FID Pot+, 3=rest
-  const aP=aGlobActif&&!aPDV?1:(_isPerdu(a)&&_normalizeClassif(a.classification).includes('Pot+')?2:3);
-  const bP=bGlobActif&&!bPDV?1:(_isPerdu(b)&&_normalizeClassif(b.classification).includes('Pot+')?2:3);
+  const aP=aGlobActif&&!aPDV?1:(!aGlobActif&&(a.caN1||0)>0&&_normalizeClassif(a.classification).includes('Pot+')?2:3);
+  const bP=bGlobActif&&!bPDV?1:(!bGlobActif&&(b.caN1||0)>0&&_normalizeClassif(b.classification).includes('Pot+')?2:3);
   if(aP!==bP)return aP-bP;
   return(b.caLeg||b.ca2025||0)-(a.caLeg||a.ca2025||0);
 }
 function _renderOverviewL4(el,direction,metier,secteur,limit){
   limit=limit||20;
-  // CA PDV : respecte le filtre période UI si actif, sinon année civile en cours
-  const _pStart=_S.periodFilterStart, _pEnd=_S.periodFilterEnd;
-  const _curYear=new Date().getFullYear();
-  const _ymRange=(_pStart&&_pEnd)
-    ? {min:_pStart.getFullYear()*12+_pStart.getMonth(), max:_pEnd.getFullYear()*12+_pEnd.getMonth()}
-    : {min:_curYear*12, max:_curYear*12+11};
-  const _periodLabel=(_pStart&&_pEnd)?'période':'année';
-  // CA PDV = CA tous canaux myStore sur la période sélectionnée (ou année civile).
-  // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable).
+  // CA agence = CA tous canaux myStore sur l'année en cours (même fenêtre que capté PDV / Legallais).
+  const _cy=currentYearMonthRange();
+  const _ymRange=_cy?{min:_cy.min,max:_cy.max}:{min:new Date().getFullYear()*12,max:new Date().getFullYear()*12+11};
   const clients=aggregateOverviewClients({direction,metier,secteur,range:_ymRange,capteSet:_overviewCaptePDVSet});
   clients.sort(_overviewClientSort);
   const show=clients.slice(0,limit),more=clients.length-limit;

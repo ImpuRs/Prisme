@@ -308,6 +308,7 @@ _S._reseauMissedShowAll = false;    // mode "voir tout" missed
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
 _S.clientStore = new Map();          // Map<cc, ClientRecord> — store client unifié (client-store.js)
 _S.agenceStore = new Map();          // Map<storeCode, AgenceRecord> — store agence unifié (agence-store.js)
+_S._chalandiseRev = 0;               // incrémenté quand chalandiseData est corrigée par le consommé (clé de cache Conquête)
 _S.articleStore = null;              // Map<code, ArticleRecord> — store article unifié (article-store.js)
 _S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 _S._livraisonsDebug = {};           // debug info parsing livraisons
@@ -460,6 +461,7 @@ export function resetAppState() {
   _S.clientOmniScore = new Map();
   _S.clientStore = new Map();
   _S.agenceStore = new Map();
+  _S._chalandiseRev = 0;
   _S.famillesHors = [];
   _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();
