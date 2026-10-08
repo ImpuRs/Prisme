@@ -374,6 +374,12 @@ Réflexion stratégique sur claude.ai
   → Merge PR → GitHub Pages auto-deploy
 ```
 
+### Contrôle avant mise en ligne
+`controle.html` (racine) : ouvre l'appli en iframe, recharge les fichiers (`_testdata/` en local ou fichiers
+choisis), passe sur les 9 écrans + fiche client, fiche article, Plan famille, Animation marque, Duel spécialités,
+relève les erreurs console et compare le score La partie à la référence (AG22 : 84 = 84 / 87 / 82).
+À lancer après chaque modification. Même origine que l'appli : recharger les fichiers remplace la session.
+
 ### Conventions de code
 - **Versions des modules** : une seule valeur `ASSET_V` dans `index.html` (import map générée en tête de page).
   La changer à chaque mise en ligne d'un fichier JS. Les `import` restent SANS `?v=` (sinon double instance

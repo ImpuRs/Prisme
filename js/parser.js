@@ -197,14 +197,6 @@ export async function parseChalandise(file) {
     _S.clientsByMetier.set('__HORS_ZONE__', horsZone);
   }
   _S.chalandiseReady = true;
-  let nbActifs = 0, nbPerdus = 0;
-  for (const i of _S.chalandiseData.values()) {
-    const s = (i.statut || '').toLowerCase();
-    if (s.includes('actif') && !s.includes('inactif')) nbActifs++;
-    else if (s.includes('perdu') || s.includes('inactif')) nbPerdus++;
-  }
-  const enrichMsg = enrichedCount > 0 ? ` · ${enrichedCount} enrichis via autres agences` : '';
-  showToast(`📋 Chalandise : ${_S.chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus${enrichMsg}`, 'success');
   // Show commerce tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabCommerce'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on commerce tab

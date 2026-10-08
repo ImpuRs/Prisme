@@ -167,10 +167,10 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const banner = document.getElementById('insightsBanner');
   if (!bannerRight || !banner) return;
   const _btn = (label, onclick) => `<button type="button" onclick="${onclick}" class="ib-btn">${label}</button>`;
-  bannerRight.innerHTML = _btn('Fichiers', 'expandImportZone()') + _btn('Glossaire', "document.getElementById('glossaire').classList.toggle('hidden')");
+  bannerRight.innerHTML = _btn('Fichiers', 'expandImportZone()');
   // Résumé des données à gauche (une fois analysé ; la restauration IDB l'écrit aussi, cf. _showCacheBanner)
   const left = document.getElementById('insightsBannerLeft');
-  if (left && nbArts) left.innerHTML = `<span class="ib-sum">Analysé à l’instant · ${Number(nbArts).toLocaleString('fr-FR')} articles · ${store || '—'}${elapsed ? ` · ${elapsed} s` : ''}</span>`;
+  if (left && nbArts) left.innerHTML = `<span class="ib-sum">Fichiers chargés à l’instant · ${Number(nbArts).toLocaleString('fr-FR')} articles · ${store || '—'}${elapsed ? ` · ${elapsed} s` : ''}</span>`;
   if (iz) iz.classList.add('hidden');
   if (ob) ob.classList.add('hidden');
   banner.classList.remove('hidden');
@@ -932,10 +932,6 @@ export function renderHealthScore() {
   if (hsi) hsi.textContent = `${score}/100 — ${label}`;
 }
 
-
-// ── IRA history helpers ───────────────────────────────────────
-const _IRA_HIST_KEY = 'PRISME_IRA_HISTORY';
-const _IRA_MAX_DAYS = 90;
 
 // ── Feature 9: Lexique Ancré <abbr> ──────────────────────────
 // Wraps known métier terms in <abbr class="gls"> inside <th> elements.

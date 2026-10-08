@@ -181,9 +181,9 @@ export function _showCacheBanner() {
   const left = document.getElementById('insightsBannerLeft');
   if (!left) return;
   const dateStr = _idbTimestamp
-    ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', ' à ')
     : '—';
-  left.innerHTML = `<span class="ib-sum">Données du ${dateStr} · ${_S.finalData.length.toLocaleString('fr')} articles · ${_S.selectedMyStore || '—'}</span>`;
+  left.innerHTML = `<span class="ib-sum">Fichiers chargés le ${dateStr} · ${_S.finalData.length.toLocaleString('fr')} articles · ${_S.selectedMyStore || '—'}</span>`;
   document.getElementById('insightsBanner')?.classList.remove('hidden');
 }
 

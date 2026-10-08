@@ -358,7 +358,7 @@ function _render() {
     </button>`).join('');
 
   tab.innerHTML = `<div class="pt-wrap">
-    <div class="pt-small pt-muted">Données au ${escapeHtml(_fmtDate(p.dataKey))} · ${p.nbArticles.toLocaleString('fr-FR')} articles analysés</div>
+    <div class="pt-small pt-muted">Ventes jusqu’au ${escapeHtml(_fmtDate(p.dataKey))} · ${p.nbArticles.toLocaleString('fr-FR')} articles analysés</div>
 
     <section class="pt-grid3">
       <div class="pt-card pt-row" style="gap:28px;flex-wrap:wrap">

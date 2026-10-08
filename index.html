@@ -1862,81 +1862,6 @@
   <div class="container mx-auto mt-3 p-4 md:p-5 s-card rounded-xl shadow-lg mb-10">
 
     <!-- GLOSSAIRE -->
-    <div id="glossaire" class="hidden mb-8 p-6 i-info-bg b-light rounded-xl">
-      <h3 class="font-extrabold c-action mb-5 text-lg">🧠 Glossaire PRISME</h3>
-
-      <!-- Section 1 — Stock & Réappro -->
-      <p class="text-[11px] font-extrabold c-action uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs t-secondary mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir). <strong>Enlevé</strong> = colis commandé, ne touche pas le stock. MIN/MAX basé <strong>uniquement sur le prélevé</strong>.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs t-secondary mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs t-secondary mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📊 Surstock PRISME vs 👁️ Excédent ERP</h4><p class="text-xs t-secondary mt-1"><strong>Surstock PRISME</strong> = stock &gt; nouveau MAX recalculé. Optimisation à faire.<br><strong>Excédent ERP</strong> = stock &gt; ancien MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs t-secondary mt-1"><strong>Dormant</strong> = 0 sortie depuis &gt;1 an → MIN/MAX = 0.<br><strong>Nouveauté</strong> = référencé depuis &lt;35 jours → conserve l'ancien MIN/MAX.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">✅ Taux de disponibilité</h4><p class="text-xs t-secondary mt-1">Articles fréquents (≥3 cmd/an) en stock ÷ total articles fréquents. Mesure la disponibilité rayon, <strong>pas</strong> le service client.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs t-secondary mt-1">Stock ÷ conso/jour. <span class="c-danger font-bold">&lt;7j</span> critique · <span class="c-ok font-bold">21–60j</span> optimal · <span class="c-action font-bold">&gt;60j</span> surstock.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">⚡ Score priorité</h4><p class="text-xs t-secondary mt-1">Fréquence × Prix unitaire × coefficient ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
-      </div>
-
-      <!-- Section 2 — Clients & Terrain -->
-      <p class="text-[11px] font-extrabold c-danger uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA Magasin</h4><p class="text-xs t-secondary mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé au comptoir de l'agence).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs t-secondary mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🤫 Client silencieux</h4><p class="text-xs t-secondary mt-1">Client régulier du PDV sans commande depuis plus de <strong>30 jours</strong>. Alerte précoce avant perte définitive.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">📍 Captation PDV / Legallais</h4><p class="text-xs t-secondary mt-1"><strong>PDV</strong> = % clients de la zone qui achètent dans mon agence.<br><strong>Legallais</strong> = % qui achètent chez Legallais (tous canaux).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🔴 À capter</h4><p class="text-xs t-secondary mt-1">Client actif Legallais qui ne vient <strong>pas</strong> en agence. Potentiel de rapatriement PDV.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟠 À développer</h4><p class="text-xs t-secondary mt-1">Client occasionnel ou prospect avec potentiel de croissance identifié (classification Pot+).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟢 À fidéliser</h4><p class="text-xs t-secondary mt-1">Bon client actif PDV, classification FID Pot+. À maintenir et développer en priorité.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟣 Fidèle hors zone</h4><p class="text-xs t-secondary mt-1">Client qui vient en agence mais absent du fichier chalandise (hors zone géographique définie).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs t-secondary mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
-      </div>
-
-      <!-- Section 3 — Tableau Territoire -->
-      <p class="text-[11px] font-extrabold c-ok uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🔢 Total</h4><p class="text-xs t-secondary mt-1">Nombre total de clients dans la zone de chalandise pour cette direction ou ce métier. Base de référence pour tous les ratios.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌐 Actifs Leg.</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté chez Legallais <strong>tous canaux confondus</strong> dans les 12 derniers mois. Source : fichier Zone de Chalandise (CA N &gt; 0).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 Actifs PDV</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté <strong>en agence</strong> (canal MAGASIN) sur la période couverte par le fichier Consommé. Sous-ensemble des Actifs Leg.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌱 Prospects</h4><p class="text-xs t-secondary mt-1">Clients identifiés dans la zone de chalandise mais <strong>n'ayant jamais acheté</strong> chez Legallais (CA N-1 = 0 et CA N = 0, statut non-perdu).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⏳ Perdus 12-24m</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté chez Legallais <strong>il y a 12 à 24 mois</strong> mais plus depuis (CA N-1 &gt; 0, CA N = 0). Priorité de reconquête immédiate.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">💤 Inactifs</h4><p class="text-xs t-secondary mt-1">Clients sans achat depuis <strong>plus de 24 mois</strong> (CA N-1 = 0 et CA N = 0, statut perdu ou inactif). Reconquête plus difficile.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">📈 % capté Leg.</h4><p class="text-xs t-secondary mt-1"><strong>Actifs Leg. ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui achètent encore chez Legallais. Un taux élevé = Legallais bien implanté sur ce métier.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 % capté PDV</h4><p class="text-xs t-secondary mt-1"><strong>Actifs PDV ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui viennent en agence. Principal levier du chef d'agence — l'écart avec % capté Leg. révèle les clients à rapatrier au comptoir.</p></div>
-      </div>
-
-      <!-- Section 4 — Observatoire & Diagnostic -->
-      <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Observatoire &amp; Diagnostic</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs t-secondary mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔢 FMR (fréquence)</h4><p class="text-xs t-secondary mt-1"><strong>F</strong> = fréquent ≥12/an · <strong>M</strong> = moyen 3–11/an · <strong>R</strong> = rare &lt;3/an.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🎯 Case Radar (ABC × FMR)</h4><p class="text-xs t-secondary mt-1"><strong>AF</strong> = pépites (fort CA + fréquent) · <strong>CR</strong> = candidats déréférencement · Les 9 cases croisent valeur et fréquence.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔬 Diagnostic cascade</h4><p class="text-xs t-secondary mt-1">3 voyants progressifs : <strong>📦 Mon Agence</strong> (stock/MIN-MAX) → <strong>👥 Mes Clients</strong> (chalandise) → <strong>🔭 Le Réseau</strong> (benchmark).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs t-secondary mt-1">CA Magasin historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
-      </div>
-
-      <!-- Section 4 — Réseau & Benchmark -->
-      <p class="text-[11px] font-extrabold text-cyan-700 uppercase tracking-widest mb-2">🔭 Réseau &amp; Benchmark</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📐 PDM bassin</h4><p class="text-xs t-secondary mt-1">Part de marché = poids de mon agence × CA total du bassin par famille.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🧮 CA théorique</h4><p class="text-xs t-secondary mt-1">CA que mon agence devrait réaliser si elle avait la performance moyenne du réseau, pondéré par sa taille.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📊 Médiane réseau</h4><p class="text-xs t-secondary mt-1">Valeur centrale des agences comparables. Plus robuste que la moyenne (non biaisée par les extrêmes).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🚫 Articles manquants</h4><p class="text-xs t-secondary mt-1">Vendus par ≥50% du réseau mais absents chez moi. Opportunité de référencement.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🏆 Exclusivités</h4><p class="text-xs t-secondary mt-1">Articles que seule mon agence vend (ou &lt;2 agences). Avantage compétitif local à valoriser.</p></div>
-      </div>
-
-      <!-- Section 5 — Équation commerciale -->
-      <p class="text-[11px] font-extrabold c-caution uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs t-secondary mt-1"><strong>Clients PDV × Fréquence × CA / client = CA Magasin.</strong> Les 3 leviers du chef d'agence.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs t-secondary mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs t-secondary mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ CA / client</h4><p class="text-xs t-secondary mt-1">CA total ÷ nombre de clients uniques. Dépense moyenne par client sur la période — non disponible dans Qlik.</p></div>
-      </div>
-
-    </div>
-
-
     <!-- ONBOARDING STEP 0 — premier lancement -->
     <div id="onboardingStep0" class="ob-wrap">
       <header class="ob-head">
@@ -1949,7 +1874,6 @@
           </script>
         </div>
         <div class="pt-row" style="gap:16px">
-          <button type="button" class="pt-link pt-small" onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})">Glossaire</button>
           <button type="button" class="pt-link pt-small" style="color:var(--pt-low)" title="Efface les données gardées dans ce navigateur (session, historique de score conservé)" onclick="_onPurgeCache()">Purger le cache</button>
           <span id="importZoneCancelBtn" class="hidden"><button type="button" class="pt-btn" onclick="collapseImportZone()">Annuler</button></span>
         </div>
@@ -2178,7 +2102,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008g';
+    var ASSET_V = '20261008i';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
