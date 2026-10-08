@@ -184,14 +184,3 @@ export function buildChalandiseStore() {
   return _S.chalandiseData;
 }
 
-/** Récupère une fiche chalandise par code client. */
-export function getChalandise(cc) {
-  buildChalandiseStore();
-  const key = extractClientCode(cc);
-  return key ? _S.chalandiseData.get(key) : undefined;
-}
-
-/** @returns {boolean} true si chalandise complète OU forçage présent */
-export function hasChalandiseOrForcage() {
-  return !!(_S.chalandiseReady || _S.chalandiseData?.size || _S.forcageCommercial?.size);
-}

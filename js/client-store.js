@@ -7,7 +7,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { getClientsActiveSetInPeriod } from './sales.js';
+import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
 
 /**
  * Construit _S.clientStore = Map<cc, ClientRecord> à partir de toutes les
@@ -29,7 +29,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   if (!pdvOnly) {
     const allCc = new Set();
     if (_S.ventesLocalMagPeriode) for (const cc of _S.ventesLocalMagPeriode.keys()) allCc.add(cc);
-    if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
+    if (getVentesHorsMagFullMap()) for (const cc of getVentesHorsMagFullMap().keys()) allCc.add(cc);
     if (_S.chalandiseData) for (const cc of _S.chalandiseData.keys()) allCc.add(cc);
     if (_S.clientLastOrder) for (const cc of _S.clientLastOrder.keys()) allCc.add(cc);
     if (_S.clientLastOrderAll) for (const cc of _S.clientLastOrderAll.keys()) allCc.add(cc);
@@ -46,7 +46,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
       const omni = _S.clientOmniScore?.get(cc);
 
       // Hors-MAGASIN agrégats
-      const horArts = _S.ventesLocalHorsMag?.get(cc);
+      const horArts = getVentesHorsMagFullMap().get(cc);
       let caHors = 0;
       const canaux = new Set();
       if (horArts) {
@@ -191,48 +191,3 @@ export function buildClientStore({ pdvOnly = false } = {}) {
   return store;
 }
 
-/**
- * Récupère un client par code. O(1).
- * @param {string} cc
- * @returns {Object|undefined}
- */
-export function getClient(cc) {
-  if (!_S.clientStore?.size && _hasClientSources()) buildClientStore();
-  return _S.clientStore?.get(cc);
-}
-
-/** @returns {boolean} true si au moins une source client est peuplée */
-function _hasClientSources() {
-  return !!(_S.ventesLocalMagPeriode?.size || _S.ventesLocalHorsMag?.size
-    || _S.chalandiseData?.size || _S.clientLastOrder?.size || _S.clientsMagasin?.size);
-}
-
-/**
- * Filtre le clientStore avec un prédicat.
- * @param {function(Object): boolean} predicate
- * @returns {Object[]}
- */
-export function filterClients(predicate) {
-  const result = [];
-  if (!_S.clientStore?.size) { if (_hasClientSources()) buildClientStore(); else return result; }
-  for (const rec of _S.clientStore.values()) {
-    if (predicate(rec)) result.push(rec);
-  }
-  return result;
-}
-
-/**
- * Groupe le clientStore par clé extraite.
- * @param {function(Object): string} keyFn
- * @returns {Map<string, Object[]>}
- */
-export function groupClientsBy(keyFn) {
-  const groups = new Map();
-  if (!_S.clientStore?.size) { if (_hasClientSources()) buildClientStore(); else return groups; }
-  for (const rec of _S.clientStore.values()) {
-    const key = keyFn(rec);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(rec);
-  }
-  return groups;
-}

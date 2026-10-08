@@ -8,11 +8,11 @@
 // Dépend de : constants.js, utils.js, state.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
+import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection, defaultPeriodRange } from './utils.js';
 import { articleLib } from './article-store.js';
-import { getVentesClientMagFull, getClientsActiveSetInPeriod } from './sales.js';
+import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
 const _vcaFull = () => getVentesClientMagFull();
@@ -141,20 +141,6 @@ export function calcPriorityScore(freq, pu, ageJours, code) {
   return Math.round(caPerdu * ageCoeff * clientWeight);
 }
 
-export function prioClass(score) {
-  if (score >= 5000) return 'prio-critical';
-  if (score >= 1000) return 'prio-high';
-  if (score >= 300) return 'prio-medium';
-  return 'prio-low';
-}
-
-export function prioLabel(score) {
-  if (score >= 5000) return '🔴';
-  if (score >= 1000) return '🟠';
-  if (score >= 300) return '🟡';
-  return '⚪';
-}
-
 // ── Détection référence père ──────────────────────────────────
 // Toutes les 3 dates vides → référence père (exclue des ruptures)
 export function isParentRef(row) {
@@ -242,14 +228,6 @@ export function calcCouverture(stock, V) {
 
 export function formatCouv(j) { if (j >= 999) return '—'; return j + 'j'; }
 
-export function couvColor(j) {
-  if (j >= 999) return 'c-muted';
-  if (j <= 7) return 'c-danger font-extrabold';  // rupture imminente — perte d'argent
-  if (j <= 21) return 'c-caution font-bold';     // stock bas — à surveiller
-  if (j <= 60) return 'c-ok';                    // couverture saine
-  return 'c-muted';                              // surstock — informatif seulement
-}
-
 // ── Client classification helpers ─────────────────────────────
 export function _isGlobalActif(info) {
   if (info.activiteLeg) return info.activiteLeg.startsWith('Actif');
@@ -322,24 +300,6 @@ export function computeClientCrossing() {
   _S.crossingStats = { fideles, potentiels, captes, fidelespdv };
 }
 
-export function _clientUrgencyScore(cc, info) {
-  const caLeg = info.ca2025 || 0;
-  const pdvActif = _isPDVActif(cc);
-  const globalActif = _isGlobalActif(info);
-  const classif = _normalizeClassif(info.classification);
-  const isFidPlus = classif === 'FID Pot+';
-  const isOccPlus = classif === 'OCC Pot+';
-  const isStrategique = _isMetierStrategique(info.metier);
-  let score = caLeg;
-  if (globalActif && !pdvActif) score *= 3;
-  else if (_isPerdu(info) && caLeg > 0) score *= 2;
-  else if (_isPerdu(info)) score *= 0.5;
-  if (isFidPlus) score *= 2;
-  else if (isOccPlus) score *= 1.5;
-  if (isStrategique) score *= 1.3;
-  return Math.round(score);
-}
-
 export function _clientStatusBadge(cc, info) {
   const pdvActif = _isPDVActif(cc);
   const globalActif = _isGlobalActif(info);
@@ -348,16 +308,6 @@ export function _clientStatusBadge(cc, info) {
   if (_isProspect(info)) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>';
   if (_isPerdu(info) && (info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>';
   return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
-}
-
-export function _clientStatusText(cc, info) {
-  const pdvActif = _isPDVActif(cc);
-  const globalActif = _isGlobalActif(info);
-  if (pdvActif) return 'Actif PDV';
-  if (globalActif) return 'Actif Leg.';
-  if (_isProspect(info)) return 'Prospect';
-  if (_isPerdu(info) && (info.ca2025 || 0) > 0) return 'Perdu 12-24m';
-  return 'Inactif';
 }
 
 export function _unikLink(code) {
@@ -429,12 +379,6 @@ export function clientMatchesMetierFilter(info) {
   if (!_S._selectedMetier) return true;
   if (_S._selectedMetier === '__NONE__') { const m = (info.metier || '').trim(); return !m || m.length <= 2 || /^[-–—\s.]+$/.test(m); }
   return (info.metier || '') === _S._selectedMetier;
-}
-
-export function clientMatchesUniversFilter(cc) {
-  if (!_S._selectedUnivers.size) return true;
-  const u = _S._clientDominantUnivers?.get(cc) || '';
-  return _S._selectedUnivers.has(u);
 }
 
 /**
@@ -509,101 +453,6 @@ export function _diagClassifPrio(c) {
   if (u.includes('OCC') && u.includes('POT+')) return 1;
   if (u.includes('POT-')) return 2;
   return 3;
-}
-
-export function _diagClassifBadge(c) {
-  const u = (c || '').toUpperCase();
-  if (u.includes('FID') && u.includes('POT+')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;
-  if (u.includes('OCC') && u.includes('POT+')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;
-  if (u.includes('POT-')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;
-  if (c && c !== '—') return `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;
-  return '<span class="text-slate-600 text-[9px]">—</span>';
-}
-
-// ── Decision Queue — génération (Sprint 1) ────────────────────
-// Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
-// Retourne les codes clients actifs pour le canal donné.
-// '' ou 'MAGASIN' → ventesLocalMagPeriode (Commerce, filtré période) ; autre canal → ventesLocalHorsMag.
-function _getClientsActifs(canal = '') {
-  const vca = _S.ventesLocalMagPeriode;
-  const vh = _S.ventesLocalHorsMag;
-  if (!canal || canal === 'MAGASIN') {
-    return vca ? Array.from(vca.keys()) : [];
-  }
-  if (!vh?.size) return [];
-  const out = [];
-  for (const [cc, arts] of vh.entries()) {
-    let ok = false;
-    for (const a of arts.values()) {
-      if (a.canal === canal) { ok = true; break; }
-    }
-    if (ok) out.push(cc);
-  }
-  return out;
-}
-
-// ── Health Score agence 0-100 ──────────────────────────────────
-// Score synthétique : stock A + captation clients + taux service + actif/dormant
-export function computeHealthScore() {
-  if (!_S._hasStock) {
-    let actifs=0,total=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.lastOrderPDV){total++;if((rec.silenceDaysPDV||999)<90)actifs++;}}}
-    else{const nowTs=Date.now();for(const[,dt] of _S.clientLastOrder){total++;if(nowTs-dt<90*86400000)actifs++;}}
-    total=Math.max(total,1);
-    const momentumScore = Math.round(Math.min(1, actifs/total) * 100);
-    const captationScore = (_S.chalandiseReady && _S.chalandiseData.size > 0)
-      ? Math.round(Math.min(1, actifs / _S.chalandiseData.size) * 100) : 50;
-    const score = Math.round((momentumScore + captationScore) / 2);
-    const label = score >= 70 ? 'Bon' : score >= 40 ? 'Vigilance' : 'Critique';
-    return { score, label, details: { momentum: momentumScore, captation: captationScore, stockFM: null, service: null }, degraded: true };
-  }
-  const d = _S.finalData;
-  if (!d.length) return null;
-
-  // Composante 1 : ruptures articles A (poids 30%)
-  let articlesACount = 0;
-  let articlesARupture = 0;
-  for (const r of d) {
-    if (r.abcClass !== 'A' || r.W < 1 || r.isParent || (r.V === 0 && r.enleveTotal > 0)) continue;
-    articlesACount++;
-    if (r.stockActuel <= 0) articlesARupture++;
-  }
-  const scoreStock = articlesACount > 0 ? Math.max(0, 1 - articlesARupture / articlesACount) : 1;
-
-  // Composante 2 : clients actifs PDV 90j vs zone chalandise (poids 30%)
-  let scoreClients = 0.5; // défaut sans chalandise
-  if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
-    let actifs = 0;
-    if (_S.clientStore?.size) {
-      for (const rec of _S.clientStore.values()) {
-        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV <= 90) actifs++;
-      }
-    } else {
-      const nowTs = Date.now();
-      actifs = 0;
-      for (const dt of _S.clientLastOrder.values()) {
-        if (nowTs - dt < 90 * 86400000) actifs++;
-      }
-    }
-    scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
-  }
-
-  // Composante 3 : taux de service (poids 20%)
-  const serv = _S.benchLists?.obsKpis?.mine?.serv || 0;
-
-  // Composante 4 : ratio actif/dormant en valeur (poids 20%)
-  let valDormants = 0, valStock = 0;
-  for (const r of d) {
-    const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
-    valStock += val;
-    if ((r.ageJours || 0) > 365) valDormants += val;
-  }
-  const scoreDorm = valStock > 0 ? Math.max(0, 1 - valDormants / valStock) : 1;
-
-  const score = Math.round(scoreStock * 30 + scoreClients * 30 + (serv / 100) * 20 + scoreDorm * 20);
-  const color = score >= 70 ? 'green' : score >= 45 ? 'amber' : 'red';
-  const label = score >= 70 ? 'Bonne santé' : score >= 45 ? 'Vigilance' : 'Actions requises';
-  return { score, color, label, scoreStock, scoreClients, serv, scoreDorm };
 }
 
 // ── Helper : enrichissement client (chalandise + fallback territoire) ──
@@ -737,7 +586,7 @@ export function computeReconquestCohort() {
 // mais qui achète via d'autres canaux/agences (ventesLocalHorsMag) des articles
 // dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
-  if (!_S.ventesLocalHorsMag?.size || !_S.finalData?.length) {
+  if (!getVentesHorsMagFullMap().size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
@@ -748,7 +597,7 @@ export function computeOpportuniteNette() {
     if (fam) rayonFamSet.add(fam);
   }
   const results = [];
-  for (const [cc, horsArts] of _S.ventesLocalHorsMag.entries()) {
+  for (const [cc, horsArts] of getVentesHorsMagFullMap().entries()) {
     if (!horsArts.size) continue;
     // 2a. caParFamMoi = CA chez AG22 par famille pour ce client
     const caParFamMoi = new Map();
@@ -867,50 +716,6 @@ export function computeAnglesMorts() {
   _S.anglesMorts = results;
 }
 
-// ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
-export function computeSPC(cc, info) {
-  let score = 0;
-  const rec = _S.clientStore?.get(cc);
-  // 1. Récence (30 pts)
-  const daysAgo = rec?.silenceDaysPDV;
-  if (daysAgo !== null && daysAgo !== undefined) {
-    if (daysAgo <= 30) score += 30;
-    else if (daysAgo <= 90) score += 20;
-    else if (daysAgo <= 180) score += 10;
-  }
-  // 2. CA rapatriable (30 pts)
-  const caLeg = info.ca2025 || info.ca2026 || 0;
-  const caPDV = rec?.caPDV || 0;
-  const caHorsPDV = Math.max(caLeg - caPDV, 0);
-  if (caHorsPDV > 10000) score += 30;
-  else if (caHorsPDV > 5000) score += 25;
-  else if (caHorsPDV > 2000) score += 20;
-  else if (caHorsPDV > 500) score += 15;
-  else if (caHorsPDV > 0) score += 5;
-  // 3. Familles manquantes vs benchmark métier (20 pts)
-  if (_S.metierFamBench && info.metier && _S.metierFamBench[info.metier]) {
-    const metierFams = _S.metierFamBench[info.metier];
-    const clientFams = _S.clientFamCA ? _S.clientFamCA[cc] || {} : {};
-    let totalMetierFams = 0;
-    let missingFams = 0;
-    for (const f in metierFams) {
-      if (!Object.prototype.hasOwnProperty.call(metierFams, f)) continue;
-      totalMetierFams++;
-      if (!clientFams[f]) missingFams++;
-    }
-    const missingRatio = totalMetierFams > 0 ? missingFams / totalMetierFams : 0;
-    score += Math.round(missingRatio * 20);
-  }
-  // 4. Profil chalandise (20 pts)
-  const classif = _normalizeClassif(info.classification);
-  if (classif === 'FID Pot+') score += 15;
-  else if (classif === 'OCC Pot+') score += 10;
-  else if (classif === 'FID Pot=') score += 8;
-  if (_isMetierStrategique(info.metier)) score += 5;
-  return Math.min(Math.round(score), 100);
-}
-
-
 // ── B3: Benchmark Métier — médiane CA + tronc commun familles par segment ──
 let _benchMetierCache = null;
 export function computeBenchMetier() {
@@ -994,101 +799,117 @@ export function computePriceGap(code) {
   return { myPU: Math.round(myPU * 100) / 100, avgPUTop3: Math.round(avgPUTop3 * 100) / 100, ecartPct, tropCher: ecartPct >= 10 };
 }
 
-// ── Helper interne : suivi famille × canal pour le score omnicanal ───────
-function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
-  if (!fam) return;
-  const prev = famCanalState.get(fam);
-  if (!prev) { famCanalState.set(fam, canal); return; }
-  if (prev !== '*' && prev !== canal) {
-    famCanalState.set(fam, '*');
-    nbFamsCrossRef[0]++;
-  }
-}
+// ── Profil canal client (ex « score omnicanal ») ─────────────────────────
+// Comment un client achète auprès de l'agence — doctrine : pleine période (historique chargé),
+// insensible au filtre période. Sources :
+//   • CA comptoir / autres canaux sur 12 mois complets : _byMonthClientCAByCanal (mois → canal → client)
+//     (repli si absent : caClientParStore[myStore] et ventesLocalMag12MG, historique chargé)
+//   • canaux utilisés : clientLastOrderByCanal (dernière commande par canal, 12 mois glissants)
+//   • achats dans les autres agences : ventesClientAutresAgences (consommé) ou lignes EXTÉRIEUR Qlik
+// Profils :
+//   comptoir     = n'achète qu'au comptoir
+//   mixte        = comptoir + représentant / internet / DCS
+//   sansComptoir = achète à l'agence sans jamais passer au comptoir
+//   ailleurs     = au moins 30 % de ses achats réseau se font dans d'autres agences
+// Résultat : _S.clientOmniScore = Map<cc, {segment, partComptoir, caComptoir, caHors, caAgence,
+//   caAutres, canaux:[{canal, jours}], nbCanaux, silenceDays, score, sur12m}> (score = partComptoir, compat)
+export const OMNI_PROFILS = {
+  comptoir:     { label: 'Comptoir seul', icon: '🏪', piste: 'Client fidèle au comptoir. Pour le dépannage hors horaires, lui proposer la commande web.' },
+  mixte:        { label: 'Comptoir + autres canaux', icon: '🔀', piste: 'Client complet : il passe au comptoir et commande aussi à distance. À garder.' },
+  sansComptoir: { label: 'Sans comptoir', icon: '📦', piste: 'Achète à ton agence sans jamais venir au comptoir : l’inviter (dépannage, nouveautés, rayon de son métier).' },
+  ailleurs:     { label: 'Aussi ailleurs', icon: '🌐', piste: 'Une part importante de ses achats se fait dans d’autres agences : comprendre pourquoi (proximité, gamme, accueil) et le capter.' },
+};
+const _OMNI_CANAL_JOURS = 365;
+const _OMNI_AILLEURS_MIN = 50;    // € — en dessous, un dépannage isolé
+const _OMNI_AILLEURS_PART = 0.3;  // part des achats réseau faite ailleurs pour le profil « Aussi ailleurs »
 
-// ── Score omnicanalité par client ─────────────────────────────────────────
-// Segmente chaque client en : mono / hybride / digital / dormant
-// Segmentation par nombre de canaux distincts :
-//   purComptoir = MAGASIN uniquement (1 canal)
-//   purHors     = jamais MAGASIN, uniquement DCS/Internet/Représentant/Autre
-//   hybride     = MAGASIN + 1 ou 2 autres canaux (2-3 canaux)
-//   full        = 4+ canaux distincts
-// Score omnicanal composite 0-100 : canaux(30) + équilibre PDV/hors(30) + récence PDV(20) + familles cross-canal(20)
-// Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays}>
 export function computeOmniScores() {
   const scores = new Map();
-  const nowTs = Date.now();
-  // Index ventesTerrain par client (une seule passe sur les 250k lignes)
-  const _terrByClient = new Map();
+  const refD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  const refTs = refD ? new Date(refD).getTime() : Date.now();
+  const agence = _S.caClientParStore?.[_S.selectedMyStore] || new Map();
+  const mag = _vcaFull() || new Map();
+  const byCanal = _S.clientLastOrderByCanal || new Map();
+  // Qlik (si chargé) : CA EXTÉRIEUR par client = achats hors agence
+  const terrExt = new Map();
   if (_S.ventesTerrain?.length) {
     for (const l of _S.ventesTerrain) {
-      if (!l.clientCode || l.canal === 'MAGASIN') continue;
-      if (!_terrByClient.has(l.clientCode)) _terrByClient.set(l.clientCode, []);
-      _terrByClient.get(l.clientCode).push(l);
+      if (!l.clientCode || l.canal !== 'EXTÉRIEUR') continue;
+      terrExt.set(l.clientCode, (terrExt.get(l.clientCode) || 0) + (l.ca || 0));
     }
   }
-  const allCc = new Set();
-  const _vcaOmni = _vcaFull();
-  if (_vcaOmni) for (const cc of _vcaOmni.keys()) allCc.add(cc);
-  if (_S.ventesLocalHorsMag) for (const cc of _S.ventesLocalHorsMag.keys()) allCc.add(cc);
-  for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
+  const autresOf = (cc) => terrExt.size ? (terrExt.get(cc) || 0) : (_S.ventesClientAutresAgences?.get(cc) || 0);
+
+  const allCc = new Set([...agence.keys(), ...mag.keys()]);
+  // Clients de la zone qui n'achètent qu'ailleurs : profil « Aussi ailleurs » (cibles de conquête)
+  if (_S.chalandiseData?.size) {
+    const src = terrExt.size ? terrExt : (_S.ventesClientAutresAgences || new Map());
+    for (const [cc, ca] of src) if (ca >= _OMNI_AILLEURS_MIN && _S.chalandiseData.has(cc)) allCc.add(cc);
+  }
+
+  // CA par canal sur 12 mois complets (même fenêtre que la période par défaut)
+  const bmc = _S._byMonthClientCAByCanal;
+  const range = defaultPeriodRange(refD);
+  let ca12 = null;
+  if (bmc && range) {
+    ca12 = new Map();
+    const hi = range.end.getFullYear() * 12 + range.end.getMonth(), lo = hi - 11;
+    for (const mk in bmc) {
+      const mi = +mk; if (mi < lo || mi > hi) continue;
+      for (const canal in bmc[mk]) {
+        const byCc = bmc[mk][canal];
+        for (const cc in byCc) {
+          let e = ca12.get(cc); if (!e) { e = { mag: 0, hors: 0 }; ca12.set(cc, e); }
+          if (canal === 'MAGASIN') e.mag += byCc[cc] || 0; else e.hors += byCc[cc] || 0;
+        }
+      }
+    }
+    for (const cc of ca12.keys()) allCc.add(cc);
+  }
+
   for (const cc of allCc) {
-    const pdvArts = _vcaOmni?.get(cc);
-    const horArts = _S.ventesLocalHorsMag?.get(cc);
-    let caPDV = 0;
-    if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
-    let caHors = 0;
-    const canaux = new Set();
-    if (caPDV > 0) canaux.add('MAGASIN');
-    if (horArts) {
-      for (const [, v] of horArts) {
-        caHors += v.sumCA || 0;
-        if (v.canal) canaux.add(v.canal);
-      }
+    let caComptoir = 0, caHors = 0;
+    if (ca12) {
+      const e = ca12.get(cc);
+      caComptoir = Math.max(0, e?.mag || 0); caHors = Math.max(0, e?.hors || 0);
+    } else {
+      const m = mag.get(cc);
+      if (m) for (const [, v] of m) caComptoir += v.sumCA || 0;
+      caHors = Math.max(0, (agence.get(cc) || 0) - caComptoir);
     }
-    // Enrichir avec ventesTerrain (Qlik) — canaux + CA hors agence
-    const _terrLines = _terrByClient.get(cc);
-    if (_terrLines) {
-      for (const l of _terrLines) {
-        const tCanal = l.canal || 'EXTÉRIEUR';
-        if (tCanal === 'EXTÉRIEUR') canaux.add('AUTRES_AGENCES');
-        else canaux.add(tCanal);
-        caHors += l.ca || 0;
-      }
+    const caAgence = caComptoir + caHors;
+    const caAutres = autresOf(cc);
+    if (caAgence <= 0 && caAutres < _OMNI_AILLEURS_MIN && !byCanal.get(cc)) continue;
+
+    // Canaux utilisés sur 12 mois glissants (à la date des données)
+    const canaux = [];
+    const bc = byCanal.get(cc);
+    if (bc) for (const [canal, d] of bc) {
+      const jours = Math.round((refTs - new Date(d).getTime()) / 86400000);
+      if (jours <= _OMNI_CANAL_JOURS) canaux.push({ canal, jours });
     }
-    const nbCanaux = canaux.size;
-    const caTotal = caPDV + caHors;
-    if (caTotal <= 0) continue; // ignorer les clients sans CA effectif
-    const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
-    const _csRec = _S.clientStore?.get(cc);
-    const lastPDV = _csRec?.lastOrderPDV || _S.clientLastOrder?.get(cc);
-    const silenceDays = _csRec?.silenceDaysPDV ?? (lastPDV ? Math.round((nowTs - lastPDV) / 86400000) : 999);
-    // Segment par nombre de canaux
+    canaux.sort((a, b) => a.jours - b.jours);
+    const viaComptoir = canaux.some(c => c.canal === 'MAGASIN') || (!bc && caComptoir > 0);
+    const viaAutres = canaux.some(c => c.canal !== 'MAGASIN') || (!bc && caHors > 0);
+
     let segment;
-    if (nbCanaux >= 4) segment = 'full';
-    else if (canaux.has('MAGASIN') && nbCanaux >= 2) segment = 'hybride';
-    else if (!canaux.has('MAGASIN') && nbCanaux >= 1) segment = 'purHors';
-    else segment = 'purComptoir'; // MAGASIN uniquement (ou aucun canal avec CA)
-    // Score composite 0-100
-    // 1. Nb canaux (30pts)
-    const _sCanaux = nbCanaux >= 4 ? 30 : nbCanaux === 3 ? 22 : nbCanaux === 2 ? 15 : 5;
-    // 2. Équilibre PDV/hors-agence (30pts)
-    const _sEquilibre = (caPDV > 0 && caHors > 0) ? Math.round(Math.min(caPDV, caHors) / Math.max(caPDV, caHors) * 30) : 0;
-    // 3. Récence PDV (20pts)
-    const _sRecence = silenceDays <= 30 ? 20 : silenceDays <= 90 ? 15 : silenceDays <= 180 ? 10 : 0;
-    // 4. Profondeur familles cross-canal (20pts) : familles achetées sur 2+ canaux distincts
-    const _famCanalState = new Map(); // fam -> first canal, or '*'
-    const _nbFamsCrossRef = [0];
-    if (pdvArts) for (const [code] of pdvArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'MAGASIN');
-    if (horArts) for (const [code, v] of horArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], v.canal || 'HORS');
-    // Enrichir familles cross-canal avec ventesTerrain (index pré-calculé)
-    if (_terrLines) {
-      for (const l of _terrLines) {
-        _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[l.code], l.canal === 'EXTÉRIEUR' ? 'AUTRES_AGENCES' : (l.canal || 'HORS'));
-      }
-    }
-    const _sFams = _nbFamsCrossRef[0] >= 5 ? 20 : _nbFamsCrossRef[0] >= 3 ? 13 : _nbFamsCrossRef[0] >= 1 ? 6 : 0;
-    const score = Math.min(100, _sCanaux + _sEquilibre + _sRecence + _sFams);
-    scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });
+    // Comparaison sur la même fenêtre (historique chargé des deux côtés)
+    let magFull = 0; const mf = mag.get(cc); if (mf) for (const [, v] of mf) magFull += v.sumCA || 0;
+    const caAgenceFull = Math.max(agence.get(cc) || 0, magFull);
+    if (caAutres >= _OMNI_AILLEURS_MIN && caAutres / (caAutres + caAgenceFull) >= _OMNI_AILLEURS_PART) segment = 'ailleurs';
+    else if (viaComptoir && viaAutres) segment = 'mixte';
+    else if (viaComptoir) segment = 'comptoir';
+    else if (viaAutres || caHors > 0) segment = 'sansComptoir';
+    else segment = caComptoir > 0 ? 'comptoir' : 'sansComptoir';
+
+    const partComptoir = caAgence > 0 ? Math.round(100 * caComptoir / caAgence) : 0;
+    const lastPDV = _S.clientLastOrder?.get(cc);
+    const silenceDays = lastPDV ? Math.round((refTs - new Date(lastPDV).getTime()) / 86400000) : 999;
+    scores.set(cc, {
+      segment, partComptoir, score: partComptoir,
+      caComptoir, caHors, caAgence, caAutres, caPDV: caComptoir, caTotal: caAgence,
+      canaux, nbCanaux: canaux.length, silenceDays, sur12m: !!ca12,
+    });
   }
   _S.clientOmniScore = scores;
 }
@@ -1098,12 +919,12 @@ export function computeOmniScores() {
 // les acheter au comptoir → signal de gamme manquante ou de captation partielle
 // Résultat : _S.famillesHors = [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 export function computeFamillesHors() {
-  if (!_vcaFull()?.size || !_S.ventesLocalHorsMag?.size) {
+  if (!_vcaFull()?.size || !getVentesHorsMagFullMap().size) {
     _S.famillesHors = [];
     return;
   }
   const famData = new Map(); // rawFam → {nbClients, caHors, canalCount:Map, clients}
-  for (const [cc, horArts] of _S.ventesLocalHorsMag) {
+  for (const [cc, horArts] of getVentesHorsMagFullMap()) {
     const pdvArts = _vcaFull().get(cc);
     if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
     // Familles achetées en PDV
@@ -1201,7 +1022,7 @@ export function computeArticleZoneIndex() {
     }
   }
   // Source 2 : ventesLocalHorsMag (Internet, Représentant, DCS)
-  for (const [cc, artMap] of (_S.ventesLocalHorsMag || new Map())) {
+  for (const [cc, artMap] of (getVentesHorsMagFullMap() || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
       if (!_isSixDigitCode(code)) continue;
@@ -1512,6 +1333,39 @@ export function computeSquelette(directionFilter) {
   return _result;
 }
 
+// ── Libellés de verdict affichés ─────────────────────────────
+// Le moteur garde ses 16 verdicts internes (_sqVerdict : rôle × classification) ;
+// l'écran n'en montre que 9, un par geste réellement différent.
+export const VERDICT_PLAIN = {
+  'Le Capitaine': 'À garder', 'Le Lien Fort': 'À garder', 'La Bonne Pioche': 'À garder', 'Le Bon Soldat': 'À garder',
+  "L'Alerte Rouge": 'Incontournable qui ralentit',
+  'Le Point de Rupture': 'Client stratégique qui ralentit',
+  'Le Stagiaire': 'À surveiller', 'Le Déclinant': 'À surveiller',
+  'Le Poids Mort': 'À sortir', "L'Erreur de Casting": 'À sortir',
+  'La Réf Schizo': 'Vendu en réseau, jamais ici',
+  'La Trahison': 'Acheté hors comptoir',
+  'Ancre Métier': 'Gardé à 1 · métier clé',
+  'Le Trou Critique': 'À implanter', 'Le Pari du Réseau': 'À implanter', 'La Conquête': 'À implanter', "L'Opportunité Locale": 'À implanter',
+  'Le Bouclier': 'Ne pas acheter',
+};
+export const VERDICT_PLAIN_ICON = {
+  'À garder': '🟢', 'Incontournable qui ralentit': '⚠️', 'Client stratégique qui ralentit': '📞', 'À surveiller': '👁️',
+  'À sortir': '⛔', 'Vendu en réseau, jamais ici': '🔎', 'Acheté hors comptoir': '📞', 'Gardé à 1 · métier clé': '📌',
+  'À implanter': '➕', 'Ne pas acheter': '🚫',
+};
+/** Libellé affiché d'un verdict interne (vide si inconnu). */
+export function verdictLabel(v) { return VERDICT_PLAIN[v] || ''; }
+/** Libellé d'une ligne finalData (les articles « implanter » n'ont pas de verdict détaillé). */
+export function rowVerdictLabel(r) {
+  if (!r?._sqClassif) return '';
+  return r._sqClassif === 'implanter' ? 'À implanter' : verdictLabel(r._sqVerdict);
+}
+
+/** Invendu 12 mois : en stock, aucune vente locale sur la période, hors nouveautés et références père. */
+export function isInvendu(r) {
+  return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // BOUCLIER SQUELETTE — Verdicts + overrides MIN/MAX
 // Le Merchandising pilote la Supply Chain.
@@ -1688,8 +1542,8 @@ export function applyVerdictOverrides() {
 
   // Index hors-magasin : code → cc[] (array, pas Set — moins d'alloc)
   const hmBuyers = new Map();
-  if (_S.ventesLocalHorsMag) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (getVentesHorsMagFullMap()) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       for (const code of artMap.keys()) {
         if (!finalCodes.has(code)) continue;
         let arr = hmBuyers.get(code);
@@ -1741,16 +1595,22 @@ export function applyVerdictOverrides() {
       }
     }
 
+    // « Réseau fort » : le réseau vend vraiment l'article (cf. SQ_RESEAU_FORT_*)
+    const caR = caReseauByCode.get(r.code) || 0;
+    const reseauFort = detention >= SQ_RESEAU_FORT_DETENTION && nbSt > 0 && caR / nbSt >= SQ_RESEAU_FORT_CA_AGENCE;
+    const incontLocal = r.abcClass === 'A' && W >= 12;
+    // Socle : détention seule suffit (pas d'alerte en jeu). Surveiller / challenger : l'étiquette
+    // « incontournable » déclenche une alerte (Alerte Rouge, Réf Schizo) → réseau fort exigé.
+    const isIncont = (classif === 'surveiller' || classif === 'challenger')
+      ? (reseauFort || incontLocal)
+      : (detention >= 0.6 || incontLocal);
+
     let role = 'standard';
-    if (detention >= 0.6 || (r.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    if (isIncont) role = 'incontournable';
     else if (r.isNouveaute) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
-
-    // Fix Poids Mort : challenger avec demande externe → upgrade rôle
-    if (role === 'standard' && classif === 'challenger') {
-      if (nbSt >= 3 || detention >= 0.3) role = 'incontournable';
-      else if (nbCliMetierStrat >= 1) role = 'specialiste';
-    }
+    // Challenger standard acheté par un client de métier stratégique → Trahison (candidat Ancre Métier)
+    if (classif === 'challenger' && role === 'standard' && nbCliMetierStrat >= 1) role = 'specialiste';
 
     r._sqRole = role;
     r._sqVerdict = _VERDICT_MAP[classif]?.[role] || '';
@@ -1765,8 +1625,9 @@ export function applyVerdictOverrides() {
   for (const r of (_S.finalData || [])) {
     if (r._sqClassif !== 'challenger') continue;
 
-    if (r._sqRole === 'standard' || r._sqRole === 'nouveaute') {
-      // Poids Mort / Erreur de Casting → couper les vivres
+    if (r._sqRole !== 'specialiste') {
+      // Poids Mort / Erreur de Casting / Réf Schizo → couper les vivres.
+      // Réf Schizo garde son alerte (enquête commerciale) mais pas de réappro tant qu'elle ne vend pas ici.
       if (r.nouveauMin > 0 || r.nouveauMax > 0) {
         r.nouveauMin = 0; r.nouveauMax = 0;
         r._vitesseReseau = false;
@@ -1779,7 +1640,6 @@ export function applyVerdictOverrides() {
       if (!trahisonsByFam.has(fam)) trahisonsByFam.set(fam, []);
       trahisonsByFam.get(fam).push(r);
     }
-    // Réf Schizo (incontournable) → garder, nécessite investigation commerciale
   }
 
   // Passe 2 : Ancre Métier — top 5 par famille (prix décroissant), reste purgé
@@ -1896,7 +1756,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     if (!_distOk(cc)) continue;
     const chal = _S.chalandiseData.get(cc);
     const vca = _vcaFull()?.get(cc);
-    const vcaHors = _S.ventesLocalHorsMag?.get(cc);
+    const vcaHors = getVentesHorsMagFullMap().get(cc);
     if (!vca && !vcaHors) {
       // Prospect sans achats
       clientDetails.push({
@@ -2304,8 +2164,8 @@ export function computeAnimation(marque) {
     trousCritiques,
     clients: {
       acheteurs: clientsActifs,
-      conquete: clientsConquete.slice(0, 80),
-      labo: clientsLabo.slice(0, 50),
+      conquete: clientsConquete,
+      labo: clientsLabo,
       prospects: clientsProspects.slice(0, 100),
       reconquete: clientsReconquete,
     },

@@ -9,12 +9,12 @@
 
 import { RADAR_LABELS } from './constants.js';
 import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
-import { computeSquelette } from './engine.js';
+import { computeSquelette, OMNI_PROFILS } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange } from './sales.js';
-import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci, getVentesHorsMagFullMap } from './sales.js';
+import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -229,7 +229,7 @@ function _renderClient360(clientCode,source){
   const artMapPeriod=DataStore.ventesLocalMagPeriode?.get(clientCode);
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.ventesTerrain?.length>0;
   // All-channels last order: prefer clientStore (pre-aggregated)
   const _rec=_S.clientStore?.get(clientCode);
@@ -392,58 +392,9 @@ function _renderClient360(clientCode,source){
     if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-[11px] font-bold ${silCol}">${daysSince}j</span></div>`);}
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
   }
-  const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   const _benchM=_S.chalandiseReady?computeBenchMetier():null;
   const _metierBench=_benchM&&info.metier?_benchM.get(info.metier):null;
-  if(spc!==null){
-    const spcCol=spc>=70?'#22c55e':spc>=40?'#f59e0b':'#ef4444';
-    let benchLine='';
-    if(_metierBench){
-      const caClient=ca2026>0?ca2026:(ca2025>0?ca2025:0);
-      const ratio=_metierBench.medianCA>0&&caClient>0?caClient/_metierBench.medianCA:0;
-      let ratioCol,ratioLabel;
-      if(ratio>=2){ratioCol='#22c55e';ratioLabel='Top client Legallais';}
-      else if(ratio>=0.8){ratioCol='#22c55e';ratioLabel='Dans la norme Legallais';}
-      else if(ratio>=0.4){ratioCol='#f59e0b';ratioLabel=`Sous la médiane (${Math.round(ratio*100)}%)`;}
-      else if(ratio>0){ratioCol='#ef4444';ratioLabel=`⚠ Poids plume (${Math.round(ratio*100)}%) — achète probablement chez la concurrence`;}
-      else{ratioCol='#94a3b8';ratioLabel='Pas de données';}
-      benchLine=`<p class="text-[9px] mt-1.5 pt-1.5 border-t b-dark" style="color:${ratioCol}" title="CA Legallais de ce client vs médiane des ${_metierBench.nbClients} ${escapeHtml(info.metier||'')} du réseau (hors bottom 25%)">🎯 Médiane ${escapeHtml(info.metier||'profession')} : <strong>${formatEuro(_metierBench.medianCA)}</strong> — ${ratioLabel}</p>`;
-    }
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Score Potentiel Client (SPC) 0-100&#10;→ Récence dernière commande (30 pts)&#10;→ CA rapatriable hors-PDV (30 pts)&#10;→ Familles manquantes vs métier (20 pts)&#10;→ Profil chalandise FID/OCC (20 pts)"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-2xl font-black" style="color:${spcCol}">${spc}</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${spc}%;background:${spcCol}"></div></div>${benchLine}</div>`);
-  }
 
-  // ── Part PDV (%) — thermomètre captation ──────────────────────
-  const caSociete=ca2026>0?ca2026:ca2025;
-  if(caSociete>0){
-    const _partDenom=Math.max(caPDV,caSociete);
-    const partPDV=Math.round(caPDV/_partDenom*100);
-    const partCol=partPDV>=40?'#22c55e':partPDV>=15?'#f59e0b':'#ef4444';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Part PDV = CA agence ÷ CA Legallais tous canaux&#10;Mesure la captation du client en magasin"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-black" style="color:${partCol}">${partPDV}%</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${Math.min(partPDV,100)}%;background:${partCol}"></div></div><p class="text-[9px] t-inverse-muted mt-1">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
-  }
-
-  // ── Indice PDV-compatible — % du CA société gagnable au comptoir ──
-  // Articles F/M (fréquents) + volume moyen faible = typiquement dépannage/proximité
-  if(caSociete>0){
-    let caCompat=0,caTotal=0;
-    // Sources : artMapFull (PDV pleine période) + ventesLocalHorsMag
-    const _allArts=new Map();
-    if(artMapFull)for(const[code,d]of artMapFull){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
-    if(horsMag)for(const[code,d]of horsMag){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
-    for(const[code,ca]of _allArts){
-      caTotal+=ca;
-      const r=DataStore.finalData?.find(f=>f.code===code);
-      if(!r)continue;
-      // FMR F ou M = rotation fréquente, compatible dépannage comptoir
-      const fmr=(r.fmrClass||'').toUpperCase();
-      if(fmr==='F'||fmr==='M')caCompat+=ca;
-    }
-    if(caTotal>0){
-      const pctCompat=Math.min(100,Math.round(caCompat/caTotal*100));
-      const compatCol=pctCompat>=50?'c-ok':pctCompat>=25?'c-caution':'c-danger';
-      const compatLabel=pctCompat>=50?'Fort potentiel PDV':pctCompat>=25?'Potentiel modéré':'Peu compatible PDV';
-      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="% du CA client sur des articles à rotation fréquente (FMR F ou M)&#10;Ces articles se vendent typiquement au comptoir (dépannage, proximité)&#10;Plus le % est élevé, plus le client est récupérable en agence"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">PDV-compatible</p><p class="text-2xl font-extrabold ${compatCol}">${pctCompat}%</p><p class="text-[10px] t-inverse-muted">${compatLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">CA articles F/M rotatifs</p></div>`);
-    }
-  }
 
   const summaryBar=cards.length?`<div class="flex flex-wrap gap-3 mb-4">${cards.join('')}</div>`:'';
 
@@ -470,6 +421,9 @@ function _renderClient360(clientCode,source){
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
   if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
+  // Sans Qlik : articles achetés dans les autres agences du consommé et jamais pris ici
+  const _autresAg=!hasTerr?getClientCAParAutreAgence(clientCode):[];
+  if(!hasTerr)for(const[code,ca]of getClientArticlesJamaisIci(clientCode)){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:'Autres agences'});ailleursMap.get(code).ca+=ca;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
@@ -486,35 +440,31 @@ function _renderClient360(clientCode,source){
     if(artMap)for(const[code,d]of artMap){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;famsPDV.set(f,(famsPDV.get(f)||0)+(d.sumCA||0));}
     const famsHors=new Map();
     if(horsMag)for(const[code,d]of horsMag){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;if(!famsHors.has(f))famsHors.set(f,{ca:0,canal:d.canal||''});famsHors.get(f).ca+=d.sumCA||0;}
-    const total=omni.caPDV+omni.caHors;
-    const pdvShare=total>0?omni.caPDV/total:0;
-    const nbCanaux=omni.nbCanaux||omni.score||1;
-    const SEG={purComptoir:{icon:'🏪',label:'Pur Comptoir',color:'var(--c-ok)',desc:'Uniquement MAGASIN — 1 canal.'},purHors:{icon:'📦',label:'Pur Hors-Magasin',color:'var(--c-danger)',desc:'Jamais au comptoir — uniquement DCS/Internet/Représentant.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'MAGASIN + 1 ou 2 autres canaux.'},full:{icon:'⭐',label:'Full Omnicanal',color:'var(--c-caution)',desc:'4+ canaux distincts — client pleinement omnicanal.'}};
-    const seg=SEG[omni.segment]||SEG.purComptoir;
-    const scoreColor=omni.score>=70?'var(--c-ok)':omni.score>=40?'var(--c-caution)':'var(--c-danger)';
-    const barRow=(label,val,max,color)=>`<div class="flex items-center gap-2 mb-1"><span class="text-[9px] t-inverse-muted w-20 shrink-0">${label}</span><div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div style="width:${Math.round(val/max*100)}%;background:${color}" class="h-full rounded-full"></div></div><span class="text-[9px] font-bold t-inverse w-10 text-right">${val}/${max}</span></div>`;
+    const P=OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir;
+    const CANAL_LBL={MAGASIN:'Comptoir',REPRESENTANT:'Représentant',INTERNET:'Internet',DCS:'DCS',AUTRE:'Autre'};
+    const part=omni.partComptoir||0;
     const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const onlyPDV=[...famsPDV.entries()].filter(([f])=>!famsHors.has(f)).sort((a,b)=>b[1]-a[1]).slice(0,6);
     const famTag=(f,ca,color)=>`<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:${color};border-color:${color};opacity:0.85">${escapeHtml(f)}${ca?' '+formatEuro(ca):''}</span>`;
     omniContent=`<div class="p-3">
   <div class="flex items-start gap-3 mb-4">
-    <div class="flex-1">
-      <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] t-inverse-muted uppercase tracking-wide">Canaux</span><span class="text-[24px] font-extrabold leading-none" style="color:${scoreColor}">${omni.nbCanaux||omni.score}</span><span class="text-[10px] t-inverse-muted">canal${(omni.nbCanaux||omni.score)>1?'x':''}</span></div>
-      <div class="h-2 rounded-full bg-white/10 overflow-hidden mb-3"><div style="width:${Math.min(nbCanaux/4*100,100)}%;background:${scoreColor}" class="h-full rounded-full"></div></div>
-      ${barRow('CA PDV',omni.caPDV>0?1:0,1,'var(--c-ok)')}
-      ${barRow('CA hors-agence',omni.caHors>0?1:0,1,'var(--c-info,#3b82f6)')}
+    <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[130px]">
+      <div class="text-[22px]">${P.icon}</div>
+      <div class="text-[11px] font-bold mt-0.5 t-inverse">${P.label}</div>
+      <div class="text-[9px] t-inverse-muted mt-1">profil canal</div>
     </div>
-    <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[90px]">
-      <div class="text-[22px]">${seg.icon}</div>
-      <div class="text-[10px] font-bold mt-0.5" style="color:${seg.color}">${seg.label}</div>
-      <div class="text-[8px] t-inverse-muted mt-1 leading-tight max-w-[85px]">${seg.desc}</div>
+    <div class="flex-1">
+      <p class="text-[11px] t-inverse leading-relaxed">${P.piste}</p>
+      <p class="text-[9px] t-inverse-muted uppercase tracking-wide mt-3 mb-1">Canaux utilisés sur 12 mois · dernière commande</p>
+      <div class="flex flex-wrap gap-1">${(omni.canaux||[]).length?omni.canaux.map(c=>`<span class="text-[10px] px-2 py-0.5 rounded-full border b-dark t-inverse">${CANAL_LBL[c.canal]||c.canal} · ${c.jours<=0?'ce jour':c.jours+' j'}</span>`).join(''):'<span class="text-[10px] t-inverse-muted">aucune commande sur 12 mois</span>'}</div>
     </div>
   </div>
   <div class="mb-4 p-2.5 rounded-lg s-panel-inner border b-dark">
-    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">Répartition CA</p>
-    <div class="flex h-3 rounded-full overflow-hidden mb-1.5">${total>0?`<div style="width:${Math.round(pdvShare*100)}%;background:var(--c-ok)" title="PDV"></div><div style="width:${Math.round((1-pdvShare)*100)}%;background:var(--c-caution)" title="Digital"></div>`:'<div style="width:100%;background:#ffffff20"></div>'}</div>
-    <div class="flex justify-between text-[9px]"><span style="color:var(--c-ok)">🏪 PDV\u00a0: <strong>${formatEuro(omni.caPDV)}</strong>${total>0?` (${Math.round(pdvShare*100)}%)`:''}</span><span style="color:var(--c-caution)">📱 Digital\u00a0: <strong>${formatEuro(omni.caHors)}</strong>${total>0?` (${Math.round((1-pdvShare)*100)}%)`:''}</span></div>
+    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">CA dans ton agence · ${omni.sur12m?'12 mois':'historique chargé'} · tous canaux</p>
+    ${omni.caAgence>0?`<div class="flex h-3 rounded-full overflow-hidden mb-1.5"><div style="width:${part}%;background:var(--c-ok)" title="Comptoir"></div><div style="width:${100-part}%;background:var(--c-info,#3b82f6)" title="Autres canaux"></div></div>`:''}
+    <div class="flex justify-between flex-wrap gap-2 text-[10px]"><span style="color:var(--c-ok)">🏪 Comptoir : <strong>${formatEuro(omni.caComptoir)}</strong>${omni.caAgence>0?` (${part} %)`:''}</span><span style="color:var(--c-info,#60a5fa)">📦 Représentant, internet, DCS : <strong>${formatEuro(omni.caHors)}</strong></span></div>
+    ${omni.caAutres>0?`<p class="text-[10px] mt-1.5" style="color:var(--c-caution)">🌐 Dans les autres agences (historique chargé) : <strong>${formatEuro(omni.caAutres)}</strong></p>`:''}
   </div>
   ${onlyHors.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
   ${both.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
@@ -560,7 +510,7 @@ function _renderClient360(clientCode,source){
   if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
   if(livreMagArts.length)tabs.push({id:'livremag',label:`🚚 Livré MAG — ${livreMagArts.length} art.`});
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
-  if(omni)tabs.push({id:'omni',label:`📡 Omni — ${omni.score}/100`});
+  if(omni)tabs.push({id:'omni',label:`📡 Canaux — ${(OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir).label}`});
 
   const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
 
@@ -595,7 +545,7 @@ function _renderClient360(clientCode,source){
       const _sqI=window._getArticleSqInfo?.(code);
       if(_sqI&&_sqI.verdict?.name&&_sqI.verdict.name!=='—'){
         const _vc=_sqI.verdict.color||'#94a3b8';
-        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.name)}</span>`;
+        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.label||_sqI.verdict.name)}</span>`;
       }
       return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${verdictBadge}</td></tr>`;
     };
@@ -642,7 +592,7 @@ function _renderClient360(clientCode,source){
       else if(isSpecial&&!r){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold">⛔ Spécial</span>';}
       else if(!r){
         const _sq=window._getArticleSqInfo?.(code);
-        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;}
+        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;}
         else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';}
       }
       else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture</span>';}
@@ -694,7 +644,7 @@ function _renderClient360(clientCode,source){
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${iciRows}</tbody></table>`,
       livremag:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${livreMagRows}</tbody></table>`,
-      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      ailleurs:`${_autresAg.length?`<div class="text-[11px] t-inverse-muted mb-2 px-1">Achète aussi dans : ${_autresAg.slice(0,6).map(a=>`<strong class="t-inverse">${escapeHtml(a.store)}</strong> ${formatEuro(a.ca)}`).join(' · ')}${_autresAg.length>6?` · +${_autresAg.length-6} agences`:''} <span class="t-disabled">(consommé, tous canaux, historique chargé — « Autres agences » = articles jamais pris ici)</span></div>`:''}<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 
@@ -731,7 +681,7 @@ function _c360CopyResume(clientCode){
   const _artP=DataStore.ventesLocalMagPeriode?.get(clientCode);
   const _artF=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   const _rec2=_S.clientStore?.get(clientCode);
   const caPDV=_rec2?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const caHors=_rec2?.caHors||(horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
@@ -741,7 +691,6 @@ function _c360CopyResume(clientCode){
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
   const omni=_S.clientOmniScore?.get(clientCode);
-  const SEG_LABEL={purComptoir:'Pur Comptoir 🏪',purHors:'Pur Hors-Magasin 📦',hybride:'Hybride 🔀',full:'Full Omnicanal ⭐'};
   const total=(omni?.caPDV||0)+(omni?.caHors||0);
   const pctDigital=total>0?Math.round((omni?.caHors||0)/total*100):0;
   // Canal dominant hors-agence
@@ -767,7 +716,7 @@ function _c360CopyResume(clientCode){
     `CA Magasin : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
     caHors>0?`CA Digital : ${formatEuro(caHors)}${total>0?` (${pctDigital}%)`:''} · Canal : ${CANAL_TEXT[mainCanal]||mainCanal||'—'}`:'',
     daysSince!==null?`Dernière commande PDV : il y a ${daysSince}j${priorite}`:'',
-    omni?`Canaux : ${omni.nbCanaux||omni.score} · Segment : ${SEG_LABEL[omni.segment]||omni.segment}`:'',
+    omni?`Profil canal : ${(OMNI_PROFILS[omni.segment]||OMNI_PROFILS.comptoir).label} · comptoir ${omni.partComptoir} % du CA agence${omni.caAutres>0?` · ${formatEuro(omni.caAutres)} dans d'autres agences`:''}`:'',
     `─────────────────────────────────────────────`,
     fuyantes.length?`Familles fuyantes (hors agence, pas au PDV) :`:'',
     ...fuyantes.map(([r,ca])=>`  - ${famLib(r)||r} : ${formatEuro(ca)}`),
@@ -783,7 +732,7 @@ function _c360ExportRadio(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
-  const horsMag=_S.ventesLocalHorsMag?.get(clientCode);
+  const horsMag=getVentesHorsMagFullMap().get(clientCode);
   // Agréger CA par famille — Ici (PDV 12MG)
   const famIci={};
   if(artMapFull)for(const[code,d]of artMapFull){
@@ -940,7 +889,7 @@ function openArticlePanel(code,source){
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
-    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
     panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
@@ -989,7 +938,7 @@ function openArticlePanel(code,source){
   if(buyers&&buyers.size){
     for(const cc of buyers){
       const _magCA=((DataStore.ventesLocalMagPeriode.get(cc)||new Map()).get(code)||{}).sumCA||0;
-      const _hmCA=((_S.ventesLocalHorsMag?.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _hmCA=((getVentesHorsMagFullMap().get(cc)||new Map()).get(code)||{}).sumCA||0;
       const caArt=_magCA+_hmCA;
       const rec=_S.clientStore?.get(cc);
       const lastDate=rec?.lastOrderPDV||null;
@@ -1085,7 +1034,7 @@ function openArticlePanel(code,source){
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
       const _sqI=window._getArticleSqInfo?.(c.code);
-      const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
+      const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
         :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
@@ -1094,7 +1043,7 @@ function openArticlePanel(code,source){
   }
   // Verdict Squelette pour onglet Perf
   const _sqInfo = window._getArticleSqInfo?.(code);
-  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.name}` : '⚪ Hors squelette';
+  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.label||_sqInfo.verdict.name}` : '⚪ Hors squelette';
   const _sqBadge = `<span class="text-[10px] font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
   // Sparklines
   const _artSpk = _articleSparkline(code);
@@ -1177,46 +1126,6 @@ function _seasonRibbon(famille){
   return`<div class="flex gap-px items-end mt-1 overflow-hidden" style="max-width:100%" title="Saisonnalité famille">${cells}</div>`;
 }
 
-// ── BANDEAU SYNTHÈSE "3 CHIFFRES" (Action 1 — Codex P1) ──
-function _diagRenderSummaryBar(v1,v2,v3){
-  const cards=[];
-  // Card 1 : CA perdu ruptures (toujours, sauf absent)
-  if(v1&&v1.status!=='absent'){
-    const ca=v1.caPerduTotal||0;const nbRup=v1.ruptures?.length||0;
-    const col=ca>=1000?'c-danger':ca>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
-      <p class="text-lg font-extrabold ${col}">${ca>0?formatEuro(ca):'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${nbRup>0?nbRup+' article'+(nbRup>1?'s':'')+' en rupture':'Pas de rupture active'}</p>
-    </div>`);
-  }
-  // Card 2 : Clients perdus (chalandise chargée)
-  if(v2&&v2.status!=='lock'){
-    const nb=v2.perdus||0;const pot=v2.potentiel||0;
-    const col=nb>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
-      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
-    </div>`);
-  }
-  // Card 3 : Absents réseau (multi-agences)
-  if(v3&&v3.status!=='lock'){
-    const nb=v3.missing?.length||0;const strong=v3.strongMissing||0;
-    const col=nb>5?'c-danger':nb>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Absents réseau</p>
-      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${strong>0?'dont '+strong+' forte rotation':nb===0?'Gamme complète':'à référencer'}</p>
-    </div>`);
-  }
-  if(!cards.length)return'';
-  const v1ok=!v1||v1.status==='absent'||(v1.caPerduTotal===0&&v1.nbMM===0);
-  const v2ok=!v2||v2.status==='lock'||(v2.perdus||0)===0;
-  const v3ok=!v3||v3.status==='lock'||(v3.missing?.length||0)===0;
-  if(v1ok&&v2ok&&v3ok)return`<div class="flex gap-2 mb-4 p-3 rounded-xl s-panel-inner border border-emerald-700/50 items-center"><span>✅</span><p class="text-xs c-ok font-semibold">Famille bien pilotée — aucune action urgente.</p></div>`;
-  return`<div class="flex gap-3 mb-4">${cards.join('')}</div>`;
-}
 function _diagRenderSummaryBarMetier(l1,l4,l3){
   const cards=[];
   if(l1&&l1.arts>0){
@@ -1323,7 +1232,7 @@ function _renderReseauTab(v3) {
   const inStockNotSold=v3.inStockNotSold||[];
   if(!missing.length&&!inStockNotSold.length)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-sm">✅ Votre gamme est bien alignée avec le réseau — aucun trou détecté.</p></div>`;
   // Squelette verdicts — source unique via _getArticleSqInfo
-  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;};
+  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;};
   const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
   // KPI cards
   const cards=[
@@ -1677,75 +1586,6 @@ function _diagVoyant1(famille){
   const worstStatus=[statusRup,statusMM,statusDorm].includes('error')?'error':[statusRup,statusMM,statusDorm].includes('warn')?'warn':'ok';
   return{status:worstStatus,arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,nonCal:nonCal.length,sousD:sousD.length,mmDetail,nbMM,dormants,statusRup,statusMM};
 }
-function _diagRenderV1(v,hasNetworkData){
-  if(v.status==='absent')return`<div class="diag-voyant diag-v1 diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs t-inverse-muted mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] c-ok mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
-  const rupIcon=v.ruptures.length===0?'✅':v.ruptures.length<=3?'⚠️':'🚨';
-  const rupClass=v.ruptures.length===0?'c-ok':v.ruptures.length<=3?'c-caution':'c-danger';
-  const _gap347=v.arts-v.enStock;
-  const rupText=v.ruptures.length===0?(_gap347>0?`Pas de rupture active · ${_gap347} article${_gap347>1?'s':''} sans stock exclu${_gap347>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — CA perdu estimé : <strong>${v.caPerduTotal>0?formatEuro(v.caPerduTotal):'<1€'}</strong>`;
-  const top5=v.ruptures.slice(0,5);
-  const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
-  const mmIcon=v.nbMM===0?'✅':v.nbMM<=5?'⚠️':'🚨';
-  const mmClass=v.nbMM===0?'c-ok':v.nbMM<=5?'c-caution':'c-danger';
-  const mmText=v.nbMM===0?'Calibrage correct — tous les articles actifs ont un MIN/MAX bien dimensionné':`${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''}${v.nonCal>0?' (dont '+v.nonCal+' sans MIN/MAX)':''}`;
-  const top5MM=v.mmDetail.slice(0,5);
-  const dormHtml=v.dormants.length>0?`<p class="text-[11px] c-caution mt-1">💤 <strong>${v.dormants.length}</strong> article${v.dormants.length>1?'s':''} en stock sans vente récente (dormants) → envisager déstockage</p>`:'';
-  return`<div class="diag-voyant diag-v1 diag-border-${v.status}">
-    <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge(v.status)}</div>
-    <p class="text-[10px] t-inverse-muted mb-3"><strong class="text-white">${v.arts}</strong> articles · <strong class="text-white">${v.enStock}</strong> en stock${v.nonRef>0?' · <span class="t-inverse-muted">'+v.nonRef+' non référencés</span>':''}</p>
-    <p class="text-xs ${rupClass} font-bold mb-1">${rupIcon} ${rupText}</p>
-    ${top5.length?`<details${v.statusRup==='error'?' open':''}><summary class="text-[10px] ${rupClass} font-bold cursor-pointer mb-1 list-none">🚨 ${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — détails ▾</summary><div class="mb-2">${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — Fréq ${r.W}, rupture ${r.jours}j → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+')</span>':''}</span></div>`).join('')}${v.ruptures.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.ruptures.length-5} autre${v.ruptures.length-5>1?'s':''}</p>`:''}</div></details>`:''}
-    <p class="text-xs ${mmClass} font-bold mb-1 mt-2">${mmIcon} ${mmText}</p>
-    ${top5MM.length?`<details><summary class="text-[10px] ${mmClass} font-bold cursor-pointer mb-1 list-none">⚠️ ${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''} — détails ▾</summary><div class="mb-1">${top5MM.map(r=>`<div class="flex items-start gap-2 py-0.5 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} — MIN <span class="c-caution">${r.ancienMin}</span> → <span class="c-ok font-bold">${r.nouveauMin}</span> <span class="c-danger text-[10px]">(+${r.ecart})</span></span></div>`).join('')}${v.mmDetail.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.mmDetail.length-5} autre${v.mmDetail.length-5>1?'s':''}</p>`:''}</div></details>`:''}
-    ${dormHtml}
-  </div>`;
-}
-
-// ── Level 1: Stock (kept for métier mode) ──
-function _diagLevel1(famille){
-  const arts=DataStore.finalData.filter(r=>r.famille===famille);
-  const enStock=arts.filter(r=>r.stockActuel>0).length;
-  const nonRef=arts.filter(r=>r.stockActuel<=0&&r.W<3).length;
-  let caPerduTotal=0;
-  const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
-    const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-    const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
-    caPerduTotal+=ca;
-    return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
-  }).sort((a,b)=>b.ca-a.ca);
-  const status=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
-  return{arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,status};
-}
-function _diagRenderL1(l){
-  const verdictClass=l.ruptures.length===0?'c-ok':l.ruptures.length<=3?'c-caution':'c-danger';
-  const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
-  const _gap=l.arts-l.enStock;
-  const verdictText=l.ruptures.length===0?(_gap>0?`Pas de rupture active · ${_gap} article${_gap>1?'s':''} sans stock exclu${_gap>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
-  const top5=l.ruptures.slice(0,5);
-  const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
-  return`<div class="diag-level">
-    <div class="diag-level-hdr"><span class="font-bold text-sm c-action">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
-    <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
-    ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span>${_articleSparkline(r.code)} — <span class="t-inverse">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
-    ${l.nonRef>0?`<p class="text-[11px] t-inverse-muted mt-1">💡 <strong class="t-inverse">${l.nonRef}</strong> article${l.nonRef>1?'s':''} ni en stock ni en rupture = non référencés en agence</p>`:''}
-  </div>`;
-}
-
-// ── Level 2: Calibrage MIN/MAX ──
-function _diagLevel2(famille,hasBench,refStore){
-  const arts=DataStore.finalData.filter(r=>r.famille===famille&&r.W>=1);
-  const nonCal=arts.filter(r=>r.ancienMin===0&&r.ancienMax===0&&!r.isNouveaute);
-  const sousD=arts.filter(r=>r.ancienMin>0&&r.nouveauMin>r.ancienMin);
-  let sousPerf=[];
-  if(hasBench&&refStore){
-    const myV=_S.ventesParAgence[_S.selectedMyStore]||{};
-    const refV=_S.ventesParAgence[refStore]||{};
-    for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
-  }
-  const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(_S.ventesParAgence[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
-  const nb=nonCal.length+sousD.length;
-  return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
-}
 function _diagRenderL2(l,hasBench,refStore){
   const nbTotal=l.nonCal+l.sousD;
   const verdictClass=nbTotal===0?'c-ok':nbTotal<=5?'c-caution':'c-danger';
@@ -2043,47 +1883,6 @@ function _diagRenderV3(v,hasMulti){
   </div>`;
 }
 
-// ── Level 3: Gamme ──
-function _diagLevel3(famille,hasBench,hasTerr,refStore){
-  if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Le Terrain ou des données multi-agences pour activer l\'analyse de gamme'};
-  const myArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
-  if(hasBench&&refStore){
-    const refV=_S.ventesParAgence[refStore]||{};
-    const refArts=Object.keys(refV).filter(c=>famLib(_S.articleFamille[c])===famille);
-    const missing=refArts.filter(c=>!myArts.has(c)).map(c=>{
-      const refF=refV[c]?.countBL||0;const lib=_S.libelleLookup[c]||c;
-      const d=DataStore.finalData.find(r=>r.code===c);
-      return{code:c,lib,refFreq:refF,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'};
-    }).sort((a,b)=>b.refFreq-a.refFreq);
-    const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    return{status:missing.length===0?'ok':strong>2?'error':'warn',mode:'bench',myCount:myArts.size,refCount:refArts.length,refStore,missing:missing.slice(0,25),strongMissing:strong};
-  }
-  if(hasTerr){
-    const tMap={};
-    for(const l of DataStore.ventesTerrain){if(l.isSpecial||(famLib(l.famille||''))!==famille)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}
-    const tArts=Object.values(tMap).sort((a,b)=>b.ca-a.ca);
-    const missing=tArts.filter(a=>!myArts.has(a.code)).map(a=>({...a,abcClass:DataStore.finalData.find(r=>r.code===a.code)?.abcClass||'?',fmrClass:DataStore.finalData.find(r=>r.code===a.code)?.fmrClass||'?'}));
-    return{status:missing.length===0?'ok':missing.length>5?'error':'warn',mode:'territoire',myCount:myArts.size,terrCount:tArts.length,missing:missing.slice(0,25),strongMissing:0};
-  }
-  return{status:'lock',reason:'Pas de données de comparaison disponibles'};
-}
-function _diagRenderL3(l,hasBench,hasTerr){
-  if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm t-inverse-muted">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${l.reason}</p></div>`;
-  const srcLabel=l.mode==='bench'?`<em class="c-caution">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Le Terrain : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
-  const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA Legallais</th>`;
-  const rows=(l.missing||[]).map(a=>{
-    const abcColor=a.abcClass==='A'?'c-ok':a.abcClass==='B'?'c-action':'t-inverse-muted';
-    const fmrColor=a.fmrClass==='F'?'c-ok':a.fmrClass==='M'?'c-action':'c-danger';
-    if(l.mode==='bench')return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${a.lib}</td><td class="py-1 px-2 text-center font-bold">${a.refFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td><td class="py-1 px-2 text-center font-bold ${fmrColor}">${a.fmrClass}</td></tr>`;
-    return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${a.lib}</td><td class="py-1 px-2 text-right font-bold">${formatEuro(a.ca)}</td></tr>`;
-  }).join('');
-  return`<div class="diag-level">
-    <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
-    <p class="text-xs t-inverse-muted mb-2">${srcLabel}</p>
-    ${l.missing?.length?`<p class="text-xs c-caution font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs c-ok">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
-  </div>`;
-}
-
 // ── Métier-mode level functions (diagnostic opened from a métier, not a famille) ──
 function _diagLevel1Metier(metier){
   const metierClients=new Set();
@@ -2234,55 +2033,6 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   return acts.sort((a,b)=>a.priority-b.priority);
 }
 
-// ── Level 4: Clients métier ──
-function _diagLevel4(famille,hasChal,metierFilter){
-  metierFilter=metierFilter||'';
-  if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
-  const famArts=new Set(DataStore.finalData.filter(r=>r.famille===famille).map(r=>r.code));
-  if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
-  // article → clients → métier
-  const metierBuyers={};
-  for(const artCode of famArts){const buyers=_S.articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=_S.chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
-  const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
-  if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
-  let top3;
-  if(metierFilter){const bs=metierBuyers[metierFilter];top3=bs?[[metierFilter,bs]]:[];}
-  else{top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);}
-  const metiers=top3.map(([metier,buyerSet])=>{
-    const pct=Math.round(buyerSet.size/totalBuyers*100);
-    const clients=[];
-    for(const[cc,info] of _S.chalandiseData.entries()){
-      if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
-      const myData=DataStore.ventesLocalMagPeriode.get(cc);
-      const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
-      const prio=_diagClientPrio(info,famCA);
-      clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
-    }
-    // sort: prio asc, then within prio: P1→ca2025 desc, P2/P3→classif prio then ca2025, P4→classif prio, P5→ca2025
-    clients.sort((a,b)=>{
-      if(a.prio!==b.prio)return a.prio-b.prio;
-      const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);
-      if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;
-      return cp||b.ca2025-a.ca2025;
-    });
-    const p1=clients.filter(c=>c.prio===1);
-    const p2=clients.filter(c=>c.prio===2);
-    const p3=clients.filter(c=>c.prio===3);
-    const p4=clients.filter(c=>c.prio===4);
-    const potentiel=p2.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0)+p3.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0);
-    return{metier,pct,total:clients.length,p1:p1.length,p2:p2.length,p3:p3.length,p4:p4.length,p5:clients.filter(c=>c.prio===5).length,potentiel,clients};
-  });
-  const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
-  const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-  let crossCaptes=0,crossPot=0;
-  if(_S.crossingStats){
-    const famBuyerSet=new Set();for(const a of famArts){const b=_S.articleClients.get(a);if(b)for(const c of b)famBuyerSet.add(c);}
-    crossCaptes=[...famBuyerSet].filter(c=>_S.crossingStats.captes.has(c)).length;
-    for(const m of metiers)for(const c of m.clients){if(_S.crossingStats.potentiels.has(c.code))crossPot++;}
-  }
-  return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel,crossCaptes,crossPot};
-}
 function _diagRenderL4(l,hasChal){
   if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm t-inverse-muted">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
   if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm c-danger">👥 Niveau 3 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
@@ -2308,42 +2058,6 @@ function _diagRenderL4(l,hasChal){
   </div>`;
 }
 
-// ── Action Plan (3-voyant) ──
-function _diagGenActions(famille,v1,v2,v3){
-  const acts=[];
-  // 📦 MON RAYON actions
-  if(v1.ruptures&&v1.ruptures.length>0){
-    const caLabel=v1.caPerduTotal>0?formatEuro(v1.caPerduTotal):formatEuro(v1.ruptures.reduce((s,r)=>s+Math.round(r.W*(DataStore.finalData.find(d=>d.code===r.code)?.prixUnitaire||0)),0))+' potentiel annuel';
-    acts.push({priority:1,src:'📦',codes:v1.ruptures.map(r=>r.code),label:`Réassort ${v1.ruptures.length} article${v1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
-  }
-  if(v1.nbMM>0&&v1.statusMM!=='ok'){
-    const top5=(v1.mmDetail||[]).slice(0,5);
-    const detailHtml=top5.map(r=>`${r.code} ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
-    acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${v1.nbMM} au total : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
-  }
-  // 👥 MES CLIENTS actions
-  if(v2&&v2.status!=='lock'&&v2.perdus>0){
-    const potLabel=v2.potentiel>0?formatEuro(v2.potentiel):null;
-    acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc1069=document.getElementById('mainContent');if(_mc1069){_mc1069.style.overflow='';_mc1069.scrollTop=0;}switchTab('commerce');let _lt1069=-1,_tr1069=0;const _pv1069=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr1069>40)clearInterval(_pv1069);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt1069&&t>0)||_tr1069++>40){clearInterval(_pv1069);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${famille}</strong> — ${v2.perdus} client${v2.perdus>1?'s':''} perdu${v2.perdus>1?'s':''}${potLabel?' · potentiel '+potLabel:''} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt1069=t;},100);}});
-  }
-  // 🔭 LE RÉSEAU actions
-  if(v3&&v3.status!=='lock'){
-    if(v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{window._diagAFSwitchTab('reseau');}});
-    }
-    // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
-    if(v3.medCA>0&&v3.medCA<1000){
-      if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente — volume réseau insuffisant (médiane ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
-      if(acts.length===0)acts.push({priority:99,src:'ℹ️',label:`Famille marginale dans le réseau (médiane ${formatEuro(v3.medCA)}). Pas d'action prioritaire.`,fn:null,isInfo:true});
-    }
-    // Famille absente chez moi mais réseau actif (CA médiane ≥ 1000€) → évaluer opportunité, sans lien cliquable
-    if(v3.myCA===0&&v3.medCA>=1000&&acts.length===0){
-      acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans Le Réseau.`,fn:null,isInfo:true});
-    }
-  }
-  // Sort by priority and limit to 3
-  return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
-}
 function _copyDiagPlan(){
   if(!_S._diagPlanCopyText)return;
   navigator.clipboard.writeText(_S._diagPlanCopyText).then(()=>{

@@ -6,7 +6,7 @@
   <title>PRISME — Voir juste, piloter vite.</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     /* ═══ COLOR COVENANT — variables sémantiques ══════════════ */
     :root {
@@ -628,6 +628,7 @@
     .canal-pill-btn:hover{background:var(--s-hover);color:var(--t-primary)}
     .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;height:100%}#filterDrawerBtn{display:none!important}}
+    body.no-sidebar #filterPanel, body.no-sidebar #filterDrawerBtn{display:none!important}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
     details>summary{position:relative}
@@ -689,6 +690,9 @@
     #insightsBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:28px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.6);font-weight:var(--fw-normal);gap:0 12px}
     #insightsBannerLeft{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;flex:1;min-width:0}
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
+    .ib-btn{font:inherit;font-size:13px;color:rgba(255,255,255,0.75);background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:3px 12px;cursor:pointer;margin-left:6px}
+    .ib-btn:hover{color:#fff;border-color:rgba(255,255,255,0.45)}
+    .ib-sum{font-size:13px;color:rgba(255,255,255,0.55)}
     #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
     #cacheBanner.hidden{display:none!important}
     /* ═══ Tab bar premium ════════════════════════════════════ */
@@ -1068,30 +1072,6 @@
     .evidence-cta { display: block; font-size: var(--fs-2xs); font-weight: 600; color: var(--c-action); margin-top: var(--sp-2); cursor: pointer; transition: opacity .15s; }
     .evidence-cta:hover { opacity: .75; }
 
-    /* ═══ SECTIONS ACCORDÉONS PREMIUM ═══════════════════════════ */
-    #tabArbitrage details,
-    #tabArbitrage .s-card.rounded-xl {
-      background: var(--s-card);
-      border: 1px solid var(--b-default);
-      border-radius: var(--r-lg);
-      margin-bottom: var(--sp-2);
-      overflow: hidden;
-      transition: border-color .15s;
-    }
-    #tabArbitrage details:hover,
-    #tabArbitrage .s-card.rounded-xl:hover { border-color: var(--b-strong); }
-    #tabArbitrage details > summary {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 11px 14px; cursor: pointer;
-      background: rgba(255,255,255,0.01);
-      transition: background .15s; list-style: none;
-    }
-    #tabArbitrage details > summary:hover { background: rgba(255,255,255,0.03); }
-    #tabArbitrage details > summary h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--t-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
-    #tabArbitrage details > summary .acc-arrow { color: var(--t-disabled); font-size: var(--fs-xs); transition: transform .2s; flex-shrink: 0; }
-    #tabArbitrage details[open] > summary .acc-arrow { transform: rotate(90deg); }
-    #tabArbitrage details > *:not(summary) { border-top: 1px solid var(--b-light); }
-
     /* ═══ SIDEBAR PREMIUM ════════════════════════════════════════ */
     #filterPanel { background: var(--s-sidebar, #0b0e16); border-right: 1px solid var(--b-light); }
     #filterPanel.drawer-open { background: var(--s-sidebar, #0b0e16); }
@@ -1306,6 +1286,177 @@
     .pepites-table tr:hover td{background:var(--s-hover)}
     .pepites-empty{color:var(--t-tertiary);font-size:13px;padding:24px 0;text-align:center}
 
+    /* ═══ LA PARTIE (partie.js) — accueil gamifié ═══ */
+    :root { --pt-low:#C2531F; --pt-mid:#9A6F00; --pt-high:#13865A; --pt-line:var(--b-default); --pt-gain:#B8F26B; --pt-gain-ink:#14200A; }
+    [data-theme="dark"] { --pt-low:#FF8F5A; --pt-mid:#F2C14E; --pt-high:#57D6A4; --pt-line:#2A303B; }
+    #tabPartie { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .pt-wrap { max-width:1320px; margin:0 auto; padding:24px 16px 72px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; }
+    @media (min-width:768px) { .pt-wrap { padding:28px 32px 72px; } }
+    .pt-card { background:var(--s-card); border:1px solid var(--pt-line); border-radius:20px; padding:24px; box-sizing:border-box; min-width:0; }
+    .pt-grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+    .pt-row { display:flex; align-items:center; }
+    .pt-col { display:flex; flex-direction:column; }
+    .pt-between { justify-content:space-between; }
+    .pt-grow { flex:1; min-width:0; }
+    .pt-ellipsis { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+    .pt-num { font-family:'Geist Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+    .pt-strong { font-weight:600; }
+    .pt-muted { color:var(--t-tertiary); }
+    .pt-small { font-size:13px; }
+    .pt-eyebrow { font-size:12px; color:var(--t-tertiary); text-transform:uppercase; letter-spacing:.08em; }
+    .pt-h2 { margin:0; font-size:22px; font-weight:600; line-height:1.25; }
+    .pt-h3 { margin:0; font-size:18px; font-weight:600; }
+    .pt-big { font-size:56px; font-weight:600; line-height:1; }
+    .pt-ring { position:relative; width:168px; height:168px; flex-shrink:0; }
+    .pt-ring-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .pt-track { display:block; width:100%; background:var(--pt-line); border-radius:4px; overflow:hidden; }
+    .pt-fill { display:block; height:100%; border-radius:inherit; transition:width .6s ease; }
+    .pt-delta { align-self:flex-start; font-family:'Geist Mono',monospace; font-size:13px; font-weight:600; padding:4px 10px; border-radius:999px; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .pt-delta-neg { background:var(--s-card-alt); color:var(--pt-low); border:1px solid var(--pt-line); }
+    .pt-domain { display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--s-card-alt); border-radius:12px; }
+    .pt-domain.pt-dashed { background:transparent; border:1px dashed var(--pt-line); }
+    .pt-domain-val { font-size:22px; font-weight:600; width:40px; text-align:right; }
+    .pt-curve { width:100%; height:90px; display:block; }
+    .pt-curve-empty { height:90px; border-bottom:1px solid var(--pt-line); position:relative; }
+    .pt-dot { position:absolute; left:0; bottom:-6px; width:12px; height:12px; border-radius:50%; background:var(--pt-high); }
+    .pt-action { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:12px 16px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); }
+    .pt-action-main { flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:2px; text-align:left; background:none; border:0; padding:4px 0; cursor:pointer; color:inherit; font:inherit; }
+    .pt-action-main:hover .pt-action-title { text-decoration:underline; text-underline-offset:3px; }
+    .pt-action-title { font-size:15px; font-weight:500; }
+    .pt-gain { font-family:'Geist Mono',monospace; font-size:15px; font-weight:600; min-width:46px; text-align:center; padding:6px 8px; border-radius:10px; flex-shrink:0; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .pt-done { opacity:.6; }
+    .pt-done .pt-gain { background:var(--s-card-alt); color:var(--t-tertiary); }
+    .pt-done .pt-action-title { text-decoration:line-through; }
+    .pt-btn { min-height:44px; padding:0 18px; border-radius:10px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); }
+    .pt-btn:hover { border-color:var(--t-tertiary); }
+    .pt-btn-done { color:var(--pt-high); border-color:var(--pt-high); }
+    .pt-famlist { flex:1 1 380px; gap:4px; padding:16px; }
+    .pt-fam { display:flex; align-items:center; gap:14px; width:100%; min-height:44px; padding:8px 10px; border-radius:10px; cursor:pointer; color:inherit; font:inherit; font-size:14px; background:transparent; border:1px solid transparent; }
+    .pt-fam:hover { background:var(--s-card-alt); }
+    .pt-fam.pt-sel { background:var(--s-card-alt); border-color:var(--pt-line); }
+    .pt-detail { flex:999 1 560px; display:flex; flex-direction:column; gap:24px; scroll-margin-top:120px; }
+    .pt-crit-head { display:flex; flex-direction:column; gap:6px; width:100%; text-align:left; background:none; border:0; padding:6px 0; cursor:pointer; color:inherit; font:inherit; font-size:15px; }
+    .pt-crit-head:disabled { cursor:default; }
+    .pt-list { margin-top:10px; border:1px solid var(--pt-line); border-radius:12px; overflow:hidden; }
+    .pt-scroll { overflow-x:auto; max-height:420px; overflow-y:auto; }
+    .pt-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .pt-table th { position:sticky; top:0; background:var(--s-card-alt); text-align:left; font-weight:500; color:var(--t-tertiary); padding:8px 12px; white-space:nowrap; }
+    .pt-table td { padding:8px 12px; border-top:1px solid var(--pt-line); }
+    .pt-table tr.pt-next td { background:color-mix(in srgb, var(--pt-high) 8%, transparent); }
+    .pt-table tr.pt-sep td { padding:6px 12px; font-size:12px; color:var(--t-tertiary); background:var(--s-card-alt); }
+    .pt-mini-action { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--s-card-alt); border-radius:12px; }
+    .pt-link { background:none; border:0; padding:6px 0; cursor:pointer; color:var(--t-link); font:inherit; font-weight:500; }
+    .pt-link:disabled { opacity:.35; cursor:default; }
+    /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
+    #tabArbitrage, #tabPortefeuille, #tabAnimation, #tabAssociations, #tabDuel { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .ar-head { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+    .ar-stack { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--pt-line); gap:2px; }
+    .ar-stack > span { display:block; height:100%; min-width:3px; }
+    .ar-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px 24px; }
+    .ar-dot { width:10px; height:10px; border-radius:3px; margin-top:4px; flex-shrink:0; }
+    .ar-decs { display:grid; grid-template-columns:repeat(auto-fit,minmax(176px,1fr)); gap:14px; }
+    .ar-dec { display:flex; flex-direction:column; gap:14px; padding:18px; }
+    .ar-dec-unit { font-size:15px; line-height:1.35; }
+    .ar-dec-cta { margin-top:auto; width:100%; text-align:left; }
+    .ar-dec-empty { background:transparent; border-style:dashed; }
+    .ar-sec { background:var(--s-card); border:1px solid var(--pt-line); border-radius:16px; overflow:hidden; }
+    .ar-sec > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 22px; cursor:pointer; list-style:none; min-height:44px; }
+    .ar-sec > summary::-webkit-details-marker { display:none; }
+    .ar-sec > summary:hover { background:var(--s-card-alt); }
+    .ar-chev { width:10px; height:10px; border-right:2px solid var(--t-tertiary); border-bottom:2px solid var(--t-tertiary); transform:rotate(-45deg); transition:transform .2s; flex-shrink:0; }
+    .ar-sec[open] > summary .ar-chev { transform:rotate(45deg); }
+    .ar-sec-body { display:flex; flex-direction:column; gap:12px; padding:4px 22px 22px; }
+    .ar-chip { min-height:36px; padding:0 14px; border-radius:999px; font:inherit; font-size:13px; cursor:pointer; border:1px solid var(--pt-line); background:transparent; color:var(--t-secondary); }
+    .ar-chip:hover { border-color:var(--t-tertiary); }
+    .ar-chip-on { background:var(--s-card-alt); color:var(--t-primary); border-color:var(--t-tertiary); font-weight:600; }
+    .ar-chip[data-tone="low"] .pt-num { color:var(--pt-low); }
+    .ar-chip[data-tone="mid"] .pt-num { color:var(--pt-mid); }
+    .ar-chip[data-tone="high"] .pt-num { color:var(--pt-high); }
+    .ar-tag { display:inline-block; font-size:12px; font-weight:500; padding:2px 8px; border-radius:999px; background:var(--s-card-alt); color:var(--t-secondary); white-space:nowrap; }
+    .ar-tag[data-tone="low"] { color:var(--pt-low); background:color-mix(in srgb, var(--pt-low) 12%, transparent); }
+    .ar-tag[data-tone="mid"] { color:var(--pt-mid); background:color-mix(in srgb, var(--pt-mid) 12%, transparent); }
+    .ar-tag[data-tone="high"] { color:var(--pt-high); background:color-mix(in srgb, var(--pt-high) 12%, transparent); }
+    .ar-th { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer; white-space:nowrap; }
+    .ar-th:hover { color:var(--t-primary); }
+    .pt-table th.ar-r, .pt-table td.ar-r { text-align:right; }
+    .pt-table tr.ar-click { cursor:pointer; }
+    .pt-table tr.ar-click:hover td { background:var(--s-card-alt); }
+    .ar-mx { display:grid; grid-template-columns:72px repeat(3,minmax(170px,1fr)); gap:10px; min-width:600px; }
+    .ar-mx-h { font-weight:600; text-align:center; padding:4px; line-height:1.3; }
+    .ar-mx-row { display:flex; flex-direction:column; justify-content:center; }
+    .ar-cell { display:flex; flex-direction:column; gap:8px; padding:14px; border-radius:12px; border:1px solid var(--pt-line); background:var(--s-card-alt); cursor:pointer; border-left:4px solid var(--t-disabled); }
+    .ar-cell:hover, .ar-cell:focus-visible { border-color:var(--t-tertiary); outline:none; }
+    .ar-cell[data-tone="high"] { border-left-color:var(--pt-high); }
+    .ar-cell[data-tone="mid"] { border-left-color:var(--pt-mid); }
+    .ar-cell[data-tone="low"] { border-left-color:var(--pt-low); }
+    /* ── Associations : éditeur en cascade (tuiles validées) rendu lisible ── */
+    #tabAssociations .assoc-legacy .text-\[9px\], #tabAssociations .assoc-legacy .text-\[10px\] { font-size:12px !important; }
+    #tabAssociations .assoc-legacy .text-\[11px\] { font-size:13px !important; }
+    #tabAssociations .assoc-legacy label { font-size:13px !important; color:var(--t-secondary); }
+    /* ── Articles (la base) ── */
+    #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    #tableContext.hidden { display:none; }
+    /* ── Écran de chargement ── */
+    .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+    .ob-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+    .ob-card { position:relative; display:flex; flex-direction:column; gap:8px; padding:20px; min-height:180px; box-sizing:border-box; border-radius:20px; border:1px solid var(--pt-line); background:var(--s-card); cursor:pointer; transition:border-color .15s, background .15s; }
+    .ob-card:hover, .ob-card:focus-within, .ob-card.ob-drag { border-color:var(--t-tertiary); }
+    .ob-card.ob-drag { background:var(--s-card-alt); }
+    .ob-card.file-loaded { border-color:var(--pt-high) !important; background:color-mix(in srgb, var(--pt-high) 8%, var(--s-card)) !important; }
+    .ob-top { display:flex; justify-content:space-between; align-items:center; }
+    .ob-ico { font-size:22px; line-height:1; }
+    .ob-status { font-size:15px; line-height:1; filter:grayscale(1); opacity:.45; }
+    .file-loaded .ob-status { filter:none; opacity:1; }
+    .ob-title { font-size:18px; font-weight:600; }
+    .ob-req .ob-title::after { content:'requis'; margin-left:8px; font-size:12px; font-weight:500; color:var(--t-tertiary); vertical-align:middle; }
+    .ob-desc { font-size:13px; color:var(--t-tertiary); line-height:1.45; }
+    .ob-files { margin-top:auto; padding:10px 12px; border-radius:10px; border:1px dashed var(--pt-line); font-size:13px; color:var(--t-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ob-card.file-loaded .ob-files { border-style:solid; border-color:var(--pt-high); color:var(--t-primary); }
+    .ob-input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .ob-legacy { padding:12px 16px; border-radius:14px; border:1px dashed var(--pt-line); font-size:14px; color:var(--t-secondary); }
+    .ob-legacy > summary { display:flex; justify-content:space-between; align-items:center; cursor:pointer; list-style:none; min-height:28px; }
+    .ob-legacy > summary::-webkit-details-marker { display:none; }
+    .ob-store { padding:18px 20px; }
+    .ob-go { width:100%; min-height:56px; border:0; border-radius:16px; font:inherit; font-size:17px; font-weight:600; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); transition:transform .1s, opacity .15s; }
+    .ob-go:hover:not(:disabled) { transform:translateY(-1px); }
+    .ob-go:disabled { opacity:.35; cursor:not-allowed; }
+    /* ── Fiche client / diagnostic : lisibilité (les textes descendaient à 8-9 px) ── */
+    #diagnosticPanel { font-size:14px; line-height:1.45; width:min(1120px, calc(100vw - 2rem)) !important; max-width:min(1120px, calc(100vw - 2rem)) !important; }
+    #diagnosticPanel .text-\[7px\], #diagnosticPanel .text-\[8px\] { font-size:11px !important; }
+    #diagnosticPanel .text-\[9px\] { font-size:12px !important; }
+    #diagnosticPanel .text-\[10px\] { font-size:13px !important; }
+    #diagnosticPanel .text-\[11px\], #diagnosticPanel .text-xs { font-size:14px !important; }
+    #diagnosticPanel .text-\[12px\], #diagnosticPanel .text-sm { font-size:15px !important; }
+    #diagnosticPanel .t-inverse-muted, #diagnosticPanel .t-disabled { color:var(--t-secondary) !important; opacity:1 !important; }
+    #diagnosticPanel table td, #diagnosticPanel table th { padding-top:7px; padding-bottom:7px; }
+    /* ── Conquête › Ton territoire ── */
+    #tabCommerce .tt-wrap { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .tt-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+    .tt-scroll { overflow:auto; max-height:72vh; }
+    .tt-table td, .tt-table th { white-space:nowrap; }
+    .tt-table tr.tt-prio > td { background:color-mix(in srgb, var(--pt-mid) 10%, transparent); }
+    .tt-table tr.tt-group > td { background:var(--s-card-alt); }
+    .tt-table td.tt-indent { padding-left:28px; }
+    .tt-table tr.tt-sub > td { padding:0; background:var(--s-card-alt); }
+    .tt-nest { padding:8px 8px 8px 20px; }
+    .tt-nest .pt-table th { position:static; background:transparent; }
+    .tt-cap { display:flex; align-items:center; gap:8px; min-width:120px; }
+    .tt-cap .pt-track { flex:1; }
+    .tt-cap .pt-num { font-size:12px; min-width:38px; text-align:right; }
+    .tt-capter { font:inherit; font-family:'Geist Mono',monospace; font-weight:600; font-size:13px; min-width:44px; padding:3px 10px; border-radius:999px; border:0; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); }
+    .tt-capter:hover { filter:brightness(1.08); }
+    .tt-capter.tt-zero, .tt-capter:disabled { background:transparent; color:var(--t-disabled); cursor:default; }
+    .tt-capter.tt-static { cursor:default; }
+    /* ── Plan › Par famille ── */
+    #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
+    .pf-search { width:100%; min-height:44px; box-sizing:border-box; padding:0 14px; margin-bottom:10px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; }
+    .pf-search:focus { outline:none; border-color:var(--t-tertiary); }
+    .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
+    .pf-g .pt-table td { white-space:nowrap; }
+    .pf-g .pt-table td.pf-lib { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+    .pf-crit { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; }
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -1317,18 +1468,6 @@
   <div id="periodBanner"></div>
   <!-- Alerte stock mono-agence avec consommé multi-agences -->
   <div id="stockMonoBanner"></div>
-
-  <!-- Command Palette -->
-  <div id="cmdPalette" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh]" style="z-index:var(--z-cmdpalette)" onclick="if(event.target===this)closeCmdPalette()">
-    <div class="s-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden mx-4">
-      <div class="flex items-center border-b b-default">
-        <span class="pl-4 t-disabled text-base">🔍</span>
-        <input id="cmdInput" type="text" placeholder="Rechercher un article, client, action…" class="w-full p-4 text-base outline-none s-card" autocomplete="off" spellcheck="false">
-        <kbd class="mr-3 text-[10px] t-disabled s-hover px-2 py-0.5 rounded border b-default shrink-0 font-mono">Esc</kbd>
-      </div>
-      <div id="cmdResults" class="max-h-[400px] overflow-y-auto"></div>
-    </div>
-  </div>
 
   <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
   <div id="diagnosticOverlay" class="overlay" onclick="if(event.target===this)closeDiagnostic()">
@@ -1381,7 +1520,6 @@
           </div>
           <span id="navKpisToggle" style="font-size:8px;color:rgba(255,255,255,0.25);transition:transform .2s">▲</span>
         </div>
-        <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
         <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
       </div>
     </div>
@@ -1417,14 +1555,17 @@
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
 
+      <!-- SUPER-TAB 0 : La partie (accueil) -->
+      <div class="supertab-group active" id="stg-partie">
+        <button data-tab="partie" onclick="switchSuperTab('partie')" class="tab-btn supertab-btn active" id="stbtn-partie" style="--tab-color:#7FB236;--tab-bg:#B8F26B1F;--tab-text:#3F6212"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>La partie</span></button>
+      </div>
+
       <!-- SUPER-TAB 1 : Pilotage Stock -->
-      <div class="supertab-group active" id="stg-stock">
-        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn active" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
+      <div class="supertab-group" id="stg-stock">
+        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
         <div class="supertab-pills" id="stpills-stock">
           <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
-          <button class="supertab-pill" data-subtab="table" onclick="switchTab('table')">Articles</button>
-          <button class="supertab-pill" data-subtab="efficience" onclick="switchTab('efficience')">Efficience</button>
         </div>
       </div>
 
@@ -1432,18 +1573,15 @@
       <div class="supertab-group" id="stg-clients">
         <button data-tab="clients" onclick="switchSuperTab('clients')" class="tab-btn supertab-btn" id="stbtn-clients" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Pilotage Commercial</span></button>
         <div class="supertab-pills" id="stpills-clients">
-          <button class="supertab-pill active" data-subtab="clients" onclick="switchTab('clients')">Fidélisation PDV</button>
+          <button class="supertab-pill active" data-subtab="portefeuille" onclick="switchTab('portefeuille')">Tes clients</button>
           <button class="supertab-pill" data-subtab="commerce" onclick="switchTab('commerce')">Conquête Terrain</button>
         </div>
       </div>
 
       <!-- SUPER-TAB 3 : Direction Réseau -->
       <div class="supertab-group" id="stg-direction">
-        <button data-tab="direction" onclick="switchSuperTab('direction')" class="tab-btn supertab-btn" id="stbtn-direction" style="--tab-color:#8B5CF6;--tab-bg:#8B5CF61F;--tab-text:#4C1D95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Direction</span></button>
-        <div class="supertab-pills" id="stpills-direction">
-          <button class="supertab-pill active" data-subtab="conformite" onclick="switchTab('conformite')">Physigamme</button>
-          <button class="supertab-pill" data-subtab="duel" onclick="switchTab('duel')">Duel Agence</button>
-        </div>
+        <button data-tab="duel" onclick="switchSuperTab('direction')" class="tab-btn supertab-btn" id="stbtn-direction" style="--tab-color:#8B5CF6;--tab-bg:#8B5CF61F;--tab-text:#4C1D95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Duel agence</span></button>
+        
       </div>
 
       <!-- SUPER-TAB 4 : Labo -->
@@ -1453,6 +1591,11 @@
           <button class="supertab-pill active" data-subtab="animation" onclick="switchTab('animation')">Action Commerciale</button>
           <button class="supertab-pill" data-subtab="associations" onclick="switchTab('associations')">Associations</button>
         </div>
+      </div>
+
+      <!-- SUPER-TAB : Base articles (la base — consultation, filtres, export ; pas un écran de décision) -->
+      <div class="supertab-group" id="stg-base" style="margin-left:auto">
+        <button data-tab="table" onclick="switchSuperTab('base')" class="tab-btn supertab-btn" id="stbtn-base" style="--tab-color:#CBD5E1;--tab-bg:#94a3b81F;--tab-text:#334155"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span>Base articles</span></button>
       </div>
 
       <!-- Aliases rétrocompat JS — les anciens IDs absorbent les classList.add/remove('hidden') sans effet visuel -->
@@ -1500,10 +1643,6 @@
 
         <!-- GROUP Stock: Articles / Mon Stock / Cockpit / Radar -->
         <div id="filterGroupStock">
-          <!-- Rechercher sidebar — visible uniquement sur Ce matin -->
-          <div id="cematinSearchBlock" class="hidden mb-1">
-            <button onclick="window.openCmdPalette()" style="display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:10px;border:1px solid rgba(128,128,128,0.25);background:rgba(128,128,128,0.08);cursor:pointer;font-size:0.78rem;font-weight:600;color:var(--t-primary);transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">🔍 Rechercher<kbd style="margin-left:auto;font-size:0.65rem;opacity:0.5;background:var(--s-card-alt);padding:1px 5px;border-radius:4px;border:1px solid var(--b-default)">Cmd+K</kbd></button>
-          </div>
           <!-- Score IRA sidebar — compat JS -->
           <div id="cematinScoreBlock" class="hidden mb-1"><div id="cematinScoreBadge"></div><div id="cematinScoreText"></div><p id="cematinScoreSub"></p></div>
           <div id="globalFilters" class="hidden flex flex-col gap-1">
@@ -1520,7 +1659,7 @@
                   <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
                   <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
                 </div>
-                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full border-emerald-300 bg-emerald-50"><option value="">Verdict Squelette</option><option value="socle">🟢 Socle</option><option value="implanter">🔴 Trou critique</option><option value="challenger">🟡 Challenger</option><option value="surveiller">🔵 Surveiller</option></select>
+                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full border-emerald-300 bg-emerald-50"><option value="">Verdict</option><option value="À garder">À garder</option><option value="Incontournable qui ralentit">Incontournable qui ralentit</option><option value="Client stratégique qui ralentit">Client stratégique qui ralentit</option><option value="À surveiller">À surveiller</option><option value="À sortir">À sortir</option><option value="Vendu en réseau, jamais ici">Vendu en réseau, jamais ici</option><option value="Acheté hors comptoir">Acheté hors comptoir</option><option value="Gardé à 1 · métier clé">Gardé à 1 · métier clé</option></select>
                 <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
                 <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut ERP</option></select>
                 <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">🏗️ Univers</option></select>
@@ -1710,9 +1849,6 @@
           </details>
         </div>
 
-        <div id="filterGroupDirection" class="hidden">
-          <div id="dirSidebarContent" class="space-y-2"></div>
-        </div>
 
       </div><!-- /filterPanelContent -->
     </aside>
@@ -1726,169 +1862,99 @@
   <div class="container mx-auto mt-3 p-4 md:p-5 s-card rounded-xl shadow-lg mb-10">
 
     <!-- GLOSSAIRE -->
-    <div id="glossaire" class="hidden mb-8 p-6 i-info-bg b-light rounded-xl">
-      <h3 class="font-extrabold c-action mb-5 text-lg">🧠 Glossaire PRISME</h3>
-
-      <!-- Section 1 — Stock & Réappro -->
-      <p class="text-[11px] font-extrabold c-action uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs t-secondary mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir). <strong>Enlevé</strong> = colis commandé, ne touche pas le stock. MIN/MAX basé <strong>uniquement sur le prélevé</strong>.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs t-secondary mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs t-secondary mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📊 Surstock PRISME vs 👁️ Excédent ERP</h4><p class="text-xs t-secondary mt-1"><strong>Surstock PRISME</strong> = stock &gt; nouveau MAX recalculé. Optimisation à faire.<br><strong>Excédent ERP</strong> = stock &gt; ancien MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs t-secondary mt-1"><strong>Dormant</strong> = 0 sortie depuis &gt;1 an → MIN/MAX = 0.<br><strong>Nouveauté</strong> = référencé depuis &lt;35 jours → conserve l'ancien MIN/MAX.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">✅ Taux de disponibilité</h4><p class="text-xs t-secondary mt-1">Articles fréquents (≥3 cmd/an) en stock ÷ total articles fréquents. Mesure la disponibilité rayon, <strong>pas</strong> le service client.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs t-secondary mt-1">Stock ÷ conso/jour. <span class="c-danger font-bold">&lt;7j</span> critique · <span class="c-ok font-bold">21–60j</span> optimal · <span class="c-action font-bold">&gt;60j</span> surstock.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">⚡ Score priorité</h4><p class="text-xs t-secondary mt-1">Fréquence × Prix unitaire × coefficient ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
-      </div>
-
-      <!-- Section 2 — Clients & Terrain -->
-      <p class="text-[11px] font-extrabold c-danger uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA Magasin</h4><p class="text-xs t-secondary mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé au comptoir de l'agence).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs t-secondary mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🤫 Client silencieux</h4><p class="text-xs t-secondary mt-1">Client régulier du PDV sans commande depuis plus de <strong>30 jours</strong>. Alerte précoce avant perte définitive.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">📍 Captation PDV / Legallais</h4><p class="text-xs t-secondary mt-1"><strong>PDV</strong> = % clients de la zone qui achètent dans mon agence.<br><strong>Legallais</strong> = % qui achètent chez Legallais (tous canaux).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🔴 À capter</h4><p class="text-xs t-secondary mt-1">Client actif Legallais qui ne vient <strong>pas</strong> en agence. Potentiel de rapatriement PDV.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟠 À développer</h4><p class="text-xs t-secondary mt-1">Client occasionnel ou prospect avec potentiel de croissance identifié (classification Pot+).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟢 À fidéliser</h4><p class="text-xs t-secondary mt-1">Bon client actif PDV, classification FID Pot+. À maintenir et développer en priorité.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟣 Fidèle hors zone</h4><p class="text-xs t-secondary mt-1">Client qui vient en agence mais absent du fichier chalandise (hors zone géographique définie).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs t-secondary mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
-      </div>
-
-      <!-- Section 3 — Tableau Territoire -->
-      <p class="text-[11px] font-extrabold c-ok uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🔢 Total</h4><p class="text-xs t-secondary mt-1">Nombre total de clients dans la zone de chalandise pour cette direction ou ce métier. Base de référence pour tous les ratios.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌐 Actifs Leg.</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté chez Legallais <strong>tous canaux confondus</strong> dans les 12 derniers mois. Source : fichier Zone de Chalandise (CA N &gt; 0).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 Actifs PDV</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté <strong>en agence</strong> (canal MAGASIN) sur la période couverte par le fichier Consommé. Sous-ensemble des Actifs Leg.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌱 Prospects</h4><p class="text-xs t-secondary mt-1">Clients identifiés dans la zone de chalandise mais <strong>n'ayant jamais acheté</strong> chez Legallais (CA N-1 = 0 et CA N = 0, statut non-perdu).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⏳ Perdus 12-24m</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté chez Legallais <strong>il y a 12 à 24 mois</strong> mais plus depuis (CA N-1 &gt; 0, CA N = 0). Priorité de reconquête immédiate.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">💤 Inactifs</h4><p class="text-xs t-secondary mt-1">Clients sans achat depuis <strong>plus de 24 mois</strong> (CA N-1 = 0 et CA N = 0, statut perdu ou inactif). Reconquête plus difficile.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">📈 % capté Leg.</h4><p class="text-xs t-secondary mt-1"><strong>Actifs Leg. ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui achètent encore chez Legallais. Un taux élevé = Legallais bien implanté sur ce métier.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 % capté PDV</h4><p class="text-xs t-secondary mt-1"><strong>Actifs PDV ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui viennent en agence. Principal levier du chef d'agence — l'écart avec % capté Leg. révèle les clients à rapatrier au comptoir.</p></div>
-      </div>
-
-      <!-- Section 4 — Observatoire & Diagnostic -->
-      <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Observatoire &amp; Diagnostic</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs t-secondary mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔢 FMR (fréquence)</h4><p class="text-xs t-secondary mt-1"><strong>F</strong> = fréquent ≥12/an · <strong>M</strong> = moyen 3–11/an · <strong>R</strong> = rare &lt;3/an.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🎯 Case Radar (ABC × FMR)</h4><p class="text-xs t-secondary mt-1"><strong>AF</strong> = pépites (fort CA + fréquent) · <strong>CR</strong> = candidats déréférencement · Les 9 cases croisent valeur et fréquence.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔬 Diagnostic cascade</h4><p class="text-xs t-secondary mt-1">3 voyants progressifs : <strong>📦 Mon Agence</strong> (stock/MIN-MAX) → <strong>👥 Mes Clients</strong> (chalandise) → <strong>🔭 Le Réseau</strong> (benchmark).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs t-secondary mt-1">CA Magasin historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
-      </div>
-
-      <!-- Section 4 — Réseau & Benchmark -->
-      <p class="text-[11px] font-extrabold text-cyan-700 uppercase tracking-widest mb-2">🔭 Réseau &amp; Benchmark</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📐 PDM bassin</h4><p class="text-xs t-secondary mt-1">Part de marché = poids de mon agence × CA total du bassin par famille.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🧮 CA théorique</h4><p class="text-xs t-secondary mt-1">CA que mon agence devrait réaliser si elle avait la performance moyenne du réseau, pondéré par sa taille.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📊 Médiane réseau</h4><p class="text-xs t-secondary mt-1">Valeur centrale des agences comparables. Plus robuste que la moyenne (non biaisée par les extrêmes).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🚫 Articles manquants</h4><p class="text-xs t-secondary mt-1">Vendus par ≥50% du réseau mais absents chez moi. Opportunité de référencement.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🏆 Exclusivités</h4><p class="text-xs t-secondary mt-1">Articles que seule mon agence vend (ou &lt;2 agences). Avantage compétitif local à valoriser.</p></div>
-      </div>
-
-      <!-- Section 5 — Équation commerciale -->
-      <p class="text-[11px] font-extrabold c-caution uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs t-secondary mt-1"><strong>Clients PDV × Fréquence × CA / client = CA Magasin.</strong> Les 3 leviers du chef d'agence.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs t-secondary mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs t-secondary mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ CA / client</h4><p class="text-xs t-secondary mt-1">CA total ÷ nombre de clients uniques. Dépense moyenne par client sur la période — non disponible dans Qlik.</p></div>
-      </div>
-
-    </div>
-
-
     <!-- ONBOARDING STEP 0 — premier lancement -->
-    <div id="onboardingStep0" class="mb-3">
-      <div class="flex items-center justify-between mb-3 pt-1">
-        <div>
-          <h1 class="text-lg font-extrabold t-primary leading-tight">Bonjour 👋</h1>
-          <p id="welcomeMsg" class="text-xs t-secondary mt-0.5"></p>
+    <div id="onboardingStep0" class="ob-wrap">
+      <header class="ob-head">
+        <div class="pt-col" style="gap:6px">
+          <span class="pt-eyebrow">PRISME · Voir juste, piloter vite</span>
+          <h1 class="pt-h2" style="font-size:30px">Bonjour 👋</h1>
+          <p id="welcomeMsg" class="pt-muted" style="margin:0"></p>
           <script>
             (function(){const h=new Date().getHours();const m=h<12?'Chargez vos fichiers pour démarrer la journée.':h<14?'Reprenez où vous en étiez.':h<18?'Vos données vous attendent.':'Un dernier point avant de terminer ?';document.getElementById('welcomeMsg').textContent=m;})();
           </script>
         </div>
-        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] c-action font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
-      </div>
+        <div class="pt-row" style="gap:16px">
+          <button type="button" class="pt-link pt-small" style="color:var(--pt-low)" title="Efface les données gardées dans ce navigateur (session, historique de score conservé)" onclick="_onPurgeCache()">Purger le cache</button>
+          <span id="importZoneCancelBtn" class="hidden"><button type="button" class="pt-btn" onclick="collapseImportZone()">Annuler</button></span>
+        </div>
+      </header>
 
       <!-- Zone de dépôt principale -->
-      <div id="importZone">
-        <div id="importZoneCancelBtn" class="hidden" style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-2)">
-          <button onclick="collapseImportZone()" style="font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--t-tertiary);background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);cursor:pointer" onmouseover="this.style.background='var(--s-hover)'" onmouseout="this.style.background='var(--s-card-alt)'">✕ Annuler</button>
-        </div>
+      <div id="importZone" class="pt-col" style="gap:28px">
 
-        <!-- Étape 1 — Obligatoire -->
-        <div class="onboarding-step-required mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="chip chip-sm chip-info">① Obligatoire</span>
-            <span class="text-[10px] t-tertiary">Analyse du stock · ABC/FMR · MIN/MAX · Réseau</span>
+        <section class="pt-col" style="gap:12px">
+          <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+            <h3 class="pt-h3">Pour démarrer</h3>
+            <span class="pt-small pt-muted">Ces deux fichiers suffisent : stock, MIN/MAX, squelette, réseau</span>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div id="dropConsomme" class="onboarding-dropzone onboarding-dropzone--required">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-action">📊 Ventes (Consommé)</span>
-                <span id="statusConsomme" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] c-action mb-2">Fichier(s) consommé — .xlsx ou .csv (multi-fichiers OK)</p>
-              <input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" multiple onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropStock" class="onboarding-dropzone onboarding-dropzone--required">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-action">📦 État du Stock</span>
-                <span id="statusStock" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] c-action mb-2">Statuts, Valeurs, MIN/MAX</p>
-              <input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/>
-            </div>
+          <div class="ob-grid">
+            <label id="dropConsomme" class="ob-card ob-req" for="fileConsomme">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">📊</span><span id="statusConsomme" class="ob-status">⭕</span></span>
+              <span class="ob-title">Ventes (consommé)</span>
+              <span class="ob-desc">Export consommé multi-agences, .xlsx ou .csv. Plusieurs fichiers possibles (ex. 2025 + 2026).</span>
+              <span class="ob-files">Choisir ou glisser les fichiers</span>
+              <input type="file" id="fileConsomme" class="ob-input" accept=".xlsx,.xls,.csv" multiple onchange="onFileSelected(this,'dropConsomme')"/>
+            </label>
+            <label id="dropStock" class="ob-card ob-req" for="fileStock">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">📦</span><span id="statusStock" class="ob-status">⭕</span></span>
+              <span class="ob-title">État du stock</span>
+              <span class="ob-desc">État du stock à l’article, par dépôt : statuts, valeurs, MIN/MAX.</span>
+              <span class="ob-files">Choisir ou glisser le fichier</span>
+              <input type="file" id="fileStock" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')"/>
+            </label>
           </div>
-        </div>
+        </section>
 
-        <!-- Étape 2 — Optionnel : toujours visible -->
-        <div class="mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="chip chip-sm chip-caution">② Optionnel</span>
-            <span class="text-[10px] t-tertiary">Commerce · Cockpit client · Terrain · Livraisons</span>
+        <section class="pt-col" style="gap:12px">
+          <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+            <h3 class="pt-h3">Pour aller plus loin</h3>
+            <span class="pt-small pt-muted">Facultatif · active Pilotage Commercial et les fiches clients</span>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div id="dropChalandise" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">🗺️ Zone de Chalandise</span>
-                <span id="statusChalandise" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">Export Qlik clients — active Commerce · multi-agences possible</p>
-              <input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropLivraisons" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">📋 Livraisons</span>
-                <span id="statusLivraisons" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">BL livrés domicile — export Qlik</p>
-              <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
-            <div id="dropForcage" class="onboarding-dropzone onboarding-dropzone--optional">
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm c-caution">🔗 Rattachement Commercial</span>
-                <span id="statusForcage" class="text-lg">⭕</span>
-              </div>
-              <p class="text-[10px] t-secondary mb-2">Table de forçage locale — Code Client | Commercial</p>
-              <input type="file" id="fileForcage" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
-            </div>
+          <div class="ob-grid">
+            <label id="dropChalandise" class="ob-card ob-opt" for="fileChalandise">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">🗺️</span><span id="statusChalandise" class="ob-status">⭕</span></span>
+              <span class="ob-title">Zone de chalandise</span>
+              <span class="ob-desc">Export Qlik des clients de la zone : métier, classification, commercial, CA Legallais.</span>
+              <span class="ob-files">Choisir ou glisser les fichiers</span>
+              <input type="file" id="fileChalandise" class="ob-input" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)"/>
+            </label>
+            <label id="dropForcage" class="ob-card ob-opt" for="fileForcage">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">🔗</span><span id="statusForcage" class="ob-status">⭕</span></span>
+              <span class="ob-title">Rattachement commercial</span>
+              <span class="ob-desc">Ta table locale Code client → Commercial, pour corriger les portefeuilles.</span>
+              <span class="ob-files">Choisir ou glisser le fichier</span>
+              <input type="file" id="fileForcage" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)"/>
+            </label>
           </div>
-        </div>
+          <!-- Livraisons (Qlik) : plus extractible depuis oct. 2026 — replié, gardé si l'export revient -->
+          <details id="dropLivraisons" class="ob-legacy">
+            <summary><span>📋 Livraisons Qlik <span class="pt-muted">· plus nécessaire</span></span><span id="statusLivraisons" class="ob-status">⭕</span></summary>
+            <p class="pt-small pt-muted" style="margin:8px 0">PRISME lit les achats de tes clients dans les autres agences directement dans le consommé multi-agences. À charger seulement si tu as encore un export Qlik des BL livrés.</p>
+            <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="pt-small"/>
+          </details>
+        </section>
 
         <!-- Sélecteur magasin -->
-        <div id="storeSelector" class="hidden mb-3 p-3 i-info-bg border-2 b-dark rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold t-primary mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)" class="w-full p-2 border-2 b-dark rounded-lg text-sm font-bold t-primary s-card"><option value="">—</option></select></div><div><button id="btnRecalculer" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden bg-c-action t-inverse font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs t-secondary"></div></div></div>
-        <div id="storeWarnings" class="hidden mb-3 p-3 i-caution-bg border b-light rounded-xl text-xs c-caution"></div>
+        <div id="storeSelector" class="hidden pt-card ob-store"><div class="pt-row" style="gap:16px;flex-wrap:wrap;align-items:flex-end"><div class="pt-col" style="gap:6px;flex:1 1 220px"><label for="selectMyStore" class="pt-strong">🏪 Mon agence</label><select id="selectMyStore" class="pf-select" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)"><option value="">—</option></select></div><button id="btnRecalculer" type="button" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden pt-btn">Recalculer</button><div id="storeInfo" class="pt-small pt-muted"></div></div></div>
+        <div id="storeWarnings" class="hidden pt-card pt-small" style="color:var(--pt-mid)"></div>
 
         <!-- Bouton Analyser -->
-        <div class="text-center mb-3">
-          <button id="btnCalculer" onclick="processData()" disabled class="w-full md:w-2/3 s-panel-inner hover:s-card-alt t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button>
-        </div>
+        <button id="btnCalculer" type="button" onclick="processData()" disabled class="ob-go">Analyser</button>
       </div><!-- /importZone -->
+      <script>
+        // Glisser-déposer sur les cartes + nom des fichiers choisis
+        (function(){
+          const name=(f)=>[...f].slice(0,2).map(x=>x.name).join(' · ')+(f.length>2?` · +${f.length-2}`:'');
+          document.querySelectorAll('#importZone .ob-card').forEach(card=>{
+            const inp=card.querySelector('.ob-input'),out=card.querySelector('.ob-files'),hint=out.textContent;
+            inp.addEventListener('change',()=>{out.textContent=inp.files.length?name(inp.files):hint;});
+            ['dragenter','dragover'].forEach(t=>card.addEventListener(t,e=>{e.preventDefault();card.classList.add('ob-drag');}));
+            ['dragleave','drop'].forEach(t=>card.addEventListener(t,()=>card.classList.remove('ob-drag')));
+            card.addEventListener('drop',e=>{e.preventDefault();const fs=e.dataTransfer?.files;if(!fs?.length)return;
+              const dt=new DataTransfer();[...fs].slice(0,inp.multiple?fs.length:1).forEach(f=>dt.items.add(f));inp.files=dt.files;inp.dispatchEvent(new Event('change',{bubbles:true}));});
+          });
+        })();
+      </script>
     </div><!-- /onboardingStep0 -->
 
     <!-- ENRICH BANNER — visible après premier chargement si optionnels manquants -->
@@ -1909,6 +1975,7 @@
 
     <!-- TAB 1 : ARTICLES -->
     <div id="tabTable" class="tab-content hidden">
+      <div id="tableContext" class="hidden"></div>
       <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
         <div class="flex items-center gap-2">
@@ -1932,13 +1999,13 @@
               <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30 font-bold" onclick="sortBy('libelle')" data-col="libelle" data-tooltip="Désignation article">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')" data-col="famille" data-tooltip="Famille article (code + libellé)">Famille ↕</th>
               <th class="px-2 py-3 text-xs uppercase t-disabled" onclick="sortBy('emplacement')" data-col="emplacement" data-tooltip="Emplacement physique en agence">Empl ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Prélevé comptoir sur la période — dimensionne le MIN/MAX">Prél ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA comptoir sur la période (source : consommé MAGASIN)">CA ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Quantité prélevée au comptoir sur 12 mois — dimensionne le MIN/MAX">Prél ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA prélevé au comptoir sur 12 mois (consommé MAGASIN, ton agence)">CA ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('enleveTotal')" data-col="enleveTotal" data-tooltip="Enlevé (colis) — NE dimensionne PAS le MIN/MAX">Enl ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-action font-bold" onclick="sortBy('W')" data-col="W" data-tooltip="Fréquence = nb de BL distincts (F≥12, M=4-11, R≤3)">Fréq ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-caution font-bold" onclick="sortBy('stockActuel')" data-col="stockActuel" data-tooltip="Stock actuel (source : état du stock)">Stock ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('couvertureJours')" data-col="couvertureJours" data-tooltip="Couverture = jours de stock restant au rythme actuel">Couv ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('ageJours')" data-col="ageJours" data-tooltip="Âge = jours depuis la dernière vente (rupture si stock = 0)">Âge ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('moisSansVente')" data-col="ageJours" data-tooltip="Dernière vente au MAGASIN de ton agence (consommé), en mois">Dern. vente ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" data-col="ancien" data-tooltip="MIN/MAX actuels dans l'ERP (avant recalcul PRISME)">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')" data-col="nouveauMin" data-tooltip="MIN recalculé par PRISME (sécurité + consommation)">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')" data-col="nouveauMax" data-tooltip="MAX recalculé par PRISME (capacité réappro optimale)">MAX ↕</th>
@@ -1953,13 +2020,13 @@
       <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><span id="filteredCATotal" class="hidden text-xs font-semibold c-ok" style="margin-left:12px"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
     </div>
 
-    <!-- TAB : PLAN DE RAYON -->
-    <div id="tabPlan" class="tab-content">
-      <div id="planRayonBlock" class="p-4"></div>
-    </div>
+    <!-- TAB : LA PARTIE (accueil) -->
+    <div id="tabPartie" class="tab-content"></div>
 
-    <!-- TAB : EFFICIENCE -->
-    <div id="tabEfficience" class="tab-content hidden"></div>
+    <!-- TAB : PLAN DE RAYON -->
+    <div id="tabPlan" class="tab-content hidden">
+      <div id="planRayonBlock"></div>
+    </div>
 
     <!-- TAB : ARBITRAGE -->
     <div id="tabArbitrage" class="tab-content hidden">
@@ -1970,15 +2037,10 @@
         <span id="dashChipSansEmplacement">0</span><span id="dashChipFins">0</span><span id="dashChipSaison">0</span><span id="dashChipSaso">0</span>
         <span id="dashDeadStock"></span><span id="dashDeadPct"></span><span id="dashSurstock"></span><span id="dashSurstockPct"></span><span id="dashCapalin"></span><span id="dashCapalinCount"></span><span id="dashServiceRate"></span><span id="dashServiceDetail"></span><span id="dashCAPerdu"></span><span id="dashCAPerduCount"></span>
       </div>
-      <div id="stockHeroBanner">
-        <div id="stockHeroContent"></div>
-      </div>
       <span id="healthScoreContent" class="hidden"></span>
       <span id="healthScoreInline" class="hidden"></span>
       <span id="valeurStockInline" class="hidden"></span>
       <div id="cockpitBriefing" class="hidden"><div id="cockpitBriefingText"></div></div>
-      <div id="arbitrageRayonBlock"></div>
-      <div id="abcMatrixContainer" class="overflow-x-auto p-4"></div>
       <span id="abcCountBadge" class="hidden"></span>
       <span id="planRayonInline" class="hidden"></span>
       <!-- Compat JS: anciens IDs supprimés, gardés masqués -->
@@ -1993,34 +2055,11 @@
       </div>
     </div>
 
-    <!-- Compat: ancien tabStock redirigé -->
-    <div id="tabStock" class="tab-content hidden"></div>
 
-    <!-- NL Search Results — shared, used by cmd palette NL search -->
-    <div id="cematinResults" class="hidden mb-4"></div>
 
-    <!-- TAB : CE MATIN (V4) — now empty, kept for backwards compat -->
-    <div id="tabAction" class="tab-content hidden" style="display:none">
+    <!-- TAB : TES CLIENTS — domaine Clients de La partie (score + 5 décisions) -->
+    <div id="tabPortefeuille" class="tab-content hidden"></div>
 
-      <!-- Hidden elements kept for JS compatibility (cockpitLists sets still populated for filter) -->
-      <div class="hidden" aria-hidden="true">
-        <table><tbody id="actionFantomes"></tbody></table>
-        <table><tbody id="actionAnomalies"></tbody></table>
-        <table><tbody id="actionDormant"></tbody></table>
-        <table><tbody id="actionFin"></tbody></table>
-        <table><tbody id="actionBestSellers"></tbody></table>
-        <table><tbody id="actionNouveaute"></tbody></table>
-        <table><tbody id="actionStockneg"></tbody></table>
-      </div>
-    </div>
-
-    <!-- tabAbc supprimé — fusionné dans tabDash (Analyse du stock) -->
-    <!-- Compat: radarFiltersBar / radarFilterBadge hidden stubs for JS -->
-    <div id="radarFiltersBar" class="hidden"><span id="radarFilterBadge"></span></div>
-
-    <!-- TAB : MES CLIENTS (V4) -->
-    <div id="tabClients" class="tab-content hidden">
-    </div>
 
     <!-- TAB : TERRITOIRE (V24.4) — Commerce -->
     <div id="tabCommerce" class="tab-content hidden"></div>
@@ -2028,18 +2067,18 @@
 
 
     <div id="tabAnimation" class="tab-content hidden">
-      <div id="animTabBar"></div>
-      <div id="animSearchWrapper" class="mb-4">
-        <div class="relative max-w-lg mx-auto">
-          <input type="text" id="animSearchInput"
-            placeholder="Rechercher une marque... (ex: Bosch, Makita, Dewalt)"
-            class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
-            autocomplete="off">
-          <div id="animSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+      <div class="pt-wrap" style="gap:20px;padding-top:8px">
+        <div id="animSearchWrapper" class="pt-col" style="gap:6px">
+          <span class="pt-eyebrow">Préparer une animation</span>
+          <div class="relative" style="max-width:640px">
+            <input type="text" id="animSearchInput" placeholder="Chercher une marque ou un fournisseur (Bosch, Makita, DeWalt…)"
+              class="w-full t-primary" style="font:inherit;font-size:16px;min-height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--pt-line);background:var(--s-card);box-sizing:border-box" autocomplete="off">
+            <div id="animSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+          </div>
+          <span id="animSearchCount" class="pt-small pt-muted"></span>
         </div>
-        <p class="text-center text-[10px] t-disabled mt-2">787 marques disponibles · Tapez au moins 2 caracteres</p>
+        <div id="animContent"></div>
       </div>
-      <div id="animContent"></div>
     </div>
 
     <div id="tabAssociations" class="tab-content hidden">
@@ -2047,7 +2086,6 @@
     </div>
 
     <!-- Direction Réseau -->
-    <div id="tabConformite" class="tab-content hidden"><div id="conformiteContent" class="p-4"></div></div>
     <div id="tabDuel" class="tab-content hidden"><div id="duelContent" class="p-4"></div></div>
 
   </div><!-- /container -->
@@ -2059,8 +2097,24 @@
   <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
 
   <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
-  <script type="module" src="js/direction.js?v=20260425h"></script>
-  <script type="module" src="js/duel-agence.js?v=20260425b"></script>
-  <script type="module" src="js/main.js?v=20260428l"></script>
+  <!-- Versions des modules : UNE seule valeur à changer à chaque mise en ligne (ASSET_V).
+       Chaque fichier js/*.js est servi avec ?v=ASSET_V via l'import map → jamais de mélange
+       ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
+  <script>
+  (function () {
+    var ASSET_V = '20261008i';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
+    var map = {};
+    F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
+    var s = document.createElement('script');
+    s.type = 'importmap';
+    s.textContent = JSON.stringify({ imports: map });
+    document.currentScript.after(s);
+  })();
+  </script>
+  <script type="module">
+    import './js/duel-agence.js';
+    import './js/main.js';
+  </script>
 </body>
 </html>

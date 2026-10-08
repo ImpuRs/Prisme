@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRISME — Contrôle</title>
+<style>
+  :root { --bg:#0f1218; --card:#171b23; --line:#2a303b; --t:#e8ebf1; --mute:#8a93a3; --ok:#57d6a4; --ko:#ff8f5a; --mid:#f2c14e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--t); font:15px/1.45 system-ui,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:24px 16px 60px; display:flex; flex-direction:column; gap:16px; }
+  h1 { margin:0; font-size:24px; font-weight:600; }
+  p { margin:0; color:var(--mute); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  button { font:inherit; font-weight:600; min-height:40px; padding:0 16px; border-radius:10px; border:1px solid var(--line); background:#222835; color:var(--t); cursor:pointer; }
+  button:disabled { opacity:.4; cursor:default; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td, th { text-align:left; padding:7px 10px; border-top:1px solid var(--line); }
+  th { color:var(--mute); font-weight:500; border-top:0; }
+  .ok { color:var(--ok); } .ko { color:var(--ko); } .mid { color:var(--mid); }
+  .num { font-family:ui-monospace,monospace; text-align:right; }
+  iframe { width:100%; height:520px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+  #verdict { font-size:20px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Contrôle PRISME</h1>
+    <p>Ouvre l’appli ci-dessous, passe sur chaque écran et chaque panneau, relève les erreurs et compare le score à la dernière référence. À lancer après chaque modification, avant de mettre en ligne.</p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="bRun" disabled>Contrôler la session en cours</button>
+      <button id="bLoad" disabled title="Recharge les fichiers de _testdata/ (local) ou ceux choisis ci-contre, puis contrôle">Recharger les fichiers puis contrôler</button>
+      <label class="row" style="gap:6px;color:var(--mute)"><input type="file" id="files" multiple accept=".csv,.xlsx,.xls"> fichiers (sinon _testdata/)</label>
+    </div>
+    <p>Attention : « Recharger les fichiers » remplace la session gardée dans ce navigateur (c’est la même que celle de l’appli).</p>
+    <div id="verdict" class="mid">Chargement de l’appli…</div>
+  </div>
+
+  <div class="card">
+    <table><thead><tr><th>Contrôle</th><th>Résultat</th><th class="num">Temps</th></tr></thead><tbody id="out"></tbody></table>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><strong>Score</strong><button id="bRef" disabled>Prendre ce score comme référence</button></div>
+    <table><thead><tr><th></th><th class="num">Maintenant</th><th class="num">Référence</th><th class="num">Écart</th></tr></thead><tbody id="score"></tbody></table>
+  </div>
+
+  <iframe id="app" src="index.html"></iframe>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const REF_KEY = 'prisme_controle_ref';
+let W = null, errors = [], rows = [], lastScore = null;
+
+function hook() {
+  W = $('app').contentWindow;
+  errors = [];
+  W.confirm = () => true;
+  W.addEventListener('error', e => errors.push(e.message || String(e.error)));
+  W.addEventListener('unhandledrejection', e => errors.push('promesse : ' + (e.reason?.message || e.reason)));
+  const ce = W.console.error.bind(W.console);
+  W.console.error = (...a) => { errors.push(a.map(String).join(' ').slice(0, 200)); ce(...a); };
+}
+async function waitFor(fn, ms = 60000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (_) {} await sleep(250); }
+  return false;
+}
+function line(name, ok, detail, ms) {
+  rows.push(`<tr><td>${name}</td><td class="${ok === true ? 'ok' : ok === false ? 'ko' : 'mid'}">${ok === true ? '✓ ' : ok === false ? '✗ ' : ''}${detail || ''}</td><td class="num">${ms != null ? ms + ' ms' : ''}</td></tr>`);
+  $('out').innerHTML = rows.join('');
+}
+const activeTab = () => [...W.document.querySelectorAll('.tab-content')].find(x => !x.classList.contains('hidden'));
+
+async function check(name, fn, minText = 0) {
+  const n0 = errors.length, t0 = performance.now();
+  try {
+    const r = await fn();
+    const ms = Math.round(performance.now() - t0);
+    const errs = errors.slice(n0);
+    if (errs.length) return line(name, false, errs[0], ms);
+    if (minText && (r || 0) < minText) return line(name, false, `écran presque vide (${r} caractères)`, ms);
+    line(name, true, typeof r === 'number' ? `${r.toLocaleString('fr-FR')} caractères` : (r || 'OK'), ms);
+  } catch (e) { line(name, false, e.message, Math.round(performance.now() - t0)); }
+}
+
+async function runChecks() {
+  rows = []; $('out').innerHTML = '';
+  const S = W._S;
+  if (!S?.finalData?.length) { $('verdict').className = 'ko'; $('verdict').textContent = 'Aucune session chargée : utilise « Recharger les fichiers puis contrôler ».'; return; }
+  $('verdict').className = 'mid'; $('verdict').textContent = 'Contrôle en cours…';
+  line('Session', true, `${S.finalData.length.toLocaleString('fr-FR')} articles · ${S.selectedMyStore} · ${S.ventesLocalMag12MG?.size || 0} clients comptoir`);
+  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['duel', 'Duel agence'], ['animation', 'Animation'], ['associations', 'Associations'], ['table', 'Base articles']];
+  for (const [id, label] of screens) {
+    await check(`Écran · ${label}`, async () => { W.switchTab(id); await sleep(900); return (activeTab()?.innerText || '').trim().length; }, 300);
+  }
+  const cc = [...(S.ventesLocalMag12MG?.keys() || [])][0];
+  await check('Fiche client', async () => { W.openClient360(cc, 'controle'); await sleep(900); const n = W.document.getElementById('diagnosticPanel')?.innerText.length || 0; W.closeDiagnostic?.(); return n; }, 300);
+  await check('Fiche article', async () => { W.openArticlePanel(S.finalData[0].code, 'controle'); await sleep(600); W.closeArticlePanel?.(); return 'ouverte'; });
+  await check('Plan · une famille', async () => { W.switchTab('plan'); await sleep(500); const f = S.finalData.find(r => r.famille)?.famille; W._pfOpen?.(f); await sleep(900); return (activeTab()?.innerText || '').length; }, 300);
+  await check('Animation · une marque', async () => { W.switchTab('animation'); await sleep(900); const m = S.marquesList?.[0]; if (!m) return 'catalogue absent'; W._selectAnimMarque('ROBERT BOSCH FRANCE'); await sleep(900); return (W.document.getElementById('animContent')?.innerText || '').length; }, 300);
+  await check('Duel · spécialités', async () => { W.switchTab('duel'); await sleep(600); W._duelPepMode?.('absent'); await sleep(600); return (activeTab()?.innerText || '').length; }, 300);
+  W.switchTab('partie'); await sleep(600);
+
+  const p = S._partie;
+  lastScore = p ? { global: p.global, assort: p.assort?.score ?? p.assort, stock: p.stock?.score ?? p.stock, clients: p.clients?.score ?? p.clients, store: S.selectedMyStore } : null;
+  renderScore();
+  const ko = rows.filter(r => r.includes('class="ko"')).length;
+  $('verdict').className = ko ? 'ko' : 'ok';
+  $('verdict').textContent = ko ? `${ko} contrôle${ko > 1 ? 's' : ''} en échec` : 'Tout est vert';
+  $('bRef').disabled = !lastScore;
+}
+
+function renderScore() {
+  let ref = null; try { ref = JSON.parse(localStorage.getItem(REF_KEY) || 'null'); } catch (_) {}
+  if (ref && lastScore && ref.store !== lastScore.store) ref = null;
+  const v = x => (x == null || typeof x === 'object') ? null : Math.round(x);
+  const keys = [['global', 'Score agence'], ['assort', 'Assortiment'], ['stock', 'Stock'], ['clients', 'Clients']];
+  $('score').innerHTML = keys.map(([k, l]) => {
+    const a = v(lastScore?.[k]), b = v(ref?.[k]);
+    const d = a != null && b != null ? a - b : null;
+    return `<tr><td>${l}</td><td class="num">${a ?? '—'}</td><td class="num">${b ?? '—'}</td><td class="num ${d ? 'ko' : d === 0 ? 'ok' : ''}">${d == null ? '' : d > 0 ? '+' + d : d}</td></tr>`;
+  }).join('');
+}
+
+async function reloadFiles() {
+  $('verdict').className = 'mid'; $('verdict').textContent = 'Chargement des fichiers…';
+  const D = W.document;
+  let files = [...$('files').files];
+  if (!files.length) {
+    const names = ['Consommé - 7 octobre 2026.csv', 'consomme-IDF-2025.csv', "Etat du stock à l'article, par dépôt - 7 octobre 2026.csv", 'chalandisefusionné.csv'];
+    for (const n of names) {
+      const r = await fetch('_testdata/' + encodeURIComponent(n));
+      if (r.ok) files.push(new File([await r.blob()], n, { type: 'text/csv' }));
+    }
+    if (!files.length) { $('verdict').className = 'ko'; $('verdict').textContent = 'Pas de _testdata/ ici : choisis les fichiers.'; return false; }
+  }
+  const kind = f => /stock/i.test(f.name) ? 'fileStock' : /chaland/i.test(f.name) ? 'fileChalandise' : 'fileConsomme';
+  for (const id of ['fileConsomme', 'fileStock', 'fileChalandise']) {
+    const dt = new DataTransfer();
+    files.filter(f => kind(f) === id).forEach(f => dt.items.add(f));
+    if (!dt.files.length) continue;
+    const el = D.getElementById(id); el.files = dt.files; el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  W.expandImportZone?.();
+  await sleep(300);
+  const t0 = performance.now();
+  const before = W._S._partie;
+  D.getElementById('btnCalculer').click();
+  const ok = await waitFor(() => W._S.finalData?.length && W._S._partie && W._S._partie !== before && W._S.ventesLocalMag12MG?.size, 180000);
+  await sleep(3000); // agrégats clients en arrière-plan
+  line('Chargement des fichiers', ok, ok ? `${files.length} fichiers` : 'délai dépassé', Math.round(performance.now() - t0));
+  return ok;
+}
+
+$('app').addEventListener('load', async () => {
+  hook();
+  await waitFor(() => typeof W.switchTab === 'function', 20000);
+  await sleep(1500);
+  $('bRun').disabled = $('bLoad').disabled = false;
+  $('verdict').className = 'mid';
+  $('verdict').textContent = W._S?.finalData?.length ? 'Session trouvée : prêt à contrôler.' : 'Aucune session : recharge les fichiers.';
+  renderScore();
+});
+$('bRun').onclick = async () => { $('bRun').disabled = $('bLoad').disabled = true; await runChecks(); $('bRun').disabled = $('bLoad').disabled = false; };
+$('bLoad').onclick = async () => { $('bRun').disabled = $('bLoad').disabled = true; rows = []; if (await reloadFiles()) { const keep = rows.slice(); await runChecks(); rows = keep.concat(rows); $('out').innerHTML = rows.join(''); } $('bRun').disabled = $('bLoad').disabled = false; };
+$('bRef').onclick = () => { localStorage.setItem(REF_KEY, JSON.stringify(lastScore)); renderScore(); };
+</script>
+</body>
+</html>

@@ -570,9 +570,11 @@ async function _handleParseMessage(data) {
         if (_pd && !isNaN(_pd)) { var ts = _pd.getTime(); if (ts > _ps_maxTs) _ps_maxTs = ts; }
       }
       if (_ps_maxTs > 0) {
+        // 12 mois glissants complets — même règle que defaultPeriodRange() (utils.js)
         var _pD = new Date(_ps_maxTs);
         var _py = _pD.getFullYear(), _pm = _pD.getMonth();
-        periodFilterStart = new Date(_py, _pm, 1);
+        if (_pD.getDate() < 15) { _pm--; if (_pm < 0) { _pm = 11; _py--; } }
+        periodFilterStart = new Date(_py, _pm - 11, 1);
         periodFilterEnd = new Date(_py, _pm + 1, 0, 23, 59, 59);
       }
     }
@@ -592,6 +594,7 @@ async function _handleParseMessage(data) {
     var ventesLocalMag12MG = new Map();
     var ventesReseauTousCanaux = new Map();
     var ventesLocalHorsMag = new Map();
+    var ventesLocalHorsMagFull = new Map(); // même structure, PLEINE PÉRIODE (analyses structurelles client — cf. ventesLocalMag12MG)
     var ventesClientsPerStore = {};
     var caClientParStore = {}; // {store → Map<cc, totalCA>} — FULL period, TOUS canaux
     var byMonthStoreClients = {}; // {store → {monthIdx → Set<cc>}} — pour rebuild période
@@ -930,10 +933,24 @@ async function _handleParseMessage(data) {
             var _caAutH = _rcp + _rce;
             if (_caAutH > 0) ventesClientAutresAgences.set(_cc_bm_h, (ventesClientAutresAgences.get(_cc_bm_h) || 0) + _caAutH);
           }
+          // ventesLocalHorsMagFull — AVANT filtre période (fiche client, familles hors agence…)
+          var _ccHF = extractClientCode(_rc);
+          if (_ccHF && codeArt_h && (!selectedStore || skHors === 'INCONNU' || skHors === selectedStore)) {
+            var hmF = ventesLocalHorsMagFull.get(_ccHF) || new Map();
+            var exF = hmF.get(codeArt_h) || { sumCA: 0, sumPrelevee: 0, sumCAPrelevee: 0, sumCAP: 0, sumCAE: 0, countBL: 0, canal: canal };
+            exF.sumCA += caLigne_h;
+            exF.sumPrelevee += _rqp + _rqe;
+            exF.sumCAPrelevee += caLigne_h;
+            exF.sumCAP += _rcp;
+            exF.sumCAE += _rce;
+            exF.countBL++;
+            hmF.set(codeArt_h, exF);
+            ventesLocalHorsMagFull.set(_ccHF, hmF);
+          }
           // Filtre période — le reste est period-sensitive
           if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
           if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
-          var cc_h = extractClientCode(_rc);
+          var cc_h = _ccHF;
           var qteLigne_h = _rqp + _rqe;
           if (cc_h && codeArt_h && (!selectedStore || skHors === 'INCONNU' || skHors === selectedStore)) {
             cannauxHorsMagasin.add(canal);
@@ -1640,6 +1657,7 @@ async function _handleParseMessage(data) {
       payload.ventesLocalMag12MG = serMap(ventesLocalMag12MG);
       payload.ventesReseauTousCanaux = serMap(ventesReseauTousCanaux);
       payload.ventesLocalHorsMag = serMap(ventesLocalHorsMag);
+      payload.ventesLocalHorsMagFull = serMap(ventesLocalHorsMagFull);
       payload.clientLastOrder = Array.from(clientLastOrder).map(function(kv) { return [kv[0], kv[1] instanceof Date ? kv[1].getTime() : kv[1]]; });
       payload.clientLastOrderAll = Array.from(clientLastOrderAll).map(function(kv) { return [kv[0], { date: kv[1].date instanceof Date ? kv[1].date.getTime() : kv[1].date, canal: kv[1].canal }]; });
       payload.clientLastOrderByCanal = serMap(clientLastOrderByCanal);

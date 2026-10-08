@@ -74,6 +74,25 @@ export const DQ_MIN_PRIORITY_SCORE  = 1000;  // score alternatif (si PU élevé 
 export const DQ_MIN_PU_ALERTE       = 10;    // PU minimum pour une alerte prévisionnelle
 export const DQ_MIN_FREQ_ALERTE     = 6;     // W minimum (article au moins M) pour alerte prévisionnelle
 
+// ── La partie — score agence gamifié (partie.js) ─────────────
+// Score famille = Σ critère × poids (socle tenu, trous comblés, rayon propre, MIN/MAX calibrés)
+// « Réseau fort » : le réseau vend vraiment l'article — ≥60 % des autres agences
+// ET ≥200 € de CA moyen par agence vendeuse sur 12 mois. Sert à la fois aux trous
+// prioritaires (La partie) et au rôle « incontournable » d'un challenger (Réf Schizo).
+export const SQ_RESEAU_FORT_DETENTION = 0.6;
+export const SQ_RESEAU_FORT_CA_AGENCE = 200;
+export const PARTIE_WEIGHTS          = [0.35, 0.30, 0.20, 0.15];
+export const PARTIE_OBJECTIF         = 90;    // score agence visé
+export const PARTIE_FAM_MIN_REFS     = 30;    // familles plus petites : hors classement
+export const PARTIE_TROU_DETENTION   = SQ_RESEAU_FORT_DETENTION;   // trou prioritaire : vendu par ≥60% des autres agences…
+export const PARTIE_TROU_CA_AGENCE   = SQ_RESEAU_FORT_CA_AGENCE;   // …pour ≥200 € / agence / an en moyenne (sinon bruit : 40 €/an × 7 agences)…
+export const PARTIE_TROU_CLIENTS     = 5;     // …ou acheté par ≥5 clients de la zone
+export const PARTIE_TROUS_PAR_ACTION = 5;     // une action « Implanter » = 5 articles
+export const PARTIE_CAL_TOL_MIN      = 1;     // MIN/MAX calibré : |ERP − reco| ≤ 1 sur le MIN…
+export const PARTIE_CAL_TOL_MAX      = 2;     // …et ≤ 2 sur le MAX
+export const PARTIE_STOCK_W_SERVICE  = 0.6;   // score Stock = 60% taux de service + 40% hors sur-stock
+export const PARTIE_NB_ACTIONS       = 6;
+
 // Mapping première lettre code secteur → Direction commerciale
 export const SECTEUR_DIR_MAP = {
   'M': 'Maintenance', 'B': 'Second Œuvre', 'L': 'DVP Plomberie', 'F': 'DVI Industrie'

@@ -1,21 +1,14 @@
 // © 2026 Jawad El Barkaoui — Tous droits réservés
 // PRISME — associations.js
-// Animation des ventes associées : benchmark réseau × familles croisées
+// Associations : familles qui s'achètent ensemble chez toi (détectées, lift) + paires manuelles
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _isMetierStrategique } from './utils.js';
-import { FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP } from './constants.js';
-import { computeSquelette } from './engine.js';
+import { FAM_LETTER_UNIVERS } from './constants.js';
 import { _saveSessionToIDB } from './cache.js';
-import { DataStore } from './store.js';
-import { PHYSIGAMME_COPY, getPhysigammeDecision } from './physigamme.js?v=20260425a';
-import { computePhysigamme } from './physigamme-engine.js?v=20260425b';
-import { renderPhysigammeHero, renderPhysigammeKpis, renderPhysigammePerimeterBar, renderPhysigammeOutOfScope } from './physigamme-view.js?v=20260425b';
-import { renderPhysigammeArticleTable } from './physigamme-table.js?v=20260425b';
-import { buildPhysigammeDeployment, renderPhysigammeDeployment } from './physigamme-deployment.js?v=20260425c';
-import { renderMissingPanel, exportMissingOrder, exportStartupKit } from './physigamme-actions.js?v=20260425b';
+import { getVentesHorsMagFullMap } from './sales.js';
 
 // ═══════════════════════════════════════════════════════════════
 // Données persistées : _S._associations = [{id, famA, famB, famC?, label, dateCreated}]
@@ -32,29 +25,6 @@ let _assocMetierFilter = '';
 let _assocStratFilter = '';
 /** Filtre univers pour l'étape 2 : '' | 'E' | 'O' | ... */
 let _assocUniversFilter = '';
-/** Mode du Labo : 'assoc' | 'tronc' */
-let _laboMode = 'assoc';
-/** Filtre univers pour le Tronc Commun */
-let _troncUniversFilter = '';
-/** Filtre périmètre pour le Tronc Commun : 'agence' | 'territoire' | 'reseau' */
-let _troncPerimetre = null; // null = auto-detect at render time
-/** Filtre KPI cliquable : '' | 'tronc' | 'inter' | 'spec' */
-let _troncKpiFilter = '';
-/** Code article ouvert en accordéon (drill-down Rayon X) */
-let _troncExpandedCode = '';
-/** Cluster métiers personnalisé : null = tous strat, Set<string> = sélection custom */
-let _troncCustomMetiers = null;
-/** Mode sélecteur métiers ouvert */
-let _troncMetierPickerOpen = false;
-/** Inclure 100% des clients (ignore le filtre métier stratégique) */
-let _troncIncludeAll = false;
-/** Familles dépliées dans le tableau Tronc Commun */
-let _troncOpenFams = new Set();
-/** Vue active du Tronc Commun : 'articles' | 'carto' */
-let _troncVue = 'articles';
-let _troncLoiAirain = true; // Double validation : Tronc Commun ∩ ≥60% agences
-/** Agences en amorçage — exclues des calculs médiane/conformité */
-let _troncAmorcageStores = new Set();
 
 /** Teste si un client passe le filtre métier + strat actif */
 function _clientPassesAssocFilter(cc) {
@@ -80,60 +50,6 @@ function _assocId() { return Date.now().toString(36) + Math.random().toString(36
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Agrège ventesParAgenceByCanal pour un store (tous canaux confondus).
- * Retourne un objet {code → {sumCA, countBL}} — sensible au filtre période.
- * Fallback sur ventesParAgence (pleine période) si byCanal absent.
- */
-function _vpmForStore(store) {
-  const vbc = _S.ventesParAgenceByCanal;
-  if (vbc && vbc[store]) {
-    const merged = {};
-    for (const canal in vbc[store]) {
-      for (const [code, data] of Object.entries(vbc[store][canal])) {
-        if (!merged[code]) merged[code] = { sumCA: 0, countBL: 0 };
-        merged[code].sumCA += data.sumCA || 0;
-        merged[code].countBL += data.countBL || 0;
-      }
-    }
-    return merged;
-  }
-  return _S.ventesParAgence?.[store] || {};
-}
-
-function _troncStoreKeys() {
-  const vbc = _S.ventesParAgenceByCanal;
-  if (vbc && Object.keys(vbc).length) return Object.keys(vbc).sort();
-  return Object.keys(_S.ventesParAgence || {}).sort();
-}
-
-/**
- * Pour une agence du réseau, calcule le mix A/B :
- * caA, caB, refsA, refsB, blA, blB + ratio brut caB/caA.
- * Utilise ventesParAgenceByCanal (sensible période) avec fallback ventesParAgence.
- */
-function _computeAssocForStore(store, famA, famB) {
-  const sd = _vpmForStore(store);
-  if (!sd || !Object.keys(sd).length) return { blA: 0, blB: 0, ratioRaw: 0, caA: 0, caB: 0, refsA: 0, refsB: 0 };
-
-  const catFam = _S.catalogueFamille;
-  let caA = 0, caB = 0, blA = 0, blB = 0, refsA = 0, refsB = 0;
-  for (const [code, data] of Object.entries(sd)) {
-    if (!/^\d{6}$/.test(code)) continue;
-    const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    const bl = data.countBL || 0;
-    if (bl <= 0) continue;
-    if (cf === famA) { caA += data.sumCA || 0; blA += bl; refsA++; }
-    if (cf === famB) { caB += data.sumCA || 0; blB += bl; refsB++; }
-  }
-
-  return {
-    blA, blB, refsA, refsB,
-    ratioRaw: caA > 0 ? caB / caA : 0,
-    caA, caB
-  };
-}
-
-/**
  * Vue omnicanale unifiée par client : merge ventesLocalMag12MG + ventesLocalHorsMag.
  * Retourne un itérateur de [cc, Map<code, {sumCA}>] — tous canaux confondus.
  * Le BL du co-achat se mesure au niveau client (a-t-il acheté A ET B ?), pas au niveau BL,
@@ -156,8 +72,8 @@ function _omniClientArticles() {
     }
   }
   // Source 2 : hors-MAGASIN (Web, Représentant, DCS)
-  if (_S.ventesLocalHorsMag?.size) {
-    for (const [cc, artMap] of _S.ventesLocalHorsMag) {
+  if (getVentesHorsMagFullMap().size) {
+    for (const [cc, artMap] of getVentesHorsMagFullMap()) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
       if (!merged.has(cc)) merged.set(cc, new Map());
       const m = merged.get(cc);
@@ -184,224 +100,260 @@ function _omniClientArticles() {
   return merged;
 }
 
-/**
- * Calcul complet pour mon agence — omnicanal (MAGASIN + Web + Représentant + DCS)
- */
-function _computeAssocMyStore(famA, famB) {
-  const catFam = _S.catalogueFamille;
-  const omni = _omniClientArticles();
-  if (!omni.size) return { clientsA: new Set(), clientsAB: new Set(), taux: 0, caA: 0, caB: 0, caBdetail: new Map() };
-
-  const clientsA = new Set();
-  const clientsAB = new Set();
-  let caA = 0, caB = 0;
-  const caBdetail = new Map(); // code → {ca, clients: Set}
-
-  for (const [cc, artMap] of omni) {
-    let hasA = false, hasB = false;
-    for (const [code, v] of artMap) {
-      const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (cf === famA) { hasA = true; caA += v.sumCA || 0; }
-      if (cf === famB) {
-        hasB = true;
-        const ca = v.sumCA || 0;
-        caB += ca;
-        if (!caBdetail.has(code)) caBdetail.set(code, { ca: 0, clients: new Set() });
-        const d = caBdetail.get(code);
-        d.ca += ca;
-        d.clients.add(cc);
-      }
-    }
-    if (hasA) clientsA.add(cc);
-    if (hasA && hasB) clientsAB.add(cc);
-  }
-
-  return {
-    clientsA,
-    clientsAB,
-    taux: clientsA.size > 0 ? Math.round(clientsAB.size / clientsA.size * 100) : 0,
-    caA, caB, caBdetail
-  };
-}
-
-/**
- * Benchmark réseau : indice d'association normalisé par agence.
- * Indice = (caB/caA)_store / median(caB/caA)_réseau × 100
- * 100 = niveau médiane, >100 = vend mieux l'association, <100 = en retard.
- * Trié par indice décroissant — qui cross-sell le mieux ?
- */
-function _benchmarkAssoc(famA, famB) {
-  // Lister les stores depuis ventesParAgenceByCanal (sensible période) ou ventesParAgence
-  const vbc = _S.ventesParAgenceByCanal || {};
-  const vpm = _S.ventesParAgence || {};
-  const allStores = new Set([...Object.keys(vbc), ...Object.keys(vpm)]);
-  const myStore = _S.selectedMyStore;
-  const raw = [];
-
-  for (const store of allStores) {
-    const r = _computeAssocForStore(store, famA, famB);
-    if (r.caA > 0 && r.blA >= 5) {
-      raw.push({ store, ...r });
-    }
-  }
-
-  if (raw.length === 0) return [];
-
-  // Médiane du ratio brut caB/caA sur l'ensemble du réseau
-  const ratios = raw.map(r => r.ratioRaw).sort((a, b) => a - b);
-  const medRatio = ratios[Math.floor(ratios.length / 2)];
-
-  // Indice normalisé pour chaque agence (100 = médiane)
-  const results = [];
-  for (const r of raw) {
-    if (r.store === myStore) continue;
-    r.indice = medRatio > 0 ? Math.round(r.ratioRaw / medRatio * 100) : 0;
-    r.ratio = Math.round(r.ratioRaw * 100);
-    results.push(r);
-  }
-
-  // Mon indice aussi
-  const myR = raw.find(r => r.store === myStore);
-  const myIndice = myR && medRatio > 0 ? Math.round(myR.ratioRaw / medRatio * 100) : 0;
-
-  results.sort((a, b) => b.indice - a.indice || b.caB - a.caB);
-  results._myIndice = myIndice;
-  results._medRatio = medRatio;
-  return results;
-}
-
-/**
- * Refs vendues par la meilleure agence sur famB que mon agence ne vend pas bien
- */
-function _findMissingRefs(famB, bestStore) {
-  const myStore = _S.selectedMyStore;
-  const catFam = _S.catalogueFamille;
-  const myData = _vpmForStore(myStore);
-  const bestData = _vpmForStore(bestStore);
-
-  // Lookup squelette code → classification
-  const sqResult = _S._prSqData || computeSquelette();
-  const sqMap = new Map();
-  if (sqResult?.directions) {
-    for (const dir of sqResult.directions) {
-      for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
-        if (dir[cat]) for (const a of dir[cat]) sqMap.set(a.code, a.classification || cat);
-      }
-    }
-  }
-
-  const refs = [];
-  for (const [code, data] of Object.entries(bestData)) {
-    const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    if (cf !== famB) continue;
-    const myCa = myData[code]?.sumCA || 0;
-    const bestCa = data.sumCA || 0;
-    if (bestCa > myCa * 1.5) { // l'autre vend au moins 50% de plus
-      const fd = DataStore.finalData?.find(r => r.code === code);
-      refs.push({
-        code,
-        libelle: _S.libelleLookup?.[code] || code,
-        bestCa,
-        myCa,
-        bestBL: data.countBL || 0,
-        myBL: myData[code]?.countBL || 0,
-        enStock: (fd?.stockActuel || 0) > 0,
-        stock: fd?.stockActuel || 0,
-        sqClassif: sqMap.get(code) || null,
-        ecart: bestCa > 0 ? Math.round((bestCa - myCa) / bestCa * 100) : 0
-      });
-    }
-  }
-
-  refs.sort((a, b) => (b.bestCa - b.myCa) - (a.bestCa - a.myCa));
-  return refs.slice(0, 20);
-}
-
-/**
- * Clients cibles : achètent A mais pas B
- */
-function _findClientTargets(famA, famB) {
-  const catFam = _S.catalogueFamille;
-  const omni = _omniClientArticles();
-  if (!omni.size) return [];
-
-  const targets = [];
-  for (const [cc, artMap] of omni) {
-    let hasA = false, caA = 0, hasB = false;
-    for (const [code, v] of artMap) {
-      const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-      if (cf === famA) { hasA = true; caA += v.sumCA || 0; }
-      if (cf === famB) hasB = true;
-    }
-    if (hasA && !hasB) {
-      // Uniquement clients PDV (au moins 1 achat MAGASIN)
-      if (!_S.ventesLocalMag12MG?.has(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      targets.push({
-        cc,
-        nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
-        metier: info?.metier || '',
-        classification: info?.classification || '',
-        commercial: info?.commercial || '',
-        caA
-      });
-    }
-  }
-
-  targets.sort((a, b) => b.caA - a.caA);
-  return targets.slice(0, 30);
-}
-
 // ═══════════════════════════════════════════════════════════════
 // Lookup libellé famille
 // ═══════════════════════════════════════════════════════════════
 
-function _famLabel(codeFam) {
-  const catFam = _S.catalogueFamille;
-  if (catFam) {
-    for (const f of catFam.values()) {
-      if (f.codeFam === codeFam && f.libFam) return f.libFam;
-    }
-  }
-  return codeFam;
-}
+function _famLabel(codeFam) { return _famName(codeFam); }
 
 // ═══════════════════════════════════════════════════════════════
 // Rendu
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// Associations détectées — les familles qui s'achètent ensemble chez toi
+// Clients du comptoir (au moins un achat MAGASIN), achats tous canaux, 12 mois (structurel).
+// « Prend aussi B » est comparé à la part de TOUS les clients qui prennent B (lift) :
+// une association n'existe que si l'écart est net.
+// ═══════════════════════════════════════════════════════════════
+
+const ASSOC_MIN_A = 40;      // clients acheteurs de la famille moteur
+const ASSOC_MIN_AB = 12;     // clients qui prennent les deux
+const ASSOC_MIN_TAUX = 0.2;  // part des acheteurs de A qui prennent B
+const ASSOC_MIN_LIFT = 4;    // vs part de tous les clients qui prennent B (en dessous : effet « gros client qui achète de tout »)
+
+let _famIdx = null;
+let _autoCache = null;
+let _famLibCache = null;
+let _sel = null;             // { A, B } paire affichée
+let _selAll = false;
+
+function _famIndex() {
+  const hm = getVentesHorsMagFullMap();
+  const key = `${_S.selectedMyStore}|${_S.ventesLocalMag12MG?.size || 0}|${hm.size}|${_assocMetierFilter}|${_assocStratFilter}`;
+  if (_famIdx?.key === key) return _famIdx;
+  const omni = _omniClientArticles();
+  const catFam = _S.catalogueFamille;
+  const famOf = code => catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+  const byClient = new Map(); // cc → Map<fam, ca>
+  const famCount = new Map();
+  for (const [cc, arts] of omni) {
+    if (!_S.ventesLocalMag12MG?.has(cc)) continue;
+    const m = new Map();
+    for (const [code, v] of arts) {
+      const f = famOf(code);
+      if (/^[A-Z]\d{2}$/.test(f)) m.set(f, (m.get(f) || 0) + (v.sumCA || 0));
+    }
+    for (const [f, ca] of m) if (ca <= 0) m.delete(f);
+    if (!m.size) continue;
+    byClient.set(cc, m);
+    for (const f of m.keys()) famCount.set(f, (famCount.get(f) || 0) + 1);
+  }
+  _famIdx = { key, byClient, famCount, n: byClient.size, omni };
+  return _famIdx;
+}
+
+function _famName(code) {
+  if (!_famLibCache) {
+    _famLibCache = new Map();
+    for (const f of (_S.catalogueFamille?.values() || [])) if (f.codeFam && f.libFam && !_famLibCache.has(f.codeFam)) _famLibCache.set(f.codeFam, f.libFam);
+  }
+  return _famLibCache.get(code) || code;
+}
+
+function _pairStats(A, B) {
+  const ix = _famIndex();
+  let nA = 0, nAB = 0, caB = 0;
+  for (const m of ix.byClient.values()) {
+    if (!m.has(A)) continue;
+    nA++;
+    if (m.has(B)) { nAB++; caB += m.get(B); }
+  }
+  const pB = ix.n ? (ix.famCount.get(B) || 0) / ix.n : 0;
+  const taux = nA ? nAB / nA : 0;
+  return { A, B, nA, nAB, taux, pB, lift: pB ? taux / pB : 0, gap: nA - nAB, caBMoy: nAB ? caB / nAB : 0 };
+}
+
+/** Les paires les plus nettes : support suffisant, lift fort, une direction par paire, 2 max par famille moteur. */
+function _autoPairs() {
+  const ix = _famIndex();
+  if (_autoCache?.key === ix.key) return _autoCache.list;
+  // Co-achats en matrice d'entiers (familles fréquentes seulement) — rapide même avec ~300 familles
+  const fams = [...ix.famCount].filter(([, n]) => n >= ASSOC_MIN_AB).map(([f]) => f);
+  const pos = new Map(fams.map((f, i) => [f, i]));
+  const F = fams.length;
+  const co = new Uint32Array(F * F);
+  const buf = new Int32Array(F);
+  for (const m of ix.byClient.values()) {
+    let k = 0;
+    for (const f of m.keys()) { const i = pos.get(f); if (i !== undefined) buf[k++] = i; }
+    for (let a = 0; a < k; a++) { const row = buf[a] * F; for (let b = 0; b < k; b++) if (a !== b) co[row + buf[b]]++; }
+  }
+  const best = [];
+  for (let x = 0; x < F; x++) for (let y = x + 1; y < F; y++) {
+    const nAB = co[x * F + y];
+    if (nAB < ASSOC_MIN_AB) continue;
+    const dirs = [[fams[x], fams[y]], [fams[y], fams[x]]].map(([A, B]) => {
+      const nA = ix.famCount.get(A), pB = ix.famCount.get(B) / ix.n, taux = nAB / nA;
+      return { A, B, nA, nAB, taux, pB, lift: taux / pB, gap: nA - nAB };
+    }).filter(d => d.nA >= ASSOC_MIN_A && d.taux >= ASSOC_MIN_TAUX && d.lift >= ASSOC_MIN_LIFT && d.gap > 0);
+    if (!dirs.length) continue;
+    dirs.sort((a, b) => b.gap * b.taux - a.gap * a.taux);
+    dirs[0].excess = nAB - dirs[0].nA * dirs[0].pB; // co-acheteurs au-delà du hasard
+    best.push(dirs[0]);
+  }
+  best.sort((a, b) => b.excess - a.excess);
+  const perA = new Map(), list = [];
+  for (const p of best) {
+    const n = perA.get(p.A) || 0;
+    if (n >= 2) continue;
+    perA.set(p.A, n + 1);
+    list.push(p);
+    if (list.length >= 15) break;
+  }
+  _autoCache = { key: ix.key, list };
+  return list;
+}
+
+/** Clients qui prennent A sans B ; « métier qui en prend » = dans son métier, les acheteurs de A prennent B nettement plus que la moyenne. */
+function _pairTargets(A, B, st) {
+  const ix = _famIndex();
+  const byMetier = new Map(); // métier → {nA, nAB}
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A)) continue;
+    const mt = _S.chalandiseData?.get(cc)?.metier || '';
+    const e = byMetier.get(mt) || { nA: 0, nAB: 0 };
+    e.nA++; if (m.has(B)) e.nAB++;
+    byMetier.set(mt, e);
+  }
+  const out = [];
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A) || m.has(B)) continue;
+    const info = _S.chalandiseData?.get(cc);
+    const mt = info?.metier || '';
+    const e = byMetier.get(mt);
+    const mTaux = e && e.nA >= 5 ? e.nAB / e.nA : null;
+    out.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: mt, commercial: info?.commercial || '',
+      caA: m.get(A), mTaux, pertinent: mTaux != null && mTaux >= Math.max(st.taux, 2 * st.pB) && mt.length > 2 });
+  }
+  out.sort((a, b) => (b.pertinent - a.pertinent) || b.caA - a.caA);
+  return out;
+}
+
+/** Ce que prennent dans B les clients qui achètent les deux — ce qu'il faut proposer. */
+function _pairTopArticles(A, B) {
+  const ix = _famIndex();
+  const catFam = _S.catalogueFamille;
+  const famOf = code => catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+  const cnt = new Map();
+  for (const [cc, m] of ix.byClient) {
+    if (!m.has(A) || !m.has(B)) continue;
+    for (const [code, v] of ix.omni.get(cc) || []) {
+      if (famOf(code) !== B || !(v.sumCA > 0)) continue;
+      cnt.set(code, (cnt.get(code) || 0) + 1);
+    }
+  }
+  const fd = new Map((_S.finalData || []).map(r => [r.code, r]));
+  return [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([code, n]) => {
+    const r = fd.get(code);
+    const lib = _S.libelleLookup?.[code] || _S.catalogueDesignation?.get(code) || code;
+    return { code, n, lib: /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib, stock: r ? (r.stockActuel || 0) : null };
+  });
+}
+
+const _pct = v => `${Math.round(v * 100)} %`;
+const _x = v => `×${(Math.round(v * 10) / 10).toLocaleString('fr-FR')}`;
+
+function _renderPairDetail(A, B) {
+  const st = _pairStats(A, B);
+  const la = escapeHtml(_famName(A)), lb = escapeHtml(_famName(B));
+  const targets = _pairTargets(A, B, st);
+  const nPert = targets.filter(t => t.pertinent).length;
+  const shown = _selAll ? targets : targets.slice(0, 30);
+  const arts = _pairTopArticles(A, B);
+  const tile = (label, value, hint, color) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
+      <span class="pt-eyebrow" style="font-size:11px">${label}</span>
+      <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
+      <span class="pt-small pt-muted" style="line-height:1.35">${hint}</span>
+    </div>`;
+  const nette = st.lift >= ASSOC_MIN_LIFT;
+  const cli = shown.map(c => `<tr class="ar-click" onclick="window.openClient360?.('${c.cc}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.metier || 'métier non renseigné')}${c.commercial ? ' · ' + escapeHtml(c.commercial) : ''}</span></div></td>
+      <td>${c.pertinent ? `<span class="ar-tag" data-tone="high" title="Dans ce métier, ${_pct(c.mTaux)} des acheteurs de ${la} prennent ${lb}">son métier en prend</span>` : ''}</td>
+      <td class="pt-num ar-r">${formatEuro(c.caA)}</td>
+    </tr>`).join('');
+  const artRows = arts.map(a => `<tr class="ar-click" onclick="window.openArticlePanel?.('${a.code}','associations')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(a.lib)}</span><span class="pt-small pt-muted pt-num">${a.code}</span></div></td>
+      <td class="pt-num ar-r">${a.n}</td>
+      <td class="ar-r">${a.stock == null ? '<span class="ar-tag">pas en stock</span>' : a.stock > 0 ? `<span class="pt-num">${a.stock}</span>` : '<span class="ar-tag" data-tone="low">rupture</span>'}</td>
+    </tr>`).join('');
+  return `<section class="pt-card pt-col" id="assocDetail" style="gap:18px;scroll-margin-top:120px">
+    <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px;flex:1;min-width:260px">
+        <span class="pt-eyebrow">Association</span>
+        <h3 class="pt-h2">${la} → ${lb}</h3>
+        <span class="pt-muted">${nette ? `Un client ${la} prend ${lb} ${_x(st.lift)} plus souvent que la moyenne de tes clients.` : `Pas d’association nette chez toi : un client ${la} prend ${lb} à peine plus souvent que la moyenne (${_x(st.lift)}).`}</span>
+      </div>
+      ${targets.length ? `<button type="button" class="pt-btn" onclick="window._assocExportTargets('${A}','${B}')">Exporter les ${targets.length} clients</button>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+      ${tile(`Prennent aussi ${lb}`, _pct(st.taux), `${st.nAB} de tes ${st.nA} clients ${la}`, nette ? 'var(--pt-high)' : 'var(--t-primary)')}
+      ${tile('Moyenne de tes clients', _pct(st.pB), `tous clients confondus · écart ${_x(st.lift)}`)}
+      ${tile('À travailler', String(st.gap), `achètent ${la}, pas ${lb}${nPert ? ` · ${nPert} dans un métier qui en prend` : ''}`, 'var(--pt-mid)')}
+      ${tile(`${lb} par client`, formatEuro(st.caBMoy), 'CA moyen chez ceux qui prennent les deux · 12 mois')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+      <div class="pt-col" style="gap:8px">
+        <h4 class="pt-h3" style="font-size:16px">Clients à travailler</h4>
+        ${targets.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+          <thead><tr><th>Client</th><th></th><th class="ar-r">CA ${la}</th></tr></thead><tbody>${cli}</tbody></table></div></div>
+          ${targets.length > shown.length ? `<button type="button" class="pt-link pt-small" style="align-self:flex-start" onclick="window._assocSelAll()">Voir les ${targets.length} clients</button>` : ''}` : '<p class="pt-small pt-muted" style="margin:0">Tous tes clients concernés prennent déjà les deux.</p>'}
+      </div>
+      <div class="pt-col" style="gap:8px">
+        <h4 class="pt-h3" style="font-size:16px">Quoi leur proposer <span class="pt-small pt-muted" style="font-weight:400">ce que prennent ceux qui achètent les deux</span></h4>
+        ${arts.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+          <thead><tr><th>Article ${lb}</th><th class="ar-r">Clients</th><th class="ar-r">Stock</th></tr></thead><tbody>${artRows}</tbody></table></div></div>` : '<p class="pt-small pt-muted" style="margin:0">—</p>'}
+      </div>
+    </div>
+  </section>`;
+}
+
 function _renderAssociations() {
   _ensureAssoc();
   const assocs = _S._associations;
-  let html = '';
-
-  html += `<div class="mb-4">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-[10px] t-disabled">Mesurez votre taux d'association vs le réseau et identifiez les actions concrètes.${_assocMetierFilter && !_S._assocEditMode ? ` <button onclick="window._assocSetMetier('')" class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer ml-1" style="background:var(--c-action);color:#fff">✕ ${escapeHtml(_assocMetierFilter)}</button>` : ''}</p>
-      <button onclick="window._assocNew()" class="text-[11px] px-3 py-1.5 rounded-lg border-2 cursor-pointer font-bold transition-all hover:shadow-md" style="border-color:var(--c-action);color:var(--c-action)">+ Nouvelle association</button>
+  const auto = _autoPairs();
+  if (!_sel && auto.length) _sel = { A: auto[0].A, B: auto[0].B };
+  const ix = _famIndex();
+  const isSel = (A, B) => _sel && _sel.A === A && _sel.B === B;
+  const rows = auto.map(p => `<tr class="ar-click${isSel(p.A, p.B) ? ' pt-next' : ''}" onclick="window._assocSelect('${p.A}','${p.B}')">
+      <td><span class="pt-strong">${escapeHtml(_famName(p.A))}</span> <span class="pt-muted">→</span> <span class="pt-strong">${escapeHtml(_famName(p.B))}</span></td>
+      <td class="pt-num ar-r">${_pct(p.taux)}</td>
+      <td class="pt-num ar-r pt-muted">${_pct(p.pB)}</td>
+      <td class="pt-num ar-r pt-strong" style="color:var(--pt-high)">${_x(p.lift)}</td>
+      <td class="pt-num ar-r">${p.gap}</td>
+    </tr>`).join('');
+  const mine = assocs.length ? `<div class="pt-row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="pt-small pt-muted">Tes paires :</span>
+      ${assocs.map(a => `<span class="ar-chip${isSel(a.famA, a.famB) ? ' ar-chip-on' : ''}" style="display:inline-flex;align-items:center;gap:8px"><button type="button" class="pt-link" style="padding:0;color:inherit;font-weight:inherit" onclick="window._assocSelect('${a.famA}','${a.famB}')">${escapeHtml(_famName(a.famA))} → ${escapeHtml(_famName(a.famB))}</button><button type="button" class="pt-link" style="padding:0;color:var(--t-tertiary)" title="Retirer" onclick="window._assocDelete('${a.id}')">✕</button></span>`).join('')}
+    </div>` : '';
+  let html = `<section class="pt-card pt-col" style="gap:14px">
+    <div class="pt-row pt-between" style="gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px;flex:1;min-width:260px">
+        <span class="pt-eyebrow">Associations</span>
+        <h3 class="pt-h2">Les familles qui s’achètent ensemble chez toi</h3>
+        <span class="pt-muted">Sur tes ${ix.n.toLocaleString('fr-FR')} clients du comptoir (achats tous canaux, 12 mois). Une paire n’apparaît que si les acheteurs de la première prennent la seconde au moins ${String(ASSOC_MIN_LIFT).replace('.', ',')} fois plus souvent que la moyenne.</span>
+      </div>
+      ${_S._assocEditMode ? '' : '<button type="button" class="pt-btn" onclick="window._assocNew()">Ajouter une paire à la main</button>'}
     </div>
-  </div>`;
-
-  if (_S._assocEditMode) {
-    html += _renderAssocEditor();
-  }
-
-  if (!assocs.length && !_S._assocEditMode) {
-    html += `<div class="text-center py-12 border-2 border-dashed rounded-xl" style="border-color:var(--color-border-tertiary)">
-      <div class="text-3xl mb-3">🔗</div>
-      <p class="t-secondary text-sm font-medium mb-2">Aucune association configurée</p>
-      <p class="t-disabled text-[11px] mb-4">Créez votre première association pour commencer l'analyse.</p>
-      <button onclick="window._assocNew()" class="text-[11px] px-4 py-2 rounded-lg cursor-pointer font-bold" style="background:var(--c-action);color:#fff">+ Créer une association</button>
-    </div>`;
-    return html;
-  }
-
-  // Cards des associations existantes
-  for (const a of assocs) {
-    html += _renderAssocCard(a);
-  }
-
-  return html;
+    ${_assocMetierFilter || _assocStratFilter ? `<div><button type="button" class="ar-chip ar-chip-on" onclick="window._assocSetMetier('');window._assocSetStrat('${_assocStratFilter}')">Filtre : ${escapeHtml(_assocMetierFilter === '__nonclasse__' ? 'métier non classé' : _assocMetierFilter || (_assocStratFilter === 'strat' ? 'métiers stratégiques' : 'hors stratégiques'))} ✕</button></div>` : ''}
+    ${auto.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll" style="max-height:none"><table class="pt-table">
+      <thead><tr><th>Si le client achète… → il prend aussi</th><th class="ar-r">Prennent les deux</th><th class="ar-r">Moyenne</th><th class="ar-r">Écart</th><th class="ar-r">À travailler</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>` : '<p class="pt-small pt-muted" style="margin:0">Pas assez de clients pour détecter des associations nettes.</p>'}
+    ${mine}
+  </section>`;
+  if (_S._assocEditMode) html += `<div class="assoc-legacy">${_renderAssocEditor()}</div>`;
+  if (_sel) html += _renderPairDetail(_sel.A, _sel.B);
+  return `<div class="pt-wrap" style="gap:20px;padding-top:8px">${html}</div>`;
 }
 
 /**
@@ -437,7 +389,7 @@ function _famStats() {
   }
 
   // Source 1b : ventesLocalHorsMag (Web, Représentant, DCS) — même structure
-  const vhm = _S.ventesLocalHorsMag;
+  const vhm = getVentesHorsMagFullMap();
   if (vhm?.size) {
     for (const [cc, artMap] of vhm) {
       if (hasFilter && !_clientPassesAssocFilter(cc)) continue;
@@ -807,562 +759,10 @@ function _renderAssocEditor() {
   </div>`;
 }
 
-function _renderAssocCard(assoc) {
-  const { famA, famB, id } = assoc;
-  const labelA = _famLabel(famA);
-  const labelB = _famLabel(famB);
-
-  // Calcul mon agence (taux client)
-  const my = _computeAssocMyStore(famA, famB);
-  // Benchmark réseau : indice normalisé (100 = médiane)
-  const bench = _benchmarkAssoc(famA, famB);
-  const best = bench[0] || null;
-  const myIndice = bench._myIndice || 0;
-  const targets = _findClientTargets(famA, famB);
-  const missingRefs = best ? _findMissingRefs(famB, best.store) : [];
-  // Stocker pour export
-  if (!_S._assocMissingRefs) _S._assocMissingRefs = {};
-  _S._assocMissingRefs[id] = { refs: missingRefs, famA: labelA, famB: labelB, bestStore: best?.store || '?' };
-
-  // Taux couleur
-  const tauxColor = my.taux >= 50 ? '#22c55e' : my.taux >= 25 ? '#f59e0b' : '#ef4444';
-  const ecartIndice = myIndice - 100; // vs médiane (100)
-  const ecartColor = ecartIndice >= 0 ? '#22c55e' : '#ef4444';
-
-  const isOpen = _S._assocOpenId === id;
-
-  return `<div class="s-card rounded-xl border overflow-hidden mb-3">
-    <div class="px-4 py-3 cursor-pointer hover:s-hover flex items-center justify-between" onclick="window._assocToggle('${id}')">
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(139,92,246,0.15);color:#8b5cf6">${escapeHtml(famA)}</span>
-        <span class="t-disabled">→</span>
-        <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);color:#3b82f6">${escapeHtml(famB)}</span>
-        <span class="text-[11px] t-primary font-medium ml-2">${escapeHtml(labelA)} × ${escapeHtml(labelB)}</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-lg font-black" style="color:${tauxColor}">${my.taux}%</span>
-        <span class="text-[10px]" style="color:${ecartColor}">indice ${myIndice} <span class="t-disabled">(méd. 100)</span></span>
-        <button onclick="event.stopPropagation();window._assocDelete('${id}')" class="text-[10px] t-disabled hover:text-red-400 ml-2" title="Supprimer">🗑️</button>
-      </div>
-    </div>
-    ${isOpen ? `<div class="border-t b-light px-4 py-3">
-      <!-- KPIs -->
-      <div class="grid grid-cols-4 gap-3 mb-3">
-        <div class="text-center p-3 rounded-lg" style="background:rgba(139,92,246,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Mon taux</div>
-          <div class="text-2xl font-black" style="color:${tauxColor}">${my.taux}%</div>
-          <div class="text-[10px] t-secondary mt-0.5">${my.clientsAB.size} / ${my.clientsA.size} clients</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(59,130,246,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Mon indice réseau</div>
-          <div class="text-2xl font-black" style="color:${ecartColor}">${myIndice}</div>
-          <div class="text-[10px] t-secondary mt-0.5">${bench.length} agences · méd. = 100</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(34,197,94,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Meilleure agence</div>
-          <div class="text-2xl font-black" style="color:#22c55e">${best ? 'indice ' + best.indice : '—'}</div>
-          <div class="text-[10px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) + ' CA B' : '—'}</div>
-        </div>
-        <div class="text-center p-3 rounded-lg" style="background:rgba(245,158,11,0.12)">
-          <div class="text-[10px] font-semibold t-secondary mb-1">Clients cibles</div>
-          <div class="text-2xl font-black" style="color:#f59e0b">${targets.length}</div>
-          <div class="text-[10px] t-secondary mt-0.5">achètent A pas B</div>
-        </div>
-      </div>
-
-      <!-- Geste 1 — Benchmark remonté sous les KPIs, accordéon fermé -->
-      ${bench.length ? `<details class="mb-3">
-        <summary class="text-[11px] font-bold t-primary cursor-pointer py-1.5">📊 Classement ${bench.length} agences · ratio mix CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)}${_assocMetierFilter ? ' <span class="font-normal t-disabled">(benchmark non filtré par métier)</span>' : ''}</summary>
-        <table class="w-full text-[11px] mt-1">
-          <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Agence</th>
-            <th class="py-1 px-2 text-right">Ratio B/A</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelB)}</th>
-            <th class="py-1 px-2 text-right">Refs B</th>
-          </tr></thead>
-          <tbody>${bench.slice(0, 15).map(r => {
-            const c = r.ratio >= 50 ? '#22c55e' : r.ratio >= 25 ? '#f59e0b' : '#ef4444';
-            return `<tr class="border-b b-light text-[11px]">
-              <td class="py-1 px-2 t-primary">${r.store}</td>
-              <td class="py-1 px-2 text-right font-bold" style="color:${c}">${r.ratio}%</td>
-              <td class="py-1 px-2 text-right t-secondary">${formatEuro(r.caA)}</td>
-              <td class="py-1 px-2 text-right t-secondary">${formatEuro(r.caB)}</td>
-              <td class="py-1 px-2 text-right t-secondary">${r.refsB}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </details>` : ''}
-
-      <!-- Geste 2 — Split-Screen : Refs (gauche) + Clients (droite) -->
-      <div class="grid grid-cols-1 ${missingRefs.length && targets.length ? 'lg:grid-cols-2' : ''} gap-4">
-      <!-- Refs manquantes (Geste 3 — triées par verdict) -->
-      ${missingRefs.length ? `<div>
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-[11px] font-bold t-primary">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vs ${best?.store || '?'} (ratio ${best?.ratio || 0}%)</span></h4>
-          <button onclick="window._assocExportTrous('${id}')" class="text-[10px] px-3 py-1 rounded-lg font-bold cursor-pointer" style="background:var(--c-action);color:#fff" title="Exporter Trous + Socles en CSV">📥 Export Action</button>
-        </div>
-        <div style="max-height:350px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Code</th>
-            <th class="py-1 px-2 text-left">Libellé</th>
-            <th class="py-1 px-2 text-right">CA ${best?.store || '?'}</th>
-            <th class="py-1 px-2 text-right">CA moi</th>
-            <th class="py-1 px-2 text-center">Verdict</th>
-          </tr></thead>
-          <tbody>${[...missingRefs].sort((a,b) => {
-            const _vo = {implanter:0,socle:1,challenger:2,surveiller:3};
-            const va = a.sqClassif ? (_vo[a.sqClassif] ?? 4) : (a.enStock ? 4 : 5);
-            const vb = b.sqClassif ? (_vo[b.sqClassif] ?? 4) : (b.enStock ? 4 : 5);
-            return va - vb || b.bestCa - a.bestCa;
-          }).map(r => {
-            const _sqI = window._getArticleSqInfo?.(r.code);
-            const isBruit = !_sqI && !r.enStock;
-            const verdict = _sqI ? `<span title="${_sqI.verdict.tip}" style="color:${_sqI.verdict.color}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
-              : r.enStock ? '<span title="En stock — hors squelette" style="color:#22c55e">● Stock</span>' : '<span title="Hors squelette" style="color:var(--t-disabled)">⚪ Bruit</span>';
-            return `<tr class="border-b b-light${isBruit ? ' opacity-40' : ''}">
-            <td class="py-1 px-2 font-mono t-disabled">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','associations')" title="Voir détail article">🔍</span></td>
-            <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(r.libelle)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:#22c55e">${formatEuro(r.bestCa)}</td>
-            <td class="py-1 px-2 text-right t-secondary">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
-            <td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td>
-          </tr>`;}).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
-
-      <!-- Clients cibles -->
-      ${targets.length ? `<div>
-        <h4 class="text-[11px] font-bold t-primary mb-2">🎯 Clients cibles <span class="text-[9px] t-disabled font-normal">— achètent ${escapeHtml(labelA)} pas ${escapeHtml(labelB)}</span></h4>
-        <div style="max-height:350px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Client</th>
-            <th class="py-1 px-2 text-left">Métier</th>
-            <th class="py-1 px-2 text-left">Classif.</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
-          </tr></thead>
-          <tbody>${targets.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${c.cc}','associations')">
-            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)} <button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${c.cc}','associations')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-0.5" title="Fiche 360°">🔍</button></td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.metier)}</td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.classification)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(c.caA)}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
-      </div>
-    </div>` : ''}
-  </div>`;
-}
-
 // ═══════════════════════════════════════════════════════════════
 // Export CSV des 🔴 Trous
 // ═══════════════════════════════════════════════════════════════
 
-function _exportTrous(assocId) {
-  const data = _S._assocMissingRefs?.[assocId];
-  if (!data) return;
-  const trous = data.refs.filter(r => r.sqClassif === 'implanter');
-  if (!trous.length) { if (window.showToast) window.showToast('Aucun 🔴 Trou dans cette association', 'warning'); return; }
-  const sep = ';';
-  const header = ['Code', 'Libelle', 'CA ' + data.bestStore, 'CA moi', 'Ecart %', 'Verdict'].join(sep);
-  const rows = trous.map(r => [r.code, `"${(r.libelle || '').replace(/"/g, '""')}"`, Math.round(r.bestCa), Math.round(r.myCa), r.ecart + '%', 'Trou critique'].join(sep));
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `trous_${data.famA.replace(/\s+/g, '_')}_x_${data.famB.replace(/\s+/g, '_')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  if (window.showToast) window.showToast(`📥 ${trous.length} ref(s) 🔴 Trou exportées`, 'success');
-}
-window._assocExportTrous = _exportTrous;
-
-// ═══════════════════════════════════════════════════════════════
-// Physigamme — couverture métiers
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Calcule la couverture métiers pour chaque article d'un univers.
- * @param {string} universLetter — lettre univers ('E','O',...) ou '' pour tout
- * @param {Set<string>|null} metiersSet — métiers à analyser, null = tous stratégiques
- * @returns {{ articles: Array, totalMetiers: number, troncCount: number, interCount: number, specCount: number }}
- */
-function _getEffectivePerimetre() {
-  if (_troncPerimetre) return _troncPerimetre;
-  // Auto-detect : réseau si consommé multi-agences, sinon agence
-  const si = _S.storesIntersection;
-  return (si?.size > 1 || Object.keys(_S.ventesParAgence || {}).length > 1) ? 'reseau' : 'agence';
-}
-
-function _computeTroncCommun(universLetter, metiersSet) {
-  return computePhysigamme({
-    universLetter,
-    metiersSet,
-    includeAll: _troncIncludeAll,
-    perimetre: _getEffectivePerimetre()
-  });
-}
-
-function _troncEffectiveMetiers() {
-  const chal = _S.chalandiseData;
-  const allStrat = new Set();
-  const allMetiers = new Set();
-  if (!chal?.size) return { effectiveMetiers: allStrat, allStrat, allMetiers, isCustom: false };
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStrat.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allMetiers : allStrat);
-  return { effectiveMetiers, allStrat, allMetiers, isCustom };
-}
-
-function _troncActionContext(store, { excludeStore = false } = {}) {
-  const storesAll = _troncStoreKeys();
-  const stores = excludeStore ? storesAll.filter(s => s !== store) : storesAll;
-  const storeSnapshots = new Map(storesAll.map(s => [s, _vpmForStore(s)]));
-  const { effectiveMetiers } = _troncEffectiveMetiers();
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers);
-  let troncArts = data.articles.filter(a => a.indice >= 60);
-
-  if (_troncLoiAirain && stores.length > 1) {
-    const storeThreshold = Math.ceil(stores.length * 60 / 100);
-    troncArts = troncArts.filter(a => {
-      let sc = 0;
-      for (const s of stores) {
-        const d = storeSnapshots.get(s)?.[a.code];
-        if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
-      }
-      return sc >= storeThreshold;
-    });
-  }
-
-  return { storesAll, stores, storeSnapshots, troncArts };
-}
-
-function _renderTroncCommun() {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) {
-    return `<div class="text-center t-disabled py-8">Chargez la zone de chalandise pour activer la Physigamme.</div>`;
-  }
-
-  // ── All métiers available ──
-  const allStratMetiers = new Set();
-  const allMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStratMetiers.add(info.metier);
-    }
-  }
-  // Le picker montre tous les métiers, pas seulement les strat
-  const pickerMetiers = allMetiers;
-
-  // Univers buttons supprimés — pilotés par le sidebar Direction
-
-  // ── Périmètre : PDV omnicanal agence, réseau consommé, territoire Qlik ──
-  const hasTerrain = _S.territoireReady && _S.ventesTerrain?.length > 0;
-  const _perimTooltips = {
-    agence: 'Consommé de mon agence, tous canaux PDV (MAGASIN/Web/Rep/DCS)',
-    reseau: 'Ventes de toutes les agences du fichier consommé',
-    territoire: 'Tous canaux du fichier Qlik (PDV + Réseau + Livraisons DCS/Web)'
-  };
-  const _perimBtn = (id, icon, label, needsTerrain) => {
-    const sel = _getEffectivePerimetre() === id;
-    const disabled = needsTerrain && !hasTerrain;
-    const tip = _perimTooltips[id] || '';
-    if (disabled) {
-      return `<button disabled class="text-[10px] px-2.5 py-1 rounded font-bold transition-all opacity-40 cursor-not-allowed" style="background:var(--bg-card)" title="⚠️ Chargez le fichier Territoire (Qlik) pour débloquer">${icon} ${label}</button>`;
-    }
-    return `<button onclick="window._troncSetPerimetre('${id}')" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}" title="${tip}">${icon} ${label}</button>`;
-  };
-
-  // ── Effective métiers set ──
-  // null + 100% → tous les métiers ; null → strat seulement ; Set = sélection custom
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom
-    ? _troncCustomMetiers
-    : (_troncIncludeAll ? allMetiers : allStratMetiers);
-
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-
-  if (!_troncUniversFilter) {
-    return `<div class="text-center t-disabled py-8 text-[11px]">← Sélectionnez un univers dans le panneau de gauche</div>`;
-  }
-
-  // ── Loi d'Airain globale : filtre ≥60% agences sur TOUT le Tronc Commun ──
-  let _airainApplied = false;
-  let _airainTotal = data.articles.length;
-  if (_troncLoiAirain) {
-    const stores = _troncStoreKeys();
-    const storeData = new Map(stores.map(s => [s, _vpmForStore(s)]));
-    if (stores.length > 1) {
-      const storeThreshold = Math.ceil(stores.length * 60 / 100);
-      data.articles = data.articles.filter(a => {
-        let sc = 0;
-        for (const s of stores) {
-          const d = storeData.get(s)?.[a.code];
-          if ((d?.sumCA || 0) > 0 || (d?.sumPrelevee || 0) > 0) sc++;
-        }
-        return sc >= storeThreshold;
-      });
-      _airainApplied = true;
-      // Recount KPI categories
-      data.troncCount = data.articles.filter(a => a.indice >= 60).length;
-      data.interCount = data.articles.filter(a => a.indice >= 30 && a.indice < 60).length;
-      data.specCount = data.articles.filter(a => a.indice < 30).length;
-    }
-  }
-
-  // ── Filtre famille/sous-famille depuis sidebar Direction ──
-  const _dirFam = typeof window._dirGetFamilleFilter === 'function' ? window._dirGetFamilleFilter() : '';
-  const _dirSF = typeof window._dirGetSousFamilleFilter === 'function' ? window._dirGetSousFamilleFilter() : '';
-  if (_dirFam) {
-    data.articles = data.articles.filter(a => (a.famille || '') === _dirFam);
-    if (_dirSF) {
-      data.articles = data.articles.filter(a => {
-        const sf = _S.catalogueFamille?.get(a.code)?.sousFam || '';
-        return sf === _dirSF;
-      });
-    }
-    data.troncCount = data.articles.filter(a => a.indice >= 60).length;
-    data.interCount = data.articles.filter(a => a.indice >= 30 && a.indice < 60).length;
-    data.specCount = data.articles.filter(a => a.indice < 30).length;
-  }
-
-  // ── Geste 2 : KPI cards cliquables (filtrent le tableau) ──
-  const _kpiBtn = (filterId, label, value, color, sub) => {
-    const sel = _troncKpiFilter === filterId;
-    const ring = sel ? `outline:2px solid ${color};outline-offset:2px;` : '';
-    return `<button onclick="window._troncSetKpiFilter('${filterId}')" class="rounded-lg p-3 text-center cursor-pointer transition-all w-full" style="background:var(--bg-card);${ring}">
-      <div class="text-2xl font-black" style="color:${color}">${value}</div>
-      <div class="text-[10px] font-bold t-primary">${label}</div>
-      ${sub ? `<div class="text-[9px] t-disabled mt-0.5">${sub}</div>` : ''}
-    </button>`;
-  };
-
-  // ── Geste 3 : Cluster métier picker ──
-  const defaultLabel = _troncIncludeAll ? `${allMetiers.size} métiers` : `${allStratMetiers.size} strat.`;
-  const clusterLabel = isCustom ? `${_troncCustomMetiers.size} métier${_troncCustomMetiers.size > 1 ? 's' : ''}` : defaultLabel;
-  let metierPickerHtml = '';
-  if (_troncMetierPickerOpen) {
-    // Build direction → métiers mapping from chalandise
-    const dirMetiers = new Map(); // direction → Set<metier>
-    for (const info of chal.values()) {
-      if (!info.metier) continue;
-      const metier = info.metier;
-      if (!pickerMetiers.has(metier)) continue;
-      const sectCode = info.secteur || '';
-      const dir = sectCode ? (SECTEUR_DIR_MAP[sectCode.charAt(0).toUpperCase()] || 'Non classé') : 'Non classé';
-      if (!dirMetiers.has(dir)) dirMetiers.set(dir, new Set());
-      dirMetiers.get(dir).add(metier);
-    }
-    // Also add métiers not found in chalandise secteurs to "Non classé"
-    for (const m of pickerMetiers) {
-      let found = false;
-      for (const s of dirMetiers.values()) { if (s.has(m)) { found = true; break; } }
-      if (!found) {
-        if (!dirMetiers.has('Non classé')) dirMetiers.set('Non classé', new Set());
-        dirMetiers.get('Non classé').add(m);
-      }
-    }
-    // Sort directions (Non classé last)
-    const dirOrder = [...dirMetiers.keys()].sort((a, b) => {
-      if (a === 'Non classé') return 1;
-      if (b === 'Non classé') return -1;
-      return a.localeCompare(b);
-    });
-
-    let groupsHtml = '';
-    for (const dir of dirOrder) {
-      const metiers = [...dirMetiers.get(dir)].sort();
-      const allChecked = metiers.every(m => effectiveMetiers.has(m));
-      const someChecked = metiers.some(m => effectiveMetiers.has(m));
-      const dirColor = allChecked ? '#22c55e' : someChecked ? '#f59e0b' : 'var(--border)';
-      const checks = metiers.map(m => {
-        const checked = effectiveMetiers.has(m);
-        return `<label class="flex items-center gap-1.5 text-[10px] cursor-pointer py-0.5 ${checked ? 't-primary font-bold' : 't-disabled'}">
-          <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._troncToggleMetier('${escapeHtml(m)}')" class="cursor-pointer accent-cyan-500" />
-          ${escapeHtml(m)}
-        </label>`;
-      }).join('');
-      groupsHtml += `<div class="rounded px-2 py-1.5" style="background:var(--bg-surface);border-left:3px solid ${dirColor}">
-        <div class="flex items-center justify-between mb-1">
-          <button onclick="window._troncToggleDirection('${escapeHtml(dir)}')" class="text-[10px] font-bold cursor-pointer hover:brightness-110 ${allChecked ? 't-primary' : someChecked ? '' : 't-disabled'}" style="${allChecked ? 'color:#22c55e' : someChecked ? 'color:#f59e0b' : ''}" title="Cliquer pour (dé)sélectionner tout le groupe">
-            ${allChecked ? '✅' : someChecked ? '◐' : '○'} ${escapeHtml(dir)} <span class="text-[8px] t-disabled">(${metiers.length})</span>
-          </button>
-        </div>
-        <div class="grid grid-cols-2 gap-x-3">${checks}</div>
-      </div>`;
-    }
-
-    metierPickerHtml = `<div class="rounded-lg p-3 mt-2 space-y-2" style="background:var(--bg-card);border:1px solid var(--border)">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-[10px] font-bold t-primary">👥 Cluster de métiers par Direction</span>
-        <div class="flex gap-1">
-          <button onclick="window._troncSelectAllMetiers()" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:var(--bg-surface);color:var(--c-action)">Tous</button>
-          <button onclick="window._troncClearMetiers()" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:var(--bg-surface);color:#ef4444">Aucun</button>
-        </div>
-      </div>
-      <div class="space-y-1.5">${groupsHtml}</div>
-    </div>`;
-  }
-
-  const perimLabels = PHYSIGAMME_COPY.perimeters;
-
-  let html = `<div class="space-y-3">
-    ${renderPhysigammeHero({ articleCount: data.articles.length, perimLabel: perimLabels[_getEffectivePerimetre()] })}
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex gap-1">
-        <button onclick="window._troncToggleMetierPicker()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncMetierPickerOpen ? 'text-white' : 'text-white hover:brightness-110'}" style="background:${_troncMetierPickerOpen ? 'var(--c-action)' : '#6366f1'};${_troncMetierPickerOpen ? 'outline:2px solid var(--c-action);outline-offset:1px' : ''}" title="Cliquer pour choisir les métiers du cluster">👥 ${isCustom ? _troncCustomMetiers.size + ' métiers' : clusterLabel} ▾</button>
-        <button onclick="window._troncToggleIncludeAll()" class="text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer transition-all ${_troncIncludeAll ? 'text-white' : 't-disabled hover:t-primary'}" style="${_troncIncludeAll ? 'background:#22c55e' : 'background:var(--bg-card)'}" title="Inclure 100% des clients du fichier, même sans métier stratégique">📂 100%</button>
-        <span class="text-[8px] t-disabled mx-1">│</span>
-        ${_perimBtn('agence', '🏢', 'PDV', false)}${_perimBtn('reseau', '🏪', 'Réseau', false)}${_perimBtn('territoire', '🌍', 'Territoire', true)}
-      </div>
-    </div>
-    ${metierPickerHtml}
-    ${renderPhysigammeKpis({ data, includeAll: _troncIncludeAll, isCustom, renderKpi: _kpiBtn })}`;
-
-  // ── Bandeau périmètre actif + "Hors radar" ──
-  html += renderPhysigammePerimeterBar({ perimLabel: perimLabels[_getEffectivePerimetre()], articleCount: data.articles.length, totalMetiers: data.totalMetiers });
-  html += renderPhysigammeOutOfScope({ clients: data.clientsHorsMetier, ca: data.caHorsMetier });
-
-  if (!data.articles.length) {
-    html += `<div class="text-center t-disabled py-4">Aucun article trouvé pour cet univers.</div></div>`;
-    return html;
-  }
-
-  // ── Toggle vue Articles / Cartographie ──
-  const _vueBtn = (id, icon, label) => {
-    const sel = _troncVue === id;
-    return `<button onclick="window._troncSetVue('${id}')" class="text-[10px] px-3 py-1 rounded font-bold cursor-pointer transition-all ${sel ? 'text-white' : 't-disabled hover:t-primary'}" style="${sel ? 'background:var(--c-action)' : 'background:var(--bg-card)'}">${icon} ${label}</button>`;
-  };
-  const hasVpm = _S.ventesParAgence && Object.keys(_S.ventesParAgence).length > 1;
-  html += `<div class="flex gap-1">${_vueBtn('articles', '📋', 'Décisions articles')}${_vueBtn('carto', '🗺️', 'Cartographie Métiers')}${hasVpm ? _vueBtn('conformite', '🚨', 'Déploiement agences') : ''}</div>`;
-
-  // ══════════════ VUE CARTOGRAPHIE (Heatmap Famille × Métier) ══════════════
-  if (_troncVue === 'carto') {
-    // Agréger : Famille → Métier → { ca, clients }
-    const famMetierMatrix = new Map(); // famCode → Map<metier, {ca, clients: Set}>
-    const allMetiersInData = new Set();
-    const famCATotals = new Map(); // famCode → total CA
-    for (const art of data.articles) {
-      const cf = art.famille;
-      if (!cf) continue;
-      if (!famMetierMatrix.has(cf)) famMetierMatrix.set(cf, new Map());
-      const mm = famMetierMatrix.get(cf);
-      for (const [metier, d] of art.metierDetail) {
-        allMetiersInData.add(metier);
-        if (!mm.has(metier)) mm.set(metier, { ca: 0, clients: new Set() });
-        const e = mm.get(metier);
-        e.ca += d.ca;
-        for (const c of d.clients) e.clients.add(c);
-      }
-      famCATotals.set(cf, (famCATotals.get(cf) || 0) + art.caTotal);
-    }
-
-    // Trier métiers par CA total desc
-    const metierTotals = new Map();
-    for (const [, mm] of famMetierMatrix) {
-      for (const [m, d] of mm) metierTotals.set(m, (metierTotals.get(m) || 0) + d.ca);
-    }
-    const metiersOrdered = [...allMetiersInData].sort((a, b) => (metierTotals.get(b) || 0) - (metierTotals.get(a) || 0));
-
-    // Trier familles par CA total desc
-    const famsOrdered = [...famMetierMatrix.keys()].sort((a, b) => (famCATotals.get(b) || 0) - (famCATotals.get(a) || 0));
-
-    // Max CA pour la heatmap (échelle)
-    let maxCellCA = 0;
-    for (const [, mm] of famMetierMatrix) {
-      for (const [, d] of mm) { if (d.ca > maxCellCA) maxCellCA = d.ca; }
-    }
-
-    // Render heatmap
-    html += `<div class="overflow-x-auto" style="max-height:70vh;overflow-y:auto">
-      <table class="w-full text-[10px]" style="border-collapse:collapse">
-      <thead><tr>
-        <th class="text-left py-1 px-2 sticky left-0" style="background:var(--bg-base);z-index:2;min-width:100px">Famille</th>
-        ${metiersOrdered.map(m => `<th class="py-1 px-1 text-center" style="writing-mode:vertical-lr;text-orientation:mixed;min-width:28px;max-width:32px;height:120px;font-size:9px;font-weight:600" title="${escapeHtml(m)}">${escapeHtml(m.length > 18 ? m.slice(0, 16) + '…' : m)}</th>`).join('')}
-        <th class="text-right py-1 px-2 text-[9px] t-disabled">Total</th>
-      </tr></thead><tbody>`;
-
-    for (const cf of famsOrdered) {
-      const mm = famMetierMatrix.get(cf);
-      const famTotal = famCATotals.get(cf) || 0;
-      html += `<tr style="border-bottom:1px solid var(--border)">
-        <td class="py-1 px-2 font-bold t-primary sticky left-0 text-[9px]" style="background:var(--bg-base);z-index:1;white-space:nowrap">${_famLabel(cf)}</td>`;
-      for (const m of metiersOrdered) {
-        const cell = mm?.get(m);
-        if (cell && cell.ca > 0) {
-          const intensity = Math.round((cell.ca / maxCellCA) * 100);
-          // Couleur : du transparent au cyan vif
-          const alpha = Math.max(0.08, intensity / 100);
-          const bg = `rgba(34,211,238,${alpha.toFixed(2)})`;
-          const textColor = intensity > 50 ? '#fff' : 'var(--t-primary)';
-          html += `<td class="py-0.5 px-0.5 text-center cursor-default" style="background:${bg};color:${textColor}" title="${escapeHtml(m)} × ${_famLabel(cf)}\nCA: ${formatEuro(cell.ca)}\nClients: ${cell.clients.size}">
-            <div class="text-[8px] font-bold">${cell.ca >= 1000 ? Math.round(cell.ca / 1000) + 'k' : Math.round(cell.ca)}</div>
-          </td>`;
-        } else {
-          html += `<td class="py-0.5 px-0.5"></td>`;
-        }
-      }
-      html += `<td class="text-right py-1 px-2 text-[9px] t-disabled font-bold">${formatEuro(famTotal)}</td></tr>`;
-    }
-
-    // Ligne total métier
-    html += `<tr style="border-top:2px solid var(--border)">
-      <td class="py-1 px-2 font-bold text-[9px] sticky left-0" style="background:var(--bg-base);z-index:1">Total</td>`;
-    for (const m of metiersOrdered) {
-      const total = metierTotals.get(m) || 0;
-      html += `<td class="py-1 px-0.5 text-center text-[8px] font-bold t-disabled">${total >= 1000 ? Math.round(total / 1000) + 'k' : Math.round(total)}</td>`;
-    }
-    const grandTotal = [...famCATotals.values()].reduce((s, v) => s + v, 0);
-    html += `<td class="text-right py-1 px-2 text-[9px] font-bold t-primary">${formatEuro(grandTotal)}</td></tr>`;
-
-    html += `</tbody></table></div></div>`;
-    return html;
-  }
-
-  // ══════════════ VUE DÉPLOIEMENT AGENCES ══════════════
-  if (_troncVue === 'conformite') {
-    const stores = _troncStoreKeys();
-    const storeSnapshots = new Map(stores.map(s => [s, _vpmForStore(s)]));
-    const deployment = buildPhysigammeDeployment({
-      articles: data.articles,
-      stores,
-      storeSnapshots,
-      amorcageStores: _troncAmorcageStores,
-      airainApplied: _airainApplied,
-      airainTotal: _airainTotal,
-      totalMetiers: data.totalMetiers
-    });
-    html += renderPhysigammeDeployment({ deployment, myStore: _S.selectedMyStore });
-    return html;
-  }
-
-  // ══════════════ VUE ARTICLES / DÉCISIONS PHYSIGAMME ══════════════
-  const verdictMap = new Map();
-  for (const r of (DataStore.finalData || [])) {
-    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
-  }
-
-  html += renderPhysigammeArticleTable({
-    data,
-    kpiFilter: _troncKpiFilter,
-    effectiveMetiers,
-    verdictMap,
-    openFams: _troncOpenFams,
-    expandedCode: _troncExpandedCode,
-    famLabel: _famLabel
-  });
-  return html;
-}
 
 // ═══════════════════════════════════════════════════════════════
 // Rendu onglet complet
@@ -1370,14 +770,6 @@ function _renderTroncCommun() {
 
 export function renderAssociationsTab() {
   _famStatsCache = null; // Invalider le cache stats à chaque rendu
-
-  // Si l'onglet Direction > Physigamme (conformite) est actif, rendre là-bas
-  const confEl = document.getElementById('conformiteContent');
-  const confTab = document.getElementById('tabConformite');
-  if (confEl && confTab && !confTab.classList.contains('hidden')) {
-    confEl.innerHTML = `<div class="container mx-auto">${_renderTroncCommun()}</div>`;
-    return;
-  }
 
   const el = document.getElementById('assocContent');
   if (el) el.innerHTML = _renderAssociations();
@@ -1431,7 +823,7 @@ window._assocPickB = function(famB) {
     const existing = _S._associations.find(a => a.famA === famA && a.famB === famB);
     _S._assocEditMode = false;
     _S._assocEditing = null;
-    _S._assocOpenId = existing.id;
+    _sel = { A: famA, B: famB }; _selAll = false;
     renderAssociationsTab();
     return;
   }
@@ -1447,7 +839,7 @@ window._assocPickB = function(famB) {
   _S._assocEditMode = false;
   _S._assocEditing = null;
   _S._assocSearchA = '';
-  _S._assocOpenId = _S._associations[_S._associations.length - 1].id;
+  _sel = { A: famA, B: famB }; _selAll = false;
 
   _saveSessionToIDB();
   renderAssociationsTab();
@@ -1462,14 +854,28 @@ window._assocCancel = function() {
 
 window._assocDelete = function(id) {
   _ensureAssoc();
+  const gone = _S._associations.find(a => a.id === id);
+  if (gone && _sel && _sel.A === gone.famA && _sel.B === gone.famB) _sel = null;
   _S._associations = _S._associations.filter(a => a.id !== id);
   _saveSessionToIDB();
   renderAssociationsTab();
 };
 
-window._assocToggle = function(id) {
-  _S._assocOpenId = _S._assocOpenId === id ? null : id;
+window._assocSelect = function(A, B) {
+  _sel = { A, B }; _selAll = false;
   renderAssociationsTab();
+  document.getElementById('assocDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+window._assocSelAll = function() { _selAll = true; renderAssociationsTab(); };
+window._assocExportTargets = function(A, B) {
+  const st = _pairStats(A, B);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = _pairTargets(A, B, st).map(c => [c.cc, q(c.nom), q(c.metier), q(c.commercial), c.pertinent ? 'oui' : '', Math.round(c.caA)].join(';'));
+  const csv = '\uFEFF' + ['Code client', 'Nom', 'Métier', 'Commercial', 'Son métier en prend', `CA ${_famName(A)}`].join(';') + '\n' + rows.join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `PRISME_Association_${_famName(A)}_${_famName(B)}.csv`.replace(/[^\w.-]+/g, '_');
+  a.click(); URL.revokeObjectURL(url);
 };
 
 window._assocSetMetier = function(metier) {
@@ -1499,252 +905,4 @@ window._assocSetStrat = function(mode) {
 window._assocSetUnivers = function(letter) {
   _assocUniversFilter = _assocUniversFilter === letter ? '' : letter;
   renderAssociationsTab();
-};
-
-window._laboSetMode = function(mode) {
-  _laboMode = mode || 'assoc';
-  renderAssociationsTab();
-};
-
-window._troncSetUnivers = function(letter) {
-  _troncUniversFilter = _troncUniversFilter === letter ? '' : letter;
-  renderAssociationsTab();
-};
-
-// Silent setter — direction.js syncs its sidebar filter without triggering re-render
-window._troncSetUniversSilent = function(letter) { _troncUniversFilter = letter; };
-
-// State getter for Loi d'Airain — used by direction.js sidebar
-window._troncLoiAirainState = function() { return _troncLoiAirain; };
-
-window._troncSetPerimetre = function(perim) {
-  // Sécurité : seul Territoire nécessite le fichier Qlik
-  const hasTerr = _S.territoireReady && _S.ventesTerrain?.length > 0;
-  if (perim === 'territoire' && !hasTerr) return;
-  _troncPerimetre = (perim === 'agence' || perim === 'reseau' || perim === 'territoire') ? perim : 'agence';
-  renderAssociationsTab();
-};
-
-// Geste 1 : Accordéon drill-down
-window._troncToggleRow = function(code) {
-  _troncExpandedCode = _troncExpandedCode === code ? '' : code;
-  renderAssociationsTab();
-};
-
-// Toggle famille ouverte/fermée dans le tableau Tronc Commun
-window._troncToggleFam = function(fam) {
-  if (_troncOpenFams.has(fam)) _troncOpenFams.delete(fam);
-  else _troncOpenFams.add(fam);
-  renderAssociationsTab();
-};
-
-// Toggle vue Articles / Cartographie
-window._troncSetVue = function(vue) {
-  _troncVue = (vue === 'carto' || vue === 'conformite') ? vue : 'articles';
-  renderAssociationsTab();
-};
-
-// ── Actions Déploiement Physigamme ─────────────────────────────
-window._troncConfShowMissing = function(store) {
-  const panel = document.getElementById('troncConfMissingPanel');
-  if (!panel) return;
-  const ctx = _troncActionContext(store);
-  panel.innerHTML = renderMissingPanel({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    famLabel: _famLabel,
-    libelleLookup: _S.libelleLookup,
-    articleFamille: _S.articleFamille
-  });
-};
-
-window._troncConfExport = function(store) {
-  const ctx = _troncActionContext(store);
-  exportMissingOrder({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    famLabel: _famLabel,
-    libelleLookup: _S.libelleLookup,
-    articleFamille: _S.articleFamille
-  });
-};
-
-// Geste 2 : KPI filter cliquable
-window._troncSetKpiFilter = function(filterId) {
-  _troncKpiFilter = _troncKpiFilter === filterId ? '' : filterId;
-  renderAssociationsTab();
-};
-
-// Geste 3 : Cluster métier picker
-window._troncToggleMetierPicker = function() {
-  _troncMetierPickerOpen = !_troncMetierPickerOpen;
-  // Initialise le custom set si premier usage
-  if (_troncMetierPickerOpen && !_troncCustomMetiers) {
-    const chal = _S.chalandiseData;
-    _troncCustomMetiers = new Set();
-    if (chal?.size) {
-      for (const info of chal.values()) {
-        if (info.metier && _isMetierStrategique(info.metier)) _troncCustomMetiers.add(info.metier);
-      }
-    }
-  }
-  renderAssociationsTab();
-};
-
-window._troncToggleMetier = function(metier) {
-  if (!_troncCustomMetiers) _troncCustomMetiers = new Set();
-  if (_troncCustomMetiers.has(metier)) _troncCustomMetiers.delete(metier);
-  else _troncCustomMetiers.add(metier);
-  renderAssociationsTab();
-};
-
-// Toggle direction entière (sélectionne/désélectionne tous les métiers d'une direction)
-window._troncToggleDirection = function(dir) {
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return;
-  // Build métiers de cette direction
-  const dirMetiers = new Set();
-  for (const info of chal.values()) {
-    if (!info.metier || info.metier.length <= 2) continue;
-    const sectCode = info.secteur || '';
-    const d = sectCode ? (SECTEUR_DIR_MAP[sectCode.charAt(0).toUpperCase()] || 'Non classé') : 'Non classé';
-    if (d === dir) dirMetiers.add(info.metier);
-  }
-  if (!dirMetiers.size) return;
-  if (!_troncCustomMetiers) _troncCustomMetiers = new Set();
-  // Si tous sont déjà cochés → décocher, sinon → cocher
-  const allIn = [...dirMetiers].every(m => _troncCustomMetiers.has(m));
-  if (allIn) {
-    for (const m of dirMetiers) _troncCustomMetiers.delete(m);
-  } else {
-    for (const m of dirMetiers) _troncCustomMetiers.add(m);
-  }
-  renderAssociationsTab();
-};
-
-window._troncSelectAllMetiers = function() {
-  _troncCustomMetiers = null; // null = tous les strat cochés par défaut
-  renderAssociationsTab();
-};
-
-window._troncClearMetiers = function() {
-  _troncCustomMetiers = new Set();
-  renderAssociationsTab();
-};
-
-window._troncToggleIncludeAll = function() {
-  _troncIncludeAll = !_troncIncludeAll;
-  renderAssociationsTab();
-};
-
-// Expose Tronc Commun engine for Direction → Radar de Conformité
-window._computeTroncCommunForRadar = function(universLetter) {
-  // Calcul identique au Labo avec métiers stratégiques par défaut
-  const chal = _S.chalandiseData;
-  if (!chal?.size) return { articles: [], totalMetiers: 0, troncCount: 0 };
-  const stratMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && _isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
-  }
-  return _computeTroncCommun(universLetter, stratMetiers, false);
-};
-
-// Expose Tronc Commun render for Direction > Conformité
-window._renderTroncCommun = _renderTroncCommun;
-
-window._troncToggleLoiAirain = function() {
-  _troncLoiAirain = !_troncLoiAirain;
-  // Re-render : si on est dans Direction > Conformité, re-render là-bas
-  const confEl = document.getElementById('conformiteContent');
-  const confTab = document.getElementById('tabConformite');
-  if (confEl && confTab && !confTab.classList.contains('hidden')) {
-    if (typeof window.renderConformiteTab === 'function') window.renderConformiteTab();
-  } else {
-    renderAssociationsTab();
-  }
-};
-
-// ── Mode Implantation Initiale ──────────────────────────────────
-
-window._troncToggleAmorcage = function(store) {
-  if (_troncAmorcageStores.has(store)) _troncAmorcageStores.delete(store);
-  else _troncAmorcageStores.add(store);
-  // Re-render conformité
-  const confTab = document.getElementById('tabConformite');
-  if (confTab && !confTab.classList.contains('hidden') && typeof window.renderConformiteTab === 'function') {
-    window.renderConformiteTab();
-  } else {
-    renderAssociationsTab();
-  }
-};
-
-window._troncKitDemarrage = function(store) {
-  const ctx = _troncActionContext(store, { excludeStore: true });
-  if (!ctx.stores.length) return;
-  if (!ctx.troncArts.length) {
-    if (window.showToast) window.showToast('Aucun article Socle PDV à exporter', 'warning');
-    return;
-  }
-  const result = exportStartupKit({
-    store,
-    stores: ctx.stores,
-    storeSnapshots: ctx.storeSnapshots,
-    troncArts: ctx.troncArts,
-    finalData: DataStore.finalData
-  });
-  if (window.showToast) window.showToast(`Kit de Démarrage ${store} : ${result.totalRefs} réf. · ${formatEuro(result.totalVal)} BFR`, 'success');
-};
-
-// Geste 5 : Export CSV
-window._troncExport = function() {
-  const chal = _S.chalandiseData;
-  if (!chal?.size || !_troncUniversFilter) return;
-  const allStrat = new Set();
-  const allMetiers = new Set();
-  for (const info of chal.values()) {
-    if (info.metier && info.metier.length > 2) {
-      allMetiers.add(info.metier);
-      if (_isMetierStrategique(info.metier)) allStrat.add(info.metier);
-    }
-  }
-  const isCustom = _troncCustomMetiers !== null;
-  const effectiveMetiers = isCustom
-    ? _troncCustomMetiers : (_troncIncludeAll ? allMetiers : allStrat);
-  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
-  if (!data.articles.length) { if (window.showToast) window.showToast('Aucun article à exporter', 'warning'); return; }
-
-  let filtered = data.articles;
-  if (_troncKpiFilter === 'tronc') filtered = filtered.filter(a => a.indice >= 60);
-  else if (_troncKpiFilter === 'inter') filtered = filtered.filter(a => a.indice >= 30 && a.indice < 60);
-  else if (_troncKpiFilter === 'spec') filtered = filtered.filter(a => a.indice < 30);
-
-  const verdictMap = new Map();
-  for (const r of (DataStore.finalData || [])) {
-    if (r?._sqClassif) verdictMap.set(r.code, { classif: r._sqClassif, verdict: r._sqVerdict || '', stock: (r.stockActuel || 0) > 0 });
-  }
-
-  const sep = ';';
-  const header = ['Code', 'Article', 'Famille', 'Métiers', 'Couverture métiers %', 'CA', 'Clients', 'Décision Physigamme', 'Signal stock', 'Métiers achètent', 'Métiers ignorent'].join(sep);
-  const rows = filtered.map(a => {
-    const metiersQui = [...a.metierDetail.keys()].sort().join(', ');
-    const metiersNon = [...effectiveMetiers].filter(m => !a.metierDetail.has(m)).sort().join(', ');
-    const vd = verdictMap.get(a.code);
-    const decision = getPhysigammeDecision(a, vd);
-    const signalStock = vd ? (vd.classif || '') : '';
-    return [a.code, `"${(a.libelle||'').replace(/"/g,'""')}"`, `"${a.famLib}"`, `${a.nbMetiers}/${data.totalMetiers}`, a.indice, Math.round(a.caTotal), a.nbClients, `"${decision.label}"`, signalStock, `"${metiersQui}"`, `"${metiersNon}"`].join(sep);
-  });
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const univName = FAM_LETTER_UNIVERS[_troncUniversFilter] || _troncUniversFilter;
-  a.download = `physigamme_${univName.replace(/\s+/g, '_')}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  if (window.showToast) window.showToast(`📥 ${filtered.length} articles Physigamme exportés`, 'success');
 };

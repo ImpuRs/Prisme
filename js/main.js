@@ -10,13 +10,13 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, defaultPeriodRange, isShortAutoPeriod, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau } from './engine.js';
-import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
-import { getVentesClientMagFull, hasVentesClientMagFull } from './sales.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
+import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
+import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
@@ -24,19 +24,18 @@ import { applyForcageCommercial as _applyForcageCommercial } from './chalandise-
 import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès console DevTools
-import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
-import { renderLaboTab, updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
-import { renderArbitrageRayonBlock } from './emplacement.js';
+import { renderArbitrageTab } from './arbitrage.js';
+import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
-import { renderAssociationsTab } from './associations.js?v=20260425m';
-import { renderEfficienceTab } from './efficience.js';
+import { renderAssociationsTab } from './associations.js';
+import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
-import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitRupClients, renderMesClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './commerce.js?v=20260425f';
+import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
+import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _buildDegradedCockpit } from './commerce.js';
 
 // Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
 // version aux Web Workers pour éviter les mismatchs (browser cache très agressif).
@@ -114,12 +113,14 @@ if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) —
           // Sauvegarder les données période-invariantes avant hydratation
           const _savedFull=_S.ventesLocalMag12MG.size?_S.ventesLocalMag12MG:new Map([..._S.ventesLocalMagPeriode].map(([cc,arts])=>[cc,new Map(arts)]));
           const _savedHors=_S.ventesLocalHorsMag;
+          const _savedHorsFull=_S.ventesLocalHorsMagFull;
           const _savedLastOrderAll=_S.clientLastOrderAll;
           const _savedLastOrderByCanal=_S.clientLastOrderByCanal;
           _hydrateStateFromParseResult(parseResult,_S.selectedMyStore);
           // Restaurer les invariants période (hors-MAGASIN ne change pas au refilter)
           if(!_S.ventesLocalMag12MG.size&&_savedFull.size)_S.ventesLocalMag12MG=_savedFull;
           if(!_S.ventesLocalHorsMag.size&&_savedHors.size)_S.ventesLocalHorsMag=_savedHors;
+          if(!_S.ventesLocalHorsMagFull?.size&&_savedHorsFull?.size)_S.ventesLocalHorsMagFull=_savedHorsFull;
           if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
           if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
           enrichPrixUnitaire();_enrichFinalDataWithCA();
@@ -880,7 +881,7 @@ _S.canalAgence=newCanalAgence;
     const filesC=document.getElementById('fileConsomme').files,f2=document.getElementById('fileStock').files[0];
     if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(filesC.length>1){showToast('📊 '+filesC.length+' fichiers consommé — fusion automatique','info',3000);}
-    if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
+    if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour Pilotage Stock et la Base articles','info',4000);}
     const btn=document.getElementById('btnCalculer');
 
     // iPhone/Safari : gros fichiers (CSV/XLSX) => pic RAM énorme (ArrayBuffer + decode + structures).
@@ -944,7 +945,6 @@ _S.canalAgence=newCanalAgence;
     const _selStore=document.getElementById('selectMyStore');
     if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
-    resetPromo();
 
     // Agence pré-remplie si mémorisée — le Worker validera et demandera si besoin
     let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
@@ -1183,6 +1183,7 @@ _S.canalAgence=newCanalAgence;
     _S.ventesLocalMag12MG = new Map((r.ventesLocalMag12MG||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesReseauTousCanaux = new Map((r.ventesReseauTousCanaux||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesLocalHorsMag = new Map((r.ventesLocalHorsMag||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesLocalHorsMagFull = new Map((r.ventesLocalHorsMagFull||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
     _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
     _S.clientLastOrderByCanal  = new Map((r.clientLastOrderByCanal||[]).map(([k,v]) => [k, new Map(v)]));
@@ -1227,9 +1228,11 @@ _S.canalAgence=newCanalAgence;
     const _allStoresFull=Object.keys(_S.ventesParAgence||{}).filter(s=>s!==_S.selectedMyStore);
     if(_allStoresFull.length<2)return;
     let _applied=0;
+    // Un article en rayon sans aucune vente locale sur 12 mois n'hérite pas du rythme réseau :
+    // l'historique local (nul) prime — sinon PRISME pousse à réapprovisionner un invendu.
     for(const r of DataStore.finalData){
       if(r.nouveauMin>0||r.nouveauMax>0)continue;
-      if(r.isParent)continue;
+      if(r.isParent||isInvendu(r))continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
       const vr=computeVitesseReseau(r.code,r.prixUnitaire||0,r.medMinReseau||0);
@@ -1242,7 +1245,7 @@ _S.canalAgence=newCanalAgence;
     // Fallback 3 : pas de ventes réseau, mais stocké réseau → médiane ERP
     for(const r of DataStore.finalData){
       if(r.nouveauMin>0||r.nouveauMax>0)continue;
-      if(r.isParent)continue;
+      if(r.isParent||isInvendu(r))continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
       if(r.medMinReseau>0||r.medMaxReseau>0){
@@ -1273,16 +1276,12 @@ _S.canalAgence=newCanalAgence;
       if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 
-      // Positionner sur le mois le plus récent par défaut (INIT ONLY — pas de render ici)
+      // Période par défaut : 12 mois glissants complets (INIT ONLY — pas de render ici)
       // C'est le SEUL endroit hors applyPeriodFilter() qui écrit periodFilterStart/End,
       // justifié car les données ne sont pas encore prêtes pour un render complet.
       if (_S._byMonth && !_S.periodFilterStart) {
-        const _maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
-        if (_maxD) {
-          const _y = _maxD.getFullYear(), _m = _maxD.getMonth();
-          _S.periodFilterStart = new Date(_y, _m, 1);
-          _S.periodFilterEnd = new Date(_y, _m+1, 0, 23, 59, 59);
-        }
+        const _r = defaultPeriodRange(_S.consommePeriodMaxFull || _S.consommePeriodMax);
+        if (_r) { _S.periodFilterStart = _r.start; _S.periodFilterEnd = _r.end; }
       }
       // Initialiser canalAgence depuis byMonthCanal (pleine période ou filtre actif)
       if (_S._byMonth) _refilterFromByMonth();
@@ -1366,7 +1365,7 @@ _S.canalAgence=newCanalAgence;
         // launchClientWorker — toujours lancé (gère chalandise vide en interne)
         // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
         launchClientWorker().then(async()=>{
-          if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+          if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();}
           if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
         }).catch(err=>console.warn('Client worker error:',err));
       } else {
@@ -1390,7 +1389,6 @@ _S.canalAgence=newCanalAgence;
       // Auto-YTD si consommé court
       if(_S.consommeMoisCouverts<6&&(_S._globalPeriodePreset||'12M')==='12M'){_S._globalPeriodePreset='YTD';setPeriodePreset('YTD');}
 
-      if(_S.cannauxHorsMagasin.size>0){const _labelsCanaux={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS'};const _listeCanaux=[..._S.cannauxHorsMagasin].map(c=>_labelsCanaux[c]||c).join(', ');showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`,'success',6000);}
 
       _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
@@ -1771,12 +1769,6 @@ _S.articleMonthlySales=monthlySales;
       _computeClientDominantUnivers();
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
-      // Garde-fou canaux hors MAGASIN
-      if(_S.cannauxHorsMagasin.size > 0) {
-        const _labelsCanaux = {INTERNET:'🌐 Internet', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS'};
-        const _listeCanaux = [..._S.cannauxHorsMagasin].map(c => _labelsCanaux[c]||c).join(', ');
-        showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`, 'success', 6000);
-      }
       updatePipeline('consomme','done');
       // B3: Moteur saisonnier — skipped for isRefilter (stock-derived, period-independent)
       if(!isRefilter){_computeSeasonalIndex(monthlySales);}
@@ -1817,7 +1809,7 @@ _S.articleMonthlySales=monthlySales;
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
-      _S.finalData=[];_S.libelleLookup={}; // producteur — _S direct_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+      _S.finalData=[];_S.libelleLookup={}; // producteur — _S direct_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
       _S.parentRefsExcluded=0;
       const NOW=new Date();
 
@@ -1923,7 +1915,7 @@ _S.articleMonthlySales=monthlySales;
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesLocalHorsMag unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
       if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');
       if(!isRefilter){_syncTabAccess();}
@@ -1931,7 +1923,7 @@ _S.articleMonthlySales=monthlySales;
       _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
-      if(!isRefilter){switchTab('stock');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
+      if(!isRefilter){switchTab('partie');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
       if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileLivraisons').files[0]||null); }
       // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
@@ -2008,7 +2000,7 @@ _S.articleMonthlySales=monthlySales;
     if(_noStockSlot){_noStockSlot.style.display='none';[..._noStockSlot.parentElement.children].forEach(c=>c.style.display='');}
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
-    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
     _S.parentRefsExcluded=0;
     // [Adapter Étape 5] — DataStore.finalData / .filteredData : canaux-invariants
     const dataSource=(DataStore.filteredData.length>0&&DataStore.filteredData.length<DataStore.finalData.length)?DataStore.filteredData:DataStore.finalData;
@@ -2041,6 +2033,7 @@ _S.articleMonthlySales=monthlySales;
     if(r.W>0)lstB.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:r.W,condit:null});
     if(r.isNouveaute&&r.stockActuel>0)lstN.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});
     if(r.enleveTotal>=5&&r.V===0)lstColis.push({code:r.code,lib:r.libelle,i1:r.enleveTotal,i2:r.stockActuel,sv:r.enleveTotal,condit:null});
+    if(isInvendu(r))_S.cockpitLists.invendus.add(r.code);
     if(r.stockActuel<0){lstStockNeg.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.stockneg.add(r.code);}
     if(r.stockActuel>0&&r.prixUnitaire>0){totalArt++;byStatus[r.statut]=(byStatus[r.statut]||0)+lv;const _fLib=famLib(r.famille);byFamily[_fLib]=(byFamily[_fLib]||0)+lv;const isDormant=!r.isNouveaute&&r.ageJours>DORMANT_DAYS;const sl=r.statut.toLowerCase();const isFS=sl.includes('fin de série')||sl.includes('fin de serie')||sl.includes('fin de catalogue');const iFSt=sl.includes('fin de stock');const isFin=isFS||iFSt;
     if(!r.isNouveaute&&r.ageJours>DORMANT_DAYS){dormantStock+=lv;if(lv>50){lstD.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.dormants.add(r.code);}}
@@ -2100,7 +2093,7 @@ _S.articleMonthlySales=monthlySales;
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const sorted=l.sort((a,b)=>b.sv-a.sv).slice(0,lim);const p=[];sorted.forEach(i=>{p.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">🎉</td></tr>';if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="3" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}}
-    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstStockNeg,'actionStockneg');
+    
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
       const colisContainer=document.getElementById('colisDetail');
@@ -2128,68 +2121,6 @@ _S.articleMonthlySales=monthlySales;
     _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti,caComptoir:_S.canalAgence?.['MAGASIN']?.ca||0};
     renderHealthScore();
     renderTabBadges();
-
-    // ── Bandeau hero Santé + Valeur Stock ──
-    {const heroEl=document.getElementById('stockHeroContent');
-    if(heroEl){
-      // Sparkline CA mensuel
-      const _monthlyCA=Array(12).fill(0);
-      for(const [code,months] of Object.entries(_S.articleMonthlySales||{})){
-        if(DataStore.finalData.some(r=>r.code===code))months.forEach((v,i)=>{_monthlyCA[i]+=v;});
-      }
-      const _sparklineCA=buildSparklineSVG(_monthlyCA,{color:'rgba(255,255,255,0.7)',width:100,height:24,filled:true});
-      // Read health score data from renderHealthScore (already computed)
-      const fd=dataSource;const _totalRefs=fd.length;
-      const _rup=fd.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent).length;
-      const _dorm=fd.filter(r=>r.ageJours>=(_S.DORMANT_DAYS||180)&&r.stockActuel>0&&r.W<=1).length;
-      const _sansMin=fd.filter(r=>r.ancienMin===0&&r.W>=3).length;
-      const _surst=fd.filter(r=>r.ancienMax>0&&r.stockActuel>r.ancienMax*2).length;
-      const _actives=fd.filter(r=>r.W>=1&&!r.isParent);
-      const _activesOk=_actives.filter(r=>r.stockActuel>0).length;
-      const _txSvc=_actives.length>0?Math.round(_activesOk/_actives.length*100):100;
-      const _rupPct=_totalRefs>0?_rup/_totalRefs*100:0;
-      const _dormPct=_totalRefs>0?_dorm/_totalRefs*100:0;
-      const _sansMinPct=_actives.length>0?_sansMin/_actives.length*100:0;
-      const _surstPct=_totalRefs>0?_surst/_totalRefs*100:0;
-      const _score=Math.max(0,Math.min(100,Math.round(_txSvc*0.4+Math.max(0,100-_rupPct*10)*0.25+Math.max(0,100-_dormPct*3)*0.15+Math.max(0,100-_sansMinPct*5)*0.1+Math.max(0,100-_surstPct*5)*0.1)));
-      const _col=_score>=75?'var(--c-ok)':_score>=50?'var(--c-caution)':'var(--c-danger)';
-      const _lbl=_score>=75?'Bonne santé':_score>=50?'À surveiller':'Critique';
-      const _ico=_score>=75?'💚':_score>=50?'🟡':'🔴';
-      const _dims=[
-        {label:'Taux de service',val:_txSvc+'%',ok:_txSvc>=95},
-        {label:'Ruptures',val:_rup,ok:_rup<=5},
-        {label:'Dormants',val:_dorm,ok:_dorm<=_totalRefs*0.05},
-        {label:'Sans MIN',val:_sansMin,ok:_sansMin<=3},
-        {label:'Surstock',val:_surst,ok:_surst<=_totalRefs*0.03},
-      ];
-      const _heroPills = [
-        { label: `Taux service : ${sr}%`,    cls: parseFloat(sr) >= 95 ? 'ok' : parseFloat(sr) >= 85 ? 'caution' : 'danger', fn: `showCockpitInTable('ruptures')` },
-        { label: `Ruptures : ${lstR.length}`, cls: lstR.length === 0 ? 'ok' : 'danger',                                        fn: `showCockpitInTable('ruptures');switchTab('table')` },
-        { label: `Dormants : ${lstD.length}`, cls: lstD.length > 50 ? 'caution' : 'muted',                                     fn: `showCockpitInTable('dormants');switchTab('table')` },
-        { label: `Sans MIN : ${lstA.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('anomalies');switchTab('table')` },
-        { label: `Surstock : ${lstS.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('saso');switchTab('table')` },
-      ].map(p => `<button class="hero-pill hero-pill--${p.cls}" onclick="${p.fn}">${p.label}</button>`).join('');
-      heroEl.innerHTML = `
-<div class="hero-layout">
-  <div class="hero-score-block">
-    <div class="hero-score-num" style="color:${_col}">${_score}</div>
-    <div class="hero-score-bar">
-      <div class="hero-score-fill" style="width:${_score}%;background:${_col}"></div>
-    </div>
-    <div class="hero-score-label">Santé stock</div>
-  </div>
-  <div class="hero-divider"></div>
-  <div class="hero-value-block">
-    <div class="hero-value-label">Valeur stock</div>
-    <div class="hero-value-num kpi-update">${formatEuro(totalValue)}</div>
-    <div class="hero-value-sub">
-      <span>${DataStore.finalData.length.toLocaleString('fr')} réf.</span>
-    </div>
-  </div>
-  <div class="hero-divider"></div>
-  <div class="hero-pills">${_heroPills}</div>
-</div>`;
-    }}
 
     // ── Sidebar pills ──
     _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saso:lstS.length,colis:lstColis.length,rupClients:0};
@@ -2322,8 +2253,22 @@ _S.articleMonthlySales=monthlySales;
   }
 
   // ★ TABLEAU
+  // Dernière vente MAGASIN (mois écoulés) — recalculée quand l'historique change ; 999 = aucune vente
+  let _lastSaleBM=null;
+  function _ensureLastSale(){
+    if(_lastSaleBM===_S._byMonth&&_lastSaleBM)return;
+    const last=getArticleLastSaleMonthIdx();const _d=_S.consommePeriodMaxFull||_S.consommePeriodMax;const ref=_d?monthIdxFromDate(new Date(_d)):null;
+    for(const r of DataStore.finalData){const m=last?.get(r.code);r.moisSansVente=(m!=null&&ref!=null)?Math.max(0,ref-m):999;}
+    _lastSaleBM=_S._byMonth;
+  }
+  function _lastSaleCell(m){
+    if(m>=999)return '<span class="age-dot" style="background:var(--pt-low)"></span><span title="Aucune vente MAGASIN dans tout l’historique du consommé chargé">jamais</span>';
+    const c=m<=1?'var(--pt-high)':m<=5?'var(--pt-mid)':'var(--pt-low)';
+    return `<span class="age-dot" style="background:${c}"></span>${m===0?'ce mois':m+' mois'}`;
+  }
   function renderTable(pageOnly){
     if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.innerHTML=_renderNoStockPlaceholder('Articles');return;}
+    _ensureLastSale();
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
       sortRowsInPlace(DataStore.filteredData,_S.sortCol,_S.sortAsc);
@@ -2331,7 +2276,9 @@ _S.articleMonthlySales=monthlySales;
     }
     const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=DataStore.filteredData.slice(start,start+PAGE_SIZE);
     document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
-    _renderActiveFilterBadges();
+    _renderActiveFilterBadges();renderTableContext();
+    // Colonne 🌐 (clients zone hors agence) : masquée tant qu'aucun article n'a de signal
+    _S._webColEmpty=!(_S.chalandiseReady&&DataStore.finalData.some(r=>(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2)); // appliqué par _applyColVisibility
     const _totalCA=_getFilteredCATotal();const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
     const p=[];
     for(const r of pd){
@@ -2339,7 +2286,6 @@ _S.articleMonthlySales=monthlySales;
       const isDormant=r.W===0&&r.stockActuel>0;
       const bg=isDormant?'':isUncalib?'s-card-alt':'';
       const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; if(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)return 'c-caution font-bold'; return ''; })();
-      const br=getAgeBracket(r.ageJours);
       const caEst=r.caAnnuel>0?(r.caAnnuel>=1000?`${(r.caAnnuel/1000).toFixed(1)}k€`:`${r.caAnnuel}€`):'—';
       const ancStr=(r.ancienMin===0&&r.ancienMax===0)?`<span class="t-disabled" title="Pas de MIN/MAX dans l'ERP">—</span>`:(r.ancienMin>0&&r.ancienMax===0)?`<span class="c-caution" title="MAX absent — anomalie ERP">${r.ancienMin}/0</span>`:`${r.ancienMin}/${r.ancienMax}`;
     p.push(`<tr class="border-b hover:i-info-bg ${bg} cursor-pointer"${isDormant?' style="background:rgba(239,68,68,0.25)"':isUncalib?' style="opacity:0.48"':''}
@@ -2354,7 +2300,7 @@ _S.articleMonthlySales=monthlySales;
       <td class="px-2 py-2 text-center font-bold text-xs">${r.W}</td>
       <td class="px-2 py-2 text-center ${sc} text-xs">${r.stockActuel}</td>
       <td class="px-2 py-2 text-center text-xs">${formatCouv(r.couvertureJours)}</td>
-      <td class="px-2 py-2 text-center text-xs whitespace-nowrap"><span class="age-dot ${AGE_BRACKETS[br].dotClass}"></span>${getAgeLabel(r.ageJours)}</td>
+      <td class="px-2 py-2 text-center text-xs whitespace-nowrap" title="Dernier mouvement ERP : ${getAgeLabel(r.ageJours)}">${_lastSaleCell(r.moisSansVente)}</td>
       <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMax}</td>
@@ -2405,46 +2351,36 @@ _S.articleMonthlySales=monthlySales;
     const _countBadge=document.getElementById('abcCountBadge');
     if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
     _renderGhostArticles();
-    const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
-    const LABELS={AF:'🌟 Pépites',AM:'👁️ Piliers',AR:'💰 Projets',BF:'⚙️ Moteur',BM:'➡️ Standard',BR:'❓ Poids Faible',CF:'🔁 Trafic',CM:'📉 Poussière',CR:'❌ Boulet'};
+    // Ton = décision attendue (cf. RECOS) : à tenir / standard / à revoir / à sortir
+    const TONE={AF:'high',AM:'high',BF:'high',CF:'high',BM:'base',AR:'mid',BR:'mid',CM:'mid',CR:'low'};
+    const TONE_LBL={high:'À tenir',base:'Standard',mid:'À revoir',low:'À sortir'};
     const RECOS={
-      AF:'🏆 Capitaines — Zéro rupture. Stock sécurité max, commande auto, emplacement premium. Si AF mais pas Capitaine → problème de classif.',
-      AM:'🏆 Capitaines à cycle long ou 🎯 Lien Fort — Stock tampon faible, supply chain parfaite. Gestion à flux tendu maîtrisé.',
-      AR:'🎯 Spécialistes forte valeur — Zéro stock physique, 100% commande spéciale. Ta force = ta relation fournisseur.',
-      BF:'🏆 Capitaines petit prix + 📦 Bons Soldats — Automatisation Kanban (2 bacs). Objectif : le moins de temps possible à gérer.',
-      BM:'📦 Bons Soldats + 🟡 À Surveiller — Réappro standard. Garder un œil pour ne pas glisser vers BR ou CM.',
-      BR:'🟡 Déclinant qui s\'ignore — Stock min 1 unité, pas de réappro auto. En revue pour sortie potentielle.',
-      CF:'🏆 Incontournable comptoir — Ça doit être là, toujours, en quantité. Son absence crée plus de frustration que son stock ne coûte.',
-      CM:'Zone de simplification — Peut-on remplacer 3 CM par 1 BM ? Vendre en plus grande quantité pour passer en CF ?',
-      CR:'🔴 Poids Mort — Tolérance zéro, on sort. SAUF Ancre Métier : appât pour le gros poisson, garder à 1 unité.'
+      AF:'Capitaines — zéro rupture. Stock de sécurité, commande auto, emplacement premium.',
+      AM:'Gros CA à cycle long — stock tampon faible, réappro maîtrisée.',
+      AR:'Forte valeur, vente rare — viser zéro stock physique, commande spéciale.',
+      BF:'Petits prix qui tournent — automatiser (2 bacs), le moins de temps possible à gérer.',
+      BM:'Réappro standard — surveiller pour ne pas glisser vers BR ou CM.',
+      BR:'Déclinant qui s’ignore — 1 unité max, pas de réappro auto, en revue de sortie.',
+      CF:'Incontournable comptoir — doit toujours être là : son absence frustre plus que son stock ne coûte.',
+      CM:'Zone de simplification — remplacer plusieurs références par une seule ?',
+      CR:'Poids mort — on sort, sauf article d’appel métier (garder 1 unité).'
     };
-    // Matrix table
-    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
-    html+='<th style="width:64px"></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#4ade80">F<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Fréquent ≥12</span></div></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#93c5fd">M<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Moyen 4-11</span></div></th>';
-    html+='<th><div style="padding:10px 12px;text-align:center;font-weight:800;font-size:14px;color:#fbbf24">R<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Rare ≤3</span></div></th>';
-    html+='</tr></thead><tbody>';
-    const rowLabels={A:'<div class="font-extrabold text-xl text-indigo-900">A</div><div class="text-[9px] t-tertiary font-semibold">Top 80%</div>',B:'<div class="font-extrabold text-xl text-indigo-600">B</div><div class="text-[9px] t-tertiary font-semibold">15%</div>',C:'<div class="font-extrabold text-xl text-indigo-400">C</div><div class="text-[9px] t-tertiary font-semibold">5%</div>'};
+    const FMR_LBL={F:'Fréquent<br><span class="pt-muted pt-small">≥12 ventes</span>',M:'Moyen<br><span class="pt-muted pt-small">4 à 11</span>',R:'Rare<br><span class="pt-muted pt-small">≤3</span>'};
+    const ABC_LBL={A:'A<br><span class="pt-muted pt-small">80 % du CA</span>',B:'B<br><span class="pt-muted pt-small">15 %</span>',C:'C<br><span class="pt-muted pt-small">5 %</span>'};
+    let html='<div class="ar-mx"><span></span>'+['F','M','R'].map(f=>`<div class="ar-mx-h">${FMR_LBL[f]}</div>`).join('');
     for(const abc of['A','B','C']){
-      html+=`<tr><td class="p-3 text-center">${rowLabels[abc]}</td>`;
+      html+=`<div class="ar-mx-h ar-mx-row">${ABC_LBL[abc]}</div>`;
       for(const fmr of['F','M','R']){
-        const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0};
-        const bg=CELL_BG[key];
-        html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
-          <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);margin:0;width:14px;height:14px;font-size:9px">ℹ</em>
-          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-2xl);font-weight:800;line-height:1;letter-spacing:-0.02em">${d.count}</div>
-          <div style="font-size:var(--fs-xs);opacity:0.6;margin-top:3px">articles</div>
-          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-sm);font-weight:700;margin-top:var(--sp-2)">${formatEuro(d.stockVal)}</div>
-          <div style="font-size:var(--fs-2xs);opacity:0.5;margin-top:2px">${d.pctTotal.toFixed(1)}% du stock</div>
-          <div style="font-size:var(--fs-2xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.5;margin-top:var(--sp-2)">${key}</div>
-          ${d.count>0?`<button onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" style="margin-top:6px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.25);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,0.4)'" onmouseout="this.style.background='rgba(0,0,0,0.25)'">🔍 Diag.</button>`:''}
-        </div></td>`;
+        const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0},tone=TONE[key];
+        html+=`<div class="ar-cell" data-tone="${tone}" role="button" tabindex="0" title="${key} — ${RECOS[key]}" onclick="filterByAbcFmr('${abc}','${fmr}')" onkeydown="if(event.key==='Enter')filterByAbcFmr('${abc}','${fmr}')">
+          <div class="pt-row pt-between"><span class="pt-num pt-small pt-muted">${key}</span><span class="ar-tag" data-tone="${tone==='base'?'':tone}">${TONE_LBL[tone]}</span></div>
+          <div class="pt-num" style="font-size:28px;font-weight:600;line-height:1.1">${d.count.toLocaleString('fr-FR')}<span class="pt-small pt-muted" style="font-weight:400"> art.</span></div>
+          <div class="pt-row pt-between pt-small"><span class="pt-num pt-strong">${formatEuro(d.stockVal)}</span><span class="pt-num pt-muted">${d.pctTotal.toFixed(0)} % du stock</span></div>
+          ${d.count>0?`<button type="button" class="pt-link pt-small" style="padding:0;text-align:left" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')">Diagnostic →</button>`:''}
+        </div>`;
       }
-      html+='</tr>';
     }
-    html+='</tbody></table>';
-    html+='<p class="text-center text-[10px] t-disabled mt-3">Cliquer sur une case → filtre l\'onglet Articles · Survoler → recommandation</p>';
+    html+='</div><p class="pt-small pt-muted" style="margin:12px 0 0">Clic sur une case : ses articles dans l’onglet Articles. Survol : la règle de gestion.</p>';
     const mc=document.getElementById('abcMatrixContainer');if(mc)mc.innerHTML=html;
     // Attractivité par Famille (migrée depuis Mon Stock)
     const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:i-danger-bg"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${escapeHtml(fam)}">${escapeHtml(fam)}</td><td class="py-2 px-3 text-center t-secondary text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-1.5"><div class="perf-bar bg-c-danger rounded-full" style="width:${barW}%"></div></div><span class="c-danger font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">Aucune donnée famille</td></tr>';}
@@ -2453,10 +2389,14 @@ _S.articleMonthlySales=monthlySales;
   // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────
 
   async function renderCurrentTab(){
-    const activePill=document.querySelector('.supertab-pill.active[data-subtab]');
+    // Pastille active du super-onglet affiché (les autres groupes gardent leur pastille par défaut)
+    const activePill=document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
     const activeBtn=document.querySelector('.tab-btn.active');
     const id=(activePill?.dataset.subtab)||(activeBtn?activeBtn.getAttribute('data-tab'):'table');
     switch(id){
+      case 'partie':
+        renderPartieTab();
+        break;
       case 'table':
         renderTable(true);
         return;
@@ -2468,7 +2408,7 @@ _S.articleMonthlySales=monthlySales;
       case 'arbitrage':{
         const _ts0=performance.now();
         renderDashboardAndCockpit();
-        renderArbitrageRayonBlock();
+        renderArbitrageTab();
         renderABCTab();
         renderHealthScore();
         renderTabBadges();
@@ -2483,20 +2423,14 @@ _S.articleMonthlySales=monthlySales;
       case 'omni':
         renderOmniTab();
         break;
-      case 'clients':
-        window._renderPDVTab?.();
+      case 'portefeuille':
+        renderTesClients();
         break;
       case 'animation':
         await renderAnimationTab();
         break;
       case 'associations':
         renderAssociationsTab();
-        break;
-      case 'efficience':
-        renderEfficienceTab();
-        break;
-      case 'conformite':
-        window.renderConformiteTab?.();
         break;
       case 'duel':
         window.renderDuelTab?.();
@@ -2644,8 +2578,11 @@ _S.articleMonthlySales=monthlySales;
       }
 
       _S._parsingInProgress=false;
-      switchTab('stock');_mc('switchTab stock');
+      switchTab('partie');_mc('switchTab partie');
       collapseImportZone();
+      // Sessions enregistrées avec l'ancien défaut « mois en cours » sur un mois quasi vide → 12 mois
+      {const _mx=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+       if(_S._byMonth&&isShortAutoPeriod(_S.periodFilterStart,_S.periodFilterEnd,_mx)){const _r=defaultPeriodRange(_mx);if(_r)applyPeriodFilter(_r.start.getTime(),_r.end.getTime());}}
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
       if(!_S.ventesLocalMag12MG.size&&_S.ventesLocalMagPeriode.size){
@@ -2736,8 +2673,6 @@ window.changePage = changePage;
 window.openFilterDrawer = openFilterDrawer;
 window.closeFilterDrawer = closeFilterDrawer;
 window.expandImportZone = expandImportZone;
-window.toggleSecteurDropdown = toggleSecteurDropdown;
-window.toggleAllSecteurs = toggleAllSecteurs;
 window.onSecteurChange = onSecteurChange;
 window.onLivraisonsSelected = async function(input) {
   onFileSelected(input, 'dropLivraisons');
@@ -2830,33 +2765,25 @@ window.onChalandiseSelected = async function(input) {
     launchClientWorker().then(() => {
       resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors();
       buildClientStore(); _applyForcageCommercial();
-      renderTabBadges(); updateLaboTiles();
-      showToast('📊 Agrégats clients calculés', 'success');
+      renderTabBadges(); 
+      
       if (_S.selectedMyStore) _saveSessionToIDB();
     }).catch(err => console.warn('Client worker error:', err));
   }
   if (_S.storesIntersection.size > 1) { computeBenchmark(); }
   _saveSessionToIDB();
 };
-window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
-window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
-window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window.computeAnglesMorts = computeAnglesMorts;
 window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
 window.buildAgenceStore = buildAgenceStore;
 window.computeFamillesHors = computeFamillesHors;
-window.exportTourneeCSV = exportTourneeCSV;
-window._togglePromoClientRow = _togglePromoClientRow;
-window._switchPromoTab = _switchPromoTab;
-window._exportCommercialCSV = _exportCommercialCSV;
-window._renderSearchResults = _renderSearchResults;
 window.computeBenchmark = computeBenchmark;
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function() {
@@ -2869,9 +2796,6 @@ window._toggleHorsAgence = function() {
   }
   onFilterChange();
 };
-window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
-window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
-window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;window._renderSegmentsOmnicanaux?.();};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 
@@ -2891,8 +2815,6 @@ window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
-window.toggleWebColumn = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
-window.renderMesClients = renderMesClients;
 window.renderCurrentTab = renderCurrentTab;
 window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
@@ -2905,8 +2827,6 @@ window._diagV3FilterCategory = _diagV3FilterCategory;
 window.toggleReconquestFilter = toggleReconquestFilter;
 window.openArticlePanel = openArticlePanel;
 window.closeArticlePanel = closeArticlePanel;
-window.openCmdPalette = openCmdPalette;
-window.closeCmdPalette = closeCmdPalette;
 window.focusTrap = focusTrap;
 window.ToastManager = ToastManager;
 window.toggleNavKpis = toggleNavKpis;
@@ -2914,10 +2834,8 @@ window.initDetailsAnimations = initDetailsAnimations;
 window.openReporting = openReporting;
 window.closeReporting = closeReporting;
 window.copyReportText = copyReportText;
-window.switchReportTab = switchReportTab;
 window.generateReportText = generateRegionReportText;
 window.generateRegionReportText = generateRegionReportText;
-window.importExclusionsJSON = importExclusionsJSON;
 window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
@@ -2935,15 +2853,10 @@ window._cancelLoad = function() {
   }))).then(() => location.reload());
 };
 window._showCacheBanner = _showCacheBanner;
-window.resetTerrFilters = resetTerrFilters;
-window.exportContribCSV = exportContribCSV;
 window.toggleContribSecteur = toggleContribSecteur;
 window.toggleContribClient = toggleContribClient;
-window._setCrossFilter = _setCrossFilter;
 window._toggleDeptDropdown = _toggleDeptDropdown;
 window._toggleClassifDropdown = _toggleClassifDropdown;
-window._toggleActPDVDropdown = _toggleActPDVDropdown;
-window._toggleStatutDropdown = _toggleStatutDropdown;
 window._toggleDirectionDropdown = _toggleDirectionDropdown;
 window._onActPDVSelect = _onActPDVSelect;
 window._onStatutDetailleSelect = _onStatutDetailleSelect;
@@ -2960,29 +2873,17 @@ window._resetChalandiseFilters = _resetChalandiseFilters;
 window.onFileSelected = onFileSelected;
 window._updateAnalyserBtn = _updateAnalyserBtn;
 window._saveSessionToIDB = _saveSessionToIDB;
-window._onPromoFamilleChange = _onPromoFamilleChange;
-window._applyPromoFilters = _applyPromoFilters;
 window.buildTerrContrib = buildTerrContrib;
 window.renderTerrContrib = renderTerrContrib;
 window.renderContribClients = renderContribClients;
 window.renderContribArticles = renderContribArticles;
-window._toggleClientArticles = _toggleClientArticles;
 window.openClient360 = openClient360;
 window._c360SwitchTab = _c360SwitchTab;
 window._c360CopyResume = _c360CopyResume;
 window._c360ExportRadio = _c360ExportRadio;
-window.excludeClient = _showExcludePrompt;
-window.confirmExclude = _confirmExclude;
-window._showExcludePrompt = _showExcludePrompt;
-window._confirmExclude = _confirmExclude;
-window._unexcludeClient = _unexcludeClient;
 window.renderComparison = renderComparison;
 window.renderHealthScore = renderHealthScore;
-window.exportAgenceSnapshot = exportAgenceSnapshot;
-window._loadIRAHistory = _loadIRAHistory;
 window.renderTabBadges = renderTabBadges;
-window.clipERP = clipERP;
-window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
 
 // ── Export Scan — fichier léger pour mobile ──────────────────────────
@@ -3198,7 +3099,6 @@ window.exportScanDataAG = function() {
   URL.revokeObjectURL(url);
   showToast('📱 Scan AG exporté (sans prix) — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
 };
-window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 function renderSidebarAgenceSelector() {
   // Navbar: static agence code display (no dropdown)
   const navSt = document.getElementById('navStore');
@@ -3206,52 +3106,23 @@ function renderSidebarAgenceSelector() {
 }
 window.updateNavStore = renderSidebarAgenceSelector;
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
-// Promo — fonctions HTML onclick non encore exposées
-window._clearPromoImport = _clearPromoImport;
-window._closePromoSuggest = _closePromoSuggest;
-window._onPromoImportFileChange = _onPromoImportFileChange;
-window._onPromoInput = _onPromoInput;
-window._promoSuggestKeydown = _promoSuggestKeydown;
-window._selectPromoSuggestion = _selectPromoSuggestion;
-window._resetPromoFilters = _resetPromoFilters;
-window._togglePromoImportSection = _togglePromoImportSection;
-window._togglePromoSection = _togglePromoSection;
-window.copyPromoClipboard = copyPromoClipboard;
-window.exportPromoCSV = exportPromoCSV;
-window.runPromoImport = runPromoImport;
-window.runPromoSearch = runPromoSearch;
 // ui.js — fonctions HTML onclick non encore exposées
-window.clearSavedKPI = clearSavedKPI;
 window.collapseImportZone = collapseImportZone;
 window.downloadCSV = downloadCSV;
-window.exportKPIhistory = exportKPIhistory;
-window.importKPIhistory = importKPIhistory;
-window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
-window._cockpitToggleSection    = _cockpitToggleSection;
-window._cockpitToggleFullList   = _cockpitToggleFullList;
-window.exportCockpitCSV         = exportCockpitCSV;
-window.exportCockpitCSVAll      = exportCockpitCSVAll;
-window.exportExclusionsJSON     = exportExclusionsJSON;
 // Territoire / Vue Terrain — toggles direction/métier/secteur/famille (onclick HTML généré)
 window._toggleOverviewL2        = _toggleOverviewL2;
 window._toggleOverviewL3        = _toggleOverviewL3;
 window._toggleOverviewL4        = _toggleOverviewL4;
 window._toggleOverviewClassif   = _toggleOverviewClassif;
-window._toggleOverviewActPDV    = _toggleOverviewActPDV;
-window._toggleOverviewStatut    = _toggleOverviewStatut;
 window._toggleOverviewDirection = _toggleOverviewDirection;
-window._toggleOverviewUnivers   = _toggleOverviewUnivers;
 window._toggleDept              = _toggleDept;
 window.toggleTerrDir            = toggleTerrDir;
 window.toggleTerrDirStatus      = toggleTerrDirStatus;
 window.toggleTerrFam            = toggleTerrFam;
 window.toggleContribDirection   = toggleContribDirection;
 // Cockpit Client — exclusions & liste masquée
-window._toggleExcludedList      = _toggleExcludedList;
-window._unexcludeAll            = _unexcludeAll;
-// Promo — accordion inline (also wired at processData)
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);

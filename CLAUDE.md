@@ -36,17 +36,47 @@ js/
   state.js       — _S : objet mutable unique, source de vérité de tout l'état
   store.js       — DataStore : couche lecture seule sur _S avec byContext()
   engine.js      — moteur calcul métier : computeABCFMR, calcPriorityScore,
-                   computeClientCrossing, computeReconquestCohort, computeSPC,
+                   computeClientCrossing, computeReconquestCohort,
                    computeOpportuniteNette, computeReseauHeatmap, computeOmniScores,
                    computeBenchMetier, computePriceGap, _clientPassesFilters
   parser.js      — pipeline données : parseChalandise, parseTerritoireFile,
-                   launchTerritoireWorker, launchClientWorker, launchReseauWorker,
+                   launchTerritoireWorker, launchClientWorker,
                    computeBenchmark
   cache.js       — persistance IndexedDB : _saveSessionToIDB, _restoreSessionFromIDB,
                    _saveExclusions, _restoreExclusions, _migrateIDB
   ui.js          — fonctions UI transverses : switchTab, renderAll, onFilterChange,
                    renderInsightsBanner, renderCockpitBriefing, renderDecisionQueue
-  promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
+  partie.js      — « La partie » (accueil) : score agence gamifié, computePartie,
+                   renderPartieTab — score famille 4 critères squelette + Stock,
+                   actions « +N pts », historique PRISME_PARTIE
+  arbitrage.js   — Pilotage Stock › Arbitrage : détail du domaine Stock de La partie
+                   (même score via computeStockPartie), valeur stock ventilée,
+                   5 décisions chiffrées, sections emplacements / livraison / matrice
+  plan-famille.js — Pilotage Stock › Plan › Par famille : familles notées comme La partie,
+                   articles en 5 gestes (sortir, implanter, garder, surveiller, recalibrer) ;
+                   « Pour creuser » = onglets Métiers/Analyse/Réseau de planRayon.js (bridge)
+  planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
+                   onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
+  emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
+  clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
+                   CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
+                   derniers ; part de portefeuille en info), 5 décisions triées par enjeu
+                   (relancer, reconquérir, développer, conquérir, rattacher ; silence tous canaux
+                   via clientLastOrderAll) + « Pour creuser » (top clients, nouveaux/réactivés,
+                   familles à proposer = opportuniteNette) ; computeClientsPartie alimente le 3e
+                   domaine de La partie. Remplace l'onglet Fidélisation PDV (retiré oct. 2026 :
+                   switchTab('clients') redirige ; renderMesClients n'est plus appelé)
+  animation.js   — Animation › Action commerciale : « Préparer une animation » par marque (fournisseur
+                   catalogue) : marques où une agence de ta taille fait mieux (médiane réseau ramenée à
+                   ton CA, 12 mois tous canaux, _byMonthStoreArtCanal), rayon prêt (ruptures + trous réseau),
+                   qui inviter (fidèles / sans la machine / à relancer / concurrence, export tournée)
+  associations.js — Animation › Associations : paires de familles DÉTECTÉES (clients du comptoir, achats
+                   tous canaux 12 mois) : P(B|A) ≥ 20 %, ≥ 4× la part de tous les clients qui prennent B (lift),
+                   ≥ 40 acheteurs de A, ≥ 12 des deux ; classées par co-acheteurs au-delà du hasard. Détail :
+                   clients A sans B (tag « son métier en prend »), articles B à proposer, export. Paires manuelles
+                   en option (éditeur en tuiles). Indice réseau / refs manquantes / Tronc Commun retirés oct. 2026
+  pepites.js     — computePepitesStore : spécialités (≥ 2× médiane réseau) et exclusifs d'une agence,
+                   affichés dans le Duel agence (« Ses spécialités »)
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   router.js      — initRouter (hash routing minimal)
@@ -131,6 +161,10 @@ _S.ventesLocalMag12MG        // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sum
                               // Dev: utiliser la façade `js/sales.js` (getVentesClientMagFull, getClientCAFullAllCanaux)
 _S.ventesLocalHorsMag        // Map<cc, Map<code, {sumCA,sumPrelevee,sumCAPrelevee,countBL,canal}>>
                               // Source : tous canaux hors-MAGASIN
+                              // ⚠ FILTRÉ PAR LA PÉRIODE AU PARSING, non recalculé si la période change
+_S.ventesLocalHorsMagFull    // même structure, PLEINE PÉRIODE (oct. 2026) — analyses structurelles
+                              // (fiche client, Plan, squelette, familles hors agence, opportunités…)
+                              // Accès : sales.getVentesClientHorsMagFull(cc) / getVentesHorsMagFullMap()
 _S.clientOmniScore           // Map<cc, {segment,score,caPDV,caHors,caTotal,nbCanaux,nbBL,silenceDays}>
                               // Score omnicanal enrichi avec ventesTerrain (Qlik)
 _S.clientLastOrder           // Map<cc, Date> — dernière commande PDV
@@ -169,8 +203,8 @@ _S.caClientParStore          // {store → Map<cc, totalCA>} — TOUS canaux, PL
 ```js
 _S.ventesParAgence           // {store: {code: {sumPrelevee, sumCA, countBL}}}
                               // Agrégat par agence — TOUS canaux (prélevé+enlevé)
-_S.ventesReseauTousCanaux    // Map<store, Map<cc, Map<code, {sumPrelevee,sumCA,countBL}>>>
-                              // Ventes détaillées par agence×client×article — TOUS canaux
+_S.ventesReseauTousCanaux    // Map<cc, Map<code, {sumCA,countBL,...}>> — clients de TOUTES les agences confondues
+                              // Ventes détaillées client×article, tout le réseau — TOUS canaux
                               // Source : consommé multi-agences, parse-worker
 ```
 
@@ -212,7 +246,6 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `calcPriorityScore(W, prix, age)` — score rupture 0-100
 - `computeClientCrossing()` — croisement chalandise × ventesLocalMagPeriode → crossingStats
 - `computeReconquestCohort()` — anciens clients FID disparus
-- `computeSPC(cc, info)` — Score Potentiel Client 0-100
 - `computeOpportuniteNette()` — familles manquantes par client vs métier moyen
 - `computeReseauHeatmap()` — heatmap famille × agence (ratio vs médiane)
 - `computeOmniScores()` — score omnicanal par client (PDV + hors-mag + ventesTerrain Qlik)
@@ -226,7 +259,6 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `parseTerritoireFile(file)` — lecture brute territoire (retourne raw data)
 - `launchTerritoireWorker(raw, onProgress)` — Web Worker territoire → ventesTerrain
 - `launchClientWorker()` — Web Worker agrégats clients → clientFamCA, metierFamBench
-- `launchReseauWorker()` — Web Worker réseau → nomades, orphelins, fuites, heatmap
 - `computeBenchmark()` — benchmark réseau multi-agences, peuple benchLists
 - `buildSecteurCheckboxes()` / `getSelectedSecteurs()` — filtre multi-select secteurs
 
@@ -265,14 +297,16 @@ Niveaux du diagnostic :
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).
 8. **Articles spéciaux** : code ≠ 6 chiffres exactement → non stockable, exclu du calcul MIN/MAX.
-9. **Dualité PDV/hors-agence** : `ventesLocalMagPeriode` = MAGASIN only (period-filtered) ; `ventesLocalMag12MG` = MAGASIN only (pleine période 12MG) ; `ventesLocalHorsMag` = tout sauf MAGASIN. Ne jamais mélanger.
+9. **Dualité PDV/hors-agence** : `ventesLocalMagPeriode` = MAGASIN only (period-filtered) ; `ventesLocalMag12MG` = MAGASIN only (pleine période 12MG) ; `ventesLocalHorsMag` = tout sauf MAGASIN, filtré période ; `ventesLocalHorsMagFull` = tout sauf MAGASIN, pleine période (structurel). Ne jamais mélanger.
 10. **Reset colonne cache** : appeler `_resetColCache()` entre parsing consommé et stock (colonnes différentes).
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
 16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesLocalMag12MG.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesLocalMagPeriode` (period-filtered) ni `ventesParAgence` (tous canaux prélevé+enlevé).
-17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesLocalMag12MG` + `ventesLocalHorsMag` + `ventesTerrain`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
+17. **Profil canal client (ex-« score omnicanal », oct. 2026)** : `computeOmniScores()` (engine.js) classe chaque client en `comptoir` / `mixte` / `sansComptoir` / `ailleurs` (`OMNI_PROFILS`). CA comptoir et autres canaux sur 12 mois complets (`_byMonthClientCAByCanal`, repli `caClientParStore` + `ventesLocalMag12MG`), canaux = `clientLastOrderByCanal` sur 12 mois glissants, « ailleurs » = autres agences ≥ 30 % des achats réseau (`ventesClientAutresAgences`, ou lignes EXTÉRIEUR Qlik si chargé ; même fenêtre des deux côtés). Plus de score /100 (`score` = part comptoir, compat). NE PAS revenir à `ventesLocalHorsMag` : filtré par la période au parsing et non recalculé ensuite.
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
+    **Exclusion invendus** (oct. 2026) : un article EN STOCK sans aucune vente locale (`isInvendu()` engine.js : W=0, stock>0, hors nouveauté/père) ne reçoit ni Vitesse Réseau ni médiane ERP — l'historique local nul prime.
+20. **Bouclier Squelette** (`applyVerdictOverrides`, engine.js) : un challenger (référencé, W=0) n'est « incontournable » (→ Réf Schizo) que si le réseau le vend vraiment : ≥60 % des autres agences ET ≥200 € de CA moyen par agence vendeuse (`SQ_RESEAU_FORT_*`, constants.js). Tous les challengers passent à MIN/MAX 0/0, Réf Schizo comprise (alerte gardée, pas de réappro) ; seule l'Ancre Métier (Trahison pardonnée, top 5/famille) garde 1/1. Même exigence « réseau fort » pour un article *à surveiller* étiqueté incontournable (Alerte Rouge → « Incontournable qui ralentit »), sauf incontournable local (ABC A + W≥12). Affichage : 16 verdicts internes → 9 libellés en clair (`verdictLabel()`, engine.js).
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
 15. **Filtre Fin de Vie** : un article ne peut PAS être classé "implanter" dans le squelette si (a) son statut ERP contient "fin de série"/"fin de stock", OU (b) TOUTES les agences réseau qui le vendent ont MIN/MAX = 0/0 dans `stockParMagasin` (= produit bloqué nationalement). Exception : s'il est physiquement en stock local, il reste visible (classé challenger/poids mort pour la purge).
 19. **nbClientsPDV squelette — pleine période** : `computeSquelette()` utilise `_S.articleClientsFull` (Map<code, Set<cc>>, pleine période 12MG, hoisté hors filtre période) pour calculer `nbClientsPDV`. NE PAS utiliser `articleClients` (period-filtered) ni `clientsMagasin` (period-filtered). Même pattern que `ventesLocalMag12MG` pour `caAnnuel`.
@@ -283,13 +317,15 @@ Niveaux du diagnostic :
 
 | Onglet | Source principale | Description |
 |---|---|---|
-| Articles | finalData | Tableau filtrable, MIN/MAX, ABC/FMR, export CSV |
+| La partie (accueil) | finalData + computeSquelette + _byMonth | Score agence /100 = moyenne Assortiment + Stock + Clients, actions « +N pts », familles notées, courbe de progression |
+| Base articles | finalData | La base (hors Pilotage Stock) : tableau filtrable, MIN/MAX, dernière vente (consommé), export CSV ; bandeau de contexte quand on arrive filtré depuis une décision |
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
-| Le Terrain | Tous fichiers | Canal, chalandise, cockpit client, benchmark commercial |
+| Conquête Terrain (« Ton territoire ») | chalandise + consommé | 4 chiffres (zone, actifs Leg., clients agence, à capter) + tableau direction → métier → secteur → clients trié par « à capter » (actifs Leg. non clients agence, aggregateACapter) ; clic = liste + CSV |
+| Animation | catalogue marques + consommé réseau | Préparer une animation (marque → rayon prêt → qui inviter) ; Associations |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
-| Promo | consommé | Recherche article multi-agences, mode action, tournée |
+| Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée) ; « Ses spécialités » = ex-Pépites réseau d'Animation. Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
 
 ---
 
@@ -338,7 +374,17 @@ Réflexion stratégique sur claude.ai
   → Merge PR → GitHub Pages auto-deploy
 ```
 
+### Contrôle avant mise en ligne
+`controle.html` (racine) : ouvre l'appli en iframe, recharge les fichiers (`_testdata/` en local ou fichiers
+choisis), passe sur les 9 écrans + fiche client, fiche article, Plan famille, Animation marque, Duel spécialités,
+relève les erreurs console et compare le score La partie à la référence (AG22 : 84 = 84 / 87 / 82).
+À lancer après chaque modification. Même origine que l'appli : recharger les fichiers remplace la session.
+
 ### Conventions de code
+- **Versions des modules** : une seule valeur `ASSET_V` dans `index.html` (import map générée en tête de page).
+  La changer à chaque mise en ligne d'un fichier JS. Les `import` restent SANS `?v=` (sinon double instance
+  du module). Nouveau fichier `js/*.js` → l'ajouter à la liste `F` de l'import map. Les Web Workers
+  reprennent la version via `import.meta.url` de main.js.
 - ESM natif strict mode (`'use strict'`)
 - Pas de classes, fonctions nommées
 - Mutations uniquement via `_S.xxx` — jamais via DataStore
@@ -367,10 +413,12 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Restaurée au démarrage via `_initFromCache()` dans main.js
 - Exclue si `_S.selectedMyStore` est vide (évite contamination)
 - Exclusions cockpit sauvegardées séparément (pas de TTL)
+- **Base `PRISME_PARTIE`** (séparée, v1, store `kv`) : historique des scores `hist|<store>` + actions cochées `done|<store>|<dataKey>`.
+  Séparée pour survivre aux purges de session ET pour ne pas monter la version de `PRISME` (scan.html ouvre `PRISME` en v2 sur la même origine — une montée de version casserait le Scan).
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
-`finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`,
+`finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`, `ventesLocalHorsMagFull`,
 `caClientParStore`, `chalandiseData`, `ventesTerrain`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
 `benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
@@ -382,7 +430,8 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 |---|---|---|
 | `resetAppState()` | state.js | Reset complet → `null` |
 | `applyPeriodFilter(start,end)` | main.js | **Setter unique runtime** — refilter + render + save IDB |
-| `_postParseMain()` | main.js | Init post-parse → mois récent si pas déjà set |
+| `_postParseMain()` | main.js | Init post-parse → 12 mois glissants complets (`defaultPeriodRange`, utils.js) si pas déjà set |
+| `_initFromCache()` | main.js | Session à l'ancien défaut « mois en cours » < 15 j de données → `applyPeriodFilter(12 mois)` |
 | `_restoreSessionFromIDB()` | cache.js | Hydratation au démarrage |
 
 **NE PAS écrire `_S.periodFilterStart/End` ailleurs.** Toute mutation user doit passer par `applyPeriodFilter()`.
@@ -427,6 +476,7 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 | `computeAnimation()` | `ventesLocalMag12MG` | Ciblage marque/conquête |
 | `computeFamillesHors()` | `ventesLocalMag12MG` | Fuite par famille |
 | `computeMonRayon()` | `ventesLocalMag12MG` | Clients par famille |
+| `computePerfEmplacement()` (emplacement.js) | `ventesLocalMag12MG` / `articleClientsFull` | Garder / libérer un emplacement |
 
 ---
 

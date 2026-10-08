@@ -10,6 +10,7 @@ import { formatEuro, famLib, escapeHtml } from './utils.js';
 import { FAM_LETTER_UNIVERS } from './constants.js';
 import { buildAgenceStore, getAgenceStoreKey } from './agence-store.js';
 import { getCaClientParStoreMap } from './sales.js';
+import { computePepitesStore } from './pepites.js';
 
 // ── État local ──
 let _duelTarget = '';
@@ -25,6 +26,8 @@ let _duelOpenMetier = '';
 let _duelMetierTab = 'partages'; // partages | conquete | fideles
 // _duelClientsTab supprimé — Opportunités clients déplacées vers poches Conquête Terrain
 let _duelAuditOpen = false;
+let _pepMode = 'all';   // 'all' | 'absent' | 'excl'
+let _pepOpen = false;
 
 // Cache local (évite de re-parcourir 40k clients à chaque re-render sur un simple toggle UI)
 
@@ -111,6 +114,10 @@ function _getPeriodClientSetForStore(store) {
 // ═══════════════════════════════════════════════════════════════
 // computeDuel — calcule le comparatif entre deux agences
 // ═══════════════════════════════════════════════════════════════
+// Coefficient de taille : CA de l'agence comparée ramené à la taille de la mienne.
+// Sans lui, face à une agence plus grosse, tout ressort « en retard » par simple effet de taille.
+let _duelK = 1;
+
 function _computeDuel(myStore, targetStore) {
   _ensureDuelAgenceStore();
   const myRec = _S.agenceStore.get(myStore);
@@ -119,6 +126,7 @@ function _computeDuel(myStore, targetStore) {
 
   const artFam = _S.articleFamille || {};
   const spm = _S.stockParMagasin || {};
+  const k = myRec.ca > 0 && tgtRec.ca > 0 ? myRec.ca / tgtRec.ca : 1;
 
   // ── Agrégation par famille ──
   const famMap = {};
@@ -169,8 +177,9 @@ function _computeDuel(myStore, targetStore) {
     const univers = FAM_LETTER_UNIVERS[letter] || 'Autre';
     familles.push({
       fam, label: famLib(fam), univers,
-      ecart: d.tgtCA - d.myCA,
-      ecartPct: d.myCA > 0 ? Math.round((d.tgtCA - d.myCA) / d.myCA * 100) : (d.tgtCA > 0 ? 999 : 0),
+      ecart: d.tgtCA * k - d.myCA,           // à taille égale
+      ecartBrut: d.tgtCA - d.myCA,
+      ecartPct: d.myCA > 0 ? Math.round((d.tgtCA * k - d.myCA) / d.myCA * 100) : (d.tgtCA > 0 ? 999 : 0),
       ...d
     });
   }
@@ -187,15 +196,17 @@ function _computeDuel(myStore, targetStore) {
   }
   const univers = Object.entries(universMap).map(([nom, d]) => ({
     nom,
-    ecart: d.tgtCA - d.myCA,
+    ecart: d.tgtCA * k - d.myCA,             // = (mix lui − mix moi) × mon CA
+    ecartBrut: d.tgtCA - d.myCA,
     myPct: myRec.ca > 0 ? d.myCA / myRec.ca * 100 : 0,
     tgtPct: tgtRec.ca > 0 ? d.tgtCA / tgtRec.ca * 100 : 0,
     ...d
   })).sort((a, b) => b.ecart - a.ecart);
 
   const metiers = _computeMetierMix(myStore, targetStore);
+  for (const m of metiers) m.gap = (m.tgtCA || 0) * k - (m.myCA || 0); // à taille égale
 
-  return { my: myRec, tgt: tgtRec, familles, univers, metiers };
+  return { my: myRec, tgt: tgtRec, familles, univers, metiers, k };
 }
 
 function _getCachedDuel(myStore, targetStore) {
@@ -302,9 +313,14 @@ export function renderDuelTab() {
     return;
   }
 
-  const otherStores = [...stores].filter(s => s !== myStore).sort();
+  _ensureDuelAgenceStore();
+  const caOf = (st) => _S.agenceStore?.get(st)?.ca || 0;
+  const myCA = caOf(myStore);
+  const otherStores = [...stores].filter(s => s !== myStore).sort((a, b) => caOf(b) - caOf(a));
+  // Agence la plus comparable = la plus proche en taille (écart de CA relatif minimal)
+  const closest = [...otherStores].sort((a, b) => Math.abs(Math.log((caOf(a) || 1) / (myCA || 1))) - Math.abs(Math.log((caOf(b) || 1) / (myCA || 1))))[0] || '';
   if (!_duelTarget || !stores.has(_duelTarget) || _duelTarget === myStore) {
-    _duelTarget = otherStores[0] || '';
+    _duelTarget = closest || otherStores[0] || '';
   }
   if (!_duelTarget) {
     el.innerHTML = '<div class="p-8 text-center t-secondary">Aucune autre agence disponible.</div>';
@@ -321,18 +337,21 @@ export function renderDuelTab() {
 
   const html = [];
 
-  // ── Header : sélecteur + titre ──
-  html.push(`<div class="flex items-center gap-3 mb-5 flex-wrap">
-    <div class="flex items-center gap-2">
-      <span class="font-bold text-lg" style="color:var(--c-action)">${escapeHtml(myStore)}</span>
-      <span class="t-secondary text-sm font-medium">vs</span>
-      <select id="duelTargetSelect" onchange="window._duelSelectTarget(this.value)" class="p-2 border-2 b-dark rounded-lg text-sm font-bold t-primary s-card">
-        ${otherStores.map(s => `<option value="${s}"${s === _duelTarget ? ' selected' : ''}>${s}</option>`).join('')}
+  _duelK = duel.k || 1;
+  const _M = (v) => (v / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' M€';
+  const _size = (st) => { const r = myCA ? caOf(st) / myCA - 1 : 0; return `${r >= 0 ? '+' : ''}${Math.round(r * 100)} %`; };
+  // ── En-tête : qui contre qui, à taille égale ──
+  html.push(`<header class="pt-col" style="gap:6px;margin-bottom:18px">
+    <span class="pt-eyebrow">Duel agence</span>
+    <div class="pt-row" style="gap:12px;flex-wrap:wrap;align-items:center">
+      <h2 class="pt-h2" style="font-size:28px">${escapeHtml(myStore)} <span class="pt-muted" style="font-weight:400">contre</span></h2>
+      <select id="duelTargetSelect" class="pf-select" style="font-size:16px;font-weight:600" onchange="window._duelSelectTarget(this.value)">
+        ${otherStores.map(st => `<option value="${st}"${st === _duelTarget ? ' selected' : ''}>${st} · ${_M(caOf(st))} · ${_size(st)} vs toi${st === closest ? ' · la plus comparable' : ''}</option>`).join('')}
       </select>
     </div>
-    <div class="flex-1"></div>
-    <span class="text-xs t-disabled">Période : ${escapeHtml(_periodLabel())}</span>
-  </div>`);
+    <span class="pt-small pt-muted">${escapeHtml(myStore)} : ${_M(myCA)} · ${escapeHtml(_duelTarget)} : ${_M(caOf(_duelTarget))} · période ${escapeHtml(_periodLabel())}.
+      Écarts calculés <strong style="color:var(--t-primary)">à taille égale</strong> : le CA de ${escapeHtml(_duelTarget)} est ramené à ta taille (× ${(_duelK).toLocaleString('fr-FR', { maximumFractionDigits: 2 })}), pour ne garder que les différences de mix.</span>
+  </header>`);
 
   html.push(_buildDataHealthNotice(myStore, _duelTarget));
 
@@ -340,6 +359,8 @@ export function renderDuelTab() {
   const decision = _decisionModel(duel, myStore, _duelTarget);
   html.push(_buildDecisionCockpit(decision, myStore, _duelTarget));
   html.push(_buildDecisionEvidence(decision));
+  html.push(_buildPepites(myStore, _duelTarget));
+  html.push(_buildReseauTable(myStore, _duelTarget));
   html.push(_buildAuditDetails(duel, myStore, _duelTarget));
 
   el.innerHTML = html.join('');
@@ -354,12 +375,6 @@ function _jsArg(s) {
 
 function _signedEuro(v) {
   return `${v > 0 ? '+' : ''}${formatEuro(v || 0)}`;
-}
-
-function _walletPct(myCA, tgtCA) {
-  const total = (myCA || 0) + (tgtCA || 0);
-  if (total <= 0) return null;
-  return Math.round((myCA || 0) / total * 100);
 }
 
 function _getUniverseBuyerMetrics(universeName, myStore, tgtStore, universeRow) {
@@ -395,17 +410,17 @@ function _decisionModel(duel, myStore, tgtStore) {
     : [];
 
   const metiersRaw = (duel.metiers || [])
-    .filter(m => m.metier !== 'Hors zone' && m.metier !== 'Non renseigné' && (m.tgtCA - m.myCA) > 0);
+    .filter(m => m.metier !== 'Hors zone' && m.metier !== 'Non renseigné' && m.gap > 0);
   let focusMetiers = focusUniverse ? metiersRaw.filter(m => _metierMatchesUniverse(m.metier, focusUniverse.nom)) : metiersRaw;
   if (!focusMetiers.length) focusMetiers = metiersRaw;
   focusMetiers = focusMetiers
-    .sort((a, b) => (b.tgtCA - b.myCA) - (a.tgtCA - a.myCA))
+    .sort((a, b) => b.gap - a.gap)
     .slice(0, 5);
 
   const universeGap = focusUniverse?.ecart || 0;
   const familyGap = focusFams.reduce((s, f) => s + Math.max(f.ecart || 0, 0), 0);
   const missingRefs = focusFams.reduce((s, f) => s + (f.missing?.count || 0), 0);
-  const metierGap = focusMetiers.reduce((s, m) => s + Math.max((m.tgtCA || 0) - (m.myCA || 0), 0), 0);
+  const metierGap = focusMetiers.reduce((s, m) => s + Math.max(m.gap || 0, 0), 0);
   const topFam = focusFams[0] || null;
   const topMetier = focusMetiers[0] || null;
   const mixGapPts = focusUniverse ? focusUniverse.tgtPct - focusUniverse.myPct : 0;
@@ -442,165 +457,129 @@ function _decisionModel(duel, myStore, tgtStore) {
   };
 }
 
-function _miniBar(myVal, tgtVal) {
-  const max = Math.max(Math.abs(myVal || 0), Math.abs(tgtVal || 0), 1);
-  const myW = Math.round(Math.abs(myVal || 0) / max * 100);
-  const tgtW = Math.round(Math.abs(tgtVal || 0) / max * 100);
-  return `<div class="flex items-center gap-0.5 h-3">
-    <div class="flex-1 flex justify-end"><div class="h-2 rounded-sm" style="width:${myW}%;background:var(--c-action);opacity:.75;min-width:${myW ? '2px' : '0'}"></div></div>
-    <div class="w-px h-3" style="background:var(--b-dark)"></div>
-    <div class="flex-1"><div class="h-2 rounded-sm bg-gray-400" style="width:${tgtW}%;opacity:.55;min-width:${tgtW ? '2px' : '0'}"></div></div>
-  </div>`;
-}
-
 function _buildDecisionCockpit(m, myStore, tgtStore) {
   const u = m.focusUniverse;
-  const confColor = m.confidence === 'forte' ? '#22c55e' : m.confidence === 'moyenne' ? '#f59e0b' : '#94a3b8';
-  const wallet = u ? _walletPct(u.myCA, u.tgtCA) : null;
+  const confColor = m.confidence === 'forte' ? 'var(--pt-high)' : m.confidence === 'moyenne' ? 'var(--pt-mid)' : 'var(--t-disabled)';
   const bm = m.buyerMetrics;
-  const buyerHint = bm?.available
-    ? `${bm.myBuyers} acheteurs moi · ${bm.tgtBuyers} lui`
-    : 'Recharge les fichiers pour activer les acheteurs par agence';
-
-  const kpiCards = [
-    {
-      label: 'Retard univers',
-      value: u ? _signedEuro(u.ecart) : '—',
-      hint: u ? `${u.myPct.toFixed(0)}% mix moi · ${u.tgtPct.toFixed(0)}% lui` : 'Pas de retard positif',
-      color: u?.ecart > 0 ? '#ef4444' : '#94a3b8',
-    },
-    {
-      label: 'Acheteurs 12MG',
-      value: bm?.available ? `${bm.myBuyers} → ${bm.tgtBuyers}` : '—',
-      hint: buyerHint,
-      color: '#22c55e',
-    },
-    {
-      label: 'CA PDV / acheteur',
-      value: bm?.available ? `${formatEuro(bm.myAvg)} → ${formatEuro(bm.tgtAvg)}` : '—',
-      hint: bm?.available ? `écart ${_signedEuro(bm.tgtAvg - bm.myAvg)} par acheteur` : 'Index acheteurs non disponible',
-      color: '#06b6d4',
-    },
-    {
-      label: 'Familles à soutenir',
-      value: m.focusFams.length ? String(m.focusFams.length) : '—',
-      hint: m.topFam ? `${escapeHtml(m.topFam.label || m.topFam.fam)} · ${_signedEuro(m.topFam.ecart)}` : 'Pas de famille porteuse',
-      color: '#3b82f6',
-    },
-    {
-      label: 'Métiers concernés',
-      value: m.focusMetiers.length ? String(m.focusMetiers.length) : '—',
-      hint: m.topMetier ? `${escapeHtml(m.topMetier.metier)} · ${_signedEuro(m.topMetier.tgtCA - m.topMetier.myCA)}` : 'Pas de métier explicatif',
-      color: '#f59e0b',
-    },
-  ].map(c => `<div class="rounded-lg border p-3" style="border-color:var(--b-light);background:rgba(255,255,255,.02)">
-    <div class="text-[10px] uppercase font-bold t-disabled mb-1">${c.label}</div>
-    <div class="text-lg font-extrabold" style="color:${c.color}">${c.value}</div>
-    <div class="text-[10px] t-secondary mt-1 truncate" title="${escapeHtml(c.hint)}">${c.hint}</div>
-  </div>`).join('');
-
-  return `<div class="rounded-xl border mb-5 overflow-hidden" style="background:linear-gradient(135deg,rgba(59,130,246,.10),rgba(15,23,42,.55));border-color:rgba(96,165,250,.28)">
-    <div class="p-5 border-b" style="border-color:var(--b-light)">
-      <div class="flex items-start gap-4 flex-wrap">
-        <div class="flex-1 min-w-[260px]">
-          <div class="text-[10px] uppercase tracking-wide font-bold t-disabled mb-1">Décision recommandée</div>
-          <h2 class="text-xl font-extrabold t-primary leading-tight">${escapeHtml(m.headline)}</h2>
-          <p class="text-[12px] t-secondary mt-1">${escapeHtml(m.decision)}</p>
-        </div>
-        <div class="text-right">
-          <div class="text-[10px] uppercase font-bold t-disabled mb-1">Confiance</div>
-          <div class="text-sm font-extrabold" style="color:${confColor}">${escapeHtml(m.confidence)}</div>
-          <div class="text-[10px] t-disabled">${escapeHtml(myStore)} vs ${escapeHtml(tgtStore)}</div>
-        </div>
+  const k = _duelK || 1;
+  const cards = [
+    { label: 'Retard à taille égale', value: u ? _signedEuro(u.ecart) : '—', color: u?.ecart > 0 ? 'var(--pt-low)' : 'var(--t-disabled)',
+      hint: u ? `${escapeHtml(u.nom)} : ${u.myPct.toFixed(1)} % de ton CA, ${u.tgtPct.toFixed(1)} % chez ${escapeHtml(tgtStore)}` : 'Aucun univers en retard' },
+    { label: 'Acheteurs de l’univers', value: bm?.available ? `${bm.myBuyers} → ${Math.round(bm.tgtBuyers * k)}` : '—', color: 'var(--t-primary)',
+      hint: bm?.available ? `toi → ${escapeHtml(tgtStore)} ramené à ta taille (${bm.tgtBuyers} en réel)` : 'Recharge les fichiers pour activer les acheteurs' },
+    { label: 'CA par acheteur', value: bm?.available ? `${formatEuro(bm.myAvg)} → ${formatEuro(bm.tgtAvg)}` : '—', color: 'var(--t-primary)',
+      hint: bm?.available ? `écart ${_signedEuro(bm.tgtAvg - bm.myAvg)} par acheteur` : '' },
+    { label: 'Familles à travailler', value: m.focusFams.length ? String(m.focusFams.length) : '—', color: 'var(--t-link)',
+      hint: m.topFam ? `en tête : ${escapeHtml(m.topFam.label || m.topFam.fam)} ${_signedEuro(m.topFam.ecart)}` : '' },
+    { label: 'Métiers en cause', value: m.focusMetiers.length ? String(m.focusMetiers.length) : '—', color: 'var(--pt-mid)',
+      hint: m.topMetier ? `en tête : ${escapeHtml(m.topMetier.metier)} ${_signedEuro(m.topMetier.gap)}` : '' },
+  ].map(c => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
+      <span class="pt-eyebrow" style="font-size:11px">${c.label}</span>
+      <span class="pt-num" style="font-size:22px;font-weight:600;color:${c.color}">${c.value}</span>
+      <span class="pt-small pt-muted" style="line-height:1.35">${c.hint}</span>
+    </div>`).join('');
+  return `<section class="pt-card pt-col" style="gap:18px;margin-bottom:20px">
+    <div class="pt-row pt-between" style="gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <div class="pt-col" style="gap:4px;min-width:260px;flex:1">
+        <span class="pt-eyebrow">Ce que le duel dit</span>
+        <h3 class="pt-h2">${escapeHtml(m.headline)}</h3>
+        <span class="pt-muted">${escapeHtml(m.decision)}</span>
       </div>
-      <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-4">${kpiCards}</div>
+      <div class="pt-col" style="gap:2px;align-items:flex-end"><span class="pt-eyebrow">Confiance</span><span class="pt-strong" style="color:${confColor};font-size:18px">${escapeHtml(m.confidence)}</span></div>
     </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
-      <div class="p-4 lg:border-r" style="border-color:var(--b-light)">
-        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Pourquoi agir</div>
-        ${u ? `<div class="space-y-2">
-          <div class="flex items-center gap-2 text-[12px]">
-            <span class="t-secondary">Mix</span>
-            <span class="ml-auto font-mono t-primary">${u.myPct.toFixed(1)}% → ${u.tgtPct.toFixed(1)}%</span>
-            <span class="font-bold text-red-400">${m.mixGapPts > 0 ? '+' : ''}${m.mixGapPts.toFixed(1)} pts</span>
-          </div>
-          ${_miniBar(u.myCA, u.tgtCA)}
-          <div class="text-[11px] t-secondary">Part captée dans le duel : <strong class="t-primary">${wallet == null ? '—' : wallet + '%'}</strong></div>
-          ${m.topFam ? `<div class="text-[11px] t-secondary">Première famille : <button class="font-bold t-primary hover:underline" onclick="window._duelOpenPlanFam('${_jsArg(u.nom)}','${_jsArg(m.topFam.fam)}')">${escapeHtml(m.topFam.label || m.topFam.fam)}</button> <span class="text-red-400">${_signedEuro(m.topFam.ecart)}</span></div>` : ''}
-        </div>` : '<div class="text-[11px] t-disabled">Pas d’univers prioritaire détecté.</div>'}
-      </div>
-
-      <div class="p-4 lg:border-r" style="border-color:var(--b-light)">
-        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Ce que ça prouve</div>
-        <div class="space-y-2 text-[11px]">
-          <div class="rounded-md p-2" style="background:rgba(239,68,68,.08);color:#fca5a5">Retard CA : <strong>${_signedEuro(m.universeGap)}</strong> sur l'univers.</div>
-          ${bm?.available ? `<div class="rounded-md p-2" style="background:rgba(6,182,212,.08);color:#67e8f9">Transformation : <strong>${bm.myBuyers}</strong> acheteurs moi vs <strong>${bm.tgtBuyers}</strong> lui · <strong>${formatEuro(bm.myAvg)}</strong> vs <strong>${formatEuro(bm.tgtAvg)}</strong>/acheteur.</div>` : ''}
-          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac">Mix : <strong>${m.mixGapPts > 0 ? '+' : ''}${m.mixGapPts.toFixed(1)} pts</strong> vs agence cible.</div>
-          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd">Assortiment : <strong>${m.focusFams.length}</strong> familles à travailler.</div>
-        </div>
-      </div>
-
-      <div class="p-4">
-        <div class="text-[10px] uppercase font-bold t-disabled mb-2">Plan court</div>
-        <div class="space-y-2 text-[11px]">
-          <div class="rounded-md p-2" style="background:rgba(34,197,94,.08);color:#86efac"><strong>Décider</strong> : oui/non sur un chantier magasin ${u ? escapeHtml(u.nom) : ''}.</div>
-          <div class="rounded-md p-2" style="background:rgba(59,130,246,.08);color:#93c5fd"><strong>Construire</strong> : kit court par familles, pas liste de refs isolées.</div>
-          <div class="rounded-md p-2" style="background:rgba(245,158,11,.08);color:#fcd34d"><strong>Exécuter</strong> : détail clients/commerciaux dans Conquête.</div>
-        </div>
-      </div>
-    </div>
-  </div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">${cards}</div>
+  </section>`;
 }
 
 function _buildDecisionEvidence(m) {
-  const famRows = m.focusFams.slice(0, 5).map(f => {
+  const famRows = m.focusFams.slice(0, 6).map(f => {
     const miss = f.missing || { count: 0, top: [] };
-    const codes = miss.top.map(a => a.code).join(', ');
-    return `<button class="w-full text-left py-2 px-2 rounded-md hover:bg-gray-800 transition-colors" onclick="window._duelOpenPlanFam('${_jsArg(m.focusUniverse?.nom || '')}','${_jsArg(f.fam)}')">
-      <div class="flex gap-2 items-center">
-        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(f.label || f.fam)}</span>
-        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${_signedEuro(f.ecart)}</span>
+    return `<div class="pt-row" style="gap:12px;padding:10px 4px;border-top:1px solid var(--pt-line)">
+      <div class="pt-col pt-grow" style="gap:2px">
+        <button type="button" class="pt-link pt-strong" style="padding:0;text-align:left;color:var(--t-primary)" onclick="window._duelOpenPlanFam('${_jsArg(m.focusUniverse?.nom || '')}','${_jsArg(f.fam)}')" title="Voir les articles qu'il vend et pas toi">${escapeHtml(f.label || f.fam)}</button>
+        <span class="pt-small pt-muted">${miss.count} article${miss.count > 1 ? 's' : ''} qu’il vend et pas toi · <button type="button" class="pt-link pt-small" style="padding:0" onclick="window._pfOpen?.('${_jsArg(f.fam)}')">ouvrir dans le Plan</button></span>
       </div>
-      <div class="text-[10px] t-disabled truncate">${miss.count} refs absentes${codes ? ` · ${escapeHtml(codes)}` : ''}</div>
-    </button>`;
-  }).join('');
-
-  const metierRows = m.focusMetiers.slice(0, 5).map(mt => {
-    const gap = mt.tgtCA - mt.myCA;
-    const cGap = mt.tgtClients - mt.myClients;
-    return `<div class="py-2 px-2 rounded-md" style="background:rgba(255,255,255,.02)">
-      <div class="flex gap-2 items-center">
-        <span class="text-[12px] font-semibold t-primary truncate">${escapeHtml(mt.metier)}</span>
-        <span class="ml-auto text-[12px] font-mono font-bold text-red-400">${_signedEuro(gap)}</span>
-      </div>
-      <div class="text-[10px] t-disabled">${mt.myClients} clients moi · ${mt.tgtClients} lui${cGap > 0 ? ` · +${cGap} clients` : ''}</div>
+      <span class="pt-num pt-strong" style="color:var(--pt-low)">${_signedEuro(f.ecart)}</span>
     </div>`;
   }).join('');
+  const metierRows = m.focusMetiers.slice(0, 6).map(mt => {
+    const cGap = Math.round(mt.tgtClients * (_duelK || 1)) - mt.myClients;
+    return `<div class="pt-row" style="gap:12px;padding:10px 4px;border-top:1px solid var(--pt-line)">
+      <div class="pt-col pt-grow" style="gap:2px">
+        <span class="pt-strong">${escapeHtml(mt.metier)}</span>
+        <span class="pt-small pt-muted">${mt.myClients} client${mt.myClients > 1 ? 's' : ''} chez toi · ${mt.tgtClients} chez lui${cGap > 0 ? ` (≈ ${cGap} de plus à taille égale)` : ''}</span>
+      </div>
+      <span class="pt-num pt-strong" style="color:var(--pt-low)">${_signedEuro(mt.gap)}</span>
+    </div>`;
+  }).join('');
+  return `<section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;margin-bottom:20px">
+    <div class="pt-card pt-col" style="gap:6px">
+      <div class="pt-row pt-between" style="gap:8px;align-items:baseline"><h3 class="pt-h3">Familles à ouvrir</h3><span class="pt-small pt-muted">${m.focusUniverse ? escapeHtml(m.focusUniverse.nom) : ''} · retard à taille égale</span></div>
+      ${famRows || '<p class="pt-small pt-muted" style="margin:8px 0 0">Aucune famille prioritaire.</p>'}
+    </div>
+    <div class="pt-card pt-col" style="gap:6px">
+      <div class="pt-row pt-between" style="gap:8px;align-items:baseline"><h3 class="pt-h3">Métiers qui expliquent l’écart</h3><span class="pt-small pt-muted">clients de ta zone</span></div>
+      ${metierRows || '<p class="pt-small pt-muted" style="margin:8px 0 0">Aucun métier discriminant.</p>'}
+    </div>
+  </section>`;
+}
 
-  return `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
-    <div class="s-card rounded-xl border p-4">
-      <div class="flex items-center gap-2 mb-3">
-        <h3 class="text-sm font-bold t-primary">Familles à ouvrir</h3>
-        <span class="ml-auto text-[10px] t-disabled">${m.focusUniverse ? escapeHtml(m.focusUniverse.nom) : ''}</span>
-      </div>
-      ${famRows || '<div class="text-[11px] t-disabled py-4">Aucune famille prioritaire.</div>'}
+/** Ses spécialités : ce que l'agence comparée vend ≥ 2× la médiane réseau (ex-« Pépites réseau » d'Animation). */
+function _buildPepites(myStore, tgtStore) {
+  const p = computePepitesStore(tgtStore, myStore);
+  if (!p) return '';
+  const absent = p.specialites.filter(a => !a.caMe);
+  const list = _pepMode === 'excl' ? p.exclusifs : _pepMode === 'absent' ? absent : p.specialites;
+  const chip = (k, label, n) => `<button type="button" class="ar-chip${_pepMode === k ? ' ar-chip-on' : ''}" onclick="window._duelPepMode('${k}')">${label} <span class="pt-num">${n}</span></button>`;
+  const rows = list.slice(0, 25).map(a => `<tr class="ar-click" onclick="window.openArticlePanel?.('${a.code}','duel')">
+      <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(a.lib)}</span><span class="pt-small pt-muted pt-num">${a.code} · ${escapeHtml(a.fam || '')}</span></div></td>
+      <td class="pt-num ar-r">${formatEuro(a.caStore)}</td>
+      <td class="pt-num ar-r">${a.caMe ? formatEuro(a.caMe) : '<span class="ar-tag" data-tone="low">jamais</span>'}</td>
+      <td class="pt-num ar-r pt-muted">${a.median != null ? formatEuro(a.median) : 'seule agence'}</td>
+      <td class="pt-num ar-r pt-strong">${a.ratio != null ? `×${String(a.ratio).replace('.', ',')}` : '—'}</td>
+    </tr>`).join('');
+  return `<details class="ar-sec" style="margin-bottom:20px"${_pepOpen ? ' open' : ''} ontoggle="window._duelPepOpenSet(this.open)">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Ses spécialités</span><span class="pt-small pt-muted">${p.specialites.length} articles que ${escapeHtml(tgtStore)} vend au moins 2× plus que la médiane réseau · ${absent.length} que tu ne vends pas · comptoir, ${p.filtered ? 'période choisie' : '12 mois'}</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body">
+      <div class="pt-row" style="gap:8px;flex-wrap:wrap">${chip('all', 'Toutes', p.specialites.length)}${chip('absent', 'Que tu ne vends pas', absent.length)}${chip('excl', 'Vendus seulement chez lui', p.exclusifs.length)}</div>
+      ${list.length ? `<div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
+        <thead><tr><th>Article</th><th class="ar-r">Chez ${escapeHtml(tgtStore)}</th><th class="ar-r">Chez toi</th><th class="ar-r">Médiane réseau</th><th class="ar-r">Écart</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>
+        ${list.length > 25 ? `<span class="pt-small pt-muted">25 premiers sur ${list.length}, triés par écart à la médiane.</span>` : ''}`
+      : '<p class="pt-small pt-muted" style="margin:0">Rien pour ce filtre.</p>'}
     </div>
-    <div class="s-card rounded-xl border p-4">
-      <div class="flex items-center gap-2 mb-3">
-        <h3 class="text-sm font-bold t-primary">Métiers qui expliquent l’écart</h3>
-      </div>
-      <div class="space-y-2">${metierRows || '<div class="text-[11px] t-disabled py-4">Aucun métier discriminant.</div>'}</div>
-    </div>
-  </div>`;
+  </details>`;
+}
+
+/** Le réseau en un tableau : pour situer ton agence et choisir avec qui te comparer. */
+function _buildReseauTable(myStore, tgtStore) {
+  const rows = [..._S.agenceStore.values()].filter(r => r.ca > 0).sort((a, b) => b.ca - a.ca);
+  const my = _S.agenceStore.get(myStore);
+  const tr = rows.map((r, i) => {
+    const me = r.code === myStore, tg = r.code === tgtStore;
+    const size = my?.ca ? Math.round((r.ca / my.ca - 1) * 100) : 0;
+    return `<tr class="${me ? '' : 'ar-click'}${tg ? ' pt-next' : ''}" ${me ? '' : `onclick="window._duelSelectTarget('${_jsArg(r.code)}')"`}>
+      <td class="pt-num pt-muted">${i + 1}</td>
+      <td><span class="pt-strong">${escapeHtml(r.code)}</span>${me ? ' <span class="ar-tag">toi</span>' : tg ? ' <span class="ar-tag" data-tone="mid">comparée</span>' : ''}</td>
+      <td class="pt-num ar-r">${formatEuro(r.ca)}</td>
+      <td class="pt-num ar-r">${me ? '—' : `${size >= 0 ? '+' : ''}${size} %`}</td>
+      <td class="pt-num ar-r">${(r.nbClients || 0).toLocaleString('fr-FR')}</td>
+      <td class="pt-num ar-r">${r.nbClients ? formatEuro(r.ca / r.nbClients) : '—'}</td>
+      <td class="pt-num ar-r">${r.txMarge != null ? (+r.txMarge).toFixed(1).replace('.', ',') + ' %' : '—'}</td>
+    </tr>`;
+  }).join('');
+  return `<details class="ar-sec" style="margin-bottom:20px">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Le réseau</span><span class="pt-small pt-muted">${rows.length} agences · clic sur une ligne = la comparer</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body"><div class="pt-list"><div class="pt-scroll"><table class="pt-table">
+      <thead><tr><th>#</th><th>Agence</th><th class="ar-r">CA</th><th class="ar-r">Taille vs toi</th><th class="ar-r">Clients</th><th class="ar-r">CA / client</th><th class="ar-r">Taux de marge</th></tr></thead>
+      <tbody>${tr}</tbody></table></div></div></div>
+  </details>`;
 }
 
 function _buildAuditDetails(duel, myStore, tgtStore) {
-  return `<details class="s-card rounded-xl border mb-5 overflow-hidden"${_duelAuditOpen ? ' open' : ''} ontoggle="window._duelAuditOpenSet(this.open)">
-    <summary class="cursor-pointer select-none p-4 text-sm font-bold t-primary">
-      Audit complet du duel <span class="text-xs font-normal t-disabled">KPIs, clients, métiers, univers, familles</span>
-    </summary>
-    <div class="px-4 pb-4">
+  return `<details class="ar-sec" style="margin-bottom:20px"${_duelAuditOpen ? ' open' : ''} ontoggle="window._duelAuditOpenSet(this.open)">
+    <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Audit complet</span><span class="pt-small pt-muted">Indicateurs côte à côte, métiers, univers, familles — écarts à taille égale</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
+    <div class="ar-sec-body pf-legacy">
       ${_buildKPIScorecard(duel, myStore, tgtStore)}
       ${_buildMetierSection(duel, myStore, tgtStore)}
       ${_buildUniversSection(duel, myStore, tgtStore)}
@@ -820,7 +799,7 @@ function _buildMetierSection(duel, myStore, tgtStore) {
   const otherMetiers = metiers.filter(m => m.metier === 'Hors zone' || m.metier === 'Non renseigné');
 
   // Tri par gap CA desc (là où il me bat le plus)
-  const sorted = [...mainMetiers.sort((a, b) => (b.tgtCA - b.myCA) - (a.tgtCA - a.myCA)), ...otherMetiers];
+  const sorted = [...mainMetiers.sort((a, b) => b.gap - a.gap), ...otherMetiers];
 
   // Filtrer : garder uniquement les métiers avec du signal (zone >= 5 OU CA > 0)
   const withSignal = sorted.filter(m => m.zoneTotal >= 5 || m.myCA > 0 || m.tgtCA > 0 || m.metier === 'Hors zone' || m.metier === 'Non renseigné');
@@ -834,7 +813,7 @@ function _buildMetierSection(duel, myStore, tgtStore) {
   const maxClients = Math.max(...withSignal.map(m => Math.max(m.myClients, m.tgtClients))) || 1;
 
   const rows = visible.map(m => {
-    const gapCA = m.tgtCA - m.myCA;
+    const gapCA = m.gap;
     const gapClients = m.tgtClients - m.myClients;
     const gapColor = gapCA > 0 ? 'text-red-500' : gapCA < 0 ? 'text-emerald-500' : 't-disabled';
     const isSpecial = m.metier === 'Hors zone' || m.metier === 'Non renseigné';
@@ -1372,7 +1351,7 @@ function _buildDrillDown(famCode) {
 
     articles.push({
       code, lib: libLookup[code] || '', cat,
-      myCA, tgtCA, ecart: tgtCA - myCA,
+      myCA, tgtCA, ecart: tgtCA * _duelK - myCA,
       myBL, tgtBL,
       myStkMin, myStkMax, tgtStkMin, tgtStkMax,
       myStocked: myHasStock, tgtStocked,
@@ -1498,12 +1477,6 @@ window._duelFilterUnivers = function(u) {
   renderDuelTab();
 };
 
-window._duelSetUnivers = function(u) {
-  _duelUniversFilter = u || '';
-  _duelOpenFam = '';
-  renderDuelTab();
-};
-
 window._duelOpenPlanFam = function(univers, fam) {
   _duelUniversFilter = univers || '';
   _duelOpenFam = fam || '';
@@ -1520,6 +1493,8 @@ window._duelToggleFam = function(fam) {
   renderDuelTab();
 };
 
+window._duelPepMode = function(k) { _pepMode = k; _pepOpen = true; renderDuelTab(); };
+window._duelPepOpenSet = function(isOpen) { _pepOpen = !!isOpen; };
 window._duelAuditOpenSet = function(isOpen) {
   _duelAuditOpen = !!isOpen;
 };

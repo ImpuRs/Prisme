@@ -44,7 +44,7 @@ _S._planCanalMagOnly = false;       // toggle "Comptoir uniquement" dans Plan
 _S.benchFamEcarts = {};             // fam → {mean, sigma, my} — pour badge divergence
 
 // ── Cockpit ──
-_S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+_S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
 _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
 _S.cockpitCounts = {};
 _S.blData = {};
@@ -74,7 +74,7 @@ _S._showHorsAgence = false; // dérivé de _clientView
 _S._showHorsZone   = false; // dérivé de _clientView
 _S._horsZonePage = 0; // 0=top5, >=1=page paginée (20/page) — Clients PDV hors zone
 _S._clientView = 'tous'; // 'tous' | 'potentiels' | 'captes' | 'horszone' | 'multicanaux'
-_S._omniSegmentFilter = ''; // '' | 'purComptoir' | 'purHors' | 'hybride' | 'full'
+_S._omniSegmentFilter = ''; // '' | 'comptoir' | 'mixte' | 'sansComptoir' | 'ailleurs'
 _S._captationFilter = ''; // '' | 'captes' | 'potentiels' | 'fideles'
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
@@ -131,7 +131,7 @@ _S._distanceMaxKm = 0; // 0 = pas de filtre distance
 export function _defaultTacticalFilters() {
   return { distanceMaxKm:0, selectedDepts:new Set(), selectedMetier:'', filterStrategiqueOnly:false, selectedClassifs:new Set(), selectedStatuts:new Set(), selectedActivitesPDV:new Set(), selectedStatutDetaille:'', includePerdu24m:false, selectedDirections:new Set(), selectedUnivers:new Set() };
 }
-_S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() };
+_S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters(), portefeuille: _defaultTacticalFilters() };
 _S._activeCommerceTab = '';  // 'commerce' | 'clients' — onglet tactique courant
 _S._cpCoords = null; // table CP → [lat, lon], chargée au démarrage
 _S._agenceCoords = null; // [lat, lon] de l'agence sélectionnée
@@ -156,6 +156,7 @@ _S.ventesLocalMag12MG = new Map();
 _S.ventesReseauTousCanaux = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesLocalHorsMag = new Map();
+_S.ventesLocalHorsMagFull = new Map(); // même structure, pleine période (fiche client, familles hors agence) — via sales.getVentesClientHorsMagFull
 // CA MAGASIN dans d'autres agences : cc → totalCA (comptoir ailleurs)
 _S.ventesClientAutresAgences = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
@@ -200,6 +201,15 @@ _S._overviewOpenL3 = null;
 
 // ── Lazy tab render cache ──
 _S._tabRendered = {}; // tabId → true once rendered; reset on filter change
+
+// ── La partie (partie.js) ──
+_S._webColEmpty = false; // Articles : colonne 🌐 sans aucun signal → masquée
+_S._tableContext = null; // bandeau Articles : { title, action, from } quand on arrive filtré depuis un écran de décision
+_S._partie = null;      // résultat computePartie() — recalculé à chaque rendu
+_S._partieSel = '';     // famille ouverte dans le panneau détail
+_S._partieCrit = -1;    // critère dont la liste d'articles est dépliée (-1 = aucun)
+_S._partieHist = [];    // historique des scores (PRISME_PARTIE)
+_S._partieDone = {};    // actions cochées « C'est fait » pour le jeu de données courant
 
 // ── Cache territoire par filtre canal ──────────────────────────────────────
 // Map<cacheKey, { dirHtml, top100Html, cliHtml, contribHtml, kpi[] }>
@@ -339,6 +349,7 @@ export function resetAppState() {
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set();
+  _S._webColEmpty = false; _S._tableContext = null; _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {};
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
@@ -349,7 +360,7 @@ export function resetAppState() {
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
   _S.selectedBenchBassin = new Set(); _S.benchFamEcarts = {}; _S._planCanalMagOnly = false; 
   // Cockpit
-  _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} }; _S.cockpitCounts = {};
+  _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} }; _S.cockpitCounts = {};
   _S.blData = {}; _S.parentRefsExcluded = 0; _S.globalJoursOuvres = 250;
 
   // ABC/FMR
@@ -372,7 +383,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesLocalMagPeriode = new Map(); _S.ventesLocalMag12MG = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesLocalHorsMag = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesLocalMagPeriode = new Map(); _S.ventesLocalMag12MG = new Map(); _S.ventesReseauTousCanaux = new Map(); _S.ventesLocalHorsMag = new Map(); _S.ventesLocalHorsMagFull = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.caClientParStore = {}; _S.clientsByStoreUnivers = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
@@ -389,7 +400,7 @@ export function resetAppState() {
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
   _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false; _S._filterHorsAgence = false; _S._terrClientSearch = ''; _S._distanceMaxKm = 0; _S._agenceCoords = null;
-  _S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() }; _S._activeCommerceTab = '';
+  _S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters(), portefeuille: _defaultTacticalFilters() }; _S._activeCommerceTab = '';
   _S._clientDominantUnivers = new Map();
   _S._clientsActiveTab = 'priorites';
   _S._hasStock = false;

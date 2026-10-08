@@ -9,16 +9,6 @@
 import { _S } from './state.js';
 
 /**
- * MAGASIN — période filtrée (période UI).
- *
- * Note : selon le canal global actif, ventesLocalMagPeriode peut être reconstruite
- * (ex: filtre canal hors-MAGASIN), donc c'est une "vue active" et non une source brute.
- */
-export function getVentesClientMagFiltered() {
-  return _S.ventesLocalMagPeriode;
-}
-
-/**
  * MAGASIN — pleine période (12MG), si disponible.
  * Fallback legacy : ventesLocalMagPeriode (anciennes sessions / caches).
  */
@@ -42,45 +32,6 @@ export function getCaClientParStoreMap(storeCode) {
   return m && m instanceof Map ? m : null;
 }
 
-/**
- * CA full période, tous canaux, pour un client (store donné ou agence sélectionnée).
- */
-export function getClientCAFullAllCanaux(cc, storeCode = '') {
-  if (!cc) return 0;
-  const sk = storeCode || _S.selectedMyStore || '';
-  const m = getCaClientParStoreMap(sk);
-  return m ? (m.get(cc) || 0) : 0;
-}
-
-/**
- * Helper : fact client×article.
- *
- * canal='MAGASIN' => ventesLocalMagPeriode / ventesLocalMag12MG
- * canal!='MAGASIN' => ventesLocalHorsMag (agrégé; pas de découpage mensuel aujourd'hui)
- *
- * @param {string} cc
- * @param {string} code
- * @param {{canal?: string, period?: 'filtered'|'full'}} [opts]
- * @returns {Object|null}
- */
-export function getClientArticleFact(cc, code, opts = {}) {
-  const { canal = 'MAGASIN', period = 'filtered' } = opts || {};
-  if (!cc || !code) return null;
-
-  if (!canal || canal === 'MAGASIN') {
-    const src = (period === 'full') ? getVentesClientMagFull() : getVentesClientMagFiltered();
-    return src?.get(cc)?.get(code) || null;
-  }
-
-  // Hors MAGASIN : le fact porte un .canal (dernier canal vu). Filtrage best-effort.
-  const hm = _S.ventesLocalHorsMag?.get(cc);
-  if (!hm) return null;
-  const fact = hm.get(code) || null;
-  if (!fact) return null;
-  if (fact.canal && canal && fact.canal !== canal) return null;
-  return fact;
-}
-
 // ── Mensuel / ranges ────────────────────────────────────────────────────
 
 export function monthIdxFromDate(d) {
@@ -94,33 +45,6 @@ export function monthRangeFromDates(dMin, dMax) {
   const max = monthIdxFromDate(dMax);
   if (min == null || max == null) return null;
   return min <= max ? { min, max } : { min: max, max: min };
-}
-
-/**
- * CA mensuel client×article — MAGASIN (myStore), depuis _byMonth.
- * Retourne null si la source mensuelle n'est pas disponible.
- */
-export function getClientArticleMagAggInMonthRange(cc, code, range, opts = {}) {
-  if (!cc || !code || !range) return null;
-  const months = _S._byMonth?.[cc]?.[code];
-  if (!months) return null;
-  const mode = opts.mode || 'all'; // 'all' | 'preleve' | 'enleve'
-  let sumCA = 0, sumPrelevee = 0, sumCAPrelevee = 0, countBL = 0;
-  for (const midxStr in months) {
-    const midx = +midxStr;
-    if (midx < range.min || midx > range.max) continue;
-    const d = months[midxStr];
-    if (!d) continue;
-    const ca = d.sumCA || 0;
-    const caP = d.sumCAPrelevee || 0;
-    if (mode === 'preleve') sumCA += caP;
-    else if (mode === 'enleve') sumCA += (ca - caP);
-    else sumCA += ca;
-    sumPrelevee += d.sumPrelevee || 0;
-    sumCAPrelevee += caP;
-    countBL += d.countBL || 0;
-  }
-  return { sumCA, sumPrelevee, sumCAPrelevee, countBL };
 }
 
 /**
@@ -269,71 +193,6 @@ export function buildArticleAggFromByMonth(range, opts = {}) {
   return res;
 }
 
-/**
- * CA client par canal dans une plage de mois, depuis _byMonthClientCAByCanal.
- * Retourne null si la source mensuelle n'est pas disponible (caches anciens / lowMem).
- *
- * canal='' => somme tous canaux (MAGASIN + hors-MAGASIN), en respectant magasinMode
- * (évite double comptage MAGASIN vs MAGASIN_PREL/MAGASIN_ENL).
- *
- * @param {string} cc
- * @param {string} canal ''|'MAGASIN'|'INTERNET'|'REPRESENTANT'|'DCS'|'AUTRE'|...
- * @param {{min:number,max:number}} range monthIdx inclusif
- * @param {{magasinMode?: 'all'|'preleve'|'enleve'}} [opts]
- * @returns {number|null}
- */
-export function getClientCAByCanalInMonthRange(cc, canal, range, opts = {}) {
-  if (!cc || !range) return null;
-  const src = _S._byMonthClientCAByCanal;
-  if (!src) return null;
-
-  const magasinMode = opts.magasinMode || 'all';
-  const canalKey = _effectiveCanalKeyForClientSets(canal, magasinMode);
-
-  let ca = 0;
-
-  // Canal spécifique
-  if (canalKey) {
-    for (const midxStr in src) {
-      const midx = +midxStr;
-      if (midx < range.min || midx > range.max) continue;
-      const cm = src[midxStr];
-      const m = cm ? cm[canalKey] : null;
-      if (!m) continue;
-      ca += m[cc] || 0;
-    }
-    return ca;
-  }
-
-  // Tous canaux : un seul "magasin key" selon le mode (évite double comptage)
-  const magKey = _effectiveCanalKeyForClientSets('MAGASIN', magasinMode) || 'MAGASIN';
-  for (const midxStr in src) {
-    const midx = +midxStr;
-    if (midx < range.min || midx > range.max) continue;
-    const cm = src[midxStr];
-    if (!cm) continue;
-    for (const c in cm) {
-      if (c === 'MAGASIN' || c === 'MAGASIN_PREL' || c === 'MAGASIN_ENL') {
-        if (c !== magKey) continue;
-      }
-      const m = cm[c];
-      if (!m) continue;
-      ca += m[cc] || 0;
-    }
-  }
-  return ca;
-}
-
-/**
- * CA client par canal sur la période courante (UI), depuis _byMonthClientCAByCanal.
- * @returns {number|null}
- */
-export function getClientCAByCanalInPeriod(cc, canal = '', opts = {}) {
-  const range = opts.range || getCurrentPeriodMonthRange();
-  if (!range) return null;
-  return getClientCAByCanalInMonthRange(cc, canal, range, opts);
-}
-
 // ── Clients actifs (période) depuis byMonthClients* ──────────────────────
 // Problème : quand on restaure depuis IDB et qu'on change la période, les
 // agrégats period-filtered (ex: ventesLocalHorsMag) ne sont pas
@@ -413,3 +272,71 @@ export function getClientsActiveSetInPeriod(canal = '', opts = {}) {
   _clientsActiveCache = { src, key, value: out };
   return out;
 }
+
+// ── Dernière vente par article (MAGASIN, myStore) ─────────────
+let _lastSaleCache = { bm: null, value: null };
+/** Map<code, monthIdx> du dernier mois avec au moins un BL (byMonth : client → article → mois). */
+export function getArticleLastSaleMonthIdx() {
+  const bm = _S._byMonth;
+  if (!bm) return null;
+  if (_lastSaleCache.bm === bm && _lastSaleCache.value) return _lastSaleCache.value;
+  const res = new Map();
+  for (const cc in bm) {
+    const arts = bm[cc];
+    if (!arts) continue;
+    for (const code in arts) {
+      const months = arts[code];
+      let best = res.get(code) ?? -1;
+      for (const m in months) if ((months[m]?.countBL || 0) > 0 && +m > best) best = +m;
+      if (best >= 0) res.set(code, best);
+    }
+  }
+  _lastSaleCache = { bm, value: res };
+  return res;
+}
+
+
+// ── Achats d'un client dans les autres agences du consommé ─────
+// Remplace le fichier Livraisons (Qlik) quand il est absent : le consommé multi-agences voit
+// les achats tous canaux des clients dans chaque agence qu'il couvre (historique chargé complet).
+
+/** [{ store, ca }] — CA du client dans chaque autre agence, décroissant. */
+export function getClientCAParAutreAgence(cc) {
+  const out = [];
+  const my = _S.selectedMyStore;
+  for (const [store, m] of Object.entries(_S.caClientParStore || {})) {
+    if (store === my || !m?.get) continue;
+    const ca = m.get(cc) || 0;
+    if (ca > 0) out.push({ store, ca });
+  }
+  return out.sort((a, b) => b.ca - a.ca);
+}
+
+/** Map<code, ca> — articles achetés ailleurs dans le réseau et jamais pris dans mon agence (tous canaux). */
+export function getClientArticlesJamaisIci(cc) {
+  const res = new Map();
+  const net = _S.ventesReseauTousCanaux?.get(cc);
+  if (!net) return res;
+  const mag = _S.ventesLocalMag12MG?.get(cc);
+  const hors = getVentesClientHorsMagFull(cc);
+  for (const [code, d] of net) {
+    if (mag?.has(code) || hors?.has(code)) continue;
+    const ca = d?.sumCA || 0;
+    if (ca > 0) res.set(code, ca);
+  }
+  return res;
+}
+
+// ── Ventes hors comptoir d'un client, pleine période ─────────────
+// ventesLocalHorsMag est filtré par la période AU PARSING et n'est pas recalculé quand la période
+// change : les analyses structurelles client (fiche, familles hors agence) lisent la version pleine
+// période. Repli sur la version filtrée pour une session chargée avant son introduction.
+export function getVentesClientHorsMagFull(cc) {
+  const full = _S.ventesLocalHorsMagFull;
+  if (full?.size) return full.get(cc) || null;
+  return _S.ventesLocalHorsMag?.get(cc) || null;
+}
+export function getVentesHorsMagFullMap() {
+  return _S.ventesLocalHorsMagFull?.size ? _S.ventesLocalHorsMagFull : (_S.ventesLocalHorsMag || new Map());
+}
+

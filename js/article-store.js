@@ -170,24 +170,3 @@ export function articleLib(code) {
 // articleFam, articleSousFam, articleMarque, articleGet — dead code supprimé.
 // Le code accède directement _S.articleFamille, _S.catalogueFamille, _S.catalogueMarques.
 
-/**
- * CA Zone / Cli Zone filtré par distance.
- * Utilise articleZoneIndex.contribs pour re-filtrer sans tout rescanner.
- * @param {string} code
- * @param {function} distOkFn — (cc) => boolean, filtre distance
- * @returns {{caZone: number, caAgence: number, cliZone: number}}
- */
-export function articleZoneFiltered(code, distOkFn) {
-  const zi = _S.articleZoneIndex?.get(code);
-  if (!zi?.contribs) return { caZone: 0, caAgence: 0, cliZone: 0 };
-  if (!distOkFn) return { caZone: zi.caZone, caAgence: zi.caAgence, cliZone: zi.cliZone };
-  let caZone = 0, caAgence = 0;
-  const clis = new Set();
-  for (const c of zi.contribs) {
-    if (!distOkFn(c.cc)) continue;
-    caZone += c.ca;
-    caAgence += c.mon;
-    clis.add(c.cc);
-  }
-  return { caZone, caAgence, cliZone: clis.size };
-}

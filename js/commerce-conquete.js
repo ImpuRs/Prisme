@@ -100,6 +100,8 @@ function addClientBucketStats(bucket,info,cc,capteSet){
     else bucket.inactifs++;
   }else{
     bucket.actifsLeg++;
+    // À capter : actif chez Legallais, pas (encore) client de l'agence
+    if(!pdvActif)bucket.aCapter++;
   }
   if(pdvActif)bucket.actifsPDV++;
   bucket.caPDVZone+=(info.caPDVN||0);
@@ -107,7 +109,7 @@ function addClientBucketStats(bucket,info,cc,capteSet){
 }
 
 function baseBucket(extra={}){
-  return Object.assign({total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0},extra);
+  return Object.assign({total:0,actifsLeg:0,actifsPDV:0,aCapter:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0},extra);
 }
 
 export function aggregateOverviewGroups(capteSet=null){
@@ -180,4 +182,20 @@ export function aggregateOverviewClients({direction,metier,secteur,range,capteSe
     });
   }
   return clients;
+}
+
+/** Clients à capter d'un périmètre (direction ou secteur selon le mode, métier optionnel) :
+ *  actifs chez Legallais (ni prospect ni perdu) et absents du set capté de l'agence. */
+export function aggregateACapter({direction,metier=null,capteSet=null}){
+  const out=[];
+  for(const[cc,info] of getFilteredChalandiseEntries(capteSet).entries){
+    if(direction&&getOverviewDirection(info)!==direction)continue;
+    if(metier&&(info.metier||'Autre')!==metier)continue;
+    if(_isProspect(info))continue;
+    const pdv=capteSet?capteSet.has(cc):false;
+    if(pdv||_isPerdu(info))continue;
+    out.push({cc,nom:info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',secteur:info.secteur||'',ville:info.ville||'',
+      classification:info.classification||'',caN1:info.ca2025||0,caN:info.ca2026||0,dist:info.distanceKm});
+  }
+  return out.sort((a,b)=>(b.caN1+b.caN)-(a.caN1+a.caN));
 }

@@ -405,46 +405,7 @@ function _passesAllFilters(cc){
   function _invalidateKpiCache() { _kpiCache = new Map(); }
 
   // ── Segments omnicanaux — affiché au-dessus de Familles à fort achat en ligne ──
-  const SEG_LABELS={purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'};
-  function _renderSegmentsOmnicanaux(){
-    const el=document.getElementById('terrSegmentsOmni');
-    if(!el)return;
-    if(!_S.clientOmniScore?.size){el.innerHTML='';return;}
-    // Count segments WITHOUT the segment filter itself (to show totals always)
-    const savedSeg=_S._omniSegmentFilter;
-    _S._omniSegmentFilter='';
-    const segs={purComptoir:{n:0,ca:0},purHors:{n:0,ca:0},hybride:{n:0,ca:0},full:{n:0,ca:0}};
-    for(const[cc,o]of _S.clientOmniScore){
-      if(!_passesAllFilters(cc))continue;
-      const s=segs[o.segment];if(s){s.n++;s.ca+=o.caTotal||0;}
-    }
-    _S._omniSegmentFilter=savedSeg;
-    const total=Object.values(segs).reduce((s,v)=>s+v.n,0)||1;
-    const pctPC=Math.round(segs.purComptoir.n/total*100),pctPH=Math.round(segs.purHors.n/total*100),pctHy=Math.round(segs.hybride.n/total*100),pctFu=Math.max(0,100-pctPC-pctPH-pctHy);
-    const _totalTip=`${total} clients analysés — segmentés par nombre de canaux d'achat distincts (MAGASIN, INTERNET, REPRÉSENTANT, DCS…). Score = nb canaux.`;
-    const panierMoyen=(s)=>s.n>0?formatEuro(s.ca/s.n):'—';
-    const _segTips={
-      'Pur Comptoir':`Uniquement MAGASIN (1 canal). ${segs.purComptoir.n} clients · panier moyen ${panierMoyen(segs.purComptoir)}.`,
-      'Pur Hors-Magasin':`Jamais au comptoir — uniquement DCS, Internet, Représentant. ${segs.purHors.n} clients.`,
-      'Hybride':`MAGASIN + 1 ou 2 autres canaux (2-3 canaux). ${segs.hybride.n} clients · panier moyen ${panierMoyen(segs.hybride)}.`,
-      'Full Omnicanal':`4+ canaux distincts — client pleinement omnicanal. ${segs.full.n} clients · panier moyen ${panierMoyen(segs.full)}.`};
-    const af=_S._omniSegmentFilter||'';
-    const filterLabel=af?`<div class="mt-2 text-[10px]"><span class="cursor-pointer hover:underline" style="color:var(--c-action)" onclick="window._toggleOmniSegment('')">✕ Filtre actif : ${SEG_LABELS[af]||af}</span></div>`:'';
-    const tiles=[
-      ['purComptoir',segs.purComptoir,'Pur Comptoir','🏪','var(--c-ok)'],
-      ['purHors',segs.purHors,'Pur Hors-Magasin','📦','var(--c-danger)'],
-      ['hybride',segs.hybride,'Hybride','🔀','var(--c-info,#3b82f6)'],
-      ['full',segs.full,'Full Omnicanal','⭐','var(--c-caution)']
-    ];
-    const tilesHtml=tiles.map(([segKey,s,label,icon,color])=>{
-      if(!s.n)return'';
-      const isActive=af===segKey;
-      const pm=panierMoyen(s);
-      return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="window._toggleOmniSegment('${segKey}')"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold ${isActive?'t-inverse':'t-primary'}">${s.n}</span><span class="text-[9px] ${isActive?'t-inverse-muted':'t-disabled'}">${label}</span><span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(s.ca)}</span><span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">panier ${pm}</span></div>`;
-    }).join('');
-    el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span><span class="text-[10px] font-normal t-disabled ml-2">· ${_S._globalPeriodePreset||'période sélectionnée'}</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${tilesHtml}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctPC}%;background:var(--c-ok)"></div><div style="width:${pctPH}%;background:var(--c-danger);opacity:0.6"></div><div style="width:${pctHy}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctFu}%;background:var(--c-caution)"></div></div>${filterLabel}</div>`;
-  }
-
+  const SEG_LABELS={comptoir:'Comptoir seul',mixte:'Comptoir + autres canaux',sansComptoir:'Sans comptoir',ailleurs:'Aussi ailleurs'};
   // ── Sous-vue Omni — rendu dans cm-tab-content ────────────────────────────
   function renderOmniContent() {
     const s = window._S || {};
@@ -456,7 +417,13 @@ function _passesAllFilters(cc){
     const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
-    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewToggle" class="flex gap-0.5 text-[10px]" onclick="event.preventDefault();event.stopPropagation()"></span><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
+    <section id="terrChalandiseOverview" class="hidden"><div class="pt-card pt-col" style="gap:14px;padding:20px">
+      <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+        <h3 class="pt-h2">Ton territoire en un coup d’œil</h3>
+        <div class="pt-row" style="gap:12px;flex-wrap:wrap"><span id="terrOverviewToggle" class="pt-row" style="gap:6px"></span><span id="terrOverviewSummaryLine" class="pt-small pt-muted"></span></div>
+      </div>
+      <div class="pt-list"><div class="tt-scroll"><table class="pt-table tt-table"><thead id="terrOverviewL1Head"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></div>
+    </div></section>
   </div>`;
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
@@ -474,20 +441,7 @@ window.getKPIsByCanal = getKPIsByCanal;
 window._invalidateKpiCache = _invalidateKpiCache;
 window.computePhantomArticles = computePhantomArticles;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
-window._renderSegmentsOmnicanaux  = _renderSegmentsOmnicanaux;
 window.SEG_LABELS = SEG_LABELS;
 
 // ── ESM exports ──
-export {
-  renderCanalAgence,
-  openCanalDrill,
-  openCanalDrillArticles,
-  closeCanalDrill,
-  exportCanalDrillCSV,
-  getKPIsByCanal,
-  computePhantomArticles,
-  _setTerrClientsCanalFilter,
-  renderOmniTab,
-  renderOmniContent,
-  SEG_LABELS,
-};
+export { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, renderOmniContent, SEG_LABELS };

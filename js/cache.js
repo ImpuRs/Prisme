@@ -177,23 +177,14 @@ export function _showCacheUpdateBanner() {
 let _idbTimestamp = null; // renseigné par _restoreSessionFromIDB()
 
 export function _showCacheBanner() {
-  const banner = document.getElementById('cacheBanner');
-  if (!banner) return;
+  // Plus de bandeau séparé : le résumé des données va dans la barre du haut (insightsBannerLeft).
+  const left = document.getElementById('insightsBannerLeft');
+  if (!left) return;
   const dateStr = _idbTimestamp
-    ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', ' à ')
     : '—';
-  const nArt = _S.finalData.length.toLocaleString('fr');
-  const store = _S.selectedMyStore || '—';
-  const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
-  const btnDanger = 'padding:2px 10px;border-radius:4px;background:#7f1d1d;color:#fca5a5;font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.1)';
-  banner.innerHTML =
-    `<span>📂 Données restaurées du ${dateStr} · ${nArt} articles · Agence ${store}</span>` +
-    `<div style="display:flex;gap:6px">` +
-    `<button onclick="document.getElementById('cacheBanner').classList.add('hidden')" style="${btnStyle}">Continuer</button>` +
-    `<button onclick="_onReloadFiles()" style="${btnStyle}">Recharger les fichiers</button>` +
-    `<button onclick="_onPurgeCache()" style="${btnDanger}">Purger le cache</button>` +
-    `</div>`;
-  banner.classList.remove('hidden');
+  left.innerHTML = `<span class="ib-sum">Fichiers chargés le ${dateStr} · ${_S.finalData.length.toLocaleString('fr')} articles · ${_S.selectedMyStore || '—'}</span>`;
+  document.getElementById('insightsBanner')?.classList.remove('hidden');
 }
 
 // Afficher la zone d'import sans purger les données (l'utilisateur veut re-uploader)
@@ -212,25 +203,12 @@ export function _onReloadFiles() {
 
 // Purger IndexedDB + préférences localStorage + reload
 export async function _onPurgeCache() {
+  if (!confirm('Effacer les données gardées dans ce navigateur ? Il faudra recharger les fichiers. (L’historique de La partie est conservé.)')) return;
   await _clearIDB();
   _clearCache();
   localStorage.removeItem('prisme_selectedStore');
   localStorage.removeItem(FILE_HASHES_KEY);
   location.reload();
-}
-
-// ── Exclusions clients (persistance permanente, sans TTL) ─────
-export function _saveExclusions() {
-  try {
-    const data = {};
-    for (const [k, v] of _S.excludedClients.entries()) {
-      const { clientData, ...rest } = v;
-      data[k] = rest;
-    }
-    localStorage.setItem(EXCL_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn('Exclusions save failed :', e.message);
-  }
 }
 
 export function _restoreExclusions() {
@@ -484,6 +462,7 @@ async function _saveSessionToIDBNow() {
         : null,
       byMonthClientCAByCanal:   _S._byMonthClientCAByCanal || null,
       ventesLocalHorsMag:  _serializeNestedMap(_S.ventesLocalHorsMag),
+      ventesLocalHorsMagFull: _serializeNestedMap(_S.ventesLocalHorsMagFull || new Map()),
       ventesClientAutresAgences: [...(_S.ventesClientAutresAgences || [])],
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
@@ -649,6 +628,7 @@ export async function _restoreSessionFromIDB() {
     }
     _S._byMonthClientCAByCanal = data.byMonthClientCAByCanal || null;
     _S.ventesLocalHorsMag  = _deserializeNestedMap(data.ventesLocalHorsMag  || []);
+    _S.ventesLocalHorsMagFull = _deserializeNestedMap(data.ventesLocalHorsMagFull || []);
     _S.ventesClientAutresAgences = new Map(data.ventesClientAutresAgences || []);
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
@@ -756,6 +736,67 @@ export async function _clearIDB() {
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
   } catch (_) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// La partie — historique du score + actions cochées
+// Base séparée PRISME_PARTIE : survit aux purges de session, et ne force pas
+// de montée de version de PRISME (scan.html l'ouvre en v2 sur la même origine).
+// Clés : 'hist|<store>' → [{key, date, global, assort, stock, fams:{k:score}}]
+//        'done|<store>|<dataKey>' → {actionId: true}
+// ═══════════════════════════════════════════════════════════════
+const PARTIE_DB = 'PRISME_PARTIE';
+const PARTIE_STORE = 'kv';
+const PARTIE_HIST_MAX = 104; // 2 ans de points hebdo
+
+function _openPartieDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PARTIE_DB, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(PARTIE_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function _partieGet(key) {
+  const db = await _openPartieDB();
+  try {
+    return await new Promise((res, rej) => {
+      const r = db.transaction(PARTIE_STORE).objectStore(PARTIE_STORE).get(key);
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  } finally { db.close(); }
+}
+
+async function _partiePut(key, value) {
+  const db = await _openPartieDB();
+  try {
+    const tx = db.transaction(PARTIE_STORE, 'readwrite');
+    tx.objectStore(PARTIE_STORE).put(value, key);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  } finally { db.close(); }
+}
+
+/** Enregistre (ou remplace) le point du jeu de données courant ; retourne l'historique trié. */
+export async function _savePartieSnapshot(store, snap) {
+  if (!store || !snap?.key) return [];
+  try {
+    const hist = (await _partieGet('hist|' + store)) || [];
+    const i = hist.findIndex(h => h.key === snap.key);
+    if (i >= 0) hist[i] = snap; else hist.push(snap);
+    hist.sort((a, b) => a.date.localeCompare(b.date));
+    const trimmed = hist.slice(-PARTIE_HIST_MAX);
+    await _partiePut('hist|' + store, trimmed);
+    return trimmed;
+  } catch (e) { console.warn('[PRISME] Historique partie indisponible :', e); return [snap]; }
+}
+
+export async function _loadPartieDone(store, dataKey) {
+  try { return (await _partieGet(`done|${store}|${dataKey}`)) || {}; } catch (_) { return {}; }
+}
+
+export async function _savePartieDone(store, dataKey, done) {
+  try { await _partiePut(`done|${store}|${dataKey}`, done); } catch (e) { console.warn('[PRISME] Actions partie non sauvegardées :', e); }
 }
 
 // Migration transparente : PILOT_PRO (ancienne base) → PRISME
