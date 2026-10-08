@@ -1429,7 +1429,8 @@
     .ob-go:disabled { opacity:.35; cursor:not-allowed; }
     /* ── Fiche client / diagnostic : lisibilité (les textes descendaient à 8-9 px) ── */
     #diagnosticPanel { font-size:14px; line-height:1.45; width:min(1120px, calc(100vw - 2rem)) !important; max-width:min(1120px, calc(100vw - 2rem)) !important; }
-    #diagnosticPanel .text-\[7px\], #diagnosticPanel .text-\[8px\] { font-size:11px !important; }
+    #diagnosticPanel .text-\[7px\], #diagnosticPanel .text-\[8px\] { font-size:12px !important; }
+    #diagnosticPanel table th { font-size:12px !important; font-weight:500; letter-spacing:.02em; }
     #diagnosticPanel .text-\[9px\] { font-size:12px !important; }
     #diagnosticPanel .text-\[10px\] { font-size:13px !important; }
     #diagnosticPanel .text-\[11px\], #diagnosticPanel .text-xs { font-size:14px !important; }
@@ -2110,7 +2111,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261008w';
+    var ASSET_V = '20261008x';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
