@@ -65,7 +65,14 @@ function _buildCtx() {
     survByFam.get(r.famille).push(r);
   }
   for (const [f, arr] of implByFam) for (const a of arr) if (!famOfCode.has(a.code)) famOfCode.set(a.code, f);
-  return { nbStores, reseau, implByFam, survByFam, famOfCode, cliFull: _S.articleClientsFull || new Map() };
+  // Acheteurs hors comptoir (web, livraison, représentant) par article — pour « Acheté hors comptoir »
+  const horsBuyers = new Map();
+  for (const [cc, arts] of getVentesHorsMagFullMap()) for (const [code, v] of arts) {
+    if (!(v.sumCA > 0)) continue;
+    let a = horsBuyers.get(code); if (!a) horsBuyers.set(code, a = []);
+    a.push({ cc, ca: v.sumCA });
+  }
+  return { nbStores, reseau, implByFam, survByFam, famOfCode, horsBuyers, cliFull: _S.articleClientsFull || new Map() };
 }
 
 // ── Gestes ───────────────────────────────────────────────────
@@ -78,16 +85,30 @@ const VERDICT_TIP = {
   'Le Stagiaire': 'Nouveauté encore en observation.',
   'Le Point de Rupture': 'Ralentit chez tes clients stratégiques : un client s’en va ?',
   'Le Déclinant': 'Vend peu : réduire le stock et observer.',
-  'La Réf Schizo': 'Le réseau le vend vraiment, toi jamais : enquête commerciale (prix, concurrence…).',
+  'La Réf Schizo': 'Les autres agences le vendent vraiment, toi jamais en 12 mois : vérifie prix, emplacement, visibilité avant de le sortir.',
   "L'Erreur de Casting": 'Nouveauté qui n’a pas pris : on sort.',
-  'La Trahison': 'Produit de clients stratégiques devenu dormant : appeler le client, puis sortir.',
+  'La Trahison': 'Rien au comptoir en 12 mois, mais un client de métier stratégique l’achète par un autre canal (web, livraison) : vois avec lui avant de sortir.',
   'Le Poids Mort': 'Ne se vend plus : on sort, on libère le cash et la place.',
   'Ancre Métier': 'Invendu gardé exprès à 1 exemplaire : dernier lien avec un métier clé.',
 };
-const TAG_TONE = { 'À garder': 'high', 'Gardé à 1 · métier clé': 'high', 'Incontournable qui ralentit': 'mid', 'Client stratégique qui ralentit': 'mid', 'À surveiller': '', 'À sortir': 'low', 'À sortir · le réseau le vend': 'low', 'À sortir · appeler le client': 'low' };
+const TAG_TONE = { 'À garder': 'high', 'Gardé à 1 · métier clé': 'high', 'Incontournable qui ralentit': 'mid', 'Client stratégique qui ralentit': 'mid', 'À surveiller': '', 'À sortir': 'low', 'Vendu en réseau, jamais ici': 'low', 'Acheté hors comptoir': 'low' };
 const _tag = (v, sameAs = '') => { const l = verdictLabel(v); return l && l !== sameAs ? `<span class="ar-tag" data-tone="${TAG_TONE[l] || ''}" title="${escapeHtml(VERDICT_TIP[v] || '')}">${escapeHtml(l)}</span>` : ''; };
 const _mm = (r) => `${r.ancienMin || 0}/${r.ancienMax || 0}`;
 const _age = (j) => j == null || j >= 999 ? '—' : j >= 365 ? `${(j / 365).toFixed(1).replace('.', ',')} an${j >= 730 ? 's' : ''}` : `${j} j`;
+
+/** Ce qu'il faut vérifier avant de sortir un invendu (vide = rien, on sort). */
+function _avantSortir(r) {
+  if (r._sqVerdict === 'La Réf Schizo') {
+    const x = _ctx.reseau(r.code);
+    return `<span title="${escapeHtml(VERDICT_TIP['La Réf Schizo'])} (${formatEuro(x.n ? x.ca / x.n : 0)}/an par agence)"><span class="ar-tag" data-tone="mid">Vérifier</span> <span class="pt-small">${x.n}/${_ctx.nbStores} agences le vendent</span></span>`;
+  }
+  if (r._sqVerdict === 'La Trahison') {
+    const b = [...(_ctx.horsBuyers.get(r.code) || [])].sort((p, q) => q.ca - p.ca)[0];
+    const nom = b ? (_S.chalandiseData?.get(b.cc)?.nom || _S.clientNomLookup?.[b.cc] || b.cc) : '';
+    return `<span title="${escapeHtml(VERDICT_TIP['La Trahison'])}"><span class="ar-tag" data-tone="mid">Prévenir</span> <span class="pt-small">${nom ? escapeHtml(nom) : 'un client'} l’achète hors comptoir</span></span>`;
+  }
+  return '';
+}
 
 function _groups(f) {
   const { reseau, nbStores, implByFam, survByFam, cliFull } = _ctx;
@@ -101,10 +122,10 @@ function _groups(f) {
 
   return [
     { key: 'sortir', verb: 'Sortir', arts: [...f.pmArts].sort((a, b) => val(b) - val(a)),
-      why: 'En rayon sans aucune vente en 12 mois. Retour centrale ou déstockage.',
+      why: 'En rayon sans aucune vente au comptoir en 12 mois. Retour centrale ou déstockage. « Vérifier » / « Prévenir » : un dernier contrôle avant de sortir.',
       euro: (arts) => `${formatEuro(arts.reduce((s, r) => s + val(r), 0))} immobilisés`,
-      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP', 'Précision'],
-      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r), _tag(r._sqVerdict, 'À sortir')] },
+      head: ['Stock', 'Valeur', 'Dernier mouv.', 'MIN/MAX ERP', 'Avant de sortir'],
+      row: (r) => [r.stockActuel, formatEuro(val(r)), _age(r.ageJours), _mm(r), _avantSortir(r)] },
     { key: 'implanter', verb: 'Implanter', arts: impl,
       why: `Absents de ton rayon, demandés ailleurs. <span class="ar-tag" data-tone="high">Prioritaire</span> = ≥60 % du réseau à ≥${SQ_RESEAU_FORT_CA_AGENCE} €/an par agence, ou ≥5 clients de ta zone.`,
       euro: (arts) => `${arts.filter(a => prio.has(a.code)).length} prioritaire${arts.filter(a => prio.has(a.code)).length > 1 ? 's' : ''}`,

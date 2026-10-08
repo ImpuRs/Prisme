@@ -6,7 +6,7 @@ import { articleLib } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange, getVentesHorsMagFullMap } from './sales.js';
-import { renderPlanFamille } from './plan-famille.js';
+import { renderPlanFamille } from './plan-famille.js?v=20261008a';
 
 // ── State local ──────────────────────────────────────────────────────
 let _prFilterClassif = '';
@@ -174,9 +174,9 @@ const VERDICT_MATRIX = {
     standard:       { name: 'Le Déclinant',      icon: '📉', color: '#94a3b8', tip: 'Il a bien marché mais son heure est peut-être passée. Se dirige vers Challenger. ACTION : Réduire stock et observer.' },
   },
   challenger: {
-    incontournable: { name: 'La Réf Schizo',    icon: '💀', color: '#ef4444', tip: 'Le pire des cas. Indispensable réseau, mort chez toi = divorce de confiance. ACTION : Gel commandes. Le commercial appelle 3 clients pour comprendre le boycott (prix ? rupture historique ? concurrence ?).' },
+    incontournable: { name: 'La Réf Schizo',    icon: '💀', color: '#ef4444', tip: 'Les autres agences le vendent vraiment, toi jamais en 12 mois. Avant de le sortir : vérifie prix, emplacement, visibilité.' },
     nouveaute:      { name: "L'Erreur de Casting", icon: '🚫', color: '#ef4444', tip: 'La nouveauté n\'a pas pris. Pas d\'acharnement thérapeutique. ACTION : On sort. Le marché a parlé.' },
-    specialiste:    { name: 'La Trahison',       icon: '🗡️', color: '#ef4444', tip: 'Produit de tes clients strat. dormant. Client parti ou achète ailleurs. ACTION : Alerte commerciale immédiate. Appeler le client cible. Si divorce confirmé → sortir. Dérogation : conserver (stock=1) si seule Ancre d\'un métier clé.' },
+    specialiste:    { name: 'La Trahison',       icon: '🗡️', color: '#ef4444', tip: 'Rien au comptoir en 12 mois, mais un client de métier stratégique l\'achète par un autre canal (web, livraison). Vois avec lui avant de sortir.' },
     standard:       { name: 'Le Poids Mort',     icon: '🪨', color: '#ef4444', tip: 'Cas classique d\'un produit qui ne se vend plus. Pas d\'affect. ACTION : On sort. On libère le cash et la place.' },
   },
   implanter: {

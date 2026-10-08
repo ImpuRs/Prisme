@@ -1537,15 +1537,15 @@ export const VERDICT_PLAIN = {
   'Le Point de Rupture': 'Client stratégique qui ralentit',
   'Le Stagiaire': 'À surveiller', 'Le Déclinant': 'À surveiller',
   'Le Poids Mort': 'À sortir', "L'Erreur de Casting": 'À sortir',
-  'La Réf Schizo': 'À sortir · le réseau le vend',
-  'La Trahison': 'À sortir · appeler le client',
+  'La Réf Schizo': 'Vendu en réseau, jamais ici',
+  'La Trahison': 'Acheté hors comptoir',
   'Ancre Métier': 'Gardé à 1 · métier clé',
   'Le Trou Critique': 'À implanter', 'Le Pari du Réseau': 'À implanter', 'La Conquête': 'À implanter', "L'Opportunité Locale": 'À implanter',
   'Le Bouclier': 'Ne pas acheter',
 };
 export const VERDICT_PLAIN_ICON = {
   'À garder': '🟢', 'Incontournable qui ralentit': '⚠️', 'Client stratégique qui ralentit': '📞', 'À surveiller': '👁️',
-  'À sortir': '⛔', 'À sortir · le réseau le vend': '🔎', 'À sortir · appeler le client': '📞', 'Gardé à 1 · métier clé': '📌',
+  'À sortir': '⛔', 'Vendu en réseau, jamais ici': '🔎', 'Acheté hors comptoir': '📞', 'Gardé à 1 · métier clé': '📌',
   'À implanter': '➕', 'Ne pas acheter': '🚫',
 };
 /** Libellé affiché d'un verdict interne (vide si inconnu). */

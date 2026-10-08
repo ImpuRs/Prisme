@@ -43,11 +43,6 @@ import {
   renderOverviewL4Table
 } from './commerce-conquete-view.js?v=20261007a';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
-import {
-  computeCommercialScorecard,
-  renderCommercialScorecard
-} from './commerce-terrain-widgets.js?v=20261007a';
-import { renderCommercialTopActions } from './commerce-top-actions.js?v=20260425f';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
 // territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
@@ -877,9 +872,6 @@ function _onCommercialFilter(val){
   }
   _syncComClearBtns();
   // Render scorecards + top articles + poches in both tabs
-  _renderCommercialScorecard('comScorecard');
-  _renderCommercialScorecard('comScorecardPDV');
-  _renderComTopArticles('comTopArticles');
   _buildChalandiseOverview();
   // Re-render PDV tab if visible
 }
@@ -1105,19 +1097,6 @@ function _navigateToOverviewMetier(metier){
 }
 function _toggleExcludeActifsConsomme(checked){_S._excludeActifsConsomme=checked;_buildChalandiseOverview();}
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
-function _toggleAlerteCapitaines(){
-  const next=!_S._alerteCapitaines;
-  if(next){
-    // Pré-requis : une source de "socle" doit exister (Verdicts Squelette ou squelette complet).
-    const hasSocleVerdicts=!!(DataStore.finalData||[]).some(r=>r&&r._sqClassif==='socle');
-    const hasSocleSq=!!(_S._prSqData?.directions||[]).some(d=>(d.socle||[]).length>0);
-    if(!hasSocleVerdicts&&!hasSocleSq){
-      showToast('🚨 Capitaines indisponibles : Squelette non calculé (ou session mono-agence). Laissez finir "Verdicts Squelette" puis réessayez.','warning',6000);
-      return;
-    }
-  }
-  _S._alerteCapitaines=next;
-}
 function _cmToggleSurveiller(){
   _cmShowSurveiller=!_cmShowSurveiller;
 }
@@ -1179,79 +1158,7 @@ function _populateCommercialSelect(inputId, kpiId) {
 }
 
 // ── Scorecard Portefeuille Commercial ───────────────────────────────────
-function _renderCommercialScorecard(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  const com = _S._selectedCommercial;
-  const _hasForcage = !!_S.forcageCommercial?.size;
-  if (!com || (!_S.chalandiseReady && !_hasForcage)) { el.innerHTML = ''; return; }
-  const score=computeCommercialScorecard({
-    commercial:com,
-    finalDataIndex:_getFinalDataIndex(),
-    setRuptureClientSet:set=>{_ruptureClientSet=set;}
-  });
-  if(!score){el.innerHTML='';return;}
-  const sect=_getCommercialSecteurs().get(com)||'';
-  el.innerHTML=renderCommercialScorecard(score,{secteur:sect,pocheActive:_pocheActive});
-}
 
-window._comToggleMixCanal = function() {
-  const el = document.getElementById('comMixCanalInline');
-  if (!el) return;
-  el.classList.toggle('hidden');
-  if (!el.classList.contains('hidden') && window.renderCanalAgence) window.renderCanalAgence();
-};
-
-// ── Top clients/articles du commercial — rendu extrait ────────────────
-let _comTopArtLimit = 20;
-let _comTopArtMode = 'ici'; // 'ici' | 'ailleurs' | 'manquants' | 'subies'
-
-function _renderComTopArticles(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = renderCommercialTopActions({
-    selectedTopClient:_selectedTopClient,
-    pocheActive:_pocheActive,
-    pocheData:_pocheData,
-    ruptureClientSet:_ruptureClientSet,
-    topArtMode:_comTopArtMode,
-    topArtLimit:_comTopArtLimit,
-    finalDataIndex:_getFinalDataIndex(),
-    passesClient:_passesOverviewClient
-  });
-}
-window._comTopArtMode = function(m) {
-  _comTopArtMode = m;
-  _comTopArtLimit = 20;
-  _renderComTopArticles('comTopArticles');
-};
-window._comTopArtToggle = function() {
-  _comTopArtLimit = _comTopArtLimit <= 20 ? 100 : 20;
-  _renderComTopArticles('comTopArticles');
-};
-
-// ── 4 Poches Terrain — leviers d'action portefeuille ─────────────────
-let _pocheActive = '';
-let _selectedTopClient = '';  // cc du client sélectionné pour le detail articles
-let _ruptureClientSet = new Set(); // clients impactés par des ruptures (poche E)
-let _pocheData = { A: [], B: [], C: [], D: [] };
-
-window._togglePoche = function(key) {
-  _pocheActive = (_pocheActive === key) ? '' : key;
-  _selectedTopClient = ''; // reset sélection client
-  // Re-render KPI scorecard pour refléter l'état actif du badge Ruptures
-  if (key === 'E') { _renderCommercialScorecard('comScorecard'); _renderCommercialScorecard('comScorecardPDV'); }
-  _renderComTopArticles('comTopArticles');
-};
-window._selectTopClient = function(cc) {
-  _selectedTopClient = (_selectedTopClient === cc) ? '' : cc;
-  _renderComTopArticles('comTopArticles');
-  // Geste 2 : smooth scroll vers les articles pour rester sur un seul écran
-  if (_selectedTopClient) {
-    const artEl = document.getElementById('comTopArticles');
-    if (artEl) setTimeout(() => artEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-  }
-};
 
 function _buildOverviewFilterChips(){
   const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
@@ -1332,12 +1239,7 @@ function _buildChalandiseOverview(){
   }
   // Rafraîchir le sous-onglet actif + overview data
   _buildOverviewFilterChips();
-  // Scorecard + poches Conquête Terrain (si visible)
-  if (document.getElementById('comScorecard')) {
-    _renderCommercialScorecard('comScorecard');
-    _renderComTopArticles('comTopArticles');
-    _renderLivSansPDV('livSansPDVBlock');
-  }
+  if (document.getElementById('livSansPDVBlock')) _renderLivSansPDV('livSansPDVBlock');
   // Fidélisation PDV retirée (remplacée par « Tes clients ») : plus de rendu en arrière-plan
   // Tes clients : mêmes filtres clients que Fidélisation / Conquête
   if (_S._activeCommerceTab === 'portefeuille') window.renderTesClients?.();
@@ -1811,16 +1713,10 @@ function renderCommerceTab() {
     </header>
     <div id="terrSummaryBar" style="display:none"></div>
     <div id="terrainFocusCoach" class="hidden"></div>
-    <div id="comScorecard"></div>
     <div id="terrOmniBlock"></div>
     <div id="ttCapterPanel"></div>
-    <div id="comTopArticles"></div>
     <div id="livSansPDVBlock"></div>
   </div>`;
-  // 2b. Scorecard portefeuille si commercial sélectionné
-  _renderCommercialScorecard('comScorecard');
-  // 2b2. Top 20 articles du commercial
-  _renderComTopArticles('comTopArticles');
   // (4 « poches » / angles de captation retirés : montants additionnés non captables)
   // 2d. Livrés sans PDV (conquête — déplacé depuis Fidélisation)
   _renderLivSansPDV('livSansPDVBlock');
@@ -1898,7 +1794,6 @@ window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
 window._toggleExcludeActifsConsomme = _toggleExcludeActifsConsomme;
 window._togglePerdu24m            = _togglePerdu24m;
-window._toggleAlerteCapitaines   = _toggleAlerteCapitaines;
 window._cmToggleSurveiller       = _cmToggleSurveiller;
 window._resetChalandiseFilters    = _resetChalandiseFilters;
 window._setCrossFilter            = _setCrossFilter;
