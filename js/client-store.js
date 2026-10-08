@@ -7,7 +7,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientCAThisYearMap } from './sales.js';
+import { getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientCAThisYearMap, currentYearMonthRange } from './sales.js';
 
 /**
  * Construit _S.clientStore = Map<cc, ClientRecord> à partir de toutes les
@@ -165,6 +165,27 @@ export function buildClientStore({ pdvOnly = false } = {}) {
       info.ca2026 = Math.max(info._ca2026Chal, caY);
       const rec = store.get(cc);
       if (rec) rec.ca2026 = info.ca2026;
+    }
+  }
+
+  // ── Activité PDV recalculée avec le consommé à date (règle user oct. 2026) ──
+  // La chalandise (export Qlik ponctuel) peut dire « Inactif PDV Zone 2026 » pour un client revenu
+  // depuis : le consommé de l'agence fait foi. Actif = achat dans l'agence (tous canaux) cette année.
+  // Libellés identiques à ceux de Qlik pour que le filtre « Activité PDV » reste le même.
+  const _yr = currentYearMonthRange();
+  if (_yr && _S.chalandiseData?.size) {
+    const _pdvY = getClientsActiveSetInPeriod('', { range: { min: _yr.min, max: _yr.max } });
+    const _pdvY1 = getClientsActiveSetInPeriod('', { range: { min: _yr.min - 12, max: _yr.max - 12 } });
+    if (_pdvY) {
+      const y = _yr.year, y1 = y - 1;
+      for (const [cc, info] of _S.chalandiseData) {
+        if (info._activitePDVChal == null) info._activitePDVChal = info.activitePDV || '';
+        info.activitePDV = _pdvY.has(cc) ? `Actif PDV Zone ${y}`
+          : (_pdvY1?.has(cc) ? `Inactif PDV Zone ${y}` : `Inactif PDV Zone ${y}/${y1}`);
+        const rec = store.get(cc);
+        if (rec) rec.activitePDV = info.activitePDV;
+      }
+      _S._chalandiseRev = (_S._chalandiseRev || 0) + 1; // invalide les caches Conquête
     }
   }
 

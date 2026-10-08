@@ -234,7 +234,7 @@ export function getClientsActiveSetInPeriod(canal = '', opts = {}) {
 
   // Tous canaux : réutiliser le Set pré-calculé par _refilterFromByMonth quand dispo.
   if (!canalKey) {
-    if (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size) return _S._clientsTousCanaux;
+    if (!opts.range && _S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size) return _S._clientsTousCanaux;
     const src = _S._byMonthClients;
     if (!src) return null;
     const key = range.min + '|' + range.max + '|ALL';
@@ -386,5 +386,13 @@ export function getClientCAThisYearMap() {
   }
   _caYearCache = { src, key: String(y), map: out };
   return out;
+}
+
+/** Plage de mois de l'année en cours (année des dernières données) — {min, max} en monthIdx. */
+export function currentYearMonthRange() {
+  const maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+  if (!maxD) return null;
+  const y = new Date(maxD).getFullYear();
+  return { min: y * 12, max: y * 12 + 11, year: y };
 }
 

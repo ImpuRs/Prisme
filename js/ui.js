@@ -346,8 +346,8 @@ export function switchTab(id) {
   }
   // Barre latérale : seulement là où ses filtres agissent (Plan, Base articles, Tes clients, Conquête)
   document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'duel', 'animation', 'associations'].includes(id));
-  // Sélecteur de période : seulement là où il agit (Conquête, Duel). Ailleurs, tout compte sur 12 mois.
-  document.body.classList.toggle('no-period', !['commerce', 'duel'].includes(id));
+  // Sélecteur de période : seulement sur le Duel. Conquête compte sur l'année en cours, le reste sur 12 mois.
+  document.body.classList.toggle('no-period', id !== 'duel');
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
   const activeGroup = id === 'duel' ? '' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';

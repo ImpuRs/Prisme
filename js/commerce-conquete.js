@@ -32,6 +32,7 @@ export function invalidateFilteredChalandise(){
 export function buildOverviewCacheKey(){
   return JSON.stringify({
     mode:overviewMode,
+    chalRev:_S._chalandiseRev||0,
     depts:stableSetValues(_S._selectedDepts),
     classifs:stableSetValues(_S._selectedClassifs),
     activitesPDV:stableSetValues(_S._selectedActivitesPDV),

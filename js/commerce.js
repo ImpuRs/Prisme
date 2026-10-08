@@ -9,7 +9,7 @@ import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
-import { getClientsActiveSetInPeriod } from './sales.js';
+import { getClientsActiveSetInPeriod, currentYearMonthRange } from './sales.js';
 import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
 import { renderOverviewHead, renderOverviewL1Rows, renderOverviewL2Table, renderOverviewL3Table, renderOverviewL4Table } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
@@ -1224,7 +1224,10 @@ function _buildChalandiseOverviewInner(force){
   const _isSec=getOverviewMode()==='secteur';
   // Set de clients captés PDV — canal-aware (consommé = toujours à l'agence)
   const _oCanal=_S._globalCanal||'';
-  let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
+  // Capté PDV = achat dans l'agence sur l'ANNÉE EN COURS (même fenêtre que « capté Legallais »,
+  // règle user oct. 2026) — indépendant du sélecteur de période.
+  const _yr = currentYearMonthRange();
+  let _captePDVSet = getClientsActiveSetInPeriod(_oCanal, { magasinMode: _S._reseauMagasinMode || 'all', range: _yr || undefined });
   if (!_captePDVSet) {
     // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
     if(!_oCanal){
@@ -1339,15 +1342,9 @@ function _overviewClientSort(a,b){
 }
 function _renderOverviewL4(el,direction,metier,secteur,limit){
   limit=limit||20;
-  // CA PDV : respecte le filtre période UI si actif, sinon année civile en cours
-  const _pStart=_S.periodFilterStart, _pEnd=_S.periodFilterEnd;
-  const _curYear=new Date().getFullYear();
-  const _ymRange=(_pStart&&_pEnd)
-    ? {min:_pStart.getFullYear()*12+_pStart.getMonth(), max:_pEnd.getFullYear()*12+_pEnd.getMonth()}
-    : {min:_curYear*12, max:_curYear*12+11};
-  const _periodLabel=(_pStart&&_pEnd)?'période':'année';
-  // CA PDV = CA tous canaux myStore sur la période sélectionnée (ou année civile).
-  // CA LEG = ca2026 chalandise (full year — source externe, pas filtrable).
+  // CA agence = CA tous canaux myStore sur l'année en cours (même fenêtre que capté PDV / Legallais).
+  const _cy=currentYearMonthRange();
+  const _ymRange=_cy?{min:_cy.min,max:_cy.max}:{min:new Date().getFullYear()*12,max:new Date().getFullYear()*12+11};
   const clients=aggregateOverviewClients({direction,metier,secteur,range:_ymRange,capteSet:_overviewCaptePDVSet});
   clients.sort(_overviewClientSort);
   const show=clients.slice(0,limit),more=clients.length-limit;
