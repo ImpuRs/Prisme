@@ -27,6 +27,7 @@ window._S = _S; // debug + accès console DevTools
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
+import { renderEssaiTab } from './stock-lab.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js';
@@ -1094,6 +1095,7 @@ _S.canalAgence=newCanalAgence;
   function _hydrateStateFromParseResult(r, selectedStore) {
     // Objets plain
     _S.articleRaw         = r.articleRaw || {};
+    _S.articleDemand      = r.articleDemand || {};
     _S.articleMonthlySales    = r.monthlySales || {};
     _S.seasonalIndexReseau    = r.seasonalIndexReseau || {};
     _S.ventesParAgence   = r.ventesParAgence || {};
@@ -2413,6 +2415,11 @@ _S.articleMonthlySales=monthlySales;
         renderHealthScore();
         renderTabBadges();
         console.log('[PERF arbitrage]',(performance.now()-_ts0|0)+'ms');
+        break;}
+      case 'essai':{
+        const _ts0=performance.now();
+        renderEssaiTab();
+        console.log('[PERF essai]',(performance.now()-_ts0|0)+'ms');
         break;}
       case 'stock':{ // compat — redirige vers plan
         renderPlanRayon();

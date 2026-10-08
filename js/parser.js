@@ -23,7 +23,8 @@ export async function parseChalandise(file) {
     return;
   }
   // Support multi-fichier : file peut être un File ou un FileList/Array
-  const files = (file instanceof FileList || Array.isArray(file)) ? [...file] : [file];
+  // (test par la forme et non instanceof : une FileList venue d'une autre fenêtre — page de contrôle — échoue à instanceof)
+  const files = (file && !file.name && typeof file.length === 'number') ? [...file] : [file];
   if (!files.length) return;
 
   _S.chalandiseData = new Map();

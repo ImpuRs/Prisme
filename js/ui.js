@@ -237,7 +237,7 @@ const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage',
 const _TAB_TO_SUPERTAB  = {
   partie: 'partie',
   table: 'base',
-  plan: 'stock', arbitrage: 'stock', stock: 'stock',
+  plan: 'stock', arbitrage: 'stock', essai: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce', portefeuille: 'commerce',
   duel: 'direction',
   animation: 'animation', associations: 'animation',
@@ -345,7 +345,7 @@ export function switchTab(id) {
     }
   }
   // Barre latérale : seulement là où ses filtres agissent (Plan, Base articles, Tes clients, Conquête)
-  document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'duel', 'animation', 'associations'].includes(id));
+  document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'essai', 'duel', 'animation', 'associations'].includes(id));
   // Sélecteur de période : seulement sur le Duel. Conquête compte sur l'année en cours, le reste sur 12 mois.
   document.body.classList.toggle('no-period', id !== 'duel');
   // Update filter panel groups based on active tab
@@ -624,7 +624,7 @@ const _CTX = {
   fins: ['Fins de série', 'à écouler'],
   colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
 };
-const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
+const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', essai: 'Banc d’essai', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
 function _currentTabId() {
   const pill = document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
   return pill?.dataset.subtab || document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || '';

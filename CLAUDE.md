@@ -57,6 +57,10 @@ js/
                    « Pour creuser » = onglets Métiers/Analyse/Réseau de planRayon.js (bridge)
   planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
                    onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
+  stock-lab.js   — Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées (_S.articleDemand,
+                   BL dédupliqués par jour, persisté) avec 3 jeux de MIN/MAX — ERP, PRISME, Variante « taux de
+                   service » (stock de sécurité z·σ·√délai, SBA pour ventes rares, quantile de taille de commande) —
+                   et compare service, ruptures, stock moyen, commandes. N'écrit rien dans finalData.
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
   clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
                    CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
