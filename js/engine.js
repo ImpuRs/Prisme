@@ -141,20 +141,6 @@ export function calcPriorityScore(freq, pu, ageJours, code) {
   return Math.round(caPerdu * ageCoeff * clientWeight);
 }
 
-export function prioClass(score) {
-  if (score >= 5000) return 'prio-critical';
-  if (score >= 1000) return 'prio-high';
-  if (score >= 300) return 'prio-medium';
-  return 'prio-low';
-}
-
-export function prioLabel(score) {
-  if (score >= 5000) return '🔴';
-  if (score >= 1000) return '🟠';
-  if (score >= 300) return '🟡';
-  return '⚪';
-}
-
 // ── Détection référence père ──────────────────────────────────
 // Toutes les 3 dates vides → référence père (exclue des ruptures)
 export function isParentRef(row) {
@@ -242,14 +228,6 @@ export function calcCouverture(stock, V) {
 
 export function formatCouv(j) { if (j >= 999) return '—'; return j + 'j'; }
 
-export function couvColor(j) {
-  if (j >= 999) return 'c-muted';
-  if (j <= 7) return 'c-danger font-extrabold';  // rupture imminente — perte d'argent
-  if (j <= 21) return 'c-caution font-bold';     // stock bas — à surveiller
-  if (j <= 60) return 'c-ok';                    // couverture saine
-  return 'c-muted';                              // surstock — informatif seulement
-}
-
 // ── Client classification helpers ─────────────────────────────
 export function _isGlobalActif(info) {
   if (info.activiteLeg) return info.activiteLeg.startsWith('Actif');
@@ -322,24 +300,6 @@ export function computeClientCrossing() {
   _S.crossingStats = { fideles, potentiels, captes, fidelespdv };
 }
 
-export function _clientUrgencyScore(cc, info) {
-  const caLeg = info.ca2025 || 0;
-  const pdvActif = _isPDVActif(cc);
-  const globalActif = _isGlobalActif(info);
-  const classif = _normalizeClassif(info.classification);
-  const isFidPlus = classif === 'FID Pot+';
-  const isOccPlus = classif === 'OCC Pot+';
-  const isStrategique = _isMetierStrategique(info.metier);
-  let score = caLeg;
-  if (globalActif && !pdvActif) score *= 3;
-  else if (_isPerdu(info) && caLeg > 0) score *= 2;
-  else if (_isPerdu(info)) score *= 0.5;
-  if (isFidPlus) score *= 2;
-  else if (isOccPlus) score *= 1.5;
-  if (isStrategique) score *= 1.3;
-  return Math.round(score);
-}
-
 export function _clientStatusBadge(cc, info) {
   const pdvActif = _isPDVActif(cc);
   const globalActif = _isGlobalActif(info);
@@ -348,16 +308,6 @@ export function _clientStatusBadge(cc, info) {
   if (_isProspect(info)) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>';
   if (_isPerdu(info) && (info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>';
   return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
-}
-
-export function _clientStatusText(cc, info) {
-  const pdvActif = _isPDVActif(cc);
-  const globalActif = _isGlobalActif(info);
-  if (pdvActif) return 'Actif PDV';
-  if (globalActif) return 'Actif Leg.';
-  if (_isProspect(info)) return 'Prospect';
-  if (_isPerdu(info) && (info.ca2025 || 0) > 0) return 'Perdu 12-24m';
-  return 'Inactif';
 }
 
 export function _unikLink(code) {
@@ -429,12 +379,6 @@ export function clientMatchesMetierFilter(info) {
   if (!_S._selectedMetier) return true;
   if (_S._selectedMetier === '__NONE__') { const m = (info.metier || '').trim(); return !m || m.length <= 2 || /^[-–—\s.]+$/.test(m); }
   return (info.metier || '') === _S._selectedMetier;
-}
-
-export function clientMatchesUniversFilter(cc) {
-  if (!_S._selectedUnivers.size) return true;
-  const u = _S._clientDominantUnivers?.get(cc) || '';
-  return _S._selectedUnivers.has(u);
 }
 
 /**
@@ -509,101 +453,6 @@ export function _diagClassifPrio(c) {
   if (u.includes('OCC') && u.includes('POT+')) return 1;
   if (u.includes('POT-')) return 2;
   return 3;
-}
-
-export function _diagClassifBadge(c) {
-  const u = (c || '').toUpperCase();
-  if (u.includes('FID') && u.includes('POT+')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;
-  if (u.includes('OCC') && u.includes('POT+')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;
-  if (u.includes('POT-')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;
-  if (c && c !== '—') return `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;
-  return '<span class="text-slate-600 text-[9px]">—</span>';
-}
-
-// ── Decision Queue — génération (Sprint 1) ────────────────────
-// Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
-// Retourne les codes clients actifs pour le canal donné.
-// '' ou 'MAGASIN' → ventesLocalMagPeriode (Commerce, filtré période) ; autre canal → ventesLocalHorsMag.
-function _getClientsActifs(canal = '') {
-  const vca = _S.ventesLocalMagPeriode;
-  const vh = _S.ventesLocalHorsMag;
-  if (!canal || canal === 'MAGASIN') {
-    return vca ? Array.from(vca.keys()) : [];
-  }
-  if (!vh?.size) return [];
-  const out = [];
-  for (const [cc, arts] of vh.entries()) {
-    let ok = false;
-    for (const a of arts.values()) {
-      if (a.canal === canal) { ok = true; break; }
-    }
-    if (ok) out.push(cc);
-  }
-  return out;
-}
-
-// ── Health Score agence 0-100 ──────────────────────────────────
-// Score synthétique : stock A + captation clients + taux service + actif/dormant
-export function computeHealthScore() {
-  if (!_S._hasStock) {
-    let actifs=0,total=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.lastOrderPDV){total++;if((rec.silenceDaysPDV||999)<90)actifs++;}}}
-    else{const nowTs=Date.now();for(const[,dt] of _S.clientLastOrder){total++;if(nowTs-dt<90*86400000)actifs++;}}
-    total=Math.max(total,1);
-    const momentumScore = Math.round(Math.min(1, actifs/total) * 100);
-    const captationScore = (_S.chalandiseReady && _S.chalandiseData.size > 0)
-      ? Math.round(Math.min(1, actifs / _S.chalandiseData.size) * 100) : 50;
-    const score = Math.round((momentumScore + captationScore) / 2);
-    const label = score >= 70 ? 'Bon' : score >= 40 ? 'Vigilance' : 'Critique';
-    return { score, label, details: { momentum: momentumScore, captation: captationScore, stockFM: null, service: null }, degraded: true };
-  }
-  const d = _S.finalData;
-  if (!d.length) return null;
-
-  // Composante 1 : ruptures articles A (poids 30%)
-  let articlesACount = 0;
-  let articlesARupture = 0;
-  for (const r of d) {
-    if (r.abcClass !== 'A' || r.W < 1 || r.isParent || (r.V === 0 && r.enleveTotal > 0)) continue;
-    articlesACount++;
-    if (r.stockActuel <= 0) articlesARupture++;
-  }
-  const scoreStock = articlesACount > 0 ? Math.max(0, 1 - articlesARupture / articlesACount) : 1;
-
-  // Composante 2 : clients actifs PDV 90j vs zone chalandise (poids 30%)
-  let scoreClients = 0.5; // défaut sans chalandise
-  if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
-    let actifs = 0;
-    if (_S.clientStore?.size) {
-      for (const rec of _S.clientStore.values()) {
-        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV <= 90) actifs++;
-      }
-    } else {
-      const nowTs = Date.now();
-      actifs = 0;
-      for (const dt of _S.clientLastOrder.values()) {
-        if (nowTs - dt < 90 * 86400000) actifs++;
-      }
-    }
-    scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
-  }
-
-  // Composante 3 : taux de service (poids 20%)
-  const serv = _S.benchLists?.obsKpis?.mine?.serv || 0;
-
-  // Composante 4 : ratio actif/dormant en valeur (poids 20%)
-  let valDormants = 0, valStock = 0;
-  for (const r of d) {
-    const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
-    valStock += val;
-    if ((r.ageJours || 0) > 365) valDormants += val;
-  }
-  const scoreDorm = valStock > 0 ? Math.max(0, 1 - valDormants / valStock) : 1;
-
-  const score = Math.round(scoreStock * 30 + scoreClients * 30 + (serv / 100) * 20 + scoreDorm * 20);
-  const color = score >= 70 ? 'green' : score >= 45 ? 'amber' : 'red';
-  const label = score >= 70 ? 'Bonne santé' : score >= 45 ? 'Vigilance' : 'Actions requises';
-  return { score, color, label, scoreStock, scoreClients, serv, scoreDorm };
 }
 
 // ── Helper : enrichissement client (chalandise + fallback territoire) ──
@@ -866,50 +715,6 @@ export function computeAnglesMorts() {
   results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
   _S.anglesMorts = results;
 }
-
-// ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
-export function computeSPC(cc, info) {
-  let score = 0;
-  const rec = _S.clientStore?.get(cc);
-  // 1. Récence (30 pts)
-  const daysAgo = rec?.silenceDaysPDV;
-  if (daysAgo !== null && daysAgo !== undefined) {
-    if (daysAgo <= 30) score += 30;
-    else if (daysAgo <= 90) score += 20;
-    else if (daysAgo <= 180) score += 10;
-  }
-  // 2. CA rapatriable (30 pts)
-  const caLeg = info.ca2025 || info.ca2026 || 0;
-  const caPDV = rec?.caPDV || 0;
-  const caHorsPDV = Math.max(caLeg - caPDV, 0);
-  if (caHorsPDV > 10000) score += 30;
-  else if (caHorsPDV > 5000) score += 25;
-  else if (caHorsPDV > 2000) score += 20;
-  else if (caHorsPDV > 500) score += 15;
-  else if (caHorsPDV > 0) score += 5;
-  // 3. Familles manquantes vs benchmark métier (20 pts)
-  if (_S.metierFamBench && info.metier && _S.metierFamBench[info.metier]) {
-    const metierFams = _S.metierFamBench[info.metier];
-    const clientFams = _S.clientFamCA ? _S.clientFamCA[cc] || {} : {};
-    let totalMetierFams = 0;
-    let missingFams = 0;
-    for (const f in metierFams) {
-      if (!Object.prototype.hasOwnProperty.call(metierFams, f)) continue;
-      totalMetierFams++;
-      if (!clientFams[f]) missingFams++;
-    }
-    const missingRatio = totalMetierFams > 0 ? missingFams / totalMetierFams : 0;
-    score += Math.round(missingRatio * 20);
-  }
-  // 4. Profil chalandise (20 pts)
-  const classif = _normalizeClassif(info.classification);
-  if (classif === 'FID Pot+') score += 15;
-  else if (classif === 'OCC Pot+') score += 10;
-  else if (classif === 'FID Pot=') score += 8;
-  if (_isMetierStrategique(info.metier)) score += 5;
-  return Math.min(Math.round(score), 100);
-}
-
 
 // ── B3: Benchmark Métier — médiane CA + tronc commun familles par segment ──
 let _benchMetierCache = null;

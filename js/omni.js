@@ -444,16 +444,4 @@ window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window.SEG_LABELS = SEG_LABELS;
 
 // ── ESM exports ──
-export {
-  renderCanalAgence,
-  openCanalDrill,
-  openCanalDrillArticles,
-  closeCanalDrill,
-  exportCanalDrillCSV,
-  getKPIsByCanal,
-  computePhantomArticles,
-  _setTerrClientsCanalFilter,
-  renderOmniTab,
-  renderOmniContent,
-  SEG_LABELS,
-};
+export { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, renderOmniContent, SEG_LABELS };

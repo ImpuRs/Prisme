@@ -219,20 +219,6 @@ export async function _onPurgeCache() {
   location.reload();
 }
 
-// ── Exclusions clients (persistance permanente, sans TTL) ─────
-export function _saveExclusions() {
-  try {
-    const data = {};
-    for (const [k, v] of _S.excludedClients.entries()) {
-      const { clientData, ...rest } = v;
-      data[k] = rest;
-    }
-    localStorage.setItem(EXCL_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn('Exclusions save failed :', e.message);
-  }
-}
-
 export function _restoreExclusions() {
   try {
     const raw = localStorage.getItem(EXCL_KEY);

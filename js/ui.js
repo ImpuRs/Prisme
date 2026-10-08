@@ -12,7 +12,7 @@ import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, escapeHtml, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { calcPriorityScore, computeHealthScore, rowVerdictLabel } from './engine.js';
+import { calcPriorityScore, rowVerdictLabel } from './engine.js';
 
 
 // ── ToastManager — file FIFO avec priorités ───────────────────
@@ -118,21 +118,6 @@ export function updatePipeline(step, status) {
 
 export function showLoading(t, s) { document.getElementById('loadingOverlay').classList.add('active'); updateProgress(0, 100, t, s); }
 export function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
-
-export function showTerritoireLoading(show) {
-  const sp = document.getElementById('terrLoadingSpinner');
-  if (sp) sp.classList.toggle('hidden', !show);
-}
-
-export function updateTerrProgress(cur, total) {
-  const pct2 = total > 0 ? Math.round(cur / total * 100) : 0;
-  const bar = document.getElementById('terrProgressBar');
-  const txt = document.getElementById('terrProgressText');
-  if (bar) bar.style.width = pct2 + '%';
-  if (txt) txt.textContent = pct2 + '%';
-  const pipe = document.getElementById('pipeTerritoire');
-  if (pipe && pct2 < 100) pipe.textContent = `🔗 Territoire… ${pct2}%`;
-}
 
 // ── Import zone collapse ──────────────────────────────────────
 const _statusBadgeMap = {
@@ -392,8 +377,6 @@ export function switchTab(id) {
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
-  const css = document.getElementById('cematinSearchBlock');
-  if (css) css.classList.toggle('hidden', id !== 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
@@ -752,8 +735,6 @@ export function openReporting() {
   overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
 }
 
-export function switchReportTab(){}
-
 export function closeReporting() {
   const overlay = document.getElementById('reportingOverlay');
   if (overlay) { overlay._cleanupFocusTrap?.(); overlay.classList.remove('active'); }
@@ -838,25 +819,6 @@ export function sortBy(c) {
 }
 export function changePage(d) { const m = Math.ceil(DataStore.filteredData.length / PAGE_SIZE) - 1; _S.currentPage = Math.max(0, Math.min(_S.currentPage + d, m)); renderTable(true); }
 
-// ── KPI history ───────────────────────────────────────────────
-export function clearSavedKPI() { _S.kpiHistory = []; document.getElementById('compareBlock').classList.add('hidden'); showToast('🗑️ Historique effacé.', 'success'); }
-
-export function exportKPIhistory() {
-  if (!_S.kpiHistory.length) { showToast('⚠️ Lancez d\'abord une analyse.', 'warning'); return; }
-  const blob = new Blob([JSON.stringify({ magasin: _S.selectedMyStore, exportDate: new Date().toISOString(), history: _S.kpiHistory }, null, 2)], { type: 'application/json' });
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = 'PRISME_historique_' + (_S.selectedMyStore || 'X') + '_' + new Date().toISOString().slice(0, 10) + '.json';
-  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
-  showToast('📥 Historique exporté', 'success');
-}
-
-export function importKPIhistory(input) {
-  if (!input.files.length) return;
-  const reader = new FileReader();
-  reader.onload = function (e) { try { const data = JSON.parse(e.target.result); if (data.history && data.history.length) { _S.kpiHistory = data.history; showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`, 'success'); renderAll(); } else { showToast('❌ Fichier invalide.', 'error'); } } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); } };
-  reader.readAsText(input.files[0]); input.value = '';
-}
-
 // ── CSV export ────────────────────────────────────────────────
 export function downloadCSV() {
   const SEP = ';';
@@ -874,24 +836,6 @@ export function downloadCSV() {
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 CSV téléchargé', 'success');
 }
-
-// ═══════════════════════════════════════════════════════════════
-// COMMAND PALETTE (Cmd+K) — vidé, à refaire proprement
-// ═══════════════════════════════════════════════════════════════
-
-export function openCmdPalette() {}
-export function closeCmdPalette() {}
-
-export function _cmdRender() {}
-export function _cmdBuildResults() { return []; }
-export function _cmdExec() {}
-export function _cmdMoveSelection() {}
-export function _cematinSearch() {}
-export function showSilencieux60() {}
-
-export function _cmdClientCA() { return ''; }
-
-// Ancien code Cmd+K / NL supprimé — à refaire proprement
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
 // Barre 3px en haut de l'écran reflétant l'état de santé du stock
@@ -984,329 +928,10 @@ export function renderHealthScore() {
   if (hsi) hsi.textContent = `${score}/100 — ${label}`;
 }
 
-// ── Modal Diagnostic agence ───────────────────────────────────
-export function openDiagAgence() {
-  // renderIRABanner supprimé — diagnostic agence non disponible
-  return;
-
-  const _color = s => s >= 70 ? 'var(--c-ok,#16a34a)' : s >= 40 ? 'var(--c-caution,#d97706)' : 'var(--c-danger,#dc2626)';
-  const _label = s => s >= 70 ? '✅ Bon niveau' : s >= 40 ? '⚠️ Vigilance' : '🔴 Actions requises';
-
-  // ── Section Dispo rayon ──
-  const dispoDetail = d.fmTotal > 0
-    ? `${d.fmEnStock} article${d.fmEnStock > 1 ? 's' : ''} F+M en stock sur ${d.fmTotal} référencés.`
-    : 'Aucune donnée stock disponible.';
-  const dispoAdvice = d.stockScore >= 70
-    ? `${_label(d.stockScore)} — ${d.fmTotal - d.fmEnStock} article${d.fmTotal - d.fmEnStock !== 1 ? 's' : ''} à réapprovisionner.`
-    : `${_label(d.stockScore)} — ${d.fmTotal - d.fmEnStock} ruptures sur articles fréquents/moyens.`;
-
-  // ── Section Activité clients ──
-  const clientDetail = d.totalChaland > 0
-    ? `${d.actifCount.toLocaleString('fr')} clients actifs sur ${d.totalChaland.toLocaleString('fr')} clients en zone.`
-    : d.actifCount > 0 ? `${d.actifCount.toLocaleString('fr')} clients actifs détectés.` : 'Chargez le fichier Zone de Chalandise pour une analyse complète.';
-  const clientAdvice = d.clientScore >= 70
-    ? `${_label(d.clientScore)} — bonne activation de la zone.`
-    : d.clientScore >= 40
-    ? `${_label(d.clientScore)} — une partie de la zone n'achète pas chez vous.`
-    : `${_label(d.clientScore)} — la majorité de la zone n'achète pas chez vous.`;
-
-  // ── Section Captation ──
-  const captDetail = d.caFuyant > 0
-    ? `${Math.round(d.caPDV / 1000)}k€ CA PDV · ${Math.round(d.caFuyant / 1000)}k€ de CA fuyant détecté.`
-    : 'Aucune fuite détectée dans le fichier Territoire.';
-  const captAdvice = d.caFuyant > 0
-    ? `${_label(d.captationScore)} — des clients achètent des familles ailleurs.`
-    : '✅ Chargez le fichier Territoire pour une analyse complète.';
-
-  // ── Recommandations ──
-  const recs = [];
-  if (d.clientScore < 40) recs.push({ txt: 'Activité clients faible → relancer les silencieux', cmd: 'clients silencieux' });
-  if (d.stockScore < 70) recs.push({ txt: `${d.fmTotal - d.fmEnStock} ruptures F+M → passer commande ERP`, cmd: 'ruptures top clients' });
-  if (d.caFuyant > 0) recs.push({ txt: 'Fuites détectées → analyser les familles fuyantes', cmd: 'familles fuyantes hors agence' });
-  if (!d.totalChaland) recs.push({ txt: 'Charger la Zone de Chalandise pour activer l\'analyse clients', cmd: null });
-  if (recs.length === 0) recs.push({ txt: 'Score satisfaisant — continuer la surveillance régulière.', cmd: null });
-
-  const recsHtml = recs.map(r => `<div style="display:flex;align-items:baseline;gap:6px;padding:4px 0">
-    <span style="font-size:0.75rem">→</span>
-    <span style="font-size:0.78rem;color:var(--t-secondary)">${r.txt}</span>
-    ${r.cmd ? `<button onclick="document.getElementById('diagAgenceModal').remove();window._cematinSearch&&window._cematinSearch('${r.cmd}')" style="margin-left:auto;font-size:0.65rem;padding:2px 8px;border-radius:8px;border:1px solid var(--b-light);background:transparent;cursor:pointer;color:var(--c-action);white-space:nowrap">Cmd+K →</button>` : ''}
-  </div>`).join('');
-
-  function _card(title, score, detail, advice) {
-    const c = _color(score);
-    return `<div style="border:1px solid var(--b-darker);border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--s-panel-inner)">
-        <span style="font-size:0.75rem;font-weight:700;color:var(--t-inverse)">${title}</span>
-        <span style="font-size:0.9rem;font-weight:900;color:${c}">${score}/100</span>
-      </div>
-      <div style="padding:10px 14px;background:var(--s-panel-inner)">
-        <p style="font-size:0.75rem;color:var(--t-inverse-muted);margin:0 0 4px">${detail}</p>
-        <p style="font-size:0.72rem;color:${c};font-weight:600;margin:0">${advice}</p>
-      </div>
-    </div>`;
-  }
-
-  const pts1 = Math.round(d.stockScore * 0.40);
-  const pts2 = Math.round(d.clientScore * 0.35);
-  const pts3 = Math.round(d.captationScore * 0.25);
-  const rawTotal = (d.stockScore * 0.40 + d.clientScore * 0.35 + d.captationScore * 0.25).toFixed(1);
-  const formulaHtml = `<div style="border:1px solid var(--b-darker);border-radius:10px;overflow:hidden;margin-bottom:12px">
-    <div style="padding:6px 14px;background:var(--s-panel-inner);border-bottom:1px solid var(--b-darker)">
-      <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled)">Détail du calcul</span>
-    </div>
-    <div style="padding:10px 14px;background:var(--s-panel-inner)">
-      <table style="width:100%;border-collapse:collapse;font-size:0.74rem;font-variant-numeric:tabular-nums">
-        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">📦 Disponibilité rayon</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.stockScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 40%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts1} pt${pts1!==1?'s':''}</td></tr>
-        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">👥 Activité clients</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.clientScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 35%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts2} pt${pts2!==1?'s':''}</td></tr>
-        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">🎯 Captation zone</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.captationScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 25%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts3} pt${pts3!==1?'s':''}</td></tr>
-        <tr style="border-top:1px solid var(--b-darker)"><td colspan="3" style="color:var(--t-disabled);padding:4px 0 0;font-size:0.65rem">Total brut ${rawTotal} → arrondi</td><td style="font-size:0.95rem;font-weight:900;color:${_color(d.ira)};text-align:right;padding:4px 0 0">${d.ira}/100</td></tr>
-      </table>
-    </div>
-  </div>`;
-
-  const iraColor = _color(d.ira);
-  const html = `<div id="diagAgenceModal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--s-panel);border:1px solid var(--b-dark);border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);color:var(--t-inverse)">
-      <div style="padding:18px 20px 12px;border-bottom:1px solid var(--b-dark)">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled)">Mon agence en un coup d'œil</span>
-          <button onclick="document.getElementById('diagAgenceModal').remove()" style="margin-left:auto;font-size:1rem;background:transparent;border:none;cursor:pointer;color:var(--t-disabled);padding:2px 6px;border-radius:6px" title="Fermer">✕</button>
-        </div>
-        <p style="margin:6px 0 0;font-size:1rem;font-weight:900;color:${iraColor}">📊 Score global : ${d.ira}/100 — ${d.iraLabel}</p>
-      </div>
-      <div style="padding:16px 20px">
-        ${_card('📦 Disponibilité rayon', d.stockScore, dispoDetail, dispoAdvice)}
-        ${_card('👥 Activité clients', d.clientScore, clientDetail, clientAdvice)}
-        ${_card('🎯 Captation zone', d.captationScore, captDetail, captAdvice)}
-        ${formulaHtml}
-        <div style="border-top:1px solid var(--b-darker);padding-top:12px;margin-top:4px">
-          <p style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled);margin:0 0 8px">Comment améliorer mon score ?</p>
-          ${recsHtml}
-        </div>
-      </div>
-      <div style="padding:12px 20px;border-top:1px solid var(--b-dark);text-align:right">
-        <button onclick="document.getElementById('diagAgenceModal').remove()" style="padding:7px 20px;border-radius:20px;background:var(--s-panel-inner);border:1px solid var(--b-dark);cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--t-inverse)">Fermer</button>
-      </div>
-    </div>
-  </div>`;
-
-  document.getElementById('diagAgenceModal')?.remove();
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-window.openDiagAgence = openDiagAgence;
 
 // ── IRA history helpers ───────────────────────────────────────
 const _IRA_HIST_KEY = 'PRISME_IRA_HISTORY';
 const _IRA_MAX_DAYS = 90;
-
-function _saveIRASnapshot(ira, sr, cs, cap) {
-  try {
-    const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-    const hist = _loadIRAHistory();
-    // Dedup: remplacer le snapshot du jour si déjà présent
-    const idx = hist.findIndex(p => p.d === today);
-    const snap = { d: today, ira, sr, cs, cap };
-    if (idx >= 0) hist[idx] = snap; else hist.push(snap);
-    // Garder les 90 derniers jours
-    hist.sort((a, b) => a.d.localeCompare(b.d));
-    while (hist.length > _IRA_MAX_DAYS) hist.shift();
-    localStorage.setItem(_IRA_HIST_KEY, JSON.stringify(hist));
-  } catch (_) {}
-}
-
-export function _loadIRAHistory() {
-  try {
-    const raw = localStorage.getItem(_IRA_HIST_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) || [];
-  } catch (_) { return []; }
-}
-
-function _renderIRASparkline(history) {
-  if (!history || history.length < 2) return '';
-  const pts = history.slice(-30); // derniers 30 points
-  const n = pts.length;
-  const W = 340, H = 36, padL = 2, padR = 2, padT = 3, padB = 10;
-  const pw = W - padL - padR, ph = H - padT - padB;
-
-  const iras  = pts.map(p => p.ira);
-  const srs   = pts.map(p => p.sr);
-  const xStep = pw / Math.max(n - 1, 1);
-
-  function poly(vals, color, dash = '') {
-    const points = vals.map((v, i) => {
-      const x = (padL + i * xStep).toFixed(1);
-      const y = (padT + ph - v / 100 * ph).toFixed(1);
-      return `${x},${y}`;
-    }).join(' ');
-    return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.8"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
-  }
-
-  // Zone de référence : ligne à 75 (seuil "agence en forme")
-  const refY = (padT + ph - 75 / 100 * ph).toFixed(1);
-  const refLine = `<line x1="${padL}" y1="${refY}" x2="${W - padR}" y2="${refY}" stroke="rgba(22,163,74,0.2)" stroke-dasharray="2,3"/>`;
-
-  // Dot sur le dernier point IRA
-  const lastIRA = iras[n - 1];
-  const dotX = (padL + (n - 1) * xStep).toFixed(1);
-  const dotY = (padT + ph - lastIRA / 100 * ph).toFixed(1);
-  const dotColor = lastIRA >= 75 ? '#16a34a' : lastIRA >= 50 ? '#d97706' : '#dc2626';
-  const dot = `<circle cx="${dotX}" cy="${dotY}" r="2.5" fill="${dotColor}"/>`;
-
-  // Labels axe Y
-  const labelY75 = `<text x="${W - padR + 1}" y="${refY - 0 + 3.5}" font-size="6" fill="rgba(22,163,74,0.4)" text-anchor="start">75</text>`;
-
-  // Dates début / fin sous le sparkline
-  const d0 = pts[0].d.slice(5).replace('-', '/');  // MM/DD
-  const dN = pts[n - 1].d.slice(5).replace('-', '/');
-  const dateLabel = `<text x="${padL}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.4)">${d0}</text>
-    <text x="${W - padR}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.4)" text-anchor="end">${dN}</text>`;
-
-  // Légende
-  const legend = `<text x="${W / 2}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.45)" text-anchor="middle">━ IRA  ╌ Taux service  (${n} pts)</text>`;
-
-  const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
-    ${refLine}
-    ${poly(srs, 'rgba(99,179,237,0.45)', '2,2')}
-    ${poly(iras, dotColor)}
-    ${dot}
-    ${labelY75}
-    ${dateLabel}
-    ${legend}
-  </svg>`;
-  return svg;
-}
-
-// ── Snapshot agence — export markdown clipboard ───────────────
-export function exportAgenceSnapshot() {
-  const d = _S.finalData;
-  if (!d.length) { showToast('Aucune donnée chargée', 'info'); return; }
-
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const store = _S.selectedMyStore || 'Agence';
-  const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/\u00a0/g, ' ');
-
-  // ── IRA scores ──
-  const fmArts = d.filter(r => (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-  const fmRup = fmArts.filter(r => r.stockActuel <= 0).length;
-  const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
-
-  let clientScore = 50, actifCount = 0, totalChaland = 0;
-  if (_S.clientStore?.size > 0) {
-    totalChaland = _S.chalandiseData?.size || _S.clientStore.size;
-    for (const rec of _S.clientStore.values()) {
-      if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV <= 90) actifCount++;
-    }
-    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
-  } else if (_S.clientLastOrder?.size > 0) {
-    const nowTs = Date.now();
-    totalChaland = _S.chalandiseData?.size || _S.clientLastOrder.size;
-    actifCount = [..._S.clientLastOrder.values()].filter(dt => nowTs - dt < 90 * 86400000).length;
-    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
-  }
-
-  let captationScore = 100, caPDVtot = 0, caFuyantTot = 0;
-  if (_S.famillesHors?.length > 0) {
-    caFuyantTot = _S.famillesHors.reduce((s, f) => s + (f.caHors || 0), 0);
-    if (_S.ventesLocalMagPeriode) for (const [, arts] of _S.ventesLocalMagPeriode) for (const [, v] of arts) caPDVtot += (v.sumCA || 0);
-    const tot = caPDVtot + caFuyantTot;
-    captationScore = tot > 0 ? Math.round(100 * caPDVtot / tot) : 100;
-  }
-  const ira = Math.round(stockScore * 0.40 + clientScore * 0.35 + captationScore * 0.25);
-  const iraLabel = ira >= 75 ? 'Agence en forme' : ira >= 50 ? 'Points d\'attention' : 'Actions urgentes';
-
-  // ── Briefing ──
-  const br = _S._briefingData || {};
-  const lstR = br.lstR || [];
-  const totalCAPerdu = br.totalCAPerdu || 0;
-  const dormantStock = br.dormantStock || 0;
-  const capalinOverflow = br.capalinOverflow || 0;
-  const sr = br.sr != null ? br.sr : null;
-
-  // ── Canal KPIs ──
-  const caMag = _S.canalAgence?.MAGASIN?.ca || 0;
-  const caWeb = _S.canalAgence?.INTERNET?.ca || 0;
-  const caRep = _S.canalAgence?.REPRESENTANT?.ca || 0;
-  const caDcs = _S.canalAgence?.DCS?.ca || 0;
-  const caTot = caMag + caWeb + caRep + caDcs;
-
-  // ── Familles fuyantes top 3 ──
-  const topFuites = (_S.famillesHors || []).slice(0, 3);
-
-  // ── Build markdown ──
-  const lines = [];
-  lines.push(`# 📊 Snapshot Agence — ${store} · ${dateStr}`);
-  lines.push('');
-
-  // IRA
-  lines.push(`## 🎯 IRA ${ira}/100 — ${iraLabel}`);
-  lines.push(`- 📦 Stock F+M : **${stockScore}/100** · ${fmArts.length - fmRup}/${fmArts.length} articles en stock`);
-  if (totalChaland > 0) lines.push(`- 👥 Momentum clients : **${clientScore}/100** · ${actifCount} actifs / ${totalChaland} clients`);
-  if (caFuyantTot > 0) lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · ${Math.round(caPDVtot/1000)}k€ PDV · ${Math.round(caFuyantTot/1000)}k€ fuyant`);
-  else lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · Aucune fuite détectée`);
-  lines.push('');
-
-  // KPIs stock
-  lines.push('## 📦 KPIs stock');
-  if (sr !== null) lines.push(`- Taux de service F+M : **${sr}%**`);
-  lines.push(`- Ruptures actives (F+M) : **${lstR.length}** articles${totalCAPerdu > 0 ? ` · ~${Math.round(totalCAPerdu/1000)}k€ à risque` : ''}`);
-  if (dormantStock + capalinOverflow > 0) lines.push(`- Stock à assainir : **${formatEuro(dormantStock + capalinOverflow)}** (dormants ${formatEuro(dormantStock)} + excédent ${formatEuro(capalinOverflow)})`);
-  lines.push('');
-
-  // CA canaux
-  if (caTot > 0) {
-    lines.push('## 💶 CA multi-canal');
-    if (caMag > 0) lines.push(`- Comptoir (PDV) : **${formatEuro(caMag)}** (${Math.round(caMag/caTot*100)}%)`);
-    if (caWeb > 0) lines.push(`- Internet : **${formatEuro(caWeb)}** (${Math.round(caWeb/caTot*100)}%)`);
-    if (caRep > 0) lines.push(`- Représentant : **${formatEuro(caRep)}** (${Math.round(caRep/caTot*100)}%)`);
-    if (caDcs > 0) lines.push(`- DCS : **${formatEuro(caDcs)}** (${Math.round(caDcs/caTot*100)}%)`);
-    lines.push('');
-  }
-
-  // Fuites
-  if (topFuites.length > 0) {
-    lines.push('## 🟠 Top familles fuyantes');
-    topFuites.forEach(f => lines.push(`- ${f.fam} : **${formatEuro(f.caHors)}** hors agence · ${f.nbClients} clients`));
-    if (_S.famillesHors.length > 3) lines.push(`  _(+${_S.famillesHors.length - 3} autres familles)_`);
-    lines.push('');
-  }
-
-  lines.push('---');
-  lines.push(`_Généré par PRISME · ${dateStr} ${timeStr}_`);
-
-  const md = lines.join('\n');
-
-  navigator.clipboard.writeText(md).then(() => {
-    showToast('📋 Snapshot copié — prêt à coller dans Notion, Teams ou email', 'success');
-  }).catch(() => {
-    // Fallback: textarea select
-    const ta = document.createElement('textarea');
-    ta.value = md;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('📋 Snapshot copié (fallback)', 'success');
-  });
-}
-
-// ── Feature 7: Clip ERP — TSV CODE<tab>QTÉ ───────────────────
-export function clipERP() {
-  const lines = '';
-  if (!lines) { showToast('Aucune commande à copier', 'info'); return; }
-  const count = lines.split('\n').length;
-  const btn = document.getElementById('erpCopyBtn');
-  navigator.clipboard.writeText(lines).then(() => {
-    showToast(`📋 ${count} article${count > 1 ? 's' : ''} copié${count > 1 ? 's' : ''} (CODE → QTÉ)`, 'success');
-    if (btn) { const orig = btn.innerHTML; btn.innerHTML = '✅ Copié !'; setTimeout(() => { btn.innerHTML = orig; }, 2000); }
-  }).catch(() => {
-    showToast('Erreur de copie dans le presse-papiers', 'error');
-  });
-}
 
 // ── Feature 9: Lexique Ancré <abbr> ──────────────────────────
 // Wraps known métier terms in <abbr class="gls"> inside <th> elements.
@@ -1350,28 +975,6 @@ export function wrapGlossaryTerms(root = document) {
   }
 }
 
-// Keyboard listeners
-document.addEventListener('keydown', function(e) {
-  // Open: Cmd+K / Ctrl+K
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault();
-    const pal = document.getElementById('cmdPalette');
-    if (pal && pal.classList.contains('hidden')) openCmdPalette();
-    else closeCmdPalette();
-    return;
-  }
-  const pal = document.getElementById('cmdPalette');
-  if (!pal || pal.classList.contains('hidden')) return;
-  if (e.key === 'Escape') { e.preventDefault(); closeCmdPalette(); }
-  else if (e.key === 'ArrowDown') { e.preventDefault(); _cmdMoveSelection(1); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); _cmdMoveSelection(-1); }
-  else if (e.key === 'Enter') {
-    e.preventDefault();
-    if (_cmdSelectedIdx >= 0) _cmdExec(_cmdSelectedIdx);
-    else if (_cmdItems.length > 0) _cmdExec(0);
-  }
-});
-
 // ── Sprint AG: Raccourcis clavier étendus ──────────────────────
 document.addEventListener('keydown', function(e) {
   // Ne pas interférer avec les inputs / textearea / contenteditable
@@ -1384,36 +987,15 @@ document.addEventListener('keydown', function(e) {
     if (diag && !diag.classList.contains('hidden')) { diag.classList.add('hidden'); e.preventDefault(); return; }
     const c360 = document.getElementById('client360Overlay');
     if (c360 && !c360.classList.contains('hidden')) { c360.classList.add('hidden'); e.preventDefault(); return; }
-    // Hide NL results if open
-    const nlRes = document.getElementById('cematinResults');
-    if (nlRes && !nlRes.classList.contains('hidden')) { nlRes.classList.add('hidden'); e.preventDefault(); return; }
     return;
   }
 
-  // / : focus barre NL search (Ce matin)
-  if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
-    const si = document.getElementById('cematinSearchInput');
-    if (si) { e.preventDefault(); si.focus(); si.select(); }
-    return;
-  }
-
-  // 1–7 : switcher d'onglet (uniquement sans modificateur)
-  if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'stock', '4': 'clients', '5': 'commerce', '6': 'plan', '7': 'animation', '8': 'associations' };
+  // 1–9 : écrans dans l'ordre de la barre (uniquement sans modificateur, données chargées)
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && _S.finalData?.length) {
+    const TAB_MAP = { '1': 'partie', '2': 'arbitrage', '3': 'plan', '4': 'portefeuille', '5': 'commerce', '6': 'duel', '7': 'animation', '8': 'associations', '9': 'table' };
     const tab = TAB_MAP[e.key];
-    if (tab) {
-      const btn = document.querySelector(`[data-tab="${tab}"]`);
-      if (btn && !btn.classList.contains('hidden')) { e.preventDefault(); switchTab(tab); }
-    }
+    if (tab) { e.preventDefault(); switchTab(tab); }
   }
-});
-
-// Input debounce
-document.addEventListener('input', function(e) {
-  if (e.target.id !== 'cmdInput') return;
-  _cmdSelectedIdx = -1;
-  clearTimeout(_cmdTimer);
-  _cmdTimer = setTimeout(() => _cmdRender(e.target.value), 150);
 });
 
 // ── _renderNoStockPlaceholder — placeholder onglet sans stock ─
@@ -1462,14 +1044,3 @@ export function renderTabBadges() {
 }
 
 
-// ── P6: Export résumé Cockpit vers le presse-papier ──────────
-export function exportCockpitResume() {
-  const lines = [];
-  lines.push(`COCKPIT ${_S.selectedMyStore} — ${new Date().toLocaleDateString('fr-FR')}`);
-  lines.push(`CA Magasin : ${formatEuro(_S._briefingData?.caComptoir || 0)}`);
-  lines.push(`Taux de dispo : ${_S._briefingData?.sr ?? '—'}%`);
-  lines.push(`Ruptures : ${_S.cockpitLists.ruptures?.size ?? 0} · Dormants : ${_S.cockpitLists.dormants?.size ?? 0}`);
-  lines.push('');
-  navigator.clipboard.writeText(lines.join('\n'));
-  showToast('Résumé Cockpit copié ✅', 'success');
-}

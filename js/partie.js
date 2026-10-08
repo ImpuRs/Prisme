@@ -18,11 +18,7 @@
 import { _S } from './state.js';
 import { computeSquelette, verdictLabel } from './engine.js';
 import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
-import {
-  PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE,
-  PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX,
-  PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS,
-} from './constants.js';
+import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 import { computeClientsPartie } from './clients-decisions.js';
 

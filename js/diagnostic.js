@@ -14,7 +14,7 @@ function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci, getVentesHorsMagFullMap } from './sales.js';
-import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -1126,46 +1126,6 @@ function _seasonRibbon(famille){
   return`<div class="flex gap-px items-end mt-1 overflow-hidden" style="max-width:100%" title="Saisonnalité famille">${cells}</div>`;
 }
 
-// ── BANDEAU SYNTHÈSE "3 CHIFFRES" (Action 1 — Codex P1) ──
-function _diagRenderSummaryBar(v1,v2,v3){
-  const cards=[];
-  // Card 1 : CA perdu ruptures (toujours, sauf absent)
-  if(v1&&v1.status!=='absent'){
-    const ca=v1.caPerduTotal||0;const nbRup=v1.ruptures?.length||0;
-    const col=ca>=1000?'c-danger':ca>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
-      <p class="text-lg font-extrabold ${col}">${ca>0?formatEuro(ca):'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${nbRup>0?nbRup+' article'+(nbRup>1?'s':'')+' en rupture':'Pas de rupture active'}</p>
-    </div>`);
-  }
-  // Card 2 : Clients perdus (chalandise chargée)
-  if(v2&&v2.status!=='lock'){
-    const nb=v2.perdus||0;const pot=v2.potentiel||0;
-    const col=nb>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
-      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
-    </div>`);
-  }
-  // Card 3 : Absents réseau (multi-agences)
-  if(v3&&v3.status!=='lock'){
-    const nb=v3.missing?.length||0;const strong=v3.strongMissing||0;
-    const col=nb>5?'c-danger':nb>0?'c-caution':'c-ok';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Absents réseau</p>
-      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${strong>0?'dont '+strong+' forte rotation':nb===0?'Gamme complète':'à référencer'}</p>
-    </div>`);
-  }
-  if(!cards.length)return'';
-  const v1ok=!v1||v1.status==='absent'||(v1.caPerduTotal===0&&v1.nbMM===0);
-  const v2ok=!v2||v2.status==='lock'||(v2.perdus||0)===0;
-  const v3ok=!v3||v3.status==='lock'||(v3.missing?.length||0)===0;
-  if(v1ok&&v2ok&&v3ok)return`<div class="flex gap-2 mb-4 p-3 rounded-xl s-panel-inner border border-emerald-700/50 items-center"><span>✅</span><p class="text-xs c-ok font-semibold">Famille bien pilotée — aucune action urgente.</p></div>`;
-  return`<div class="flex gap-3 mb-4">${cards.join('')}</div>`;
-}
 function _diagRenderSummaryBarMetier(l1,l4,l3){
   const cards=[];
   if(l1&&l1.arts>0){
@@ -1626,75 +1586,6 @@ function _diagVoyant1(famille){
   const worstStatus=[statusRup,statusMM,statusDorm].includes('error')?'error':[statusRup,statusMM,statusDorm].includes('warn')?'warn':'ok';
   return{status:worstStatus,arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,nonCal:nonCal.length,sousD:sousD.length,mmDetail,nbMM,dormants,statusRup,statusMM};
 }
-function _diagRenderV1(v,hasNetworkData){
-  if(v.status==='absent')return`<div class="diag-voyant diag-v1 diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs t-inverse-muted mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] c-ok mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
-  const rupIcon=v.ruptures.length===0?'✅':v.ruptures.length<=3?'⚠️':'🚨';
-  const rupClass=v.ruptures.length===0?'c-ok':v.ruptures.length<=3?'c-caution':'c-danger';
-  const _gap347=v.arts-v.enStock;
-  const rupText=v.ruptures.length===0?(_gap347>0?`Pas de rupture active · ${_gap347} article${_gap347>1?'s':''} sans stock exclu${_gap347>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — CA perdu estimé : <strong>${v.caPerduTotal>0?formatEuro(v.caPerduTotal):'<1€'}</strong>`;
-  const top5=v.ruptures.slice(0,5);
-  const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
-  const mmIcon=v.nbMM===0?'✅':v.nbMM<=5?'⚠️':'🚨';
-  const mmClass=v.nbMM===0?'c-ok':v.nbMM<=5?'c-caution':'c-danger';
-  const mmText=v.nbMM===0?'Calibrage correct — tous les articles actifs ont un MIN/MAX bien dimensionné':`${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''}${v.nonCal>0?' (dont '+v.nonCal+' sans MIN/MAX)':''}`;
-  const top5MM=v.mmDetail.slice(0,5);
-  const dormHtml=v.dormants.length>0?`<p class="text-[11px] c-caution mt-1">💤 <strong>${v.dormants.length}</strong> article${v.dormants.length>1?'s':''} en stock sans vente récente (dormants) → envisager déstockage</p>`:'';
-  return`<div class="diag-voyant diag-v1 diag-border-${v.status}">
-    <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge(v.status)}</div>
-    <p class="text-[10px] t-inverse-muted mb-3"><strong class="text-white">${v.arts}</strong> articles · <strong class="text-white">${v.enStock}</strong> en stock${v.nonRef>0?' · <span class="t-inverse-muted">'+v.nonRef+' non référencés</span>':''}</p>
-    <p class="text-xs ${rupClass} font-bold mb-1">${rupIcon} ${rupText}</p>
-    ${top5.length?`<details${v.statusRup==='error'?' open':''}><summary class="text-[10px] ${rupClass} font-bold cursor-pointer mb-1 list-none">🚨 ${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — détails ▾</summary><div class="mb-2">${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — Fréq ${r.W}, rupture ${r.jours}j → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+')</span>':''}</span></div>`).join('')}${v.ruptures.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.ruptures.length-5} autre${v.ruptures.length-5>1?'s':''}</p>`:''}</div></details>`:''}
-    <p class="text-xs ${mmClass} font-bold mb-1 mt-2">${mmIcon} ${mmText}</p>
-    ${top5MM.length?`<details><summary class="text-[10px] ${mmClass} font-bold cursor-pointer mb-1 list-none">⚠️ ${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''} — détails ▾</summary><div class="mb-1">${top5MM.map(r=>`<div class="flex items-start gap-2 py-0.5 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} — MIN <span class="c-caution">${r.ancienMin}</span> → <span class="c-ok font-bold">${r.nouveauMin}</span> <span class="c-danger text-[10px]">(+${r.ecart})</span></span></div>`).join('')}${v.mmDetail.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.mmDetail.length-5} autre${v.mmDetail.length-5>1?'s':''}</p>`:''}</div></details>`:''}
-    ${dormHtml}
-  </div>`;
-}
-
-// ── Level 1: Stock (kept for métier mode) ──
-function _diagLevel1(famille){
-  const arts=DataStore.finalData.filter(r=>r.famille===famille);
-  const enStock=arts.filter(r=>r.stockActuel>0).length;
-  const nonRef=arts.filter(r=>r.stockActuel<=0&&r.W<3).length;
-  let caPerduTotal=0;
-  const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
-    const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-    const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
-    caPerduTotal+=ca;
-    return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
-  }).sort((a,b)=>b.ca-a.ca);
-  const status=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
-  return{arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,status};
-}
-function _diagRenderL1(l){
-  const verdictClass=l.ruptures.length===0?'c-ok':l.ruptures.length<=3?'c-caution':'c-danger';
-  const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
-  const _gap=l.arts-l.enStock;
-  const verdictText=l.ruptures.length===0?(_gap>0?`Pas de rupture active · ${_gap} article${_gap>1?'s':''} sans stock exclu${_gap>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
-  const top5=l.ruptures.slice(0,5);
-  const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
-  return`<div class="diag-level">
-    <div class="diag-level-hdr"><span class="font-bold text-sm c-action">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
-    <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
-    ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span>${_articleSparkline(r.code)} — <span class="t-inverse">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
-    ${l.nonRef>0?`<p class="text-[11px] t-inverse-muted mt-1">💡 <strong class="t-inverse">${l.nonRef}</strong> article${l.nonRef>1?'s':''} ni en stock ni en rupture = non référencés en agence</p>`:''}
-  </div>`;
-}
-
-// ── Level 2: Calibrage MIN/MAX ──
-function _diagLevel2(famille,hasBench,refStore){
-  const arts=DataStore.finalData.filter(r=>r.famille===famille&&r.W>=1);
-  const nonCal=arts.filter(r=>r.ancienMin===0&&r.ancienMax===0&&!r.isNouveaute);
-  const sousD=arts.filter(r=>r.ancienMin>0&&r.nouveauMin>r.ancienMin);
-  let sousPerf=[];
-  if(hasBench&&refStore){
-    const myV=_S.ventesParAgence[_S.selectedMyStore]||{};
-    const refV=_S.ventesParAgence[refStore]||{};
-    for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
-  }
-  const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(_S.ventesParAgence[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
-  const nb=nonCal.length+sousD.length;
-  return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
-}
 function _diagRenderL2(l,hasBench,refStore){
   const nbTotal=l.nonCal+l.sousD;
   const verdictClass=nbTotal===0?'c-ok':nbTotal<=5?'c-caution':'c-danger';
@@ -1992,47 +1883,6 @@ function _diagRenderV3(v,hasMulti){
   </div>`;
 }
 
-// ── Level 3: Gamme ──
-function _diagLevel3(famille,hasBench,hasTerr,refStore){
-  if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Le Terrain ou des données multi-agences pour activer l\'analyse de gamme'};
-  const myArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
-  if(hasBench&&refStore){
-    const refV=_S.ventesParAgence[refStore]||{};
-    const refArts=Object.keys(refV).filter(c=>famLib(_S.articleFamille[c])===famille);
-    const missing=refArts.filter(c=>!myArts.has(c)).map(c=>{
-      const refF=refV[c]?.countBL||0;const lib=_S.libelleLookup[c]||c;
-      const d=DataStore.finalData.find(r=>r.code===c);
-      return{code:c,lib,refFreq:refF,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'};
-    }).sort((a,b)=>b.refFreq-a.refFreq);
-    const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    return{status:missing.length===0?'ok':strong>2?'error':'warn',mode:'bench',myCount:myArts.size,refCount:refArts.length,refStore,missing:missing.slice(0,25),strongMissing:strong};
-  }
-  if(hasTerr){
-    const tMap={};
-    for(const l of DataStore.ventesTerrain){if(l.isSpecial||(famLib(l.famille||''))!==famille)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}
-    const tArts=Object.values(tMap).sort((a,b)=>b.ca-a.ca);
-    const missing=tArts.filter(a=>!myArts.has(a.code)).map(a=>({...a,abcClass:DataStore.finalData.find(r=>r.code===a.code)?.abcClass||'?',fmrClass:DataStore.finalData.find(r=>r.code===a.code)?.fmrClass||'?'}));
-    return{status:missing.length===0?'ok':missing.length>5?'error':'warn',mode:'territoire',myCount:myArts.size,terrCount:tArts.length,missing:missing.slice(0,25),strongMissing:0};
-  }
-  return{status:'lock',reason:'Pas de données de comparaison disponibles'};
-}
-function _diagRenderL3(l,hasBench,hasTerr){
-  if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm t-inverse-muted">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${l.reason}</p></div>`;
-  const srcLabel=l.mode==='bench'?`<em class="c-caution">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Le Terrain : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
-  const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA Legallais</th>`;
-  const rows=(l.missing||[]).map(a=>{
-    const abcColor=a.abcClass==='A'?'c-ok':a.abcClass==='B'?'c-action':'t-inverse-muted';
-    const fmrColor=a.fmrClass==='F'?'c-ok':a.fmrClass==='M'?'c-action':'c-danger';
-    if(l.mode==='bench')return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${a.lib}</td><td class="py-1 px-2 text-center font-bold">${a.refFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td><td class="py-1 px-2 text-center font-bold ${fmrColor}">${a.fmrClass}</td></tr>`;
-    return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${a.lib}</td><td class="py-1 px-2 text-right font-bold">${formatEuro(a.ca)}</td></tr>`;
-  }).join('');
-  return`<div class="diag-level">
-    <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
-    <p class="text-xs t-inverse-muted mb-2">${srcLabel}</p>
-    ${l.missing?.length?`<p class="text-xs c-caution font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs c-ok">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
-  </div>`;
-}
-
 // ── Métier-mode level functions (diagnostic opened from a métier, not a famille) ──
 function _diagLevel1Metier(metier){
   const metierClients=new Set();
@@ -2183,55 +2033,6 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   return acts.sort((a,b)=>a.priority-b.priority);
 }
 
-// ── Level 4: Clients métier ──
-function _diagLevel4(famille,hasChal,metierFilter){
-  metierFilter=metierFilter||'';
-  if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
-  const famArts=new Set(DataStore.finalData.filter(r=>r.famille===famille).map(r=>r.code));
-  if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
-  // article → clients → métier
-  const metierBuyers={};
-  for(const artCode of famArts){const buyers=_S.articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=_S.chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
-  const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
-  if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
-  let top3;
-  if(metierFilter){const bs=metierBuyers[metierFilter];top3=bs?[[metierFilter,bs]]:[];}
-  else{top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);}
-  const metiers=top3.map(([metier,buyerSet])=>{
-    const pct=Math.round(buyerSet.size/totalBuyers*100);
-    const clients=[];
-    for(const[cc,info] of _S.chalandiseData.entries()){
-      if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
-      const myData=DataStore.ventesLocalMagPeriode.get(cc);
-      const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
-      const prio=_diagClientPrio(info,famCA);
-      clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
-    }
-    // sort: prio asc, then within prio: P1→ca2025 desc, P2/P3→classif prio then ca2025, P4→classif prio, P5→ca2025
-    clients.sort((a,b)=>{
-      if(a.prio!==b.prio)return a.prio-b.prio;
-      const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);
-      if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;
-      return cp||b.ca2025-a.ca2025;
-    });
-    const p1=clients.filter(c=>c.prio===1);
-    const p2=clients.filter(c=>c.prio===2);
-    const p3=clients.filter(c=>c.prio===3);
-    const p4=clients.filter(c=>c.prio===4);
-    const potentiel=p2.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0)+p3.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0);
-    return{metier,pct,total:clients.length,p1:p1.length,p2:p2.length,p3:p3.length,p4:p4.length,p5:clients.filter(c=>c.prio===5).length,potentiel,clients};
-  });
-  const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
-  const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-  let crossCaptes=0,crossPot=0;
-  if(_S.crossingStats){
-    const famBuyerSet=new Set();for(const a of famArts){const b=_S.articleClients.get(a);if(b)for(const c of b)famBuyerSet.add(c);}
-    crossCaptes=[...famBuyerSet].filter(c=>_S.crossingStats.captes.has(c)).length;
-    for(const m of metiers)for(const c of m.clients){if(_S.crossingStats.potentiels.has(c.code))crossPot++;}
-  }
-  return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel,crossCaptes,crossPot};
-}
 function _diagRenderL4(l,hasChal){
   if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm t-inverse-muted">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
   if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm c-danger">👥 Niveau 3 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
@@ -2257,42 +2058,6 @@ function _diagRenderL4(l,hasChal){
   </div>`;
 }
 
-// ── Action Plan (3-voyant) ──
-function _diagGenActions(famille,v1,v2,v3){
-  const acts=[];
-  // 📦 MON RAYON actions
-  if(v1.ruptures&&v1.ruptures.length>0){
-    const caLabel=v1.caPerduTotal>0?formatEuro(v1.caPerduTotal):formatEuro(v1.ruptures.reduce((s,r)=>s+Math.round(r.W*(DataStore.finalData.find(d=>d.code===r.code)?.prixUnitaire||0)),0))+' potentiel annuel';
-    acts.push({priority:1,src:'📦',codes:v1.ruptures.map(r=>r.code),label:`Réassort ${v1.ruptures.length} article${v1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
-  }
-  if(v1.nbMM>0&&v1.statusMM!=='ok'){
-    const top5=(v1.mmDetail||[]).slice(0,5);
-    const detailHtml=top5.map(r=>`${r.code} ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
-    acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${v1.nbMM} au total : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
-  }
-  // 👥 MES CLIENTS actions
-  if(v2&&v2.status!=='lock'&&v2.perdus>0){
-    const potLabel=v2.potentiel>0?formatEuro(v2.potentiel):null;
-    acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc1069=document.getElementById('mainContent');if(_mc1069){_mc1069.style.overflow='';_mc1069.scrollTop=0;}switchTab('commerce');let _lt1069=-1,_tr1069=0;const _pv1069=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr1069>40)clearInterval(_pv1069);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt1069&&t>0)||_tr1069++>40){clearInterval(_pv1069);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${famille}</strong> — ${v2.perdus} client${v2.perdus>1?'s':''} perdu${v2.perdus>1?'s':''}${potLabel?' · potentiel '+potLabel:''} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt1069=t;},100);}});
-  }
-  // 🔭 LE RÉSEAU actions
-  if(v3&&v3.status!=='lock'){
-    if(v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{window._diagAFSwitchTab('reseau');}});
-    }
-    // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
-    if(v3.medCA>0&&v3.medCA<1000){
-      if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente — volume réseau insuffisant (médiane ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
-      if(acts.length===0)acts.push({priority:99,src:'ℹ️',label:`Famille marginale dans le réseau (médiane ${formatEuro(v3.medCA)}). Pas d'action prioritaire.`,fn:null,isInfo:true});
-    }
-    // Famille absente chez moi mais réseau actif (CA médiane ≥ 1000€) → évaluer opportunité, sans lien cliquable
-    if(v3.myCA===0&&v3.medCA>=1000&&acts.length===0){
-      acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans Le Réseau.`,fn:null,isInfo:true});
-    }
-  }
-  // Sort by priority and limit to 3
-  return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
-}
 function _copyDiagPlan(){
   if(!_S._diagPlanCopyText)return;
   navigator.clipboard.writeText(_S._diagPlanCopyText).then(()=>{

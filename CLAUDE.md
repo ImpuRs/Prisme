@@ -36,7 +36,7 @@ js/
   state.js       — _S : objet mutable unique, source de vérité de tout l'état
   store.js       — DataStore : couche lecture seule sur _S avec byContext()
   engine.js      — moteur calcul métier : computeABCFMR, calcPriorityScore,
-                   computeClientCrossing, computeReconquestCohort, computeSPC,
+                   computeClientCrossing, computeReconquestCohort,
                    computeOpportuniteNette, computeReseauHeatmap, computeOmniScores,
                    computeBenchMetier, computePriceGap, _clientPassesFilters
   parser.js      — pipeline données : parseChalandise, parseTerritoireFile,
@@ -77,7 +77,6 @@ js/
                    en option (éditeur en tuiles). Indice réseau / refs manquantes / Tronc Commun retirés oct. 2026
   pepites.js     — computePepitesStore : spécialités (≥ 2× médiane réseau) et exclusifs d'une agence,
                    affichés dans le Duel agence (« Ses spécialités »)
-  promo.js       — onglet Promo : recherche article, mode action, export tournée CSV
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   router.js      — initRouter (hash routing minimal)
@@ -247,7 +246,6 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `calcPriorityScore(W, prix, age)` — score rupture 0-100
 - `computeClientCrossing()` — croisement chalandise × ventesLocalMagPeriode → crossingStats
 - `computeReconquestCohort()` — anciens clients FID disparus
-- `computeSPC(cc, info)` — Score Potentiel Client 0-100
 - `computeOpportuniteNette()` — familles manquantes par client vs métier moyen
 - `computeReseauHeatmap()` — heatmap famille × agence (ratio vs médiane)
 - `computeOmniScores()` — score omnicanal par client (PDV + hors-mag + ventesTerrain Qlik)
@@ -261,7 +259,6 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `parseTerritoireFile(file)` — lecture brute territoire (retourne raw data)
 - `launchTerritoireWorker(raw, onProgress)` — Web Worker territoire → ventesTerrain
 - `launchClientWorker()` — Web Worker agrégats clients → clientFamCA, metierFamBench
-- `launchReseauWorker()` — Web Worker réseau → nomades, orphelins, fuites, heatmap
 - `computeBenchmark()` — benchmark réseau multi-agences, peuple benchLists
 - `buildSecteurCheckboxes()` / `getSelectedSecteurs()` — filtre multi-select secteurs
 
@@ -329,7 +326,6 @@ Niveaux du diagnostic :
 | Animation | catalogue marques + consommé réseau | Préparer une animation (marque → rayon prêt → qui inviter) ; Associations |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
 | Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée) ; « Ses spécialités » = ex-Pépites réseau d'Animation. Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
-| Promo | consommé | Recherche article multi-agences, mode action, tournée |
 
 ---
 

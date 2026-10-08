@@ -3,45 +3,15 @@
 // ── ESM imports ─────────────────────────────────────────────────────────
 import { _S } from './state.js';
 import { DataStore } from './store.js';
-import {
-  formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery,
-  daysBetween, famLib, famLabel,
-  _normalizeClassif, _normalizeStatut,
-  _isMetierStrategique, getSecteurDirection, formatLocalYMD
-} from './utils.js';
-import {
-  _clientPassesFilters, _unikLink,
-  _passesClientCrossFilter,
-  _isGlobalActif, _isPerdu,
-  _isPerdu24plus, _clientStatusText,
-  getUniversFilteredCA
-} from './engine.js';
+import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, daysBetween, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection, formatLocalYMD } from './utils.js';
+import { _clientPassesFilters, _unikLink, _passesClientCrossFilter, _isGlobalActif, _isPerdu, _isPerdu24plus, getUniversFilteredCA } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
-import { _saveExclusions } from './cache.js';
 import { getClientsActiveSetInPeriod } from './sales.js';
-import {
-  aggregateOverviewGroups,
-  aggregateOverviewClients,
-  aggregateOverviewMetiers,
-  aggregateOverviewSecteurs,
-  aggregateACapter,
-  buildOverviewCacheKey as _buildOverviewCacheKey,
-  getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw,
-  getOverviewMode,
-  invalidateFilteredChalandise,
-  passesOverviewClient as _passesOverviewClientRaw,
-  setOverviewMode
-} from './commerce-conquete.js';
-import {
-  renderOverviewHead,
-  renderOverviewL1Rows,
-  renderOverviewL2Table,
-  renderOverviewL3Table,
-  renderOverviewL4Table
-} from './commerce-conquete-view.js';
+import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
+import { renderOverviewHead, renderOverviewL1Rows, renderOverviewL2Table, renderOverviewL3Table, renderOverviewL4Table } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 
 // ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
@@ -758,15 +728,11 @@ function _getChalAgg(){
 }
 
 function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=_getChalAgg()?.classifs||new Set();if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
-function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=_getChalAgg()?.activitesPDV||new Set();if(!_S._selectedActivitesPDV.size){_S._selectedActivitesPDV=new Set(all);_S._selectedActivitesPDV.delete(a);}else if(_S._selectedActivitesPDV.has(a)){_S._selectedActivitesPDV.delete(a);if(!_S._selectedActivitesPDV.size)_S._selectedActivitesPDV=new Set();}else{_S._selectedActivitesPDV.add(a);if(_S._selectedActivitesPDV.size>=all.size)_S._selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
-function _toggleOverviewStatut(s,event){if(event)event.preventDefault();const all=_getChalAgg()?.statutsNorm||new Set();if(!_S._selectedStatuts.size){_S._selectedStatuts=new Set(all);_S._selectedStatuts.delete(s);}else if(_S._selectedStatuts.has(s)){_S._selectedStatuts.delete(s);if(!_S._selectedStatuts.size)_S._selectedStatuts=new Set();}else{_S._selectedStatuts.add(s);if(_S._selectedStatuts.size>=all.size)_S._selectedStatuts=new Set();}_buildChalandiseOverview();}
 function _toggleOverviewDirection(d,event){if(event)event.preventDefault();const all=_getChalAgg()?.directions||new Set();if(!_S._selectedDirections.size){_S._selectedDirections=new Set(all);_S._selectedDirections.delete(d);}else if(_S._selectedDirections.has(d)){_S._selectedDirections.delete(d);if(!_S._selectedDirections.size)_S._selectedDirections=new Set();}else{_S._selectedDirections.add(d);if(_S._selectedDirections.size>=all.size)_S._selectedDirections=new Set();}_buildChalandiseOverview();}
 function _onActPDVSelect(v){_S._selectedActivitesPDV=v?new Set([v]):new Set();_buildChalandiseOverview();}
 function _onStatutDetailleSelect(v){_S._selectedStatutDetaille=v||'';_buildChalandiseOverview();}
 function _onStatutSelect(v){_S._selectedStatuts=v?new Set([v]):new Set();_buildChalandiseOverview();}
 function _onUniversSelect(v){_S._selectedUnivers=v?new Set([v]):new Set();_buildChalandiseOverview();}
-function _toggleOverviewUnivers(u,event){if(event)event.preventDefault();const all=new Set(_S._clientDominantUnivers.values());if(!_S._selectedUnivers.size){_S._selectedUnivers=new Set(all);_S._selectedUnivers.delete(u);}else if(_S._selectedUnivers.has(u)){_S._selectedUnivers.delete(u);if(!_S._selectedUnivers.size)_S._selectedUnivers=new Set();}else{_S._selectedUnivers.add(u);if(_S._selectedUnivers.size>=all.size)_S._selectedUnivers=new Set();}_buildChalandiseOverview();}
-function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-emerald-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
 function _getAllDepts(){return _getChalAgg()?.deptCounts||{};}
 function _buildDeptFilter(){
   const container=document.getElementById('terrDeptCheckboxes');
@@ -838,8 +804,6 @@ function _resetChalandiseFilters(){
 const _closeAllDropPanels=(...except)=>{['terrDeptPanel','terrClassifPanel','terrActPDVPanel','terrStatutPanel','terrDirectionPanel'].forEach(id=>{if(!except.includes(id))document.getElementById(id)?.classList.add('hidden');});};
 function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDeptPanel');p.classList.toggle('hidden',closing);}
 function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrClassifPanel');p.classList.toggle('hidden',closing);}
-function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrActPDVPanel');p.classList.toggle('hidden',closing);}
-function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrStatutPanel');p.classList.toggle('hidden',closing);}
 function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
 function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
 function _toggleSansMetier(){
@@ -1097,9 +1061,6 @@ function _navigateToOverviewMetier(metier){
 }
 function _toggleExcludeActifsConsomme(checked){_S._excludeActifsConsomme=checked;_buildChalandiseOverview();}
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
-function _cmToggleSurveiller(){
-  _cmShowSurveiller=!_cmShowSurveiller;
-}
 // ── Shared helper: populate a commercial <select> + KPI span ───────────
 // Build commercial → dominant secteur mapping (cached)
 let _comSectCache = null, _comSectRef = null;
@@ -1404,70 +1365,6 @@ const _toggleOverviewL2=_conqueteOverviewController.toggleOverviewL2;
 const _toggleOverviewL3=_conqueteOverviewController.toggleOverviewL3;
 const _toggleOverviewL4=_conqueteOverviewController.toggleOverviewL4;
 installConqueteOverviewController(_conqueteOverviewController);
-// Client article expand panel (used in L4 and cockpit)
-function _toggleClientArticles(row,clientCode){
-  const nextRow=row.nextElementSibling;
-  if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
-  // [Adapter Étape 5] — ventesTerrain / finalData / ventesLocalMagPeriode : canal-invariants
-  const hasTerr=_hasTerritoire();
-  const stockMap=_getFinalDataIndex();
-  // Section 1 : achats comptoir (DataStore.ventesLocalMagPeriode — MAGASIN/myStore only)
-  const artData=DataStore.ventesLocalMagPeriode.get(clientCode);
-  let comptoirArts=[];
-  if(artData&&artData.size>0){
-    comptoirArts=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
-      const si=stockMap.get(code);
-      return{code,libelle:si?si.libelle:_S.libelleLookup[code]||code,qty:d.sumPrelevee,ca:d.sumCA,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
-    });
-  }
-  // Section 2 : achats hors comptoir (DataStore.ventesTerrain — tous canaux BL omnicanal)
-  let terrArts=[];
-  if(hasTerr){
-    const artMap={};
-    for(const l of DataStore.ventesTerrain){
-      if(l.clientCode===clientCode){
-        if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0,canals:new Set(),rayonStatus:l.rayonStatus};
-        artMap[l.code].ca+=l.ca;
-        if(l.canal)artMap[l.code].canals.add(l.canal);
-      }
-    }
-    terrArts=Object.values(artMap).sort((a,b)=>b.ca-a.ca).slice(0,20);
-  }
-  const hasComptoir=comptoirArts.length>0;
-  const hasTerrArts=terrArts.length>0;
-  let panelHtml=`<td colspan="9" class="p-0"><div class="s-card-alt border-t-2 border-sky-300 px-4 py-2">`;
-  if(!hasComptoir&&!hasTerrArts){
-    const _cInfo=_S.chalandiseData.get(clientCode);const _ca25=(_cInfo&&_cInfo.ca2025)||0;
-    panelHtml+=_ca25>0?`<p class="text-[10px] c-action font-semibold">Ce client achète chez Legallais (${formatEuro(_ca25)}) via d'autres canaux (Internet, DCS, Commercial) — opportunité de captation PDV</p>`:`<p class="t-disabled text-[10px]">Prospect — aucun historique d'achat.</p>`;
-  }else{
-    if(hasComptoir){
-      let nbInRayon=0,nbAbsent=0;
-      for(const a of comptoirArts){if(a.rayonStatus==='green')nbInRayon++;else if(a.rayonStatus==='red')nbAbsent++;}
-      panelHtml+=`<p class="text-[10px] font-bold t-primary mb-1">🏪 Achats comptoir : ${comptoirArts.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — référencez ces '+nbAbsent+' articles pour le capter':''}</p>`;
-      panelHtml+=`<table class="min-w-full text-[10px]${hasTerrArts?' mb-3':''}"><thead class="s-hover t-primary"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
-      for(const a of comptoirArts){
-        const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
-        const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-        const bg=a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'i-caution-bg':'';
-        panelHtml+=`<tr class="border-t b-light ${bg}"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-center">${a.qty}</td><td class="py-0.5 px-2 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center">${ri}</td><td class="py-0.5 px-2 text-right">${st}</td></tr>`;
-      }
-      panelHtml+=`</tbody></table>`;
-    }
-    if(hasTerrArts){
-      const totalCA=terrArts.reduce((s,a)=>s+a.ca,0);
-      panelHtml+=`<p class="text-[10px] font-bold t-primary mb-1${hasComptoir?' mt-2':''}">📦 Ce client achète chez Legallais (hors votre comptoir) — ${terrArts.length} réf. · ${formatEuro(totalCA)} CA</p>`;
-      panelHtml+=`<table class="min-w-full text-[10px]"><thead class="s-hover t-primary"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Canal</th></tr></thead><tbody>`;
-      for(const a of terrArts){
-        const canalStr=[...a.canals].join(' / ')||'—';
-        panelHtml+=`<tr class="border-t b-light"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 t-tertiary max-w-[120px] truncate">${famLib(a.famille)}</td><td class="py-0.5 px-2 text-right font-bold c-action">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center t-tertiary">${canalStr}</td></tr>`;
-      }
-      panelHtml+=`</tbody></table>`;
-    }
-  }
-  panelHtml+=`</div></td>`;
-  const tr=document.createElement('tr');tr.className='client-art-panel';tr.innerHTML=panelHtml;
-  row.insertAdjacentElement('afterend',tr);
-}
 function _populateTerrFamilleFilter(){
   const sel=document.getElementById('terrFamilleFilter');if(!sel||!DataStore.finalData.length)return;
   const fams=[...new Set(DataStore.finalData.map(r=>r.famille).filter(Boolean))].sort((a,b)=>famLib(a).localeCompare(famLib(b)));
@@ -1534,109 +1431,23 @@ function _buildDegradedCockpit(){
 
 
 
-function _setCrossFilter(status){
-  _S._selectedCrossStatus=status;
-  _buildChalandiseOverview();
-}
-
-function _setClientView(view){
-  _S._clientView=view;
-  _S._showHorsZone=(view==='horszone');
-  _S._showHorsAgence=(view==='multicanaux');
-  _S._selectedCrossStatus=view==='potentiels'?'potentiel':view==='captes'?'capte':'';
-  _S._clientsPDVPage=0;
-  document.querySelectorAll('.client-view-btn').forEach(b=>{
-    const active=b.dataset.view===view;
-    b.classList.toggle('s-panel-inner',active);b.classList.toggle('t-inverse',active);b.classList.toggle('b-dark',active);
-    b.classList.toggle('s-card',!active);b.classList.toggle('t-primary',!active);b.classList.toggle('b-default',!active);
-  });
-  // Capturer l'état ouvert/fermé du panneau Top PDV avant re-render
-  const _det=document.querySelector('#terrTopPDV details');
-  if(_det)_S._topPDVOpen=_det.open;
-  _S._tabRendered&&(_S._tabRendered['territoire']=false);
-  window.renderTerritoireTab();
-}
-
-
 // ── Cockpit Client CSV Export ──
 
 // ── Export CSV Hors Zone → Table de Forçage prête à remplir ──
 
-// ── Client exclusion (hide from cockpit) ──
-
-function _toggleHorsMagasin(btn, cc) {
-  const existingId = `hors-mag-${cc}`;
-  const existing = document.getElementById(existingId);
-  if (existing) { existing.remove(); return; }
-
-  const artMap = _S.ventesLocalHorsMag.get(cc);
-  if (!artMap || !artMap.size) return;
-
-  const CANAL_LABELS = { INTERNET:'🌐 Web', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS' };
-
-  // Filtrer articles déjà vendus en MAGASIN à ce client
-  const magasinArts = DataStore.ventesLocalMagPeriode.get(cc) || new Map();
-
-  let rows = '';
-  for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].sumCA - a[1].sumCA)) {
-    const lib = (_S.libelleLookup[code] || code).replace(/^\d{6} - /, '');
-    const dejaVendu = magasinArts.has(code);
-    const canalLabel = CANAL_LABELS[data.canal] || data.canal;
-    rows += `<tr class="border-b b-light ${dejaVendu ? 'opacity-50' : 'hover:i-info-bg'}">
-      <td class="py-1 px-2 font-mono text-[10px] t-tertiary">${code}</td>
-      <td class="py-1 px-2 text-[11px] font-semibold">${lib}</td>
-      <td class="py-1 px-2 text-[10px]">${canalLabel}</td>
-      <td class="py-1 px-2 text-right text-[11px] font-bold ${data.sumCA > 0 ? 'c-action' : 't-disabled'}">${data.sumCA > 0 ? formatEuro(data.sumCA) : '—'}</td>
-      <td class="py-1 px-2 text-center text-[10px] ${dejaVendu ? 'c-ok' : 'c-caution'}">${dejaVendu ? '✅ En agence' : '⚠️ Pas en agence'}</td>
-    </tr>`;
-  }
-
-  const panel = document.createElement('div');
-  panel.id = existingId;
-  panel.className = 'mt-2 s-card-alt rounded-lg border overflow-hidden';
-  panel.innerHTML = `
-    <div class="px-3 py-2 border-b flex items-center justify-between">
-      <p class="text-[11px] font-bold t-primary">🌐 Commandes hors agence — ${artMap.size} article${artMap.size > 1 ? 's' : ''}</p>
-      <span class="text-[10px] t-disabled">⚠️ = jamais vendu en comptoir · ✅ = aussi en agence</span>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-xs">
-        <thead class="s-panel-inner t-inverse font-bold">
-          <tr>
-            <th class="py-1 px-2 text-left">Code</th>
-            <th class="py-1 px-2 text-left">Article</th>
-            <th class="py-1 px-2 text-left">Canal</th>
-            <th class="py-1 px-2 text-right">CA</th>
-            <th class="py-1 px-2 text-center">Statut agence</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-
-  btn.closest('.relative').appendChild(panel);
-}
-
-
 export {
-  // commerce.js originals
   _renderHorsZone,
   _passesAllFilters,
   _syncPDVToggles,
   computeTerritoireKPIs,
   renderTerritoireTab,
   renderCockpitRupClients,
-  // depuis territoire.js
   _toggleOverviewClassif,
-  _toggleOverviewActPDV,
-  _toggleOverviewStatut,
   _toggleOverviewDirection,
   _onActPDVSelect,
   _onStatutDetailleSelect,
   _onStatutSelect,
   _onUniversSelect,
-  _toggleOverviewUnivers,
-  _activitePDVColor,
   _getAllDepts,
   _buildDeptFilter,
   _toggleDept,
@@ -1644,8 +1455,6 @@ export {
   _closeAllDropPanels,
   _toggleDeptDropdown,
   _toggleClassifDropdown,
-  _toggleActPDVDropdown,
-  _toggleStatutDropdown,
   _toggleDirectionDropdown,
   _toggleStrategiqueFilter,
   _onCommercialFilter,
@@ -1664,13 +1473,9 @@ export {
   _toggleOverviewL4,
   _overviewClientSort,
   _renderOverviewL4,
-  _toggleClientArticles,
   _populateTerrFamilleFilter,
   _buildDegradedCockpit,
-  _setCrossFilter,
-  _setClientView,
-  _toggleHorsMagasin,
-  renderCommerceTab,
+  renderCommerceTab
 };
 
 // ── Livrés sans PDV — accordéon Conquête Terrain ─────────────────────────
@@ -1768,10 +1573,7 @@ window.renderCommerceTab          = renderCommerceTab;
 window._renderHorsZone            = _renderHorsZone;
 window.computeTerritoireKPIs      = computeTerritoireKPIs;
 window._toggleOverviewClassif     = _toggleOverviewClassif;
-window._toggleOverviewActPDV      = _toggleOverviewActPDV;
-window._toggleOverviewStatut      = _toggleOverviewStatut;
 window._toggleOverviewDirection   = _toggleOverviewDirection;
-window._toggleOverviewUnivers     = _toggleOverviewUnivers;
 window._onActPDVSelect            = _onActPDVSelect;
 window._onStatutDetailleSelect    = _onStatutDetailleSelect;
 window._onStatutSelect            = _onStatutSelect;
@@ -1779,8 +1581,6 @@ window._onUniversSelect           = _onUniversSelect;
 window._toggleDept                = _toggleDept;
 window._toggleDeptDropdown        = _toggleDeptDropdown;
 window._toggleClassifDropdown     = _toggleClassifDropdown;
-window._toggleActPDVDropdown      = _toggleActPDVDropdown;
-window._toggleStatutDropdown      = _toggleStatutDropdown;
 window._toggleDirectionDropdown   = _toggleDirectionDropdown;
 window._toggleStrategiqueFilter   = _toggleStrategiqueFilter;
 window._toggleSansMetier          = _toggleSansMetier;
@@ -1794,16 +1594,11 @@ window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
 window._toggleExcludeActifsConsomme = _toggleExcludeActifsConsomme;
 window._togglePerdu24m            = _togglePerdu24m;
-window._cmToggleSurveiller       = _cmToggleSurveiller;
 window._resetChalandiseFilters    = _resetChalandiseFilters;
-window._setCrossFilter            = _setCrossFilter;
-window._setClientView             = _setClientView;
 window._toggleOverviewL2          = _toggleOverviewL2;
 window._toggleOverviewL3          = _toggleOverviewL3;
 window._toggleOverviewL4          = _toggleOverviewL4;
-window._toggleClientArticles      = _toggleClientArticles;
 window._buildChalDirBlock         = _buildChalDirBlock;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
 window._buildDegradedCockpit      = _buildDegradedCockpit;
 window._renderOverviewL4          = _renderOverviewL4;
-window._toggleHorsMagasin         = _toggleHorsMagasin;

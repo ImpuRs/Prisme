@@ -1477,12 +1477,6 @@ window._duelFilterUnivers = function(u) {
   renderDuelTab();
 };
 
-window._duelSetUnivers = function(u) {
-  _duelUniversFilter = u || '';
-  _duelOpenFam = '';
-  renderDuelTab();
-};
-
 window._duelOpenPlanFam = function(univers, fam) {
   _duelUniversFilter = univers || '';
   _duelOpenFam = fam || '';

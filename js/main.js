@@ -12,10 +12,10 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, defaultPeriodRange, isShortAutoPeriod, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
-import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, renderTableContext, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
+import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -24,9 +24,8 @@ import { applyForcageCommercial as _applyForcageCommercial } from './chalandise-
 import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès console DevTools
-import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
-import { renderLaboTab, updateLaboTiles } from './labo.js';
+import { updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
 import { renderTesClients } from './clients-decisions.js';
@@ -36,8 +35,8 @@ import { renderPartieTab } from './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
-import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _buildDegradedCockpit, _setCrossFilter, _setClientView, _toggleHorsMagasin } from './commerce.js';
+import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
+import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _buildDegradedCockpit } from './commerce.js';
 
 // Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
 // version aux Web Workers pour éviter les mismatchs (browser cache très agressif).
@@ -947,7 +946,6 @@ _S.canalAgence=newCanalAgence;
     const _selStore=document.getElementById('selectMyStore');
     if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
-    resetPromo();
 
     // Agence pré-remplie si mémorisée — le Worker validera et demandera si besoin
     let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
@@ -2103,7 +2101,7 @@ _S.articleMonthlySales=monthlySales;
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const sorted=l.sort((a,b)=>b.sv-a.sv).slice(0,lim);const p=[];sorted.forEach(i=>{p.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">🎉</td></tr>';if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="3" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}}
-    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstStockNeg,'actionStockneg');
+    
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
       const colisContainer=document.getElementById('colisDetail');
@@ -2683,8 +2681,6 @@ window.changePage = changePage;
 window.openFilterDrawer = openFilterDrawer;
 window.closeFilterDrawer = closeFilterDrawer;
 window.expandImportZone = expandImportZone;
-window.toggleSecteurDropdown = toggleSecteurDropdown;
-window.toggleAllSecteurs = toggleAllSecteurs;
 window.onSecteurChange = onSecteurChange;
 window.onLivraisonsSelected = async function(input) {
   onFileSelected(input, 'dropLivraisons');
@@ -2785,24 +2781,17 @@ window.onChalandiseSelected = async function(input) {
   if (_S.storesIntersection.size > 1) { computeBenchmark(); }
   _saveSessionToIDB();
 };
-window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
-window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window.computeAnglesMorts = computeAnglesMorts;
 window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
 window.buildAgenceStore = buildAgenceStore;
 window.computeFamillesHors = computeFamillesHors;
-window.exportTourneeCSV = exportTourneeCSV;
-window._togglePromoClientRow = _togglePromoClientRow;
-window._switchPromoTab = _switchPromoTab;
-window._exportCommercialCSV = _exportCommercialCSV;
-window._renderSearchResults = _renderSearchResults;
 window.computeBenchmark = computeBenchmark;
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function() {
@@ -2815,8 +2804,6 @@ window._toggleHorsAgence = function() {
   }
   onFilterChange();
 };
-window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
-window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 
@@ -2836,7 +2823,6 @@ window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
-window.toggleWebColumn = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window.renderCurrentTab = renderCurrentTab;
 window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
@@ -2849,8 +2835,6 @@ window._diagV3FilterCategory = _diagV3FilterCategory;
 window.toggleReconquestFilter = toggleReconquestFilter;
 window.openArticlePanel = openArticlePanel;
 window.closeArticlePanel = closeArticlePanel;
-window.openCmdPalette = openCmdPalette;
-window.closeCmdPalette = closeCmdPalette;
 window.focusTrap = focusTrap;
 window.ToastManager = ToastManager;
 window.toggleNavKpis = toggleNavKpis;
@@ -2858,7 +2842,6 @@ window.initDetailsAnimations = initDetailsAnimations;
 window.openReporting = openReporting;
 window.closeReporting = closeReporting;
 window.copyReportText = copyReportText;
-window.switchReportTab = switchReportTab;
 window.generateReportText = generateRegionReportText;
 window.generateRegionReportText = generateRegionReportText;
 window._doCopyCode = _doCopyCode;
@@ -2878,15 +2861,10 @@ window._cancelLoad = function() {
   }))).then(() => location.reload());
 };
 window._showCacheBanner = _showCacheBanner;
-window.resetTerrFilters = resetTerrFilters;
-window.exportContribCSV = exportContribCSV;
 window.toggleContribSecteur = toggleContribSecteur;
 window.toggleContribClient = toggleContribClient;
-window._setCrossFilter = _setCrossFilter;
 window._toggleDeptDropdown = _toggleDeptDropdown;
 window._toggleClassifDropdown = _toggleClassifDropdown;
-window._toggleActPDVDropdown = _toggleActPDVDropdown;
-window._toggleStatutDropdown = _toggleStatutDropdown;
 window._toggleDirectionDropdown = _toggleDirectionDropdown;
 window._onActPDVSelect = _onActPDVSelect;
 window._onStatutDetailleSelect = _onStatutDetailleSelect;
@@ -2903,24 +2881,17 @@ window._resetChalandiseFilters = _resetChalandiseFilters;
 window.onFileSelected = onFileSelected;
 window._updateAnalyserBtn = _updateAnalyserBtn;
 window._saveSessionToIDB = _saveSessionToIDB;
-window._onPromoFamilleChange = _onPromoFamilleChange;
-window._applyPromoFilters = _applyPromoFilters;
 window.buildTerrContrib = buildTerrContrib;
 window.renderTerrContrib = renderTerrContrib;
 window.renderContribClients = renderContribClients;
 window.renderContribArticles = renderContribArticles;
-window._toggleClientArticles = _toggleClientArticles;
 window.openClient360 = openClient360;
 window._c360SwitchTab = _c360SwitchTab;
 window._c360CopyResume = _c360CopyResume;
 window._c360ExportRadio = _c360ExportRadio;
 window.renderComparison = renderComparison;
 window.renderHealthScore = renderHealthScore;
-window.exportAgenceSnapshot = exportAgenceSnapshot;
-window._loadIRAHistory = _loadIRAHistory;
 window.renderTabBadges = renderTabBadges;
-window.clipERP = clipERP;
-window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
 
 // ── Export Scan — fichier léger pour mobile ──────────────────────────
@@ -3136,7 +3107,6 @@ window.exportScanDataAG = function() {
   URL.revokeObjectURL(url);
   showToast('📱 Scan AG exporté (sans prix) — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
 };
-window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 function renderSidebarAgenceSelector() {
   // Navbar: static agence code display (no dropdown)
   const navSt = document.getElementById('navStore');
@@ -3144,27 +3114,9 @@ function renderSidebarAgenceSelector() {
 }
 window.updateNavStore = renderSidebarAgenceSelector;
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
-// Promo — fonctions HTML onclick non encore exposées
-window._clearPromoImport = _clearPromoImport;
-window._closePromoSuggest = _closePromoSuggest;
-window._onPromoImportFileChange = _onPromoImportFileChange;
-window._onPromoInput = _onPromoInput;
-window._promoSuggestKeydown = _promoSuggestKeydown;
-window._selectPromoSuggestion = _selectPromoSuggestion;
-window._resetPromoFilters = _resetPromoFilters;
-window._togglePromoImportSection = _togglePromoImportSection;
-window._togglePromoSection = _togglePromoSection;
-window.copyPromoClipboard = copyPromoClipboard;
-window.exportPromoCSV = exportPromoCSV;
-window.runPromoImport = runPromoImport;
-window.runPromoSearch = runPromoSearch;
 // ui.js — fonctions HTML onclick non encore exposées
-window.clearSavedKPI = clearSavedKPI;
 window.collapseImportZone = collapseImportZone;
 window.downloadCSV = downloadCSV;
-window.exportKPIhistory = exportKPIhistory;
-window.importKPIhistory = importKPIhistory;
-window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
 // Territoire / Vue Terrain — toggles direction/métier/secteur/famille (onclick HTML généré)
@@ -3172,17 +3124,13 @@ window._toggleOverviewL2        = _toggleOverviewL2;
 window._toggleOverviewL3        = _toggleOverviewL3;
 window._toggleOverviewL4        = _toggleOverviewL4;
 window._toggleOverviewClassif   = _toggleOverviewClassif;
-window._toggleOverviewActPDV    = _toggleOverviewActPDV;
-window._toggleOverviewStatut    = _toggleOverviewStatut;
 window._toggleOverviewDirection = _toggleOverviewDirection;
-window._toggleOverviewUnivers   = _toggleOverviewUnivers;
 window._toggleDept              = _toggleDept;
 window.toggleTerrDir            = toggleTerrDir;
 window.toggleTerrDirStatus      = toggleTerrDirStatus;
 window.toggleTerrFam            = toggleTerrFam;
 window.toggleContribDirection   = toggleContribDirection;
 // Cockpit Client — exclusions & liste masquée
-// Promo — accordion inline (also wired at processData)
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);

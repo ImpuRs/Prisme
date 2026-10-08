@@ -514,92 +514,10 @@ function renderContribArticles(rowId,clientCode){
   inner.innerHTML=html;
 }
 
-// Reset all territoire local filters + close all accordions
-function resetTerrFilters(){
-  const s=document.getElementById('terrSearch');if(s)s.value='';
-  _S._terrClientSearch='';
-  // Close all direction/famille detail rows
-  document.querySelectorAll('[id^="terr-dir-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
-  document.querySelectorAll('[id^="terr-fam-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
-  document.querySelectorAll('.terr-row.expanded').forEach(el=>el.classList.remove('expanded'));
-  document.querySelectorAll('.terr-fam-row.open').forEach(el=>el.classList.remove('open'));
-  // Close contrib accordions
-  document.querySelectorAll('.contrib-dir-detail.open,.contrib-sect-detail.open,.contrib-client-detail.open').forEach(el=>el.classList.remove('open'));
-  document.querySelectorAll('.contrib-dir-row.open,.contrib-sect-row.open,.contrib-client-row.open').forEach(el=>el.classList.remove('open'));
-  window.renderTerritoireTab();
-}
-
-// VOLET 2bis: Export CSV — tous les secteurs avec leurs métriques
-function exportContribCSV(){
-  if(!_S.terrContribBySecteur.size){showToast('⚠️ Aucune donnée contributeurs','warning');return;}
-  const SEP=';';
-  const h=['Direction','Secteur','BL territoire','BL agence','% agence','CA Legallais'];
-  const lines=['\uFEFF'+h.join(SEP)];
-  const rows=[..._S.terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
-  for(const r of rows)lines.push([r.dir,r.secteur,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
-  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
-}
-
-function exportTerritoireCSV(){
-  if(!DataStore.ventesTerrain.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
-  const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
-  const lines=['\uFEFF'+h.join(SEP)];
-  const q=(document.getElementById('terrSearch')||{}).value||'';
-  const selectedSecteursCSV=getSelectedSecteurs();
-  const {activeFilters:{canal:_canalGlobalExp,commercial:_comExp}}=DataStore.byContext(); // [V3.2]
-  const _comSetExp=_comExp?(_S.clientsByCommercial.get(_comExp)||new Set()):null;
-  const filtered=DataStore.filteredTerritoireLines.filter(l=>{
-    if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
-    if(_comSetExp&&(!l.clientCode||!_comSetExp.has(l.clientCode)))return false; // [V3.2]
-    if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
-    if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
-    return true;
-  });
-  const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
-  for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${famLib(l.famille)||l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
-  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const _store=(_S.selectedMyStore||'').replace(/[^A-Z0-9]/gi,'');
-  const _canalSuffix=_canalGlobalExp?`_${_canalGlobalExp}`:'';
-  const _dateStr=new Date().toISOString().slice(0,7);
-  const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`terrain${_store?'_'+_store:''}${_canalSuffix}_${_dateStr}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
-}
-
 // ── Exports ──────────────────────────────────────────────────────
-export {
-  _renderGhostArticles,
-  toggleTerrDir,
-  renderTerrDirFamilles,
-  toggleTerrDirStatus,
-  renderTerrDirStatusArticles,
-  _buildTerrDirStatusRows,
-  _loadMoreTerrDirStatus,
-  toggleTerrFam,
-  renderTerrFamArticles,
-  _buildTerrFamArtRows,
-  _loadMoreTerrFamArt,
-  renderTerrCroisementSummary,
-  buildTerrContrib,
-  renderTerrContrib,
-  toggleContribDirection,
-  renderContribSecteurs,
-  _buildSecteurRows,
-  _loadMoreSecteurs,
-  toggleContribSecteur,
-  renderContribClients,
-  _buildClientRows,
-  _loadMoreClients,
-  toggleContribClient,
-  renderContribArticles,
-  resetTerrFilters,
-  exportContribCSV,
-  exportTerritoireCSV,
-};
+export { _renderGhostArticles, toggleTerrDir, renderTerrDirFamilles, toggleTerrDirStatus, renderTerrDirStatusArticles, _buildTerrDirStatusRows, _loadMoreTerrDirStatus, toggleTerrFam, renderTerrFamArticles, _buildTerrFamArtRows, _loadMoreTerrFamArt, renderTerrCroisementSummary, buildTerrContrib, renderTerrContrib, toggleContribDirection, renderContribSecteurs, _buildSecteurRows, _loadMoreSecteurs, toggleContribSecteur, renderContribClients, _buildClientRows, _loadMoreClients, toggleContribClient, renderContribArticles };
 
 // ── Window expositions (called from inline HTML onclick handlers) ──
-window.resetTerrFilters = resetTerrFilters;
-window.exportContribCSV = exportContribCSV;
-window.exportTerritoireCSV = exportTerritoireCSV;
 window.toggleTerrDir = toggleTerrDir;
 window.toggleTerrDirStatus = toggleTerrDirStatus;
 window.toggleTerrFam = toggleTerrFam;

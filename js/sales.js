@@ -9,16 +9,6 @@
 import { _S } from './state.js';
 
 /**
- * MAGASIN — période filtrée (période UI).
- *
- * Note : selon le canal global actif, ventesLocalMagPeriode peut être reconstruite
- * (ex: filtre canal hors-MAGASIN), donc c'est une "vue active" et non une source brute.
- */
-export function getVentesClientMagFiltered() {
-  return _S.ventesLocalMagPeriode;
-}
-
-/**
  * MAGASIN — pleine période (12MG), si disponible.
  * Fallback legacy : ventesLocalMagPeriode (anciennes sessions / caches).
  */
@@ -42,45 +32,6 @@ export function getCaClientParStoreMap(storeCode) {
   return m && m instanceof Map ? m : null;
 }
 
-/**
- * CA full période, tous canaux, pour un client (store donné ou agence sélectionnée).
- */
-export function getClientCAFullAllCanaux(cc, storeCode = '') {
-  if (!cc) return 0;
-  const sk = storeCode || _S.selectedMyStore || '';
-  const m = getCaClientParStoreMap(sk);
-  return m ? (m.get(cc) || 0) : 0;
-}
-
-/**
- * Helper : fact client×article.
- *
- * canal='MAGASIN' => ventesLocalMagPeriode / ventesLocalMag12MG
- * canal!='MAGASIN' => ventesLocalHorsMag (agrégé; pas de découpage mensuel aujourd'hui)
- *
- * @param {string} cc
- * @param {string} code
- * @param {{canal?: string, period?: 'filtered'|'full'}} [opts]
- * @returns {Object|null}
- */
-export function getClientArticleFact(cc, code, opts = {}) {
-  const { canal = 'MAGASIN', period = 'filtered' } = opts || {};
-  if (!cc || !code) return null;
-
-  if (!canal || canal === 'MAGASIN') {
-    const src = (period === 'full') ? getVentesClientMagFull() : getVentesClientMagFiltered();
-    return src?.get(cc)?.get(code) || null;
-  }
-
-  // Hors MAGASIN : le fact porte un .canal (dernier canal vu). Filtrage best-effort.
-  const hm = _S.ventesLocalHorsMag?.get(cc);
-  if (!hm) return null;
-  const fact = hm.get(code) || null;
-  if (!fact) return null;
-  if (fact.canal && canal && fact.canal !== canal) return null;
-  return fact;
-}
-
 // ── Mensuel / ranges ────────────────────────────────────────────────────
 
 export function monthIdxFromDate(d) {
@@ -94,33 +45,6 @@ export function monthRangeFromDates(dMin, dMax) {
   const max = monthIdxFromDate(dMax);
   if (min == null || max == null) return null;
   return min <= max ? { min, max } : { min: max, max: min };
-}
-
-/**
- * CA mensuel client×article — MAGASIN (myStore), depuis _byMonth.
- * Retourne null si la source mensuelle n'est pas disponible.
- */
-export function getClientArticleMagAggInMonthRange(cc, code, range, opts = {}) {
-  if (!cc || !code || !range) return null;
-  const months = _S._byMonth?.[cc]?.[code];
-  if (!months) return null;
-  const mode = opts.mode || 'all'; // 'all' | 'preleve' | 'enleve'
-  let sumCA = 0, sumPrelevee = 0, sumCAPrelevee = 0, countBL = 0;
-  for (const midxStr in months) {
-    const midx = +midxStr;
-    if (midx < range.min || midx > range.max) continue;
-    const d = months[midxStr];
-    if (!d) continue;
-    const ca = d.sumCA || 0;
-    const caP = d.sumCAPrelevee || 0;
-    if (mode === 'preleve') sumCA += caP;
-    else if (mode === 'enleve') sumCA += (ca - caP);
-    else sumCA += ca;
-    sumPrelevee += d.sumPrelevee || 0;
-    sumCAPrelevee += caP;
-    countBL += d.countBL || 0;
-  }
-  return { sumCA, sumPrelevee, sumCAPrelevee, countBL };
 }
 
 /**
@@ -267,71 +191,6 @@ export function buildArticleAggFromByMonth(range, opts = {}) {
 
   _artAggCache = { bm, key, value: res };
   return res;
-}
-
-/**
- * CA client par canal dans une plage de mois, depuis _byMonthClientCAByCanal.
- * Retourne null si la source mensuelle n'est pas disponible (caches anciens / lowMem).
- *
- * canal='' => somme tous canaux (MAGASIN + hors-MAGASIN), en respectant magasinMode
- * (évite double comptage MAGASIN vs MAGASIN_PREL/MAGASIN_ENL).
- *
- * @param {string} cc
- * @param {string} canal ''|'MAGASIN'|'INTERNET'|'REPRESENTANT'|'DCS'|'AUTRE'|...
- * @param {{min:number,max:number}} range monthIdx inclusif
- * @param {{magasinMode?: 'all'|'preleve'|'enleve'}} [opts]
- * @returns {number|null}
- */
-export function getClientCAByCanalInMonthRange(cc, canal, range, opts = {}) {
-  if (!cc || !range) return null;
-  const src = _S._byMonthClientCAByCanal;
-  if (!src) return null;
-
-  const magasinMode = opts.magasinMode || 'all';
-  const canalKey = _effectiveCanalKeyForClientSets(canal, magasinMode);
-
-  let ca = 0;
-
-  // Canal spécifique
-  if (canalKey) {
-    for (const midxStr in src) {
-      const midx = +midxStr;
-      if (midx < range.min || midx > range.max) continue;
-      const cm = src[midxStr];
-      const m = cm ? cm[canalKey] : null;
-      if (!m) continue;
-      ca += m[cc] || 0;
-    }
-    return ca;
-  }
-
-  // Tous canaux : un seul "magasin key" selon le mode (évite double comptage)
-  const magKey = _effectiveCanalKeyForClientSets('MAGASIN', magasinMode) || 'MAGASIN';
-  for (const midxStr in src) {
-    const midx = +midxStr;
-    if (midx < range.min || midx > range.max) continue;
-    const cm = src[midxStr];
-    if (!cm) continue;
-    for (const c in cm) {
-      if (c === 'MAGASIN' || c === 'MAGASIN_PREL' || c === 'MAGASIN_ENL') {
-        if (c !== magKey) continue;
-      }
-      const m = cm[c];
-      if (!m) continue;
-      ca += m[cc] || 0;
-    }
-  }
-  return ca;
-}
-
-/**
- * CA client par canal sur la période courante (UI), depuis _byMonthClientCAByCanal.
- * @returns {number|null}
- */
-export function getClientCAByCanalInPeriod(cc, canal = '', opts = {}) {
-  const range = opts.range || getCurrentPeriodMonthRange();
-  if (!range) return null;
-  return getClientCAByCanalInMonthRange(cc, canal, range, opts);
 }
 
 // ── Clients actifs (période) depuis byMonthClients* ──────────────────────

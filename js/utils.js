@@ -160,35 +160,6 @@ export function buildPctBar(pct, {
   return `<div style="display:flex;align-items:center;gap:4px;width:100%"><div style="flex:1;height:${height}px;background:${bgColor};border-radius:${radius};overflow:hidden"><div style="width:${clamped}%;height:100%;background:${fill};border-radius:${radius}${animated ? ';transition:width .5s ease' : ''}${glowStyle}"></div></div>${label}</div>`;
 }
 
-export function buildSparklineSVG(values, {
-  color   = 'var(--c-action)',
-  width   = 80,
-  height  = 20,
-  filled  = false,
-  dotLast = true,
-} = {}) {
-  if (!values?.length || values.length < 2) return '';
-  const min = Math.min(...values), max = Math.max(...values);
-  const range = max - min || 1;
-  const pad = 2;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * (width - pad * 2) + pad;
-    const y = height - pad - ((v - min) / range) * (height - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const polyline = `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-  const area = filled ? (() => {
-    const first = pts[0].split(',');
-    const last  = pts[pts.length - 1].split(',');
-    return `<polygon points="${pts.join(' ')} ${last[0]},${height} ${first[0]},${height}" fill="${color}" opacity="0.12"/>`;
-  })() : '';
-  const dot = dotLast ? (() => {
-    const [lx, ly] = pts[pts.length - 1].split(',');
-    return `<circle cx="${lx}" cy="${ly}" r="2.5" fill="${color}"/>`;
-  })() : '';
-  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true" style="display:block;overflow:visible">${area}${polyline}${dot}</svg>`;
-}
-
 export function buildSkeletonTable(rows = 8, cols = 5) {
   const widths = ['sk-short', 'sk-long', 'sk-medium', 'sk-full', 'sk-short'];
   const trs = Array.from({ length: rows }, (_, r) =>
@@ -267,39 +238,6 @@ export function getVal(r, ...k) {
   return col !== null ? (r[col] ?? '') : '';
 }
 
-export function getQuantityColumn(r, t) {
-  const tl = t.toLowerCase();
-  let col = _CC.qty[tl];
-  if (col === undefined) {
-    const ks = Object.keys(r);
-    let f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && (l.includes('qté') || l.includes('qte') || l.includes('qt') || l.includes('quantité')); });
-    if (!f) f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && !l.includes('ca ') && !l.includes('vmb'); });
-    _CC.qty[tl] = col = f || null;
-  }
-  return col ? parseFloat(r[col] || 0) : 0;
-}
-
-export function getCaColumn(r, t) {
-  const tl = t.toLowerCase();
-  let col = _CC.ca[tl];
-  if (col === undefined) {
-    const ks = Object.keys(r);
-    const f = ks.find(k => { const l = k.toLowerCase(); return (l.includes('ca') || l.includes('montant')) && l.includes(tl); });
-    _CC.ca[tl] = col = f || null;
-  }
-  return col ? parseFloat((r[col] || '').toString().replace(',', '.')) || 0 : 0;
-}
-
-export function getVmbColumn(r, t) {
-  const tl = t.toLowerCase();
-  let col = _CC.vmb[tl];
-  if (col === undefined) {
-    const ks = Object.keys(r);
-    const f = ks.find(k => { const l = k.toLowerCase(); return l.includes('vmb') && l.includes(tl); });
-    _CC.vmb[tl] = col = f || null;
-  }
-  return col ? parseFloat((r[col] || '').toString().replace(',', '.')) || 0 : 0;
-}
 // ──────────────────────────────────────────────────────────────────────────
 
 export function extractStoreCode(row) {
