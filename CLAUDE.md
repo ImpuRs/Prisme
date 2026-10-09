@@ -328,7 +328,7 @@ Niveaux du diagnostic :
 
 | Onglet | Source principale | Description |
 |---|---|---|
-| La partie (accueil) | finalData + computeSquelette + _byMonth | Score agence /100 = moyenne Assortiment + Stock + Clients, actions « +N pts », familles notées, courbe de progression |
+| La partie (accueil) | finalData + computeSquelette + _byMonth | Score agence /100 = moyenne Assortiment + Stock + Clients, actions « +N pts », familles notées, écart vs dernier chargement |
 | Base articles | finalData | La base (hors Pilotage Stock) : tableau filtrable, MIN/MAX, dernière vente (consommé), export CSV ; bandeau de contexte quand on arrive filtré depuis une décision |
 | Mon Stock | finalData | Dashboard KPIs, cockpit ruptures/dormants/saisonnalité |
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |

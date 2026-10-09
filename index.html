@@ -1317,9 +1317,6 @@
     .pt-domain { display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--s-card-alt); border-radius:12px; }
     .pt-domain.pt-dashed { background:transparent; border:1px dashed var(--pt-line); }
     .pt-domain-val { font-size:22px; font-weight:600; width:40px; text-align:right; }
-    .pt-curve { width:100%; height:90px; display:block; }
-    .pt-curve-empty { height:90px; border-bottom:1px solid var(--pt-line); position:relative; }
-    .pt-dot { position:absolute; left:0; bottom:-6px; width:12px; height:12px; border-radius:50%; background:var(--pt-high); }
     .pt-action { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:12px 16px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); }
     .pt-action-main { flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:2px; text-align:left; background:none; border:0; padding:4px 0; cursor:pointer; color:inherit; font:inherit; }
     .pt-action-main:hover .pt-action-title { text-decoration:underline; text-underline-offset:3px; }
@@ -2113,7 +2110,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261009b';
+    var ASSET_V = '20261009c';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'stock-lab', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
