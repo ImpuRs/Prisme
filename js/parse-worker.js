@@ -1046,7 +1046,7 @@ async function _handleParseMessage(data) {
         if (qteP > 0) a.tpp += qteP;
         if (qteP < 0) a.tpn += qteP;
         if (qteE > 0) a.te += qteE;
-        if (!a.bls[nc]) { a.bls[nc] = { p: Math.max(qteP, 0), e: Math.max(qteE, 0) }; a.cbl++; }
+        if (!a.bls[nc]) { a.bls[nc] = { p: Math.max(qteP, 0), e: Math.max(qteE, 0), d: dateV ? Math.floor((dateV.getTime() - dateV.getTimezoneOffset() * 60000) / 86400000) : -1 }; a.cbl++; }
         else { var ex_r = a.bls[nc]; if (Math.max(qteP, 0) > ex_r.p) ex_r.p = Math.max(qteP, 0); if (Math.max(qteE, 0) > ex_r.e) ex_r.e = Math.max(qteE, 0); }
       }
 
@@ -1626,6 +1626,16 @@ async function _handleParseMessage(data) {
       consommeMoisCouverts: consommeMoisCouverts,
     };
     if (!lowMem) {
+      // Banc d'essai stock : demande prélevée par BL (dédupliquée) → { code: [jour, qté, jour, qté, …] }
+      // jour = nb de jours depuis 1970 (date locale). Seulement les codes stockables (6 chiffres).
+      var articleDemand = {};
+      for (var _adC in articleRaw) {
+        if (!/^\d{6}$/.test(_adC)) continue;
+        var _adB = articleRaw[_adC].bls, _adOut = [];
+        for (var _adK in _adB) { var _adE = _adB[_adK]; if (_adE.p > 0 && _adE.d >= 0) _adOut.push(_adE.d, _adE.p); }
+        if (_adOut.length) articleDemand[_adC] = _adOut;
+      }
+      payload.articleDemand = articleDemand;
       payload.articleRaw = articleRaw;
       payload.monthlySales = monthlySales;
       payload.seasonalIndexReseau = seasonalIndexReseau;

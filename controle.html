@@ -94,11 +94,14 @@ async function check(name, fn, minText = 0) {
 
 async function runChecks() {
   rows = []; $('out').innerHTML = '';
+  // Chrome suspend les requestAnimationFrame d'un iframe hors écran : on garde l'appli visible
+  $('app').scrollIntoView({ block: 'center' });
   const S = W._S;
   if (!S?.finalData?.length) { $('verdict').className = 'ko'; $('verdict').textContent = 'Aucune session chargée : utilise « Recharger les fichiers puis contrôler ».'; return; }
   $('verdict').className = 'mid'; $('verdict').textContent = 'Contrôle en cours…';
+  if (document.visibilityState === 'hidden') line('Fenêtre', null, 'page en arrière-plan : Chrome suspend l’affichage animé, Conquête peut paraître vide — relance avec la fenêtre visible');
   line('Session', true, `${S.finalData.length.toLocaleString('fr-FR')} articles · ${S.selectedMyStore} · ${S.ventesLocalMag12MG?.size || 0} clients comptoir`);
-  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['duel', 'Duel agence'], ['animation', 'Animation'], ['associations', 'Associations'], ['table', 'Base articles']];
+  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['essai', 'Banc d’essai'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['duel', 'Duel agence'], ['animation', 'Animation'], ['associations', 'Associations'], ['table', 'Base articles']];
   for (const [id, label] of screens) {
     await check(`Écran · ${label}`, async () => { W.switchTab(id); await sleep(900); return (activeTab()?.innerText || '').trim().length; }, 300);
   }
@@ -153,10 +156,13 @@ async function reloadFiles() {
   W.expandImportZone?.();
   await sleep(300);
   const t0 = performance.now();
+  $('app').scrollIntoView({ block: 'center' });
   const before = W._S._partie;
   D.getElementById('btnCalculer').click();
   const ok = await waitFor(() => W._S.finalData?.length && W._S._partie && W._S._partie !== before && W._S.ventesLocalMag12MG?.size, 180000);
-  await sleep(3000); // agrégats clients en arrière-plan
+  // Chalandise et agrégats clients se terminent en arrière-plan après l'analyse : on les attend
+  if (files.some(f => /chaland/i.test(f.name))) await waitFor(() => W._S.chalandiseReady && W._S.clientStore?.size, 120000);
+  await sleep(5000);
   line('Chargement des fichiers', ok, ok ? `${files.length} fichiers` : 'délai dépassé', Math.round(performance.now() - t0));
   return ok;
 }
