@@ -219,24 +219,6 @@ function _ring(g) {
   </svg>`;
 }
 
-function _curve(hist) {
-  if (hist.length < 2) {
-    return `<div class="pt-curve-empty"><span class="pt-dot"></span></div>
-      <p class="pt-muted pt-small">Ta courbe démarre avec ces données. Chaque nouveau chargement ajoute un point.</p>`;
-  }
-  const W = 300, H = 90, vals = hist.map(h => h.global);
-  const lo = Math.min(...vals, PARTIE_OBJECTIF) - 3, hi = Math.max(...vals, PARTIE_OBJECTIF) + 3;
-  const x = (i) => (i / (hist.length - 1)) * W, y = (v) => H - ((v - lo) / (hi - lo)) * H;
-  const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const delta = vals[vals.length - 1] - vals[0];
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="pt-curve" role="img" aria-label="Évolution du score : ${vals.join(', ')}">
-      <line x1="0" x2="${W}" y1="${y(PARTIE_OBJECTIF).toFixed(1)}" y2="${y(PARTIE_OBJECTIF).toFixed(1)}" stroke="var(--pt-line)" stroke-dasharray="4 4"></line>
-      <polyline points="${pts}" fill="none" stroke="${_col(vals[vals.length - 1])}" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline>
-    </svg>
-    <div class="pt-row pt-between pt-small pt-muted"><span>${escapeHtml(_fmtDate(hist[0].date))}</span><span>${escapeHtml(_fmtDate(hist[hist.length - 1].date))}</span></div>
-    <p class="pt-small pt-muted">${delta >= 0 ? '+' : ''}${delta} pts depuis le premier point · ${hist.length} chargements</p>`;
-}
-
 function _domainRow(label, sub, v, dashed) {
   return `<div class="pt-domain${dashed ? ' pt-dashed' : ''}">
     <div class="pt-grow"><div class="pt-strong">${label}</div><div class="pt-small pt-muted">${sub}</div></div>
@@ -381,10 +363,6 @@ function _render() {
         ${p.clients != null
           ? _domainRow('Clients', `Fidélité en CA · ${p.clientsDetail.kept} clients revenus sur ${p.clientsDetail.prev}`, p.clients)
           : _domainRow('Clients', 'Il faut 12 mois d’historique de ventes', null, true)}
-      </div>
-      <div class="pt-card pt-col" style="gap:12px">
-        <div class="pt-eyebrow">Ta progression</div>
-        ${_curve(hist)}
       </div>
     </section>
 
