@@ -27,7 +27,7 @@ window._S = _S; // debug + accès console DevTools
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
-import { renderEssaiTab } from './stock-lab.js';
+import { renderEssaiTab, applyMinMaxServiceLevel, localSalesCount12m } from './stock-lab.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js';
@@ -1229,7 +1229,12 @@ _S.canalAgence=newCanalAgence;
     if(!DataStore.finalData.length)return;
     const _allStoresFull=Object.keys(_S.ventesParAgence||{}).filter(s=>s!==_S.selectedMyStore);
     if(_allStoresFull.length<2)return;
-    let _applied=0;
+    let _applied=0,_unique=0;
+    // Article déjà vendu chez toi (1 fois sur 12 mois, sinon le calcul local l'aurait dimensionné) :
+    // 1/1 plutôt que le rythme du réseau — option B validée au banc d'essai (oct. 2026).
+    // La Vitesse Réseau reste pour les articles JAMAIS vendus chez toi (implantation).
+    const _hasArtDemand=!!Object.keys(_S.articleDemand||{}).length;
+    const _venteLocale=(r)=>{ if(!_hasArtDemand) return false; if(localSalesCount12m(r.code)>=1){ r.nouveauMin=1; r.nouveauMax=1; r._venteUnique=true; _unique++; return true; } return false; };
     // Un article en rayon sans aucune vente locale sur 12 mois n'hérite pas du rythme réseau :
     // l'historique local (nul) prime — sinon PRISME pousse à réapprovisionner un invendu.
     for(const r of DataStore.finalData){
@@ -1239,6 +1244,7 @@ _S.canalAgence=newCanalAgence;
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
       const vr=computeVitesseReseau(r.code,r.prixUnitaire||0,r.medMinReseau||0);
       if(!vr)continue;
+      if(_venteLocale(r))continue;
       r.nouveauMin=vr.min;
       r.nouveauMax=vr.max;
       r._vitesseReseau=true;
@@ -1251,6 +1257,7 @@ _S.canalAgence=newCanalAgence;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
       if(r.medMinReseau>0||r.medMaxReseau>0){
+        if(_venteLocale(r))continue;
         r.nouveauMin=Math.max(Math.round(r.medMinReseau),1);
         r.nouveauMax=Math.max(Math.round(r.medMaxReseau),r.nouveauMin+1);
         r._vitesseReseau=true;
@@ -1258,7 +1265,7 @@ _S.canalAgence=newCanalAgence;
         _applied++;
       }
     }
-    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStoresFull.length);
+    console.log('[VR] Juge de Paix — applied:', _applied, '· vendus 1 fois → 1/1 :', _unique, 'stores:', _allStoresFull.length);
   }
 
   // ── _postParseMain — étapes post-hydratation côté main thread ────────────
@@ -1275,6 +1282,8 @@ _S.canalAgence=newCanalAgence;
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
+      // MIN/MAX « taux de service » (oct. 2026, validé au banc d'essai) — avant Vitesse Réseau et Bouclier
+      { const _nMM = applyMinMaxServiceLevel(); if (_nMM) console.log('[MINMAX] taux de service appliqué :', _nMM, 'articles'); }
       if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 

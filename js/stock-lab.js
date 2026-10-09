@@ -1,9 +1,10 @@
 // © 2026 Jawad El Barkaoui — Tous droits réservés
 // PRISME — stock-lab.js
 // Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées réelles, jour par jour,
-// avec 3 jeux de MIN/MAX — ERP (actuel), PRISME (calcul actuel), Variante « taux de service » —
+// avec les MIN/MAX ERP, PRISME ancien calcul, PRISME nouveau calcul (« taux de service ») et un essai de réglages —
 // et mesure pour chacun : taux de service, ruptures, stock moyen, commandes de réappro.
-// N'écrit RIEN dans finalData : aucune règle MIN/MAX n'est modifiée (cf. CLAUDE.md).
+// La méthode (minMaxService) est aussi le vrai calcul PRISME depuis oct. 2026 (applyMinMaxServiceLevel, main.js).
+// Le rendu du banc d'essai n'écrit rien dans finalData.
 // Données : _S.articleDemand { code: [jour, qté, …] } (BL dédupliqués, prélevé, myStore).
 // ═══════════════════════════════════════════════════════════════
 'use strict';
@@ -11,7 +12,9 @@
 import { _S } from './state.js';
 import { escapeHtml, formatEuro, defaultPeriodRange } from './utils.js';
 
-// ── Paramètres (modifiables à l'écran) ──
+// ── Paramètres de la méthode « taux de service » ──
+// DEFAULTS = ceux du vrai calcul MIN/MAX (applyMinMaxServiceLevel) ; P = copie modifiable à l'écran (essais).
+export const MINMAX_DEFAULTS = Object.freeze({ lead: 2, service: Object.freeze({ A: 0.98, B: 0.95, C: 0.90 }), cycle: 14 });
 const P = {
   lead: 2,                                   // délai de réappro (jours calendaires) — 48 h centrale
   service: { A: 0.98, B: 0.95, C: 0.90 },    // taux de service visé par classe ABC (Variante)
@@ -43,25 +46,70 @@ function _window() {
   return { d0: day(r.start), d1: day(r.end), start: r.start, end: r.end };
 }
 
-/** Variante « taux de service » : MIN = max(demande pendant le délai + sécurité, taille de commande au quantile visé). */
-function _variante(r, daily, n, events, w) {
+/** MIN/MAX « taux de service » d'un article (méthode PRISME depuis oct. 2026, validée au banc d'essai).
+ *  Règles métier gardées : nouveauté → MIN/MAX ERP ; statut 2/3/4 (fin de série…) → 0/0 ;
+ *  vendu ≤ 1 fois sur 12 mois → 0/0 ; vendu 2 fois → 1/2.
+ *  Sinon : MIN = max(demande pendant le délai + z·σ·√délai, taille de commande au quantile visé, 1),
+ *  demande corrigée SBA (Croston) si intermittente ; MAX = MIN + ventes de `cycle` jours. */
+export function minMaxService(r, daily, events, w, prm = MINMAX_DEFAULTS) {
   const days = w.d1 - w.d0 + 1;
-  if (r.isNouveaute) return [r.ancienMin || 0, r.ancienMax || 0];          // règle 4 : nouveauté → garde l'ERP
-  if (events.length <= 1) return [0, 0];                                    // règle 4 : vendu ≤ 1 fois → 0/0
+  if (r.isNouveaute) return [r.ancienMin || 0, r.ancienMax || 0];
+  if (['2', '3', '4'].includes(String(r.statut || '').charAt(0))) return [0, 0];
+  if (events.length <= 1) return [0, 0];
+  if (events.length === 2) return [1, 2];
   const tot = events.reduce((s, q) => s + q, 0);
   const mu = tot / days;
   let s2 = 0;
   for (let i = 0; i < days; i++) { const x = (daily.get(w.d0 + i) || 0) - mu; s2 += x * x; }
   const sigma = Math.sqrt(s2 / Math.max(1, days - 1));
-  const sl = P.service[r.abcClass] || P.service.C;
+  const sl = prm.service[r.abcClass] || prm.service.C;
   const z = Z(sl);
-  const adi = days / n;                                                     // intervalle moyen entre jours de vente
+  const adi = days / Math.max(1, daily.size);                               // intervalle moyen entre jours de vente
   const rate = adi > 1.32 ? mu * 0.95 : mu;                                 // SBA (Croston corrigé, α = 0,1) si intermittent
   const sorted = [...events].sort((a, b) => a - b);
   const qOrder = sorted[Math.min(sorted.length - 1, Math.floor(sl * sorted.length))];
-  const min = Math.max(Math.ceil(rate * P.lead + z * sigma * Math.sqrt(P.lead)), qOrder, 1);
-  const max = min + Math.max(1, Math.round(rate * P.cycle));
+  const min = Math.max(Math.ceil(rate * prm.lead + z * sigma * Math.sqrt(prm.lead)), qOrder, 1);
+  const max = min + Math.max(1, Math.round(rate * prm.cycle));
   return [min, max];
+}
+
+/** Série journalière d'un article sur la fenêtre. */
+function _series(code, w) {
+  const ev = (_S.articleDemand || {})[code] || [];
+  const daily = new Map(), events = [];
+  for (let i = 0; i < ev.length; i += 2) {
+    const d = ev[i], q = ev[i + 1];
+    if (d < w.d0 || d > w.d1) continue;
+    daily.set(d, (daily.get(d) || 0) + q);
+    events.push(q);
+  }
+  return { daily, events };
+}
+
+/** Nombre de ventes (BL) de l'article chez toi sur les 12 derniers mois complets. */
+export function localSalesCount12m(code) {
+  const w = _window();
+  if (!w) return 0;
+  return _series(code, w).events.length;
+}
+
+/** Applique la méthode « taux de service » au vrai MIN/MAX PRISME (finalData.nouveauMin/Max).
+ *  Appelé après l'analyse, AVANT Vitesse Réseau et le Bouclier Squelette (qui s'appliquent ensuite).
+ *  L'ancien calcul est gardé dans r._minMaxAvant pour le banc d'essai. Sans série journalière : rien ne change. */
+export function applyMinMaxServiceLevel() {
+  const w = _window();
+  const dem = _S.articleDemand || {};
+  if (!w || !Object.keys(dem).length) return 0;
+  let n = 0;
+  for (const r of _S.finalData || []) {
+    if (!/^\d{6}$/.test(r.code) || r.isParent) continue;
+    if (!r._minMaxAvant) r._minMaxAvant = [r.nouveauMin || 0, r.nouveauMax || 0];
+    const { daily, events } = _series(r.code, w);
+    const [mi, ma] = minMaxService(r, daily, events, w);
+    r.nouveauMin = mi; r.nouveauMax = mi === 0 ? 0 : Math.max(mi, ma);
+    n++;
+  }
+  return n;
 }
 
 /** Simule une politique (MIN, MAX) sur la fenêtre ; stock initial = MAX (rayon plein). */
@@ -93,27 +141,21 @@ export function runStockLab() {
   const w = _window();
   const dem = _S.articleDemand || {};
   if (!w || !Object.keys(dem).length) return null;
-  const pols = ['erp', 'prisme', 'var'];
+  const pols = ['erp', 'avant', 'prisme', 'var'];
   const tot = Object.fromEntries(pols.map(k => [k, { demand: 0, served: 0, ruptArts: 0, orders: 0, stockV: 0 }]));
   const byAbc = {};
   const arts = [];
   for (const r of _S.finalData || []) {
     if (!/^\d{6}$/.test(r.code) || r.isParent) continue;
     const pu = r.prixUnitaire || 0;
-    const ev = dem[r.code] || [];
-    const daily = new Map(), events = [];
-    for (let i = 0; i < ev.length; i += 2) {
-      const d = ev[i], q = ev[i + 1];
-      if (d < w.d0 || d > w.d1) continue;
-      daily.set(d, (daily.get(d) || 0) + q);
-      events.push(q);
-    }
+    const { daily, events } = _series(r.code, w);
     const mm = {
       erp: [r.ancienMin || 0, r.ancienMax || 0],
+      avant: r._minMaxAvant || [r.nouveauMin || 0, r.nouveauMax || 0],
       prisme: [r.nouveauMin || 0, r.nouveauMax || 0],
     };
-    if (!events.length && !mm.erp[1] && !mm.prisme[1]) continue;           // ni vente ni stock prévu : hors périmètre
-    mm.var = _variante(r, daily, daily.size, events, w);
+    if (!events.length && !mm.erp[1] && !mm.prisme[1] && !mm.avant[1]) continue; // ni vente ni stock prévu : hors périmètre
+    mm.var = minMaxService(r, daily, events, w, P);
     const res = {};
     for (const k of pols) res[k] = _simulate(mm[k][0], Math.max(mm[k][0], mm[k][1]), daily, w, pu);
     const abc = r.abcClass || '—';
@@ -124,7 +166,7 @@ export function runStockLab() {
       if (x.rupt > 0) T.ruptArts++;
       B.demand += x.demand; B.served += x.served; B.stockV += x.stockAvgV; B.n++;
     }
-    arts.push({ code: r.code, lib: r.libelle || '', abc, fmr: r.fmrClass || '', pu, ventes: events.length, qte: events.reduce((s, q) => s + q, 0), mm, res });
+    arts.push({ code: r.code, lib: r.libelle || '', vitesse: !!r._vitesseReseau, abc, fmr: r.fmrClass || '', pu, ventes: events.length, qte: events.reduce((s, q) => s + q, 0), mm, res });
   }
   _last = { w, tot, byAbc, arts, params: JSON.parse(JSON.stringify(P)) };
   return _last;
@@ -133,12 +175,12 @@ export function runStockLab() {
 // ── Rendu ──
 const _pct = (a, b) => b ? (a / b * 100) : null;
 const _fmtPct = (v) => v == null ? '—' : `${v.toFixed(1).replace('.', ',')} %`;
-const LABEL = { erp: 'ERP (actuel)', prisme: 'PRISME (calcul actuel)', var: 'Variante taux de service' };
+const LABEL = { erp: 'ERP (actuel)', avant: 'PRISME — ancien calcul', prisme: 'PRISME — nouveau calcul', var: 'Essai (tes réglages)' };
 
 function _kpiTable(L) {
   const row = (k) => {
     const t = L.tot[k];
-    return `<tr${k === 'var' ? ' class="pt-next"' : ''}><td class="pt-strong">${LABEL[k]}</td>
+    return `<tr${k === 'prisme' ? ' class="pt-next"' : ''}><td class="pt-strong">${LABEL[k]}</td>
       <td class="pt-num ar-r">${_fmtPct(_pct(t.served, t.demand))}</td>
       <td class="pt-num ar-r">${t.ruptArts.toLocaleString('fr-FR')}</td>
       <td class="pt-num ar-r">${formatEuro(t.stockV)}</td>
@@ -146,7 +188,7 @@ function _kpiTable(L) {
   };
   return `<div class="pt-list" style="margin-top:0"><div class="pt-scroll" style="max-height:none"><table class="pt-table">
     <thead><tr><th>MIN/MAX</th><th class="ar-r">Taux de service</th><th class="ar-r">Articles en rupture ≥ 1 jour</th><th class="ar-r">Stock moyen</th><th class="ar-r">Commandes de réappro</th></tr></thead>
-    <tbody>${['erp', 'prisme', 'var'].map(row).join('')}</tbody></table></div></div>`;
+    <tbody>${['erp', 'avant', 'prisme', 'var'].map(row).join('')}</tbody></table></div></div>`;
 }
 
 function _abcTable(L) {
@@ -154,17 +196,17 @@ function _abcTable(L) {
   const rows = cls.map(c => {
     const B = L.byAbc[c];
     const cell = (k) => `<td class="pt-num ar-r">${_fmtPct(_pct(B[k].served, B[k].demand))}<br><span class="pt-small pt-muted">${formatEuro(B[k].stockV)}</span></td>`;
-    return `<tr><td class="pt-strong">${c} <span class="pt-small pt-muted">· ${B.erp.n.toLocaleString('fr-FR')} art. · visé ${Math.round(L.params.service[c] * 100)} %</span></td>${cell('erp')}${cell('prisme')}${cell('var')}</tr>`;
+    return `<tr><td class="pt-strong">${c} <span class="pt-small pt-muted">· ${B.erp.n.toLocaleString('fr-FR')} art. · visé ${Math.round(L.params.service[c] * 100)} %</span></td>${cell('erp')}${cell('avant')}${cell('prisme')}</tr>`;
   }).join('');
   return `<div class="pt-list" style="margin-top:0"><div class="pt-scroll" style="max-height:none"><table class="pt-table">
-    <thead><tr><th>Classe ABC</th><th class="ar-r">ERP<br><span class="pt-small">service · stock</span></th><th class="ar-r">PRISME</th><th class="ar-r">Variante</th></tr></thead>
+    <thead><tr><th>Classe ABC</th><th class="ar-r">ERP<br><span class="pt-small">service · stock</span></th><th class="ar-r">PRISME ancien</th><th class="ar-r">PRISME nouveau</th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
 
 function _artTable(L) {
   const key = {
-    gain: (a) => (a.res.erp.stockAvgV - a.res.var.stockAvgV),
-    service: (a) => (a.res.var.served - a.res.erp.served) * (a.pu || 1),
+    gain: (a) => (a.res.avant.stockAvgV - a.res.prisme.stockAvgV),
+    service: (a) => (a.res.prisme.served - a.res.erp.served) * (a.pu || 1),
     ventes: (a) => a.ventes,
   }[_sort];
   const list = [...L.arts].sort((a, b) => key(b) - key(a)).slice(0, 60);
@@ -173,13 +215,13 @@ function _artTable(L) {
   const rows = list.map(a => `<tr class="ar-click" onclick="window.openArticlePanel?.('${a.code}','essai')">
       <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(a.lib)}</span><span class="pt-small pt-muted pt-num">${a.code} · ${a.abc}${a.fmr} · ${a.ventes} vente${a.ventes > 1 ? 's' : ''} (${a.qte} u.)</span></div></td>
       <td class="pt-num ar-r">${mm(a.mm.erp)}<br><span class="pt-small pt-muted">${sv(a.res.erp)} · ${formatEuro(a.res.erp.stockAvgV)}</span></td>
-      <td class="pt-num ar-r">${mm(a.mm.prisme)}<br><span class="pt-small pt-muted">${sv(a.res.prisme)} · ${formatEuro(a.res.prisme.stockAvgV)}</span></td>
-      <td class="pt-num ar-r pt-strong">${mm(a.mm.var)}<br><span class="pt-small pt-muted">${sv(a.res.var)} · ${formatEuro(a.res.var.stockAvgV)}</span></td>
+      <td class="pt-num ar-r">${mm(a.mm.avant)}<br><span class="pt-small pt-muted">${sv(a.res.avant)} · ${formatEuro(a.res.avant.stockAvgV)}</span></td>
+      <td class="pt-num ar-r pt-strong">${mm(a.mm.prisme)}${a.vitesse ? ' <span class="ar-tag" title="Vitesse réseau / médiane ERP réseau">réseau</span>' : ''}<br><span class="pt-small pt-muted">${sv(a.res.prisme)} · ${formatEuro(a.res.prisme.stockAvgV)}</span></td>
     </tr>`).join('');
   const chip = (k, l) => `<button type="button" class="ar-chip${_sort === k ? ' ar-chip-on' : ''}" onclick="window._labSort('${k}')">${l}</button>`;
-  return `<div class="pt-row" style="gap:8px;flex-wrap:wrap">${chip('gain', 'Plus de stock économisé')}${chip('service', 'Plus de service gagné')}${chip('ventes', 'Plus vendus')}</div>
+  return `<div class="pt-row" style="gap:8px;flex-wrap:wrap">${chip('gain', 'Plus de stock économisé (vs ancien)')}${chip('service', 'Plus de service gagné (vs ERP)')}${chip('ventes', 'Plus vendus')}</div>
     <div class="pt-list" style="margin-top:0"><div class="pt-scroll"><table class="pt-table">
-    <thead><tr><th>Article</th><th class="ar-r">ERP<br><span class="pt-small">MIN/MAX · service · stock</span></th><th class="ar-r">PRISME</th><th class="ar-r">Variante</th></tr></thead>
+    <thead><tr><th>Article</th><th class="ar-r">ERP<br><span class="pt-small">MIN/MAX · service · stock</span></th><th class="ar-r">PRISME ancien</th><th class="ar-r">PRISME nouveau</th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
 
@@ -193,18 +235,18 @@ export function renderEssaiTab() {
     return;
   }
   const fmtD = (d) => d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-  const e = L.tot.erp, v = L.tot.var;
-  const dStock = v.stockV - e.stockV, dServ = _pct(v.served, v.demand) - _pct(e.served, e.demand);
+  const e = L.tot.erp, v = L.tot.prisme, av = L.tot.avant;
+  const dStock = v.stockV - av.stockV, dServ = _pct(v.served, v.demand) - _pct(e.served, e.demand);
   el.innerHTML = `<div class="pt-wrap" style="gap:20px">
     <section class="pt-card pt-col" style="gap:14px">
       <div class="pt-col" style="gap:4px">
         <span class="pt-eyebrow">Pilotage stock · banc d'essai</span>
-        <h3 class="pt-h2">Et si on gérait le stock autrement ?</h3>
-        <span class="pt-muted">Tes ventes prélevées réelles de ${fmtD(L.w.start)} à ${fmtD(L.w.end)}, rejouées jour par jour avec trois jeux de MIN/MAX. Réappro en ${L.params.lead} jours, rayon plein au départ. Rien n'est modifié dans tes MIN/MAX.</span>
+        <h3 class="pt-h2">Le MIN/MAX PRISME, rejoué sur tes ventes</h3>
+        <span class="pt-muted">Tes ventes prélevées réelles de ${fmtD(L.w.start)} à ${fmtD(L.w.end)}, rejouées jour par jour. PRISME calcule désormais ses MIN/MAX par taux de service (nouveau calcul) ; l'ancien calcul et l'ERP restent affichés pour comparer. La ligne « Essai » rejoue tes réglages ci-dessous sans rien modifier.</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Variante vs ERP · service</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dServ >= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dServ >= 0 ? '+' : ''}${dServ.toFixed(1).replace('.', ',')} pt</span><span class="pt-small pt-muted">${_fmtPct(_pct(e.served, e.demand))} → ${_fmtPct(_pct(v.served, v.demand))} des quantités demandées servies</span></div>
-        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Variante vs ERP · stock moyen</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dStock <= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dStock <= 0 ? '−' : '+'}${formatEuro(Math.abs(dStock))}</span><span class="pt-small pt-muted">${formatEuro(e.stockV)} → ${formatEuro(v.stockV)}</span></div>
+        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Nouveau calcul vs ERP · service</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dServ >= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dServ >= 0 ? '+' : ''}${dServ.toFixed(1).replace('.', ',')} pt</span><span class="pt-small pt-muted">${_fmtPct(_pct(e.served, e.demand))} → ${_fmtPct(_pct(v.served, v.demand))} des quantités demandées servies</span></div>
+        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Nouveau vs ancien calcul · stock moyen</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dStock <= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dStock <= 0 ? '−' : '+'}${formatEuro(Math.abs(dStock))}</span><span class="pt-small pt-muted">${formatEuro(av.stockV)} → ${formatEuro(v.stockV)} (ERP : ${formatEuro(e.stockV)})</span></div>
         <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Articles simulés</span><span class="pt-num" style="font-size:22px;font-weight:600">${L.arts.length.toLocaleString('fr-FR')}</span><span class="pt-small pt-muted">vendus sur la période ou avec un MIN/MAX</span></div>
       </div>
       ${_kpiTable(L)}
@@ -228,9 +270,10 @@ export function renderEssaiTab() {
           <label class="pt-col pt-small" style="gap:4px">Jours de ventes en plus pour le MAX<input class="pf-select" type="number" min="1" max="60" value="${P.cycle}" onchange="window._labSet('cycle', this.value)"></label>
         </div>
         <ul class="pt-small pt-muted" style="margin:0;padding-left:18px;line-height:1.6">
-          <li><strong>Variante</strong> : MIN = le plus grand de (ventes moyennes pendant le délai + stock de sécurité) et (taille de commande que le service visé doit couvrir). Stock de sécurité = z × écart-type des ventes journalières × √délai. Articles à ventes rares (en moyenne plus de 1,3 jour entre deux ventes) : demande corrigée façon Croston/SBA. MAX = MIN + ventes de ${P.cycle} jours.</li>
+          <li><strong>Nouveau calcul PRISME</strong> : MIN = le plus grand de (ventes moyennes pendant le délai + stock de sécurité) et (taille de commande que le service visé doit couvrir). Stock de sécurité = z × écart-type des ventes journalières × √délai. Articles à ventes rares (en moyenne plus de 1,3 jour entre deux ventes) : demande corrigée façon Croston/SBA. MAX = MIN + ventes de ${P.cycle} jours.</li>
           <li>Règles métier gardées : vendu une seule fois → 0/0 ; nouveauté → MIN/MAX ERP ; références père exclues.</li>
-          <li>Limite : PRISME et la Variante sont calculés sur les mêmes 12 mois que ceux rejoués, ce qui les avantage un peu par rapport à l'ERP. Le conditionnement d'achat n'est pas connu, donc les quantités ne sont pas arrondies au colis.</li>
+          <li>Ensuite, comme avant : Vitesse Réseau pour les articles sans vente locale, invendus jamais réapprovisionnés, Bouclier Squelette (challengers 0/0, Ancre Métier 1/1).</li>
+          <li>Limite : les calculs PRISME sont faits sur les mêmes 12 mois que ceux rejoués, ce qui les avantage un peu par rapport à l'ERP. Le conditionnement d'achat n'est pas connu, donc les quantités ne sont pas arrondies au colis.</li>
         </ul>
       </div>
     </details>
@@ -252,10 +295,11 @@ window._labCsv = () => {
   const pct = (x) => x.demand ? (x.served / x.demand * 100).toFixed(1) : '';
   const head = ['Code', 'Libellé', 'ABC', 'FMR', 'Ventes', 'Qté', 'PU',
     'ERP MIN', 'ERP MAX', 'ERP service %', 'ERP stock moyen €', 'ERP commandes',
+    'Ancien MIN', 'Ancien MAX', 'Ancien service %', 'Ancien stock moyen €', 'Ancien commandes',
     'PRISME MIN', 'PRISME MAX', 'PRISME service %', 'PRISME stock moyen €', 'PRISME commandes',
-    'Variante MIN', 'Variante MAX', 'Variante service %', 'Variante stock moyen €', 'Variante commandes'];
+    'Essai MIN', 'Essai MAX', 'Essai service %', 'Essai stock moyen €', 'Essai commandes'];
   const rows = _last.arts.map(a => [a.code, q(a.lib), a.abc, a.fmr, a.ventes, a.qte, a.pu.toFixed(2),
-    ...['erp', 'prisme', 'var'].flatMap(k => [a.mm[k][0], a.mm[k][1], pct(a.res[k]), a.res[k].stockAvgV.toFixed(2), a.res[k].orders])].join(';'));
+    ...['erp', 'avant', 'prisme', 'var'].flatMap(k => [a.mm[k][0], a.mm[k][1], pct(a.res[k]), a.res[k].stockAvgV.toFixed(2), a.res[k].orders])].join(';'));
   const blob = new Blob(['﻿' + head.join(';') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob); const link = document.createElement('a');
   link.href = url; link.download = `PRISME_banc_essai_${_S.selectedMyStore || ''}.csv`; link.click(); URL.revokeObjectURL(url);

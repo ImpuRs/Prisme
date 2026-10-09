@@ -57,10 +57,10 @@ js/
                    « Pour creuser » = onglets Métiers/Analyse/Réseau de planRayon.js (bridge)
   planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
                    onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
-  stock-lab.js   — Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées (_S.articleDemand,
-                   BL dédupliqués par jour, persisté) avec 3 jeux de MIN/MAX — ERP, PRISME, Variante « taux de
-                   service » (stock de sécurité z·σ·√délai, SBA pour ventes rares, quantile de taille de commande) —
-                   et compare service, ruptures, stock moyen, commandes. N'écrit rien dans finalData.
+  stock-lab.js   — MIN/MAX « taux de service » (minMaxService, applyMinMaxServiceLevel — le vrai calcul PRISME
+                   depuis oct. 2026) + Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées
+                   (_S.articleDemand, BL dédupliqués par jour, persisté) avec ERP / PRISME ancien / PRISME nouveau /
+                   essai de réglages, et compare service, ruptures, stock moyen, commandes. Le rendu n'écrit rien.
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
   clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
                    CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
@@ -297,6 +297,12 @@ Niveaux du diagnostic :
 2. **Écrêtage** : `dl = min(3×U, T)` puis `dl = min(dl, U×5)` — protège contre commandes exceptionnelles.
 3. **Stock de sécurité** : `SECURITY_DAYS` par FMR (F=4, M=3, R=2) = 48h réappro + marge.
 4. **Cas spéciaux** : W≤1 → MIN/MAX=0 ; W=2 → MIN=1/MAX=2 ; Nouveauté <35j → garde ancien MIN/MAX.
+   **Depuis oct. 2026 (validé au banc d'essai, option B)** : le MIN/MAX PRISME est calculé par **taux de service**
+   (`minMaxService`, stock-lab.js) sur les 12 derniers mois complets, après l'analyse et avant Vitesse Réseau / Bouclier :
+   statut 2/3/4 → 0/0 ; ventes (BL) ≤ 1 → 0/0 ; = 2 → 1/2 ; sinon MIN = max(⌈d·L + z·σ·√L⌉, taille de commande au
+   quantile visé, 1) avec d = demande/jour (corrigée SBA si intermittente), σ = écart-type journalier, L = 2 j,
+   z selon service visé A 98 % / B 95 % / C 90 % ; MAX = MIN + 14 j de ventes. Ancien calcul gardé dans `r._minMaxAvant`.
+   AG22 (rejeu oct. 2025 → sept. 2026) : ERP 86,0 % / 92 k€ ; ancien PRISME 91,9 % / 225 k€ ; nouveau 92,4 % / 189 k€.
 5. **Références père** : si les 3 dates toutes vides → exclure des ruptures (`isParentRef()`).
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).
@@ -308,7 +314,7 @@ Niveaux du diagnostic :
 16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesLocalMag12MG.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesLocalMagPeriode` (period-filtered) ni `ventesParAgence` (tous canaux prélevé+enlevé).
 17. **Profil canal client (ex-« score omnicanal », oct. 2026)** : `computeOmniScores()` (engine.js) classe chaque client en `comptoir` / `mixte` / `sansComptoir` / `ailleurs` (`OMNI_PROFILS`). CA comptoir et autres canaux sur 12 mois complets (`_byMonthClientCAByCanal`, repli `caClientParStore` + `ventesLocalMag12MG`), canaux = `clientLastOrderByCanal` sur 12 mois glissants, « ailleurs » = autres agences ≥ 30 % des achats réseau (`ventesClientAutresAgences`, ou lignes EXTÉRIEUR Qlik si chargé ; même fenêtre des deux côtés). Plus de score /100 (`score` = part comptoir, compat). NE PAS revenir à `ventesLocalHorsMag` : filtré par la période au parsing et non recalculé ensuite.
 18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
-13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
+13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). **Option B (oct. 2026)** : si l'article a été vendu au moins une fois chez toi sur 12 mois, il prend 1/1 (`r._venteUnique`) au lieu du rythme réseau ; la Vitesse Réseau ne sert plus qu'aux articles jamais vendus ici (implantation). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
     **Exclusion invendus** (oct. 2026) : un article EN STOCK sans aucune vente locale (`isInvendu()` engine.js : W=0, stock>0, hors nouveauté/père) ne reçoit ni Vitesse Réseau ni médiane ERP — l'historique local nul prime.
 21. **Capté Legallais / capté PDV** (oct. 2026) : capté Legallais = achat dans l'année (« CA 2026 » chalandise > 0 OU achat consommé toutes agences depuis le 1er janvier) via `isCapteLegallais(cc, info)` ; capté PDV = achat dans l'agence sur l'ANNÉE EN COURS (`currentYearMonthRange()`, indépendant du sélecteur de période — Conquête ne suit plus la période). « Activité PDV Zone » recalculée depuis le consommé à date (Actif si achat agence cette année, sinon Inactif N ou N/N-1 ; original dans `_activitePDVChal`) : filtrer « Inactif PDV » donne 0 client agence. Le « Statut actuel général » Qlik ne décide plus actif/inactif (sauf Prospect). Le consommé à jour fait foi sur la chalandise : `ca2026` = max(CA 2026 chalandise d'origine `_ca2026Chal`, CA consommé de l'année toutes agences `getClientCAThisYearMap()`). Filtre distance strict (plus d'exception « a acheté ici »). Vérifié AG22 à 2 km contre les fichiers bruts : 125 clients (182 − 57 inactifs > 24 mois), 58 captés Legallais, 43 captés PDV, 15 à capter.
 20. **Bouclier Squelette** (`applyVerdictOverrides`, engine.js) : un challenger (référencé, W=0) n'est « incontournable » (→ Réf Schizo) que si le réseau le vend vraiment : ≥60 % des autres agences ET ≥200 € de CA moyen par agence vendeuse (`SQ_RESEAU_FORT_*`, constants.js). Tous les challengers passent à MIN/MAX 0/0, Réf Schizo comprise (alerte gardée, pas de réappro) ; seule l'Ancre Métier (Trahison pardonnée, top 5/famille) garde 1/1. Même exigence « réseau fort » pour un article *à surveiller* étiqueté incontournable (Alerte Rouge → « Incontournable qui ralentit »), sauf incontournable local (ABC A + W≥12). Affichage : 16 verdicts internes → 9 libellés en clair (`verdictLabel()`, engine.js).
