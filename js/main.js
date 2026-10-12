@@ -15,6 +15,7 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
 import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { prepareSources } from './sources.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
@@ -167,7 +168,7 @@ window.onChalandiseSelected = async function(input) {
   if (DataStore.finalData.length === 0) return;
   if (_S._chalandiseLoading || _S.chalandiseReady) return;
   _S._chalandiseLoading = true;
-  try { await parseChalandise(input.files); } finally { _S._chalandiseLoading = false; }
+  try { await prepareSources('chalandise'); await parseChalandise(input.files); } finally { _S._chalandiseLoading = false; }
   // parseChalandise() reconstruit _S.chalandiseData → ré-appliquer le forçage ensuite
   _applyForcageCommercial();
   computeClientCrossing();

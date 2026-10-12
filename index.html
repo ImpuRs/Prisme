@@ -1971,6 +1971,9 @@
           </details>
         </section>
 
+        <!-- Fichiers gardés : mise à jour par fusion (sources.js) -->
+        <div id="sourcesPanel"></div>
+
         <!-- Sélecteur magasin -->
         <div id="storeSelector" class="hidden pt-card ob-store"><div class="pt-row" style="gap:16px;flex-wrap:wrap;align-items:flex-end"><div class="pt-col" style="gap:6px;flex:1 1 220px"><label for="selectMyStore" class="pt-strong">🏪 Mon agence</label><select id="selectMyStore" class="pf-select" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)"><option value="">—</option></select></div><button id="btnRecalculer" type="button" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden pt-btn">Recalculer</button><div id="storeInfo" class="pt-small pt-muted"></div></div></div>
         <div id="storeWarnings" class="hidden pt-card pt-small" style="color:var(--pt-mid)"></div>
@@ -2140,8 +2143,8 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261012p';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'router', 'sales', 'scan-export', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
+    var ASSET_V = '20261012r';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'router', 'sales', 'scan-export', 'sources', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');

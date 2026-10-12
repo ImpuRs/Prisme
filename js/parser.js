@@ -92,6 +92,7 @@ export async function parseChalandise(file) {
     const cSolvabilite = pick(findCol('libellé solvabilité'), findCol('libelle solvabilite'), findCol('solvabilité'), findCol('solvabilite'));
     const cCodeAPE = pick(findCol('code ape'));
     const cLibelleAPE = pick(findCol('libellé ape'), findCol('libelle ape'));
+    const cAbsent = findColExact('dans le dernier export'); // ajoutée par la fusion (sources.js)
     const cEffectifs = pick(findCol('effectifs client'), findCol('effectif'));
     if (cCode === null) { showToast(`⚠️ Colonne "Code client" introuvable dans ${f.name}`, 'error'); continue; }
 
@@ -163,6 +164,7 @@ export async function parseChalandise(file) {
         caEnleveN: _p(cCaEnleveN !== null ? row?.[cCaEnleveN] : ''),
         caPreleveN: _p(cCaPreleveN !== null ? row?.[cCaPreleveN] : ''),
       };
+      if (cAbsent !== null && _norm(_s(row?.[cAbsent])) === 'non') info._absentExport = true;
       if (isEnrich) { info._enrichSource = _agLabel; enrichedCount++; }
       _S.chalandiseData.set(cc, info);
     }
