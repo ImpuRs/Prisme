@@ -474,7 +474,7 @@ function _buildDecisionCockpit(m, myStore, tgtStore) {
     { label: 'Métiers en cause', value: m.focusMetiers.length ? String(m.focusMetiers.length) : '—', color: 'var(--pt-mid)',
       hint: m.topMetier ? `en tête : ${escapeHtml(m.topMetier.metier)} ${_signedEuro(m.topMetier.gap)}` : '' },
   ].map(c => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-      <span class="pt-eyebrow" style="font-size:11px">${c.label}</span>
+      <span class="pt-eyebrow" style="font-size:12px">${c.label}</span>
       <span class="pt-num" style="font-size:22px;font-weight:600;color:${c.color}">${c.value}</span>
       <span class="pt-small pt-muted" style="line-height:1.35">${c.hint}</span>
     </div>`).join('');

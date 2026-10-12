@@ -385,7 +385,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; if(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)return 'c-caution font-bold'; return ''; })();
       const caEst=r.caAnnuel>0?(r.caAnnuel>=1000?`${(r.caAnnuel/1000).toFixed(1)}k€`:`${r.caAnnuel}€`):'—';
       const ancStr=(r.ancienMin===0&&r.ancienMax===0)?`<span class="t-disabled" title="Pas de MIN/MAX dans l'ERP">—</span>`:(r.ancienMin>0&&r.ancienMax===0)?`<span class="c-caution" title="MAX absent — anomalie ERP">${r.ancienMin}/0</span>`:`${r.ancienMin}/${r.ancienMax}`;
-    p.push(`<tr class="border-b hover:i-info-bg ${bg} cursor-pointer"${isDormant?' style="background:rgba(239,68,68,0.25)"':isUncalib?' style="opacity:0.48"':''}
+    p.push(`<tr class="border-b hover:i-info-bg ${bg} cursor-pointer"${isDormant?' style="background:color-mix(in srgb, var(--pt-low) 10%, transparent)"':isUncalib?' style="opacity:0.48"':''}
       onmouseup="(function(e){if(window.getSelection&&window.getSelection().toString().length>0)return;if(e.target.closest('button,a,input,select'))return;openArticlePanel('${r.code}','table');})(event)">
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${_copyCodeBtn(r.code)}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</div></td>

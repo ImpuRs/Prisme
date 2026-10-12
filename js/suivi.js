@@ -83,7 +83,7 @@ export function renderSuiviCard(scoreDelta) {
     </section>`;
   }
   const tile = (label, val, hint) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-      <span class="pt-eyebrow" style="font-size:11px">${label}</span><span style="font-size:22px;font-weight:600">${val}</span><span class="pt-small pt-muted">${hint}</span></div>`;
+      <span class="pt-eyebrow" style="font-size:12px">${label}</span><span style="font-size:22px;font-weight:600">${val}</span><span class="pt-small pt-muted">${hint}</span></div>`;
   return `<section class="pt-card pt-col" style="gap:14px">
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
       <div class="pt-col" style="gap:2px"><div class="pt-eyebrow">Ton suivi</div><h3 class="pt-h3">Depuis les données du ${_d(b.prevKey)}</h3></div>

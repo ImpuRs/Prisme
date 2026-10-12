@@ -359,7 +359,7 @@ function _render() {
           ? _domainRow('Assortiment', `Squelette · ${p.famList.length} familles`, p.assort)
           : _domainRow('Assortiment', 'Charge un consommé multi-agences pour activer le squelette', null, true)}
         ${p.stock != null
-          ? _domainRow('Stock', `Service ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
+          ? _domainRow('Stock', `Disponibilité ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
           : _domainRow('Stock', 'Aucune vente rapprochée des articles en stock', null, true)}
         ${p.clients != null
           ? _domainRow('Clients', `Fidélité en CA · ${p.clientsDetail.kept} clients revenus sur ${p.clientsDetail.prev}`, p.clients)
