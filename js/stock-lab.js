@@ -73,17 +73,37 @@ export function minMaxService(r, daily, events, w, prm = MINMAX_DEFAULTS) {
   return [min, max];
 }
 
-/** Série journalière d'un article sur la fenêtre. */
+/** Série journalière d'un article sur la fenêtre (ventes réelles — c'est ce qu'on rejoue au banc d'essai). */
 function _series(code, w) {
   const ev = (_S.articleDemand || {})[code] || [];
-  const daily = new Map(), events = [];
+  const daily = new Map(), events = [], pairs = [];
   for (let i = 0; i < ev.length; i += 2) {
     const d = ev[i], q = ev[i + 1];
     if (d < w.d0 || d > w.d1) continue;
     daily.set(d, (daily.get(d) || 0) + q);
+    events.push(q); pairs.push(d, q);
+  }
+  return { daily, events, pairs };
+}
+
+/** Série ÉCRÊTÉE pour le calcul du MIN/MAX (règle métier n°2, protège des commandes exceptionnelles) :
+ *  chaque commande est plafonnée au plus grand de 3 × la commande médiane et de la 2e plus grosse commande. */
+function _seriesCalc(code, w) {
+  const raw = _series(code, w);
+  if (raw.events.length < 3) return raw;
+  const sorted = [...raw.events].sort((a, b) => a - b);
+  const med = sorted[Math.floor(sorted.length / 2)];
+  // Plafond = le plus grand de (3 × médiane, 2e plus grosse commande) : seule une commande ISOLÉE est rabotée,
+  // des grosses commandes qui se répètent restent couvertes.
+  const cap = Math.max(1, Math.ceil(3 * med), sorted[sorted.length - 2]);
+  if (sorted[sorted.length - 1] <= cap) return raw;
+  const daily = new Map(), events = [];
+  for (let i = 0; i < raw.pairs.length; i += 2) {
+    const d = raw.pairs[i], q = Math.min(raw.pairs[i + 1], cap);
+    daily.set(d, (daily.get(d) || 0) + q);
     events.push(q);
   }
-  return { daily, events };
+  return { daily, events, pairs: raw.pairs };
 }
 
 /** Nombre de ventes (BL) de l'article chez toi sur les 12 derniers mois complets. */
@@ -104,7 +124,7 @@ export function applyMinMaxServiceLevel() {
   for (const r of _S.finalData || []) {
     if (!/^\d{6}$/.test(r.code) || r.isParent) continue;
     if (!r._minMaxAvant) r._minMaxAvant = [r.nouveauMin || 0, r.nouveauMax || 0];
-    const { daily, events } = _series(r.code, w);
+    const { daily, events } = _seriesCalc(r.code, w);
     const [mi, ma] = minMaxService(r, daily, events, w);
     r.nouveauMin = mi; r.nouveauMax = mi === 0 ? 0 : Math.max(mi, ma);
     n++;
@@ -155,7 +175,7 @@ export function runStockLab() {
       prisme: [r.nouveauMin || 0, r.nouveauMax || 0],
     };
     if (!events.length && !mm.erp[1] && !mm.prisme[1] && !mm.avant[1]) continue; // ni vente ni stock prévu : hors périmètre
-    mm.var = minMaxService(r, daily, events, w, P);
+    { const c = _seriesCalc(r.code, w); mm.var = minMaxService(r, c.daily, c.events, w, P); }
     // Option B (comme le vrai calcul, cf. _applyVitesseReseau) : vendu une seule fois ici → 1/1
     if (events.length === 1 && !mm.var[0] && !mm.var[1] && !r.isNouveaute && !['2', '3', '4'].includes(String(r.statut || '').charAt(0))) mm.var = [1, 1];
     const res = {};
