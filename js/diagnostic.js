@@ -9,7 +9,7 @@
 
 import { RADAR_LABELS } from './constants.js';
 import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
-import { computeSquelette, OMNI_PROFILS } from './engine.js';
+import { computeSquelette, OMNI_PROFILS, isClientAgence } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
@@ -258,17 +258,14 @@ function _renderClient360(clientCode,source){
     statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-orange-100">HORS AGENCE</span>';
     statusBg='border-l-4 border-orange-500';
   }else if(daysSince!==null&&daysSince>365){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">ABANDONNÉ</span>';
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300" title="Sans achat depuis plus d’un an">PERDU</span>';
     statusBg='border-l-4 border-gray-600';
   }else if(daysSince!==null&&daysSince>180){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-800 text-red-200">PERDU</span>';
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-800 text-red-200" title="Silence de 6 à 12 mois — décision « Reconquérir » de Tes clients">À RECONQUÉRIR</span>';
     statusBg='border-l-4 border-red-600';
   }else if(daysSince!==null&&daysSince>60){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100">EN DANGER</span>';
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100" title="Silence de 2 à 6 mois — décision « Relancer » de Tes clients">À RELANCER</span>';
     statusBg='border-l-4 border-red-500';
-  }else if(daysSince!==null&&daysSince>30){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-700 text-yellow-100">À SURVEILLER</span>';
-    statusBg='border-l-4 border-yellow-500';
   }else{
     statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">ACTIF</span>';
     statusBg='border-l-4 border-emerald-500';
@@ -948,7 +945,7 @@ function openArticlePanel(code,source){
       const daysSince=rec?.silenceDaysPDV??null;
       const nom=rec?.nom||_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc;
       let statusBadge='';
-      if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(isCapteLegallais(cc,info))statusBadge='<span class="diag-badge diag-warn">Actif Legallais (pas chez toi)</span>';else statusBadge='<span class="diag-badge diag-error">Sans achat cette année</span>';}}
+      if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(isClientAgence(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(isCapteLegallais(cc,info))statusBadge='<span class="diag-badge diag-warn">Actif Legallais (pas chez toi)</span>';else statusBadge='<span class="diag-badge diag-error">Sans achat cette année</span>';}}
       buyerList.push({cc,nom,caArt,daysSince,lastDate,statusBadge});
     }
     buyerList.sort((a,b)=>b.caArt-a.caArt);

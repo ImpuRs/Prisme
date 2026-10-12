@@ -614,7 +614,7 @@ export function filterByAbcFmr(abc, fmr) {
 // ce qu'on regarde, quoi en faire, et ramène à l'écran d'origine.
 const _CTX = {
   ruptures: ['Articles fréquents en rupture', 'à commander'],
-  saso: ['Articles au-dessus de leur MAX', 'à dégonfler'],
+  saso: ['Articles au-dessus de leur MAX PRISME', 'à dégonfler'],
   invendus: ['Jamais vendus en 12 mois', 'à retourner à la centrale ou déstocker'],
   dormants: ['Dormants (plus de 180 jours sans mouvement)', 'à écouler'],
   anomalies: ['En stock et vendus, sans MIN/MAX dans l’ERP', 'à paramétrer'],
