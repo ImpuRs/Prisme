@@ -1407,6 +1407,29 @@
     #tabTable table thead { background:var(--s-card-alt) !important; }
     #tabTable table thead th { color:var(--t-tertiary) !important; background:var(--s-card-alt) !important; text-transform:none !important; letter-spacing:.01em !important; font-weight:500 !important; }
     #tabTable table thead th:hover { color:var(--t-primary) !important; }
+    /* ── Zones héritées (Plan › Pour creuser, audit du Duel, données fournisseur) : même langage que pt-* ── */
+    .pt-legacy { font-family:'Geist',system-ui,sans-serif; font-size:14px; color:var(--t-primary); }
+    .pt-legacy table { font-size:13px !important; border-collapse:collapse; }
+    .pt-legacy thead, .pt-legacy thead tr, .pt-legacy thead th { background:var(--s-card-alt) !important; color:var(--t-tertiary) !important; }
+    .pt-legacy thead th { text-transform:none !important; letter-spacing:.01em !important; font-weight:500 !important; padding:8px 12px !important; }
+    .pt-legacy tbody td { padding:8px 12px; border-top:1px solid var(--pt-line); }
+    .pt-legacy .s-card, .pt-legacy .s-panel, .pt-legacy .s-panel-inner { background:var(--s-card) !important; border-color:var(--pt-line) !important; border-radius:14px !important; box-shadow:none !important; }
+    .pt-legacy .t-inverse, .pt-legacy .t-inverse-muted { color:var(--t-secondary) !important; }
+    .pt-legacy .font-extrabold, .pt-legacy .font-black { font-weight:600 !important; }
+    .pt-legacy h3, .pt-legacy h4 { font-size:16px !important; font-weight:600 !important; letter-spacing:0 !important; }
+    .pt-legacy .text-white { color:var(--t-primary) !important; }
+    .pt-legacy [class*="bg-gradient"], .pt-legacy [style*="linear-gradient"] { background:var(--s-card-alt) !important; }
+    .pt-legacy .rounded-full { border-radius:999px; }
+    /* ── Bandeau de contexte (contexte.js) ── */
+    #ctxBar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 18px; max-width:1320px; margin:0 auto; padding:10px 32px 0; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; font-size:13px; color:var(--t-secondary); }
+    #ctxBar .ctx-k { color:var(--t-tertiary); margin-right:4px; }
+    #ctxBar .ctx-filters { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+    #ctxBar .ctx-chip { min-height:28px; padding:0 10px; font-size:12px; }
+    @media (max-width:767px) { #ctxBar { padding:10px 16px 0; } }
+    /* ── Focus clavier visible sur les lignes et blocs cliquables ── */
+    tr[tabindex]:focus-visible td { background:var(--s-card-alt) !important; }
+    tr[tabindex]:focus-visible { outline:2px solid var(--t-link); outline-offset:-2px; }
+    .pt-action-main:focus-visible, .pt-btn:focus-visible, .ar-chip:focus-visible, .pt-link:focus-visible, .ar-cell:focus-visible { outline:2px solid var(--t-link); outline-offset:2px; }
     /* ── Écran de chargement ── */
     .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
@@ -1462,7 +1485,6 @@
     .tt-capter.tt-static { cursor:default; }
     /* ── Plan › Par famille ── */
     #tabPlan { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
-    #tabPlan .pf-legacy { font-family:'Inter',system-ui,sans-serif; }
     .pf-search { width:100%; min-height:44px; box-sizing:border-box; padding:0 14px; margin-bottom:10px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; }
     .pf-search:focus { outline:none; border-color:var(--t-tertiary); }
     .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
@@ -1483,7 +1505,7 @@
 
   <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
   <div id="diagnosticOverlay" class="overlay" onclick="if(event.target===this)closeDiagnostic()">
-    <div id="diagnosticPanel" class="overlay-panel overlay-panel--xl"></div>
+    <div id="diagnosticPanel" class="overlay-panel overlay-panel--xl" role="dialog" aria-modal="true" aria-label="Fiche"></div>
   </div>
 
   <!-- Nomade Article Modal -->
@@ -1493,7 +1515,7 @@
 
   <!-- Article Detail Panel Overlay -->
   <div id="articlePanelOverlay" class="overlay" onclick="if(event.target===this)closeArticlePanel()">
-    <div id="articlePanel" class="overlay-panel overlay-panel--md"></div>
+    <div id="articlePanel" class="overlay-panel overlay-panel--md" role="dialog" aria-modal="true" aria-label="Fiche article"></div>
   </div>
   <!-- Reporting overlay -->
   <div id="reportingOverlay" class="overlay" onclick="if(event.target===this)closeReporting()">
@@ -1575,7 +1597,7 @@
       <!-- SUPER-TAB 1 : Pilotage Stock -->
       <div class="supertab-group" id="stg-stock">
         <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
-        <div class="supertab-pills" id="stpills-stock">
+        <div class="supertab-pills" id="stpills-stock" role="tablist">
           <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
           <button class="supertab-pill" data-subtab="essai" onclick="switchTab('essai')">Banc d'essai</button>
@@ -2118,8 +2140,8 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261012i';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'router', 'sales', 'scan-export', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
+    var ASSET_V = '20261012k';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'router', 'sales', 'scan-export', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');

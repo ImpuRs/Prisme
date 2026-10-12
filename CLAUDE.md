@@ -95,6 +95,9 @@ js/
   suivi.js       — « Ton suivi » (La partie) : photo des articles à chaque chargement (PRISME_PARTIE,
                    'snap|<store>|<dataKey>', 24 max) et bilan vs le chargement précédent (MIN/MAX appliqués
                    dans l'ERP, ruptures F/M, valeur de stock, score) ; sauvegarde/restauration JSON de PRISME_PARTIE
+  contexte.js    — bandeau de contexte en tête d'écran (agence, date des ventes, fenêtre de calcul de
+                   l'écran, filtres clients actifs retirables) + navigation clavier (éléments cliquables
+                   focusables, Entrée/Espace) ; zones héritées habillées par la classe CSS .pt-legacy
   scan-export.js — exports Scan mobile, rafraîchissement ZZAT018, import EAN (window.* seulement)
 index.html       — structure HTML + CSS (198 tokens CSS, thème dark/mixed)
 ```

@@ -2,6 +2,7 @@
 
 // ── ESM imports ─────────────────────────────────────────────────────────
 import { _S } from './state.js';
+import { refreshContextBar } from './contexte.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, daysBetween, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection, formatLocalYMD } from './utils.js';
 import { _clientPassesFilters, _unikLink, _passesClientCrossFilter, _isPerdu, _isPerdu24plus, getUniversFilteredCA } from './engine.js';
@@ -1191,6 +1192,7 @@ function _buildChalandiseOverviewData(){
   _buildChalandiseOverviewInner();
 }
 function _buildChalandiseOverview(){
+  refreshContextBar(); // bandeau de contexte : filtres actifs
   // Persister les filtres tactiques dans le slot de l'onglet courant
   if(_S._activeCommerceTab&&_S._tabFilters[_S._activeCommerceTab]){
     const slot=_S._tabFilters[_S._activeCommerceTab];

@@ -579,7 +579,7 @@ function _buildReseauTable(myStore, tgtStore) {
 function _buildAuditDetails(duel, myStore, tgtStore) {
   return `<details class="ar-sec" style="margin-bottom:20px"${_duelAuditOpen ? ' open' : ''} ontoggle="window._duelAuditOpenSet(this.open)">
     <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Audit complet</span><span class="pt-small pt-muted">Indicateurs côte à côte, métiers, univers, familles — écarts à taille égale</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
-    <div class="ar-sec-body pf-legacy">
+    <div class="ar-sec-body pt-legacy">
       ${_buildKPIScorecard(duel, myStore, tgtStore)}
       ${_buildMetierSection(duel, myStore, tgtStore)}
       ${_buildUniversSection(duel, myStore, tgtStore)}
