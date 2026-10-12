@@ -11,6 +11,7 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
 import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { prepareSources } from './sources.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
@@ -68,6 +69,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
   }
 
   export async function processData(_storeOverride){
+    await prepareSources(); // fichiers gardés : fusion des nouveaux extraits / restitution (sources.js)
     const filesC=document.getElementById('fileConsomme').files,f2=document.getElementById('fileStock').files[0];
     if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(filesC.length>1){showToast('📊 '+filesC.length+' fichiers consommé — fusion automatique','info',3000);}
@@ -121,6 +123,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
               if (_S.storesIntersection.size > 1 && !_S.agenceStore?.size) buildAgenceStore();
               renderAll();
               buildPeriodFilter();
+              collapseImportZone();
               return;
             }
             showToast('⚠️ Cache ancien — mise à jour nécessaire pour un refilter tous canaux correct. Analyse en cours…', 'warning', 6000);

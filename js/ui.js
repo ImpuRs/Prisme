@@ -131,8 +131,9 @@ const _statusBadgeMap = {
 
 export function _updateAnalyserBtn() {
   const hasCacheData = DataStore.finalData.length > 0;
-  const hasConsomme  = !!document.getElementById('fileConsomme')?.files[0];
-  const hasStock     = !!(_S._hasStock || document.getElementById('fileStock')?.files[0]);
+  const kept = window.__prismeSources || {};   // fichiers gardés (sources.js)
+  const hasConsomme  = !!(document.getElementById('fileConsomme')?.files[0] || kept.consomme);
+  const hasStock     = !!(_S._hasStock || document.getElementById('fileStock')?.files[0] || kept.stock);
   const btn  = document.getElementById('btnCalculer');
   const btnR = document.getElementById('btnRecalculer');
   if (hasCacheData) {

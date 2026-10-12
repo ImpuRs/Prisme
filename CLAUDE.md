@@ -85,6 +85,10 @@ js/
                    affichés dans le Duel agence (« Ses spécialités »)
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
+  sources.js     — fichiers gardés (base IDB PRISME_SOURCES, non purgée) : mise à jour par fusion,
+                   prepareSources() en tête de processData — consommé fusionné par (mois × agence),
+                   24 mois glissants ; chalandise fusionnée client par client (absents gardés,
+                   colonne « Dans le dernier export » = non → info._absentExport) ; stock remplacé
   router.js      — initRouter (hash routing minimal)
   main.js        — point d'entrée (~360 lignes depuis oct. 2026) : imports, mode mobile, exposition window.*
                    pour les onclick HTML, sélecteur agence, écouteurs, ACTION_REGISTRY
@@ -443,6 +447,9 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Exclusions cockpit sauvegardées séparément (pas de TTL)
 - **Base `PRISME_PARTIE`** (séparée, v1, store `kv`) : historique des scores `hist|<store>` + actions cochées `done|<store>|<dataKey>` + photos de suivi `snaps|<store>` / `snap|<store>|<dataKey>`. Non touchée par « Purger le cache » ; sauvegarde/restauration en fichier JSON depuis « Ton suivi ».
   Séparée pour survivre aux purges de session ET pour ne pas monter la version de `PRISME` (scan.html ouvre `PRISME` en v2 sur la même origine — une montée de version casserait le Scan).
+- **Base `PRISME_SOURCES`** (séparée, v1, store `kv`, sources.js) : copies gzip des derniers fichiers
+  (`consomme`, `chalandise`, `stock`) + métadonnées. Non purgée ; « Oublier les fichiers gardés » sur l'écran de chargement.
+  Les fichiers restitués gardent leur date (lastModified = mise à jour) → le contrôle « fichiers inchangés » reste valide.
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
