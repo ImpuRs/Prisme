@@ -84,10 +84,15 @@ js/
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   router.js      — initRouter (hash routing minimal)
-  main.js        — point d'entrée, orchestre tous les modules (~2800 lignes)
-                   contient : processData, processDataFromRaw, _initFromCache,
-                   renderDashboardAndCockpit, renderTerritoireTab, renderBenchmark,
-                   _buildChalandiseOverview, _buildDegradedCockpit, _buildCockpitClient
+  main.js        — point d'entrée (~360 lignes depuis oct. 2026) : imports, mode mobile, exposition window.*
+                   pour les onclick HTML, sélecteur agence, écouteurs, ACTION_REGISTRY
+  periode.js     — filtre période global : sélecteur, applyPeriodFilter, _refilterFromByMonth
+  rapport.js     — reporting (rapport région / texte de synthèse)
+  pipeline.js    — moteur de chargement : processData, worker de parsing, _hydrateStateFromParseResult,
+                   _postParseMain (MIN/MAX taux de service, Vitesse Réseau), processDataFromRaw
+  render-stock.js — rendus stock : renderDashboardAndCockpit, renderTable (Base articles), renderABCTab,
+                   renderCurrentTab (aiguillage des onglets)
+  scan-export.js — exports Scan mobile, rafraîchissement ZZAT018, import EAN (window.* seulement)
 index.html       — structure HTML + CSS (198 tokens CSS, thème dark/mixed)
 ```
 
