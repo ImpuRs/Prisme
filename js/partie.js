@@ -16,7 +16,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { computeSquelette, verdictLabel } from './engine.js';
+import { computeSquelette, verdictLabel, isSurStock } from './engine.js';
 import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
@@ -68,7 +68,7 @@ export function computeStockPartie(fd = _S.finalData || []) {
     if (inService) { st.serviceTotal++; if (r.stockActuel > 0) st.serviceOk++; }
     if (r.W >= 3 && r.stockActuel <= 0 && !colisOnly) { rupArts.push(r); if (inService) st.rupInService++; }
     if (r.stockActuel > 0) st.stockRefs++;
-    if (r.ancienMax > 0 && r.stockActuel > r.ancienMax) { st.saso++; sasoArts.push(r); }
+    if (isSurStock(r)) { st.saso++; sasoArts.push(r); }
   }
   if (!st.serviceTotal) return { score: null, service: null, propre: null, rupArts, sasoArts, stockRefs: st.stockRefs, gainRuptures: 0, gainSaso: 0 };
   const score = _stockScore(st);
@@ -157,13 +157,28 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
   const sp = computeStockPartie(fd);
   const stock = sp.score;
 
-  // ── Actions : gain = points famille (ou Stock) si l'action est menée au bout ──
+  // Clients = fidélité en CA (clients-decisions.js, écran « Tes clients »)
+  let cl = { score: null };
+  try { cl = computeClientsPartie(); } catch (e) { console.warn('[PRISME] partie : score Clients indisponible', e); }
+  const clients = cl.score;
+  const parts = [assort, stock, clients].filter(v => v != null);
+  const global = parts.length ? Math.round(parts.reduce((t, v) => t + v, 0) / parts.length) : null;
+  const nParts = parts.length || 1;
+
+  // ── Actions : gain = points du SCORE AGENCE si l'action est menée au bout (oct. 2026) ──
+  // famille : gain famille × poids de la famille dans l'Assortiment ÷ nombre de domaines ;
+  // Stock / Clients : gain du domaine ÷ nombre de domaines. Le gain local reste affiché en second.
   const actions = [];
+  const push = (a, gainLocal, poids, localLabel) => {
+    const gain = Math.round(gainLocal * poids / nParts * 10) / 10;
+    if (gain >= 0.1) actions.push({ ...a, gain, gainLocal, localLabel });
+  };
   for (const f of famList) {
     const c = counts(f);
+    const poids = den ? f.n / den : 0;
     const add = (crit, title, delta) => {
-      const gain = _famScore({ ...c, ...delta }).score - f.score;
-      if (gain >= 1) actions.push({ id: `${f.k}:${crit}`, fam: f.k, crit, gain, title, where: `${f.lib} · ${CRIT_LABELS[crit]}` });
+      const g = _famScore({ ...c, ...delta }).score - f.score;
+      if (g >= 1) push({ id: `${f.k}:${crit}`, fam: f.k, crit, title, where: `${f.lib} · ${CRIT_LABELS[crit]}` }, g, poids, 'sur la famille');
     };
     if (c.socleKO) add(0, `Remettre en stock ${c.socleKO} incontournable${c.socleKO > 1 ? 's' : ''} en rupture`, { socleKO: 0 });
     if (c.trous) {
@@ -176,16 +191,15 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
     if (c.pm) add(2, `Sortir ${c.pm} invendu${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
     if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
   }
-  if (sp.gainRuptures >= 1) actions.push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', gain: sp.gainRuptures, title: `Commander ${sp.rupArts.length} articles fréquents en rupture`, where: 'Stock · Taux de service' });
-  if (sp.gainSaso >= 1) actions.push({ id: 'stock:saso', fam: null, cockpit: 'saso', gain: sp.gainSaso, title: `Ramener ${sp.sasoArts.length} articles en sur-stock sous leur MAX`, where: 'Stock · Sur-stock' });
+  if (sp.gainRuptures >= 1) push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', title: `Commander les articles fréquents en rupture (${sp.rupArts.length})`, where: 'Stock · Disponibilité' }, sp.gainRuptures, 1, 'sur le Stock');
+  if (sp.gainSaso >= 1) push({ id: 'stock:saso', fam: null, cockpit: 'saso', title: `Ramener ${sp.sasoArts.length} articles en sur-stock sous leur MAX PRISME`, where: 'Stock · Sur-stock' }, sp.gainSaso, 1, 'sur le Stock');
+  if (clients != null && cl.lost?.length) {
+    const top = cl.lost.slice(0, 10);
+    const caTop = top.reduce((t, x) => t + x.ca, 0);
+    const g = Math.round(100 * (cl.caKept + caTop) / cl.caPrev) - clients;
+    if (g >= 1) push({ id: 'clients:revenir', fam: null, tab: 'portefeuille', title: `Faire revenir les ${top.length} plus gros clients du semestre précédent`, where: `Clients · ${Math.round(caTop).toLocaleString('fr-FR')} € de CA comptoir` }, g, 1, 'sur les Clients');
+  }
   actions.sort((a, b) => b.gain - a.gain);
-
-  // Clients = fidélité en CA (clients-decisions.js, écran « Tes clients »)
-  let cl = { score: null };
-  try { cl = computeClientsPartie(); } catch (e) { console.warn('[PRISME] partie : score Clients indisponible', e); }
-  const clients = cl.score;
-  const parts = [assort, stock, clients].filter(v => v != null);
-  const global = parts.length ? Math.round(parts.reduce((t, v) => t + v, 0) / parts.length) : null;
 
   return {
     dataKey: _dataKey(), global, assort, stock, clients, clientsDetail: cl, famList, nbStores, hasSquelette,
@@ -231,10 +245,10 @@ function _domainRow(label, sub, v, dashed) {
 function _actionRow(a, done) {
   const d = !!done[a.id];
   return `<div class="pt-action${d ? ' pt-done' : ''}">
-    <span class="pt-gain">+${a.gain}</span>
+    <span class="pt-gain" title="Points gagnés sur ton score agence /100">+${String(a.gain).replace('.', ',')}</span>
     <button type="button" class="pt-action-main" onclick="_partieOpenAction('${a.id}')">
       <span class="pt-action-title">${escapeHtml(a.title)}</span>
-      <span class="pt-small pt-muted">${escapeHtml(a.where)} · ${a.fam ? 'voir les articles' : 'ouvrir dans Articles'}</span>
+      <span class="pt-small pt-muted">${escapeHtml(a.where)}${a.gainLocal ? ` · +${a.gainLocal} ${escapeHtml(a.localLabel)}` : ''} · ${a.fam ? 'voir les articles' : a.tab ? 'ouvrir Tes clients' : 'ouvrir dans Articles'}</span>
     </button>
     <button type="button" class="pt-btn${d ? ' pt-btn-done' : ''}" onclick="_partieToggleDone('${a.id}')" aria-pressed="${d}">${d ? 'Fait ✓' : 'C’est fait'}</button>
   </div>`;
@@ -373,7 +387,7 @@ function _render() {
         <span class="pt-muted"><span class="pt-num" style="color:var(--t-primary)">${doneCount}</span> / ${p.actions.length} faites</span>
       </div>
       ${p.actions.length ? p.actions.map(a => _actionRow(a, done)).join('') : '<div class="pt-card pt-muted">Rien à gagner rapidement : ton rayon est au carré.</div>'}
-      <p class="pt-small pt-muted">Le gain est en points de la famille (ou du Stock) une fois l'action menée au bout. Le score se met à jour au prochain chargement de données.</p>
+      <p class="pt-small pt-muted">Le gain « +N » est en points de ton score agence (sur 100) une fois l'action menée au bout ; à côté, le gain dans la famille ou le domaine. Le score se met à jour au prochain chargement de données.</p>
     </section>
 
     ${renderSuiviCard(prev ? delta : null)}
@@ -438,6 +452,7 @@ window._partieOpenAction = (id) => {
   const a = _S._partie?.actions.find(x => x.id === id);
   if (!a) return;
   if (a.cockpit) { window.showCockpitInTable?.(a.cockpit); return; }
+  if (a.tab) { window.switchTab?.(a.tab); return; }
   _S._partieSel = a.fam; _S._partieCrit = a.crit;
   _render(); _scrollToPanel();
 };

@@ -12,7 +12,7 @@ import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection, defaultPeriodRange } from './utils.js';
 import { articleLib } from './article-store.js';
-import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientsBoughtThisYear } from './sales.js';
+import { getVentesClientMagFull, getClientsActiveSetInPeriod, getVentesHorsMagFullMap, getClientsBoughtThisYear, currentYearMonthRange } from './sales.js';
 
 // Helper : source client×article pleine période (immunité temporelle merchandising)
 const _vcaFull = () => getVentesClientMagFull();
@@ -231,6 +231,20 @@ export function formatCouv(j) { if (j >= 999) return '—'; return j + 'j'; }
 /** Capté Legallais = a acheté chez Legallais dans l'année (règle user, oct. 2026) :
  *  CA de l'année > 0 dans la chalandise, OU achat dans le consommé (toutes agences, tous canaux)
  *  depuis le 1er janvier — le consommé à jour fait foi sur la chalandise. */
+/** Client de l'agence (= « capté PDV ») — définition unique (oct. 2026) : a acheté dans l'agence,
+ *  tous canaux, depuis le 1er janvier (année des données). Utilisée par Conquête, la fiche client
+ *  et Tes clients › Conquérir. (Les relances de Tes clients raisonnent, elles, en silence comptoir.) */
+export function isClientAgence(cc) {
+  const yr = currentYearMonthRange();
+  const set = yr ? getClientsActiveSetInPeriod('', { range: { min: yr.min, max: yr.max } }) : null;
+  return !!set?.has(cc);
+}
+
+/** Sur-stock (oct. 2026) : stock au-dessus du MAX PRISME (calcul taux de service), plus du MAX ERP.
+ *  Les articles à 0/0 PRISME (invendus, fins de série…) relèvent de « Sortir / Retourner », pas d'ici. */
+export function isSurStock(r) { return (r.nouveauMax || 0) > 0 && (r.stockActuel || 0) > r.nouveauMax; }
+export function excedentSurStock(r) { return isSurStock(r) ? (r.stockActuel - r.nouveauMax) : 0; }
+
 export function isCapteLegallais(cc, info) {
   if ((info?.ca2026 || 0) > 0) return true;
   return !!getClientsBoughtThisYear()?.has(cc);
@@ -301,7 +315,7 @@ export function computeClientCrossing() {
 }
 
 export function _clientStatusBadge(cc, info) {
-  const pdvActif = _isPDVActif(cc);
+  const pdvActif = isClientAgence(cc); // définition unique « client de l'agence »
   const globalActif = isCapteLegallais(cc, info);
   if (pdvActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>';
   if (globalActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>';

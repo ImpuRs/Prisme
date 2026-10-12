@@ -15,7 +15,7 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
 import { PARTIE_STOCK_W_SERVICE } from './constants.js';
 import { computeStockPartie } from './partie.js';
-import { isInvendu } from './engine.js';
+import { isInvendu, excedentSurStock } from './engine.js';
 import { computePerfEmplacement, computeEnlevesSansRayon, renderArbitrageRayonBlock, openArbitrageSection } from './emplacement.js';
 
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -42,7 +42,7 @@ function _compute() {
     if (isInvendu(r)) { invN++; invVal += v; }
   }
   for (const r of sp.rupArts) caRup += r.caAnnuel || 0;
-  for (const r of sp.sasoArts) excedent += (r.stockActuel - r.ancienMax) * (r.prixUnitaire || 0);
+  for (const r of sp.sasoArts) excedent += excedentSurStock(r) * (r.prixUnitaire || 0);
   const manques = computeEnlevesSansRayon().filter(r => r.stockActuel === 0);
   const pm = computePerfEmplacement().filter(r => r.statut === 'poids_mort');
   return {
@@ -54,8 +54,8 @@ function _compute() {
       { key: 'implanter', verb: 'Implanter', n: manques.length, unit: _plural(manques.length, 'article absent du rayon, vendu en livraison', 'articles absents du rayon, vendus en livraison'),
         euro: manques.reduce((s, r) => s + r.caEnl, 0), euroLabel: 'de CA en livraison à ramener au comptoir',
         cta: 'Voir la liste', go: "_arbOpen('enl','sansStock')" },
-      { key: 'degonfler', verb: 'Dégonfler', n: sp.sasoArts.length, unit: _plural(sp.sasoArts.length, 'article au-dessus de son MAX', 'articles au-dessus de leur MAX'),
-        euro: excedent, euroLabel: 'de stock en trop au-delà du MAX', gain: sp.gainSaso,
+      { key: 'degonfler', verb: 'Dégonfler', n: sp.sasoArts.length, unit: _plural(sp.sasoArts.length, 'article au-dessus de son MAX PRISME', 'articles au-dessus de leur MAX PRISME'),
+        euro: excedent, euroLabel: 'de stock en trop au-delà du MAX PRISME', gain: sp.gainSaso,
         cta: 'Voir la liste', go: "showCockpitInTable('saso')" },
       { key: 'retourner', verb: 'Retourner', n: invN, unit: _plural(invN, 'article jamais vendu en 12 mois', 'articles jamais vendus en 12 mois'),
         euro: invVal, euroLabel: 'immobilisés — retour centrale ou déstockage',
@@ -87,7 +87,7 @@ function _head(d) {
         <div class="pt-col" style="gap:6px">
           <div class="pt-row pt-between pt-small"><span>Hors sur-stock <span class="pt-muted">· compte pour ${100 - wS} %</span></span><span class="pt-num pt-strong">${sp.propre} %</span></div>
           ${_bar(sp.propre, _col(sp.propre))}
-          <span class="pt-small pt-muted">Références en stock sous leur MAX ERP</span>
+          <span class="pt-small pt-muted">Références en stock sous leur MAX PRISME</span>
         </div>
       </div>`;
 

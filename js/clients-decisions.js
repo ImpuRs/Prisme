@@ -15,7 +15,7 @@
 
 import { _S } from './state.js';
 import { escapeHtml, formatEuro, defaultPeriodRange } from './utils.js';
-import { _clientPassesFilters, isCapteLegallais } from './engine.js';
+import { _clientPassesFilters, isCapteLegallais, isClientAgence } from './engine.js';
 
 const ROWS = 60;
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -97,9 +97,11 @@ export function computeClientsPartie() {
   }
   if (!caPrev) return { score: null };
   const score = Math.round(100 * caKept / caPrev);
+  // Clients du semestre précédent pas revenus, par CA décroissant (action « faire revenir » de La partie)
+  const lost = [...b.clients].filter(([, c]) => c.prev6 && !c.last6).map(([cc, c]) => ({ cc, ca: c.caPrev6 })).sort((a, z) => z.ca - a.ca);
   const fideliteClients = prev ? Math.round(100 * kept / prev) : null;
   const part = legN1 ? Math.round(100 * caN1 / legN1) : null;
-  return { score, caPrev, caKept, fideliteClients, prev, kept, part, caN1, legN1, nbPart, yN1: b.yN1 };
+  return { score, caPrev, caKept, fideliteClients, prev, kept, part, caN1, legN1, nbPart, yN1: b.yN1, lost };
 }
 
 function _decisions() {
@@ -138,7 +140,7 @@ function _decisions() {
   const conquerir = [];
   const hasDist = [...chal.values()].some(i => i.distanceKm != null);
   for (const [cc, info] of chal) {
-    if (b.clients.has(cc) || _S.ventesLocalMag12MG?.has(cc)) continue;
+    if (isClientAgence(cc) || b.clients.has(cc)) continue; // déjà client de l'agence cette année, ou du comptoir sur 12 mois
     if (!isCapteLegallais(cc, info) || (info['ca' + b.yN1] || 0) < 1000) continue;
     if (hasDist && !(info.distanceKm != null && info.distanceKm <= 10)) continue;
     if (!okCom(cc)) continue;
@@ -185,8 +187,8 @@ const DEFS = {
   developper: { verb: 'Développer', unit: ['client actif qui achète surtout ailleurs', 'clients actifs qui achètent surtout ailleurs'], sub: (l) => `${_eur(l.reduce((s, r) => s + r.ecart, 0))} de CA Legallais hors de ton comptoir`,
     why: 'Venus ces 60 derniers jours, mais ton comptoir pèse moins de 25 % de leur CA Legallais (année précédente, chalandise). Triés par ce qu’ils dépensent ailleurs.',
     head: ['CA comptoir 12 mois', 'CA Legallais N-1', 'Ta part'], cells: (r) => [_eur(r.ca), _eur(r.leg), `${r.part} %`] },
-  conquerir: { verb: 'Conquérir', unit: ['client de ta zone pas venu depuis 12 mois', 'clients de ta zone pas venus depuis 12 mois'], sub: (l) => `${_n(l.length)} ${_pl(l.length, 'client actif', 'clients actifs')} chez Legallais, à 10 km ou moins`,
-    why: 'Clients de ta zone de chalandise qui achètent chez Legallais cette année (≥1 000 € l’an dernier) mais ne sont pas venus à ton comptoir depuis 12 mois, à 10 km ou moins. Triés par CA Legallais.',
+  conquerir: { verb: 'Conquérir', unit: ['client de ta zone pas encore client de l’agence', 'clients de ta zone pas encore clients de l’agence'], sub: (l) => `${_n(l.length)} ${_pl(l.length, 'client actif', 'clients actifs')} chez Legallais, à 10 km ou moins`,
+    why: 'Clients de ta zone de chalandise qui achètent chez Legallais cette année (≥1 000 € l’an dernier) mais ne sont pas clients de ton agence cette année (ni au comptoir sur 12 mois), à 10 km ou moins. Triés par CA Legallais.',
     head: ['CA Legallais N-1', 'Distance'], cells: (r) => [_eur(r.leg), r.dist != null ? `${r.dist} km` : '—'] },
   rattacher: { verb: 'Rattacher', unit: ['client du comptoir hors chalandise', 'clients du comptoir hors chalandise'], sub: (l) => `${_eur(l.reduce((s, r) => s + r.ca, 0))} de CA comptoir sans commercial attitré`,
     why: 'Achètent à ton comptoir mais absents du fichier chalandise : pas de métier, pas de commercial. Exporte la liste, complète la colonne Commercial et recharge-la en « Rattachement commercial ».',
