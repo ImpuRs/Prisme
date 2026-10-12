@@ -77,7 +77,7 @@ function _getDuelArticlePeriodStats(store,code){
 function _getArticlePeriodStats(code){
   const pStart=_S.periodFilterStart;
   const pEnd=_S.periodFilterEnd;
-  const curYear=new Date().getFullYear();
+  const curYear=_refNow().getFullYear();
   const range=(pStart||pEnd)
     ? {min:pStart?(pStart.getFullYear()*12+pStart.getMonth()):0,max:pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999}
     : {min:curYear*12,max:curYear*12+11};
@@ -221,6 +221,9 @@ function openClient360(clientCode, source) {
   overlay._cleanupFocusTrap=window.focusTrap?.(panel,_trigger);
 }
 
+/** Date de référence = date des dernières données (consommé), pas la date du jour. */
+function _refNow(){ const d=_S.consommePeriodMaxFull||_S.consommePeriodMax; return d?new Date(d):new Date(); }
+
 function _renderClient360(clientCode,source){
   // ── Données client ──────────────────────────────────────────────
   const info=_S.chalandiseData?.get(clientCode)||{};
@@ -235,7 +238,7 @@ function _renderClient360(clientCode,source){
   const _rec=_S.clientStore?.get(clientCode);
   const lastOrder=_rec?.lastOrderAll||_rec?.lastOrderPDV||null;
   const lastOrderCanal=_rec?.lastOrderCanal||'MAGASIN';
-  const today=new Date();
+  const today=_refNow(); // date des données (pas la date du jour) — cohérent avec Tes clients
   const daysSince=lastOrder?Math.round((today-lastOrder)/86400000):null;
   const ca2025=info.ca2025||0;
   const caPDV=_rec?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
@@ -295,11 +298,11 @@ function _renderClient360(clientCode,source){
   if(!artMap&&ca2025===0){
     actionText='Prospect — aucun historique d\'achat connu. À qualifier.';
     actionBg='bg-slate-700/50 border-slate-600';
-  }else if(!artMap&&ca2025>0&&_isPerdu(info)){
-    actionText=`Ancien client PDV — à reconquérir. ${formatEuro(ca2025)} de CA historique.`;
+  }else if(!artMap&&ca2025>0&&!isCapteLegallais(clientCode,info)){
+    actionText=`Ni chez toi ni chez Legallais cette année — ${formatEuro(ca2025)} de CA Legallais l'an dernier. Reconquête : voir avec le commercial.`;
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(!artMap&&ca2025>0){
-    actionText=`Jamais venu en agence — ${formatEuro(ca2025)} chez Legallais. Opportunité directe.`;
+    actionText=`Achète chez Legallais cette année, pas dans ton agence depuis 12 mois — ${formatEuro(ca2025)} chez Legallais l'an dernier. Opportunité directe.`;
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(daysSince!==null&&daysSince>365){
     actionText=`Client abandonné depuis ${Math.round(daysSince/30)} mois — vérifier s'il est récupérable (CA historique ${formatEuro(ca2025||caPDV)}).`;
@@ -334,7 +337,7 @@ function _renderClient360(clientCode,source){
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];
   // ── Carte 1 : CA Magasin (période) + CA PDV année si filtre actif ──
-  const _curY=new Date().getFullYear(),_ymS=_curY*12,_ymE=_curY*12+11;
+  const _curY=_refNow().getFullYear(),_ymS=_curY*12,_ymE=_curY*12+11;
   const _caPdv26=getClientCAMagasinInMonthRange(clientCode,{min:_ymS,max:_ymE})||0;
   const _hasPeriodFilter=!!_S.periodFilterStart;
   if(caPDV>0||artMap||_caPdv26>0){
@@ -359,12 +362,12 @@ function _renderClient360(clientCode,source){
     // Geste 1 — Tendance CA Global : flèche rouge/verte + écart %
     let trendHtml='';
     if(ca2026>0&&ca2025>0){
-      const _curMonth=new Date().getMonth()+1; // 1-12
+      const _curMonth=_refNow().getMonth()+1; // 1-12 (mois des données)
       const ca26Annualise=_curMonth>=3?Math.round(ca2026/(_curMonth/12)):ca2026;
       const ecartPct=Math.round((ca26Annualise-ca2025)/ca2025*100);
       const trendCol=ecartPct>=0?'#22c55e':'#ef4444';
       const trendArrow=ecartPct>=0?'↗':'↘';
-      trendHtml=`<span class="text-[11px] font-black ml-1" style="color:${trendCol}">${trendArrow} ${ecartPct>0?'+':''}${ecartPct}%</span>`;
+      trendHtml=`<span class="text-[11px] font-black ml-1" style="color:${trendCol}" title="2026 annualisé (CA à date × 12 / mois écoulés), sans correction saisonnière">${trendArrow} ${ecartPct>0?'+':''}${ecartPct}% <span style="font-weight:400">(annualisé)</span></span>`;
     }
     const sub25=ca2025>0&&ca2026>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : ${formatEuro(ca2025)}${trendHtml}</p>`:'';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026>0?ca2026:ca2025)}</p>${sub25}${!ca2026&&ca2025?'':''}</div>`);
@@ -687,7 +690,7 @@ function _c360CopyResume(clientCode){
   const caHors=_rec2?.caHors||(horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const ca2025=info.ca2025||0;
   const lastOrder=_rec2?.lastOrderAll||_rec2?.lastOrderPDV||null;
-  const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
+  const daysSince=lastOrder?Math.round((_refNow()-lastOrder)/86400000):null;
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
   const omni=_S.clientOmniScore?.get(clientCode);

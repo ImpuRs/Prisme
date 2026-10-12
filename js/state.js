@@ -209,6 +209,7 @@ _S._partie = null;      // résultat computePartie() — recalculé à chaque re
 _S._partieSel = '';     // famille ouverte dans le panneau détail
 _S._partieCrit = -1;    // critère dont la liste d'articles est dépliée (-1 = aucun)
 _S._partieHist = [];    // historique des scores (PRISME_PARTIE)
+_S._suiviBilan = null;  // bilan vs chargement précédent (suivi.js)
 _S._partieDone = {};    // actions cochées « C'est fait » pour le jeu de données courant
 
 // ── Cache territoire par filtre canal ──────────────────────────────────────
@@ -351,7 +352,7 @@ export function resetAppState() {
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set();
-  _S._webColEmpty = false; _S._tableContext = null; _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {};
+  _S._webColEmpty = false; _S._tableContext = null; _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {}; _S._suiviBilan = null;
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes

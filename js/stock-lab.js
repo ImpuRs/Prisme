@@ -156,6 +156,8 @@ export function runStockLab() {
     };
     if (!events.length && !mm.erp[1] && !mm.prisme[1] && !mm.avant[1]) continue; // ni vente ni stock prévu : hors périmètre
     mm.var = minMaxService(r, daily, events, w, P);
+    // Option B (comme le vrai calcul, cf. _applyVitesseReseau) : vendu une seule fois ici → 1/1
+    if (events.length === 1 && !mm.var[0] && !mm.var[1] && !r.isNouveaute && !['2', '3', '4'].includes(String(r.statut || '').charAt(0))) mm.var = [1, 1];
     const res = {};
     for (const k of pols) res[k] = _simulate(mm[k][0], Math.max(mm[k][0], mm[k][1]), daily, w, pu);
     const abc = r.abcClass || '—';
@@ -245,11 +247,12 @@ export function renderEssaiTab() {
         <span class="pt-muted">Tes ventes prélevées réelles de ${fmtD(L.w.start)} à ${fmtD(L.w.end)}, rejouées jour par jour. PRISME calcule désormais ses MIN/MAX par taux de service (nouveau calcul) ; l'ancien calcul et l'ERP restent affichés pour comparer. La ligne « Essai » rejoue tes réglages ci-dessous sans rien modifier.</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Nouveau calcul vs ERP · service</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dServ >= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dServ >= 0 ? '+' : ''}${dServ.toFixed(1).replace('.', ',')} pt</span><span class="pt-small pt-muted">${_fmtPct(_pct(e.served, e.demand))} → ${_fmtPct(_pct(v.served, v.demand))} des quantités demandées servies</span></div>
-        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Nouveau vs ancien calcul · stock moyen</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dStock <= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dStock <= 0 ? '−' : '+'}${formatEuro(Math.abs(dStock))}</span><span class="pt-small pt-muted">${formatEuro(av.stockV)} → ${formatEuro(v.stockV)} (ERP : ${formatEuro(e.stockV)})</span></div>
-        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:11px">Articles simulés</span><span class="pt-num" style="font-size:22px;font-weight:600">${L.arts.length.toLocaleString('fr-FR')}</span><span class="pt-small pt-muted">vendus sur la période ou avec un MIN/MAX</span></div>
+        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:12px">Nouveau calcul vs ERP · service</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dServ >= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dServ >= 0 ? '+' : ''}${dServ.toFixed(1).replace('.', ',')} pt</span><span class="pt-small pt-muted">${_fmtPct(_pct(e.served, e.demand))} → ${_fmtPct(_pct(v.served, v.demand))} des quantités demandées servies</span></div>
+        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:12px">Nouveau vs ancien calcul · stock moyen</span><span class="pt-num" style="font-size:22px;font-weight:600;color:${dStock <= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${dStock <= 0 ? '−' : '+'}${formatEuro(Math.abs(dStock))}</span><span class="pt-small pt-muted">${formatEuro(av.stockV)} → ${formatEuro(v.stockV)} (ERP : ${formatEuro(e.stockV)})</span></div>
+        <div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt)"><span class="pt-eyebrow" style="font-size:12px">Articles simulés</span><span class="pt-num" style="font-size:22px;font-weight:600">${L.arts.length.toLocaleString('fr-FR')}</span><span class="pt-small pt-muted">vendus sur la période ou avec un MIN/MAX</span></div>
       </div>
       ${_kpiTable(L)}
+      <p class="pt-small pt-muted" style="margin:0">« Taux de service » = part des quantités demandées réellement servies sur la période rejouée. Les calculs PRISME sont faits sur ces mêmes 12 mois, ce qui les avantage un peu face à l'ERP.</p>
     </section>
     <section class="pt-card pt-col" style="gap:12px">
       <h3 class="pt-h3">Par classe ABC</h3>
@@ -271,7 +274,7 @@ export function renderEssaiTab() {
         </div>
         <ul class="pt-small pt-muted" style="margin:0;padding-left:18px;line-height:1.6">
           <li><strong>Nouveau calcul PRISME</strong> : MIN = le plus grand de (ventes moyennes pendant le délai + stock de sécurité) et (taille de commande que le service visé doit couvrir). Stock de sécurité = z × écart-type des ventes journalières × √délai. Articles à ventes rares (en moyenne plus de 1,3 jour entre deux ventes) : demande corrigée façon Croston/SBA. MAX = MIN + ventes de ${P.cycle} jours.</li>
-          <li>Règles métier gardées : vendu une seule fois → 0/0 ; nouveauté → MIN/MAX ERP ; références père exclues.</li>
+          <li>Règles métier gardées : nouveauté → MIN/MAX ERP ; fin de série → 0/0 ; vendu 2 fois → 1/2 ; références père exclues. <strong>Vendu une seule fois ici → 1/1</strong> (option B) ; la Vitesse Réseau ne sert qu'aux articles jamais vendus ici.</li>
           <li>Ensuite, comme avant : Vitesse Réseau pour les articles sans vente locale, invendus jamais réapprovisionnés, Bouclier Squelette (challengers 0/0, Ancre Métier 1/1).</li>
           <li>Limite : les calculs PRISME sont faits sur les mêmes 12 mois que ceux rejoués, ce qui les avantage un peu par rapport à l'ERP. Le conditionnement d'achat n'est pas connu, donc les quantités ne sont pas arrondies au colis.</li>
         </ul>

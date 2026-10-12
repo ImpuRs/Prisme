@@ -2,6 +2,14 @@
 
 import { _isMetierStrategique, escapeHtml, formatEuro } from './utils.js';
 import { _isProspect } from './engine.js';
+import { _S } from './state.js';
+
+/** Année des données et nombre de mois écoulés (pour annualiser le CA Legallais de l'année en cours). */
+function _yearInfo(){
+  const d=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+  const dt=d?new Date(d):new Date();
+  return {y:dt.getFullYear(),months:dt.getMonth()+1};
+}
 
 function pctPair(row){
   const base=(row.total||0)-(row.prospects||0);
@@ -118,9 +126,11 @@ export function renderOverviewL4Table({clients,show,more,direction,metier,secteu
     if((c.caN1||0)>0)return '<span class="ar-tag" data-tone="low">Perdu 12-24 m</span>';
     return '<span class="ar-tag">Inactif</span>';
   };
+  const YI=_yearInfo();
   const rows=show.map(c=>{
     const code=escapeHtml(c.code);
-    const baisse=c.caN1>0&&c.caLeg>0&&c.caLeg<c.caN1*0.5;
+    // Baisse : CA de l'année ANNUALISÉ (à date × 12 / mois écoulés) < moitié de l'an dernier ; pas avant mars
+    const baisse=YI.months>=3&&c.caN1>0&&c.caLeg>0&&c.caLeg*12/YI.months<c.caN1*0.5;
     return `<tr class="ar-click" onclick="openClient360('${code}','reseau')">
       <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(c.nom)}</span><span class="pt-small pt-muted">${escapeHtml(c.ville||'—')} · <span class="pt-num">${code}</span></span></div></td>
       <td>${tag(c)}</td>
@@ -128,11 +138,11 @@ export function renderOverviewL4Table({clients,show,more,direction,metier,secteu
       <td class="pt-small">${escapeHtml(c.classification||'—')}</td>
       <td class="pt-num ar-r">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
       <td class="pt-num ar-r">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
-      <td class="pt-num ar-r"${baisse?' style="color:var(--pt-low)" title="CA Legallais divisé par plus de 2 sur un an"':''}>${c.caN1>0?formatEuro(c.caN1):'—'}</td>
+      <td class="pt-num ar-r"${baisse?' style="color:var(--pt-low)" title="CA Legallais de l’année, annualisé, inférieur à la moitié de l’an dernier"':''}>${c.caN1>0?formatEuro(c.caN1):'—'}</td>
     </tr>`;
   }).join('');
   let html=`<div class="pt-list" style="margin:8px 0"><div class="pt-scroll" style="max-height:420px"><table class="pt-table">
-    <thead><tr><th>Client</th><th>Statut</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA agence</th><th class="ar-r">CA Leg. 2026</th><th class="ar-r">CA Leg. 2025</th></tr></thead>
+    <thead><tr><th>Client</th><th>Statut</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA agence</th><th class="ar-r" title="CA Legallais de l’année à date (fichier chalandise, relevé par le consommé)">CA Leg. ${YI.y} à date</th><th class="ar-r">CA Leg. ${YI.y-1}</th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
   if(more>0)html+=`<button type="button" class="pt-link pt-small" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${show.length+50})">Voir ${Math.min(50,more)} de plus (${more} restants)</button>`;
   return html;

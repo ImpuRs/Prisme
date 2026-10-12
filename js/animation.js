@@ -784,7 +784,7 @@ function _brandBench() {
 
 function _tile(label, value, hint, color) {
   return `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-    <span class="pt-eyebrow" style="font-size:11px">${label}</span>
+    <span class="pt-eyebrow" style="font-size:12px">${label}</span>
     <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
     <span class="pt-small pt-muted" style="line-height:1.35">${hint || ''}</span>
   </div>`;

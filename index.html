@@ -131,8 +131,8 @@
       --sp-8:  32px;
       --sp-10: 40px;
       /* ═══ TYPOGRAPHY SCALE ═══ */
-      --fs-2xs: 0.6rem;
-      --fs-xs:  0.7rem;
+      --fs-2xs: 0.75rem;
+      --fs-xs:  0.75rem;
       --fs-sm:  0.8rem;
       --fs-base: 0.875rem;
       --fs-lg:  1rem;
@@ -172,7 +172,7 @@
       --ff-body:    'Inter', sans-serif;
       --ff-mono:    'JetBrains Mono', 'Consolas', monospace;
       /* Scale typographique (recalibrée +1 cran) */
-      --fs-2xs:  0.625rem;  /* 10px */
+      --fs-2xs:  0.75rem;   /* 12px — plancher PRISME (oct. 2026) */
       --fs-xs:   0.75rem;   /* 12px */
       --fs-sm:   0.8125rem; /* 13px */
       --fs-base: 0.9375rem; /* 15px */
@@ -605,12 +605,12 @@
     /* ═══ Sélecteur période structuré ════════════════════════════ */
     .periode-section{margin-bottom:12px}
     .periode-section:last-of-type{margin-bottom:0}
-    .periode-label{font-size:9px;font-weight:var(--fw-bold);letter-spacing:.1em;color:var(--t-muted);margin-bottom:6px;text-transform:uppercase}
+    .periode-label{font-size:12px;font-weight:var(--fw-bold);letter-spacing:.1em;color:var(--t-muted);margin-bottom:6px;text-transform:uppercase}
     .periode-btn{font-size:var(--fs-xs);font-weight:var(--fw-medium);background:var(--s-card);color:var(--t-secondary);border:1px solid var(--b-default);border-radius:var(--r-full);padding:3px 10px;cursor:pointer;transition:all .15s;white-space:nowrap}
     .periode-btn:hover{border-color:var(--c-action);color:var(--c-action)}
     .periode-btn.active{background:var(--c-action);color:#fff;border-color:var(--c-action);font-weight:var(--fw-bold)}
     .periode-btn.wide{border-radius:var(--r-md);padding:5px 10px;width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .periode-sub{font-size:9px;color:inherit;opacity:0.7;font-weight:var(--fw-normal)}
+    .periode-sub{font-size:12px;color:inherit;opacity:0.7;font-weight:var(--fw-normal)}
     .periode-btn.wide.active .periode-sub{opacity:0.85}
     .periode-select{font-size:var(--fs-xs);color:var(--t-primary);background:var(--s-card);border:1px solid var(--b-default);border-radius:var(--r-md);padding:3px 6px;cursor:pointer;flex:1;min-width:0}
     .periode-select:focus{outline:1px solid var(--c-action);border-color:var(--c-action)}
@@ -1254,7 +1254,7 @@
     }
     /* Tables — headers discrets, hover ultra-léger */
     table thead th, table thead td {
-      font-size: 10px !important;
+      font-size: 12px !important;
       font-weight: 500 !important;
       letter-spacing: 0.08em !important;
       text-transform: uppercase !important;
@@ -1273,15 +1273,15 @@
     .pepite-pill.mine{font-weight:600}
     .pepites-header{align-items:baseline;border-bottom:1px solid var(--b-light);display:flex;gap:10px;margin-bottom:10px;padding-bottom:8px}
     .pepites-ag-label{color:var(--t-primary);font-size:13px;font-weight:500}
-    .pepites-subtitle{color:var(--t-tertiary);font-size:11px}
+    .pepites-subtitle{color:var(--t-tertiary);font-size:12px}
     .pepites-table{border-collapse:collapse;font-size:12px;width:100%}
-    .pepites-table th{color:var(--t-tertiary);font-size:10px;font-weight:500;letter-spacing:.07em;padding:0 8px 6px;text-align:left;text-transform:uppercase}
+    .pepites-table th{color:var(--t-tertiary);font-size:12px;font-weight:500;letter-spacing:.07em;padding:0 8px 6px;text-align:left;text-transform:uppercase}
     .pepites-table th:nth-child(n+4){text-align:right}
     .pepites-table td{border-bottom:1px solid var(--b-light);color:var(--t-primary);padding:7px 8px}
     .pepites-table td:nth-child(n+4){text-align:right}
-    .pepites-table td:first-child{color:var(--t-tertiary);font-size:11px;width:24px}
+    .pepites-table td:first-child{color:var(--t-tertiary);font-size:12px;width:24px}
     .pepites-table td.ratio-cell{color:var(--c-ok);font-weight:600}
-    .pepites-table td.fam-cell{color:var(--t-secondary);font-size:11px}
+    .pepites-table td.fam-cell{color:var(--t-secondary);font-size:12px}
     .pepites-table td.ca-cell,.pepites-table td.med-cell{font-variant-numeric:tabular-nums}
     .pepites-table td.med-cell{color:var(--t-tertiary)}
     .pepites-table tr:hover td{background:var(--s-hover)}
@@ -1399,6 +1399,14 @@
     #tabTable .text-\[9px\], #tabTable .text-\[10px\] { font-size:12px !important; }
     #tabTable .text-\[11px\], #tabTable .text-xs { font-size:13px !important; }
     #tabTable table td, #tabTable table th { padding-top:8px; padding-bottom:8px; }
+    /* ── Plancher 12 px (règle PRISME) : tailles Tailwind héritées encore présentes dans les rendus ── */
+    .text-\[7px\], .text-\[8px\], .text-\[9px\], .text-\[10px\] { font-size:12px !important; }
+    .text-\[11px\] { font-size:13px !important; }
+    @media (prefers-reduced-motion: reduce) { .pt-fill, .ar-chev { transition:none !important; } }
+    /* ── Base articles : en-tête de tableau clair comme pt-table ── */
+    #tabTable table thead { background:var(--s-card-alt) !important; }
+    #tabTable table thead th { color:var(--t-tertiary) !important; background:var(--s-card-alt) !important; text-transform:none !important; letter-spacing:.01em !important; font-weight:500 !important; }
+    #tabTable table thead th:hover { color:var(--t-primary) !important; }
     /* ── Écran de chargement ── */
     .ob-wrap { max-width:1100px; margin:0 auto; padding:32px 16px 48px; display:flex; flex-direction:column; gap:28px; box-sizing:border-box; font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     .ob-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
@@ -1550,8 +1558,8 @@
       <!-- Sélecteur période — dropdown replié par défaut -->
       <div id="tabPeriodBlock" style="display:none;width:100%">
         <div onclick="window.toggleTabPeriodDropdown()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:0 4px">
-          <span style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase">Période</span>
-          <span id="tabPeriodLabel" title="La période agit sur le Duel et la fiche client. Conquête compte sur l’année en cours, les autres écrans sur 12 mois." style="font-size:0.72rem;font-weight:700;color:var(--t-secondary)">— ▼</span>
+          <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase">Période</span>
+          <span id="tabPeriodLabel" title="La période agit sur le Duel et la fiche client. Conquête compte sur l’année en cours, les autres écrans sur 12 mois." style="font-size:13px;font-weight:700;color:var(--t-secondary)">— ▼</span>
         </div>
         <div id="tabPeriodDropdown" class="hidden" style="position:absolute;left:0;top:100%;width:100%;min-width:380px;z-index:210;padding:10px;background:var(--s-card);border:1px solid var(--b-default);border-top:none;border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(0,0,0,.3)" onclick="event.stopPropagation()">
         </div>
@@ -1644,10 +1652,10 @@
               </summary>
               <div class="filter-group-body">
                 <div class="flex gap-1">
-                  <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-                  <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+                  <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold b-default"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+                  <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold b-default"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
                 </div>
-                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full border-emerald-300 bg-emerald-50"><option value="">Verdict</option><option value="À garder">À garder</option><option value="Incontournable qui ralentit">Incontournable qui ralentit</option><option value="Client stratégique qui ralentit">Client stratégique qui ralentit</option><option value="À surveiller">À surveiller</option><option value="À sortir">À sortir</option><option value="Vendu en réseau, jamais ici">Vendu en réseau, jamais ici</option><option value="Acheté hors comptoir">Acheté hors comptoir</option><option value="Gardé à 1 · métier clé">Gardé à 1 · métier clé</option></select>
+                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full b-default"><option value="">Verdict</option><option value="À garder">À garder</option><option value="Incontournable qui ralentit">Incontournable qui ralentit</option><option value="Client stratégique qui ralentit">Client stratégique qui ralentit</option><option value="À surveiller">À surveiller</option><option value="À sortir">À sortir</option><option value="Vendu en réseau, jamais ici">Vendu en réseau, jamais ici</option><option value="Acheté hors comptoir">Acheté hors comptoir</option><option value="Gardé à 1 · métier clé">Gardé à 1 · métier clé</option></select>
                 <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
                 <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut ERP</option></select>
                 <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">🏗️ Univers</option></select>
@@ -1663,7 +1671,7 @@
               <div class="filter-group-body">
                 <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
                 <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
-                <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+                <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold b-default i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
                 <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
                 <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
                 <label class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">🔄 Rafraichir stock (ZZAT018)<input type="file" accept=".csv" onchange="refreshFromZZAT018(this)" style="display:none"></label>
@@ -1987,10 +1995,10 @@
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
         <div class="flex items-center gap-2">
           <div class="relative" id="colSelectorWrap">
-            <button onclick="document.getElementById('colSelectorPanel').classList.toggle('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg text-sm" title="Choisir les colonnes visibles">👁️</button>
-            <div id="colSelectorPanel" class="hidden absolute right-0 top-full mt-1 z-50 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-3 min-w-[180px] text-xs" style="max-height:320px;overflow-y:auto"></div>
+            <button type="button" onclick="document.getElementById('colSelectorPanel').classList.toggle('hidden')" class="pt-btn" title="Choisir les colonnes visibles">Colonnes</button>
+            <div id="colSelectorPanel" class="hidden absolute right-0 top-full mt-1 z-50 s-card border b-default rounded-xl shadow-2xl p-3 min-w-[200px]" style="max-height:320px;overflow-y:auto"></div>
           </div>
-          <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
+          <button type="button" onclick="downloadCSV()" class="pt-btn">Exporter en CSV</button>
         </div>
       </div>
       <div id="activeFilterBadges"
@@ -2094,7 +2102,7 @@
     </div>
 
     <!-- Direction Réseau -->
-    <div id="tabDuel" class="tab-content hidden"><div id="duelContent" class="p-4"></div></div>
+    <div id="tabDuel" class="tab-content hidden"><div id="duelContent" class="pt-wrap" style="padding-top:8px"></div></div>
 
   </div><!-- /container -->
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
@@ -2110,8 +2118,8 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261009c';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'plan-famille', 'planRayon', 'router', 'stock-lab', 'sales', 'state', 'store', 'territoire', 'ui', 'utils'];
+    var ASSET_V = '20261012f';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'router', 'sales', 'scan-export', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');

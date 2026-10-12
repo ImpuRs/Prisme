@@ -1483,14 +1483,14 @@ window._ttCapter=function(dirEnc,mEnc){
         <span class="pt-small pt-muted">${_ttCapterRows.length.toLocaleString('fr-FR')} clients actifs chez Legallais, pas encore clients de l'agence · triés par CA Legallais</span></div>
       <div class="pt-row" style="gap:16px"><button type="button" class="pt-link" onclick="_ttCapterCsv()">Exporter en CSV</button><button type="button" class="pt-link" onclick="document.getElementById('ttCapterPanel').innerHTML=''">Fermer</button></div>
     </div>
-    <div class="pt-list"><div class="pt-scroll"><table class="pt-table"><thead><tr><th>Client</th><th>Métier</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA Leg. 2025</th><th class="ar-r">CA Leg. 2026</th><th class="ar-r">Distance</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="pt-list"><div class="pt-scroll"><table class="pt-table"><thead><tr><th>Client</th><th>Métier</th><th>Commercial</th><th>Classif.</th><th class="ar-r">CA Leg. ${(currentYearMonthRange()?.year||new Date().getFullYear())-1}</th><th class="ar-r">CA Leg. ${currentYearMonthRange()?.year||new Date().getFullYear()} à date</th><th class="ar-r">Distance</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="pt-small pt-muted" style="padding:10px 12px">${_ttCapterRows.length>100?`100 premiers sur ${_ttCapterRows.length.toLocaleString('fr-FR')} · tout est dans l'export`:''} clic = fiche client</div></div>
   </section>`;
   document.getElementById('ttCapterCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 };
 window._ttCapterCsv=function(){
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const lines=[['Code client','Nom','Ville','Métier','Commercial','Secteur','Classification','CA Legallais 2025','CA Legallais 2026','Distance km'].map(q).join(';'),
+  const lines=[['Code client','Nom','Ville','Métier','Commercial','Secteur','Classification',`CA Legallais ${(currentYearMonthRange()?.year||new Date().getFullYear())-1}`,`CA Legallais ${currentYearMonthRange()?.year||new Date().getFullYear()} à date`,'Distance km'].map(q).join(';'),
     ..._ttCapterRows.map(r=>[r.cc,r.nom,r.ville,r.metier,r.commercial,r.secteur,r.classification,Math.round(r.caN1),Math.round(r.caN),r.dist??''].map(q).join(';'))];
   const url=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=`PRISME_${_S.selectedMyStore}_a-capter_${_ttCapterTitle.replace(/[^\p{L}\p{N}]+/gu,'-')}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);

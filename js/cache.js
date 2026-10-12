@@ -787,6 +787,62 @@ export async function _savePartieDone(store, dataKey, done) {
   try { await _partiePut(`done|${store}|${dataKey}`, done); } catch (e) { console.warn('[PRISME] Actions partie non sauvegardées :', e); }
 }
 
+// ── Suivi : photo des articles à chaque chargement (même base PRISME_PARTIE, survit aux purges) ──
+// Clés : 'snaps|<store>' → [dataKey…] (24 derniers) ; 'snap|<store>|<dataKey>' → {key, t, a:{code:[…]}}
+const SNAP_MAX = 24;
+
+async function _partieDel(key) {
+  const db = await _openPartieDB();
+  try {
+    const tx = db.transaction(PARTIE_STORE, 'readwrite');
+    tx.objectStore(PARTIE_STORE).delete(key);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  } finally { db.close(); }
+}
+
+/** Enregistre la photo du jeu de données ; retourne la liste triée des clés de photos. */
+export async function _saveArticleSnapshot(store, snap) {
+  if (!store || !snap?.key) return [];
+  try {
+    const keys = (await _partieGet('snaps|' + store)) || [];
+    if (!keys.includes(snap.key)) keys.push(snap.key);
+    keys.sort();
+    const drop = keys.length > SNAP_MAX ? keys.splice(0, keys.length - SNAP_MAX) : [];
+    await _partiePut(`snap|${store}|${snap.key}`, snap);
+    await _partiePut('snaps|' + store, keys);
+    for (const k of drop) await _partieDel(`snap|${store}|${k}`);
+    return keys;
+  } catch (e) { console.warn('[PRISME] Photo de suivi non enregistrée :', e); return []; }
+}
+
+export async function _loadArticleSnapshot(store, key) {
+  try { return (await _partieGet(`snap|${store}|${key}`)) || null; } catch (_) { return null; }
+}
+
+/** Sauvegarde complète de PRISME_PARTIE (score, actions cochées, photos de suivi) → objet JSON. */
+export async function _exportPartieBackup() {
+  const db = await _openPartieDB();
+  try {
+    return await new Promise((res, rej) => {
+      const out = {};
+      const r = db.transaction(PARTIE_STORE).objectStore(PARTIE_STORE).openCursor();
+      r.onsuccess = () => { const c = r.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+      r.onerror = () => rej(r.error);
+    });
+  } finally { db.close(); }
+}
+
+/** Restaure une sauvegarde (fusion : les clés du fichier remplacent les clés existantes). */
+export async function _importPartieBackup(obj) {
+  if (!obj || typeof obj !== 'object') throw new Error('Fichier de sauvegarde invalide');
+  let n = 0;
+  for (const [k, v] of Object.entries(obj)) {
+    if (!/^(hist|done|snap|snaps)\|/.test(k)) continue;
+    await _partiePut(k, v); n++;
+  }
+  return n;
+}
+
 // Migration transparente : PILOT_PRO (ancienne base) → PRISME
 export async function _migrateIDB() {
   try {

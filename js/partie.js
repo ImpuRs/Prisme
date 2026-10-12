@@ -21,6 +21,7 @@ import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 import { computeClientsPartie } from './clients-decisions.js';
+import { recordSuiviAndBilan, renderSuiviCard } from './suivi.js';
 
 export const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
 const LIST_LIMIT = 100;
@@ -358,7 +359,7 @@ function _render() {
           ? _domainRow('Assortiment', `Squelette · ${p.famList.length} familles`, p.assort)
           : _domainRow('Assortiment', 'Charge un consommé multi-agences pour activer le squelette', null, true)}
         ${p.stock != null
-          ? _domainRow('Stock', `Service ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
+          ? _domainRow('Stock', `Disponibilité ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
           : _domainRow('Stock', 'Aucune vente rapprochée des articles en stock', null, true)}
         ${p.clients != null
           ? _domainRow('Clients', `Fidélité en CA · ${p.clientsDetail.kept} clients revenus sur ${p.clientsDetail.prev}`, p.clients)
@@ -374,6 +375,8 @@ function _render() {
       ${p.actions.length ? p.actions.map(a => _actionRow(a, done)).join('') : '<div class="pt-card pt-muted">Rien à gagner rapidement : ton rayon est au carré.</div>'}
       <p class="pt-small pt-muted">Le gain est en points de la famille (ou du Stock) une fois l'action menée au bout. Le score se met à jour au prochain chargement de données.</p>
     </section>
+
+    ${renderSuiviCard(prev ? delta : null)}
 
     ${p.famList.length ? `<section class="pt-row" style="flex-wrap:wrap;gap:20px;align-items:flex-start">
       <div class="pt-card pt-col pt-famlist">
@@ -401,6 +404,8 @@ async function _persist(p) {
   ]);
   _S._partieHist = hist;
   _S._partieDone = done;
+  // Suivi d'un chargement à l'autre (photo des articles, base PRISME_PARTIE — survit aux purges)
+  try { await recordSuiviAndBilan(p.dataKey); } catch (e) { console.warn('[PRISME] Suivi indisponible :', e); }
   if (_S._partie === p) _render();
 }
 
