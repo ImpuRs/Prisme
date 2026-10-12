@@ -168,10 +168,10 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
   // ── Actions : gain = points du SCORE AGENCE si l'action est menée au bout (oct. 2026) ──
   // famille : gain famille × poids de la famille dans l'Assortiment ÷ nombre de domaines ;
   // Stock / Clients : gain du domaine ÷ nombre de domaines. Le gain local reste affiché en second.
-  const actions = [];
+  const allActs = [];   // toutes les actions (panneau famille) ; la liste agence garde celles qui pèsent ≥ 0,1 pt
   const push = (a, gainLocal, poids, localLabel) => {
     const gain = Math.round(gainLocal * poids / nParts * 10) / 10;
-    if (gain >= 0.1) actions.push({ ...a, gain, gainLocal, localLabel });
+    allActs.push({ ...a, gain, gainLocal, localLabel });
   };
   for (const f of famList) {
     const c = counts(f);
@@ -199,11 +199,12 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
     const g = Math.round(100 * (cl.caKept + caTop) / cl.caPrev) - clients;
     if (g >= 1) push({ id: 'clients:revenir', fam: null, tab: 'portefeuille', title: `Faire revenir les ${top.length} plus gros clients du semestre précédent`, where: `Clients · ${Math.round(caTop).toLocaleString('fr-FR')} € de CA comptoir` }, g, 1, 'sur les Clients');
   }
-  actions.sort((a, b) => b.gain - a.gain);
+  allActs.sort((a, b) => b.gain - a.gain || b.gainLocal - a.gainLocal);
+  const actions = allActs.filter(a => a.gain >= 0.1);
 
   return {
     dataKey: _dataKey(), global, assort, stock, clients, clientsDetail: cl, famList, nbStores, hasSquelette,
-    actions: actions.slice(0, PARTIE_NB_ACTIONS), nbActionsTotal: actions.length,
+    actions: actions.slice(0, PARTIE_NB_ACTIONS), allActions: allActs, nbActionsTotal: actions.length,
     stockDetail: { service: sp.service ?? 100, saso: sp.sasoArts.length, stockRefs: sp.stockRefs, ruptures: sp.rupArts.length },
     nbArticles: fd.length,
   };
@@ -310,7 +311,8 @@ function _critBlock(f, i, open) {
 function _famPanel(p, done) {
   const f = p.famList.find(x => x.k === _S._partieSel) || p.famList[0];
   if (!f) return '';
-  const acts = p.actions.filter(a => a.fam === f.k);
+  // Toutes les actions de la famille (pas seulement le top 6 de l'agence), triées par gain sur la famille
+  const acts = (p.allActions || p.actions).filter(a => a.fam === f.k).sort((a, b) => b.gainLocal - a.gainLocal);
   return `<div class="pt-card pt-detail" id="partieFamPanel">
     <div class="pt-row pt-between" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
       <div><div class="pt-small pt-muted pt-num">${escapeHtml(f.k)} · ${f.n} articles</div><h3 class="pt-h2" style="margin-top:4px">${escapeHtml(f.lib)}</h3>
@@ -318,8 +320,8 @@ function _famPanel(p, done) {
       <div class="pt-num pt-big" style="color:${_col(f.score)}">${f.score}</div>
     </div>
     <div class="pt-col" style="gap:14px">${[0, 1, 2, 3].map(i => _critBlock(f, i, _S._partieCrit === i)).join('')}</div>
-    ${acts.length ? `<div class="pt-col" style="gap:8px"><div class="pt-eyebrow">Pour monter cette famille</div>
-      ${acts.map(a => `<div class="pt-mini-action${done[a.id] ? ' pt-done' : ''}"><span class="pt-gain">+${a.gain}</span><span class="pt-action-title">${escapeHtml(a.title)}</span></div>`).join('')}</div>` : ''}
+    ${acts.length ? `<div class="pt-col" style="gap:8px"><div class="pt-eyebrow">Pour monter cette famille <span style="text-transform:none;letter-spacing:0">· gain sur la famille</span></div>
+      ${acts.map(a => `<div class="pt-mini-action${done[a.id] ? ' pt-done' : ''}"><span class="pt-gain" title="Points gagnés sur la famille">+${a.gainLocal}</span><span class="pt-col" style="gap:2px"><span class="pt-action-title">${escapeHtml(a.title)}</span><span class="pt-small pt-muted">${a.gain >= 0.1 ? `+${String(a.gain).replace('.', ',')}` : 'moins de 0,1 pt'} sur ton score agence</span></span></div>`).join('')}</div>` : ''}
   </div>`;
 }
 
