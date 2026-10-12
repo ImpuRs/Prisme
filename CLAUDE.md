@@ -61,6 +61,8 @@ js/
                    depuis oct. 2026) + Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées
                    (_S.articleDemand, BL dédupliqués par jour, persisté) avec ERP / PRISME ancien / PRISME nouveau /
                    essai de réglages, et compare service, ruptures, stock moyen, commandes. Le rendu n'écrit rien.
+  export-erp.js  — Arbitrage › « Mettre à jour l'ERP » : articles dont le MIN/MAX PRISME ≠ ERP (baisses, hausses,
+                   passages à 0/0 en option), export CSV d'import ERP `ref;emplacement;min;max`
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
   clients-decisions.js — Pilotage Commercial › Tes clients : score Clients (fidélité en CA :
                    CA comptoir des 6 mois précédents porté par des clients revenus sur les 6
@@ -313,7 +315,10 @@ Niveaux du diagnostic :
    statut 2/3/4 → 0/0 ; ventes (BL) ≤ 1 → 0/0 ; = 2 → 1/2 ; sinon MIN = max(⌈d·L + z·σ·√L⌉, taille de commande au
    quantile visé, 1) avec d = demande/jour (corrigée SBA si intermittente), σ = écart-type journalier, L = 2 j,
    z selon service visé A 98 % / B 95 % / C 90 % ; MAX = MIN + 14 j de ventes. Ancien calcul gardé dans `r._minMaxAvant`.
-   AG22 (rejeu oct. 2025 → sept. 2026) : ERP 86,0 % / 92 k€ ; ancien PRISME 91,9 % / 225 k€ ; nouveau 92,4 % / 189 k€.
+   **Écrêtage (règle 2) conservé** : pour le calcul, chaque commande est plafonnée au plus grand de 3 × la commande
+   médiane et de la 2e plus grosse commande (`_seriesCalc`) — seule une commande isolée est rabotée ; le banc d'essai
+   rejoue, lui, les ventes réelles.
+   AG22 (rejeu oct. 2025 → sept. 2026) : ERP 86,0 % / 92 k€ ; ancien PRISME 91,9 % / 225 k€ ; nouveau 91,0 % / 186 k€.
 5. **Références père** : si les 3 dates toutes vides → exclure des ruptures (`isParentRef()`).
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).

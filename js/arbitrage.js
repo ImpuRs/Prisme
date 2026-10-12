@@ -16,6 +16,7 @@ import { formatEuro, escapeHtml } from './utils.js';
 import { PARTIE_STOCK_W_SERVICE } from './constants.js';
 import { computeStockPartie } from './partie.js';
 import { isInvendu, excedentSurStock } from './engine.js';
+import { renderErpExport } from './export-erp.js';
 import { computePerfEmplacement, computeEnlevesSansRayon, renderArbitrageRayonBlock, openArbitrageSection } from './emplacement.js';
 
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -154,6 +155,7 @@ function _layout() {
     </header>
     <div id="arHead"></div>
     <div id="arDecisions"></div>
+    <div id="arErpExport"></div>
     <section class="pt-col" style="gap:12px">
       <h3 class="pt-h2">Pour creuser</h3>
       <div id="arbitrageRayonBlock"></div>
@@ -182,6 +184,7 @@ export function renderArbitrageTab() {
   const inv = d.decisions.find(x => x.key === 'retourner');
   document.getElementById('arMatrixSub').textContent =
     `Poids dans le CA × fréquence de vente · ${_n(inv.n)} ${_plural(inv.n, 'article jamais vendu', 'articles jamais vendus')} (${formatEuro(inv.euro)}) hors matrice`;
+  renderErpExport();
   renderArbitrageRayonBlock();
 }
 
