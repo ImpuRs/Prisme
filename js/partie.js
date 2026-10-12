@@ -21,6 +21,7 @@ import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 import { computeClientsPartie } from './clients-decisions.js';
+import { recordSuiviAndBilan, renderSuiviCard } from './suivi.js';
 
 export const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
 const LIST_LIMIT = 100;
@@ -375,6 +376,8 @@ function _render() {
       <p class="pt-small pt-muted">Le gain est en points de la famille (ou du Stock) une fois l'action menée au bout. Le score se met à jour au prochain chargement de données.</p>
     </section>
 
+    ${renderSuiviCard(prev ? delta : null)}
+
     ${p.famList.length ? `<section class="pt-row" style="flex-wrap:wrap;gap:20px;align-items:flex-start">
       <div class="pt-card pt-col pt-famlist">
         <div class="pt-row pt-between" style="padding:4px 8px 10px;align-items:baseline"><h2 class="pt-h3">Tes familles</h2><span class="pt-small pt-muted">de la plus faible à la plus forte</span></div>
@@ -401,6 +404,8 @@ async function _persist(p) {
   ]);
   _S._partieHist = hist;
   _S._partieDone = done;
+  // Suivi d'un chargement à l'autre (photo des articles, base PRISME_PARTIE — survit aux purges)
+  try { await recordSuiviAndBilan(p.dataKey); } catch (e) { console.warn('[PRISME] Suivi indisponible :', e); }
   if (_S._partie === p) _render();
 }
 

@@ -92,6 +92,9 @@ js/
                    _postParseMain (MIN/MAX taux de service, Vitesse Réseau), processDataFromRaw
   render-stock.js — rendus stock : renderDashboardAndCockpit, renderTable (Base articles), renderABCTab,
                    renderCurrentTab (aiguillage des onglets)
+  suivi.js       — « Ton suivi » (La partie) : photo des articles à chaque chargement (PRISME_PARTIE,
+                   'snap|<store>|<dataKey>', 24 max) et bilan vs le chargement précédent (MIN/MAX appliqués
+                   dans l'ERP, ruptures F/M, valeur de stock, score) ; sauvegarde/restauration JSON de PRISME_PARTIE
   scan-export.js — exports Scan mobile, rafraîchissement ZZAT018, import EAN (window.* seulement)
 index.html       — structure HTML + CSS (198 tokens CSS, thème dark/mixed)
 ```
@@ -429,7 +432,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Restaurée au démarrage via `_initFromCache()` dans main.js
 - Exclue si `_S.selectedMyStore` est vide (évite contamination)
 - Exclusions cockpit sauvegardées séparément (pas de TTL)
-- **Base `PRISME_PARTIE`** (séparée, v1, store `kv`) : historique des scores `hist|<store>` + actions cochées `done|<store>|<dataKey>`.
+- **Base `PRISME_PARTIE`** (séparée, v1, store `kv`) : historique des scores `hist|<store>` + actions cochées `done|<store>|<dataKey>` + photos de suivi `snaps|<store>` / `snap|<store>|<dataKey>`. Non touchée par « Purger le cache » ; sauvegarde/restauration en fichier JSON depuis « Ton suivi ».
   Séparée pour survivre aux purges de session ET pour ne pas monter la version de `PRISME` (scan.html ouvre `PRISME` en v2 sur la même origine — une montée de version casserait le Scan).
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
