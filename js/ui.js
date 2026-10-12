@@ -8,6 +8,7 @@
 // Dépend de : constants.js, utils.js, state.js, engine.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
+import { renderContextBar } from './contexte.js';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, escapeHtml, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
@@ -348,6 +349,9 @@ export function switchTab(id) {
   document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'essai', 'duel', 'animation', 'associations'].includes(id));
   // Sélecteur de période : seulement sur le Duel. Conquête compte sur l'année en cours, le reste sur 12 mois.
   document.body.classList.toggle('no-period', id !== 'duel');
+  // Bandeau de contexte + onglets accessibles
+  renderContextBar(id);
+  document.querySelectorAll('.supertab-pill').forEach(p => { p.setAttribute('role', 'tab'); p.setAttribute('aria-selected', String(p.dataset.subtab === id)); });
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
   const activeGroup = id === 'duel' ? '' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';

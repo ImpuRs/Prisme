@@ -241,7 +241,7 @@ function _detail() {
     ${groups.map(_group).join('')}
     ${deep ? `<details class="ar-sec" id="pfDeep"><summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Pour creuser</span>
         <span class="pt-small pt-muted">Métiers acheteurs, analyse de la gamme, comparaison réseau</span></span><span class="ar-chev" aria-hidden="true"></span></summary>
-      <div class="ar-sec-body">${deep}</div></details>` : ''}
+      <div class="ar-sec-body pt-legacy">${deep}</div></details>` : ''}
   </div>`;
 }
 

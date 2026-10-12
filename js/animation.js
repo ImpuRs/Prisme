@@ -966,7 +966,7 @@ function _renderAnimation(data) {
     </section>
     ${_renderRayon(data)}
     ${_renderInvites(data)}
-    ${hasBrandFile ? `<details class="ar-sec" open><summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Données fournisseur</span><span class="pt-small pt-muted">Croisement du fichier chargé avec tes clients · <button type="button" class="pt-link pt-small" style="padding:0" onclick="event.preventDefault();window._animClearBrandFile()">retirer le fichier</button></span></span><span class="ar-chev" aria-hidden="true"></span></summary><div class="ar-sec-body">${_renderBrandInsights(_brandFileData.crossResult)}</div></details>` : ''}
+    ${hasBrandFile ? `<details class="ar-sec" open><summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Données fournisseur</span><span class="pt-small pt-muted">Croisement du fichier chargé avec tes clients · <button type="button" class="pt-link pt-small" style="padding:0" onclick="event.preventDefault();window._animClearBrandFile()">retirer le fichier</button></span></span><span class="ar-chev" aria-hidden="true"></span></summary><div class="ar-sec-body pt-legacy">${_renderBrandInsights(_brandFileData.crossResult)}</div></details>` : ''}
   </div>`;
 }
 
