@@ -18,7 +18,12 @@ def segments(words, gap=25):
       s.append(w)
     segs.append(s)
   return segs
-def uniq(txt): return ' '.join(dict.fromkeys(txt.split()))
+def nettoyer(txt):
+  txt=re.sub(r'(f[il]|ff) (?=[a-zà-ÿ])',r'\1',txt)            # ligatures coupées : « fi xe » → « fixe »
+  txt=re.sub(r'\S*P2C_\S*','',txt)                            # balises de mise en page oubliées
+  return ' '.join(w[::2] if len(w)>=4 and len(w)%2==0 and all(w[i]==w[i+1] for i in range(0,len(w),2)) else w
+                  for w in txt.split())                       # « MMAATTÉÉRRIIEELL » → « MATÉRIEL »
+def uniq(txt): return ' '.join(dict.fromkeys(nettoyer(txt).split()))
 def traiter(d):
   words=[w for w in d['words'] if 5<=w[4]<20]
   links={}
@@ -71,7 +76,7 @@ def traiter(d):
     left=min([w[1] for w in ws],default=x0-150)
     tp=sorted([x for x in titres if x[0]<t and left-60<=x[1]<=x0 and zone(x[1])==zone(x0)],key=lambda x:-x[0])
     g=[x for x in tp if x[4]>=12.5][:1]; p=[x for x in tp if x[4]<12.5][:1]
-    tit=' / '.join(x[3] for x in sorted(g+p))
+    tit=' / '.join(nettoyer(x[3]) for x in sorted(g+p))
     tab='';col=''
     for s in sorted(S,key=lambda s:-s[0][3]):
       y=s[0][3]
@@ -81,7 +86,7 @@ def traiter(d):
         if seg: tab=' '.join(w[0] for w in seg)
       if not col:
         seg=[w for w in s if gras(w[5]) and w[4]<11 and w[2]>x0-70 and w[1]<x1+50 and not BRUIT.match(w[0])]
-        if seg: col=' '.join(w[0] for w in seg)
+        if seg: col=uniq(' '.join(w[0] for w in seg))
     ligne=uniq(' '.join(w[0] for w in sorted(ws,key=lambda w:(round(w[3]),w[1]))))
     parts=[uniq(' '.join(entete)),tit,uniq(tab),col,ligne]
     res.setdefault(c,[]).append((d['page'],folio,' | '.join(x for x in parts if x)))
