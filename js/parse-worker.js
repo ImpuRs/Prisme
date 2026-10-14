@@ -1636,6 +1636,27 @@ async function _handleParseMessage(data) {
         if (_adOut.length) articleDemand[_adC] = _adOut;
       }
       payload.articleDemand = articleDemand;
+      // Co-achats (fiche article) : contenu des BL de l'agence sur les 12 derniers mois (ventes > 0, codes 6 chiffres).
+      // coBL = BL de 2 à 15 articles, codes séparés par une virgule ; coBLn = nb de BL ≤ 15 articles par code.
+      var _coMaxDay = maxDateVente > 0 ? Math.floor((maxDateVente - new Date(maxDateVente).getTimezoneOffset() * 60000) / 86400000) : 0;
+      var _coBLMap = {};
+      for (var _coC in articleRaw) {
+        if (!/^\d{6}$/.test(_coC)) continue;
+        var _coB = articleRaw[_coC].bls;
+        for (var _coK in _coB) {
+          var _coE = _coB[_coK];
+          if (!(_coE.p > 0 || _coE.e > 0) || _coE.d < 0 || _coE.d <= _coMaxDay - 365) continue;
+          (_coBLMap[_coK] || (_coBLMap[_coK] = [])).push(_coC);
+        }
+      }
+      var coBL = [], coBLn = {};
+      for (var _coK2 in _coBLMap) {
+        var _coL = _coBLMap[_coK2];
+        if (_coL.length > 15) continue;
+        for (var _coI = 0; _coI < _coL.length; _coI++) coBLn[_coL[_coI]] = (coBLn[_coL[_coI]] || 0) + 1;
+        if (_coL.length >= 2) coBL.push(_coL.join(','));
+      }
+      payload.coBL = coBL; payload.coBLn = coBLn;
       payload.articleRaw = articleRaw;
       payload.monthlySales = monthlySales;
       payload.seasonalIndexReseau = seasonalIndexReseau;

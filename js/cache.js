@@ -503,6 +503,8 @@ async function _saveSessionToIDBNow() {
       // ── Moteur saisonnier (B3) ──
       seasonalIndex:         _S.seasonalIndex,
       articleDemand:         _S.articleDemand || {},
+      coBL:                  _S.coBL || [],
+      coBLn:                 _S.coBLn || {},
       articleMonthlySales:   _S.articleMonthlySales,
       // ── Client aggregation Worker (B1) ──
       clientFamCA:           _S.clientFamCA,
@@ -670,6 +672,7 @@ export async function _restoreSessionFromIDB() {
     // ── Moteur saisonnier (B3) ──
     _S.seasonalIndex       = data.seasonalIndex       || {};
     _S.articleDemand       = data.articleDemand       || {};
+    _S.coBL = data.coBL || []; _S.coBLn = data.coBLn || {}; _S._coIndex = null;
     _S.articleMonthlySales = data.articleMonthlySales || {};
 
     // ── Client aggregation Worker (B1) ──

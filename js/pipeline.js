@@ -288,6 +288,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
     // Objets plain
     _S.articleRaw         = r.articleRaw || {};
     _S.articleDemand      = r.articleDemand || {};
+    _S.coBL = r.coBL || []; _S.coBLn = r.coBLn || {}; _S._coIndex = null;
     _S.articleMonthlySales    = r.monthlySales || {};
     _S.seasonalIndexReseau    = r.seasonalIndexReseau || {};
     _S.ventesParAgence   = r.ventesParAgence || {};

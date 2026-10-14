@@ -93,99 +93,50 @@ function _getArticlePeriodStats(code){
 // Geste 3 : Exclure Poids Mort (CR) — ⚪ Bruit conservé (accessoires niche vitaux en co-achat)
 // Geste 4 : Ne lire que les BL < 10 lignes (vrais achats projet)
 // Geste 5 : Afficher le % (déjà géré dans le rendu)
-const _CO_BL_MAX_LINES = 15;
 const _CO_TOP_FREQ_EXCLUDE = 50;
-let _coFreqExcludeSet = null;
 
-function _buildFreqExcludeSet() {
-  if (_coFreqExcludeSet) return _coFreqExcludeSet;
-  // Top 50 articles les + fréquents (par nb de BL dans blData)
-  const freq = new Map();
-  for (const [, info] of Object.entries(_S.blData || {})) {
-    for (const c of info.codes) freq.set(c, (freq.get(c) || 0) + 1);
-  }
-  // Enrichir avec territoire
-  if (_S.ventesTerrain?.length) {
-    const terrBL = {};
-    for (const l of _S.ventesTerrain) {
-      if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
-      const k = l.bl + '|' + l.code;
-      if (!terrBL[k]) { terrBL[k] = true; freq.set(l.code, (freq.get(l.code) || 0) + 1); }
-    }
-  }
-  const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]);
-  _coFreqExcludeSet = new Set(sorted.slice(0, _CO_TOP_FREQ_EXCLUDE).map(e => e[0]));
-  return _coFreqExcludeSet;
+// Index code → BL (positions dans _S.coBL : BL de 2 à 15 articles, 12 derniers mois, agence), construit à la demande.
+// Les BL de plus de 15 articles (réassorts, gros chantiers) sont écartés dès le worker.
+function _coIndex() {
+  if (_S._coIndex) return _S._coIndex;
+  const byCode = new Map(), bls = [];
+  (_S.coBL || []).forEach((s, i) => { const codes = s.split(','); bls.push(codes); for (const c of codes) { let l = byCode.get(c); if (!l) byCode.set(c, l = []); l.push(i); } });
+  // Geste 1 : les 50 articles présents dans le plus de BL (consommables de fond) ne comptent pas comme co-achat
+  const exclude = new Set(Object.entries(_S.coBLn || {}).sort((x, y) => y[1] - x[1]).slice(0, _CO_TOP_FREQ_EXCLUDE).map(e => e[0]));
+  _S._coIndex = { byCode, bls, exclude };
+  return _S._coIndex;
 }
 
 function _computeSmartCoAchats(code, sqMap) {
-  const excludeSet = _buildFreqExcludeSet();
+  const { byCode, bls, exclude: excludeSet } = _coIndex();
   const srcUnivers = _S.articleUnivers?.[code] || '';
 
-  // ── Construire l'index BL (local + réseau) avec taille ──
-  const blIndex = {};
-  for (const [bl, info] of Object.entries(_S.blData || {})) {
-    const codes = new Set();
-    for (const c of info.codes) if (/^\d{6}$/.test(c)) codes.add(c);
-    blIndex[bl] = codes;
-  }
-  if (_S.territoireReady && _S.ventesTerrain?.length) {
-    for (const l of _S.ventesTerrain) {
-      if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
-      if (!blIndex[l.bl]) blIndex[l.bl] = new Set();
-      blIndex[l.bl].add(l.code);
-    }
-  }
-
-  // ── Compter co-achats (Geste 4 : BL < 10 lignes seulement) ──
+  // ── Compter co-achats sur les BL « projet » (≤ 15 articles) qui contiennent l'article ──
   const coCount = new Map();
-  let totalBL = 0;
-  let skippedBigBL = 0;
-  for (const [, codes] of Object.entries(blIndex)) {
-    if (!codes.has(code)) continue;
-    // Geste 4 : ignorer les gros BL (réassort camion)
-    if (codes.size > _CO_BL_MAX_LINES) { skippedBigBL++; continue; }
-    totalBL++;
-    for (const oc of codes) {
-      if (oc === code) continue;
-      // Geste 1 : exclure les moteurs de fond
-      if (excludeSet.has(oc)) continue;
+  const totalBL = _S.coBLn?.[code] || 0;
+  const skippedBigBL = 0;
+  for (const i of byCode.get(code) || []) {
+    for (const oc of bls[i]) {
+      if (oc === code || excludeSet.has(oc)) continue;
       coCount.set(oc, (coCount.get(oc) || 0) + 1);
     }
   }
+  // Seuil : un co-achat vu une seule fois n'est pas une habitude
+  for (const [oc, n] of coCount) if (n < 2) coCount.delete(oc);
 
-  // ── Enrichir par client (tous canaux) — même filtres ──
-  const clientsOfArt = _S.articleClients?.get(code);
-  if (clientsOfArt?.size) {
-    for (const cc of clientsOfArt) {
-      const artSet = _S.clientArticles?.get(cc);
-      if (!artSet) continue;
-      for (const oc of artSet) {
-        if (oc === code || !/^\d{6}$/.test(oc)) continue;
-        if (excludeSet.has(oc)) continue;
-        coCount.set(oc, (coCount.get(oc) || 0) + 0.5);
-      }
-    }
-  }
+  // ── Geste 2 : même univers d'abord (le boost ne sert qu'au classement ; le % reste le vrai %) ──
+  const rank = (oc, n) => (srcUnivers && (_S.articleUnivers?.[oc] || '') === srcUnivers) ? n * 2 : n;
 
-  // ── Geste 2 : Boost même univers ──
-  if (srcUnivers) {
-    for (const [oc, score] of coCount) {
-      const u = _S.articleUnivers?.[oc] || '';
-      if (u && u === srcUnivers) coCount.set(oc, score * 2);
-    }
-  }
-
-  // ── Construire top co-achats (Geste 3 : exclure Bruit/Poids Mort) ──
+  // ── Construire top co-achats (Geste 3 : exclure Poids Mort) ──
   const results = [...coCount.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => rank(b[0], b[1]) - rank(a[0], a[1]))
     .slice(0, 20) // pré-filtre large
     .map(([c, score]) => {
       const fd = DataStore.finalData.find(x => x.code === c);
       const sqClassif = sqMap?.get(c) || null;
       const abcfmr = fd ? (fd.abcClass || '') + (fd.fmrClass || '') : '';
       return { code: c, lib: (_S.libelleLookup?.[c] || c).replace(/^\d{6} - /, ''),
-        score, pct: totalBL > 0 ? Math.round(score / totalBL * 100) : 0,
+        score, pct: totalBL > 0 ? Math.round(score / totalBL * 100) : 0, nbBL: score,
         inStock: (fd?.stockActuel || 0) > 0, sqClassif, abcfmr, fd };
     })
     // Geste 3 : exclure uniquement Poids Mort (CR = Boulet)
@@ -889,7 +840,7 @@ function openArticlePanel(code,source){
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
-    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL de moins de 15 articles · 12 mois</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
     panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
@@ -1029,17 +980,19 @@ function openArticlePanel(code,source){
   const coResult=_computeSmartCoAchats(code,_sqMapForArticle);
   const topCo=coResult.items.map(c=>({...c,libelle:c.lib,nb:Math.round(c.score)}));
   const totalBLWithArticle=coResult.totalBL;
-  const periodeLabel=_S._globalPeriodePreset||'Historique complet';
-  let coAchatHtml='';
+  const periodeLabel='12 derniers mois, ton agence';
+  let coAchatHtml=!(_S.coBL||[]).length
+    ? `<p class="text-xs mt-3" style="color:var(--t-inverse);opacity:0.6">Co-achats indisponibles : relance l'analyse (Analyser) pour lire le contenu des BL.</p>`
+    : `<p class="text-xs mt-3" style="color:var(--t-inverse);opacity:0.6">${totalBLWithArticle?`Sur ${totalBLWithArticle} BL de moins de 15 articles en 12 mois, aucun autre article n'est revenu au moins 2 fois avec celui-ci.`:"Pas vendu dans un BL de moins de 15 articles sur les 12 derniers mois."}</p>`;
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
       const _sqI=window._getArticleSqInfo?.(c.code);
       const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
         :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
-      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
+      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok" title="${c.nbBL} BL sur ${totalBLWithArticle}">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
-    const lowBLNote=totalBLWithArticle<5?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">⚠️ Peu de BL sur cette période — élargis la période pour plus de données</p>`:'';
-    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL projet${coResult.skippedBigBL?` (${coResult.skippedBigBL} réassorts ignorés)`:''} · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
+    const lowBLNote=totalBLWithArticle<10?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">Peu de BL : à prendre comme une piste, pas une règle.</p>`:'';
+    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL de moins de 15 articles · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
   }
   // Verdict Squelette pour onglet Perf
   const _sqInfo = window._getArticleSqInfo?.(code);
