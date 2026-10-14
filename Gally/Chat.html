@@ -101,6 +101,7 @@
     c.appendChild(el('div', 'meta', a.marque + ' · réf. ' + a.ref + (a.ean ? ' · EAN ' + a.ean : '')));
     var bas = el('div', 'bas'), g = el('div');
     g.appendChild(el('span', 'badge', a.stock));
+    if (a.pageCatalogue) { g.appendChild(document.createTextNode(' ')); g.appendChild(el('span', 'badge', 'Catalogue p. ' + a.pageCatalogue)); }
     a.alertes.forEach(function (t) { g.appendChild(document.createTextNode(' ')); g.appendChild(el('span', 'badge alerte', t)); });
     bas.appendChild(g); bas.appendChild(el('span', 'prix', a.prix + ' € HT / ' + a.unite));
     c.appendChild(bas);

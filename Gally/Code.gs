@@ -4,7 +4,8 @@
  * Principe : l'IA ne choisit jamais un article. La recherche est déterministe :
  *   1. identifiants (code article, EAN, réf. fournisseur) → correspondance exacte
  *   2. sinon mots-clés → tous les mots doivent être présents (désignation, marque,
- *      réf., famille, sous-famille), avec un dictionnaire d'abréviations (onglet ALIAS)
+ *      réf., famille, sous-famille, texte du catalogue papier), avec un dictionnaire
+ *      d'abréviations (onglet ALIAS)
  *   3. 4 issues possibles : TROUVE / PLUSIEURS / DOUBLON / INTROUVABLE
  *      → si plusieurs, on demande un critère au vendeur au lieu de trancher.
  *
@@ -22,7 +23,8 @@ var CONFIG = {
   // Numéros de colonnes (1 = A) dans ARTICLES
   COL: {
     CODE: 1, DESIGNATION: 2, MARQUE: 3, REF: 4, EAN: 5, FAMILLE: 6, SOUS_FAMILLE: 7,
-    STATUT: 8, STOCK: 9, UNITE: 10, PRIX: 11, JUSQU_AU: 12, ETAT: 13, CLE: 14, RANG: 15
+    STATUT: 8, STOCK: 9, UNITE: 10, PRIX: 11, JUSQU_AU: 12, ETAT: 13, CLE: 14, RANG: 15,
+    CATALOGUE: 16, PAGE_CATALOGUE: 17   // texte du catalogue papier rattaché au code (vide si absent du catalogue)
   },
   NB_PROPOSITIONS: 5,       // nombre d'articles affichés quand il y a plusieurs résultats
   UTILISER_GEMINI: false,   // V0 : false. Passer à true quand la clé est validée par l'IT
@@ -84,7 +86,8 @@ function motifPresent(cle, motif) {
 
 /**
  * Recherche par mots-clés dans l'index.
- * index = { cle: [..], famille: [..], rang: [..], sousFamille: [..], marque: [..] } (tableaux alignés)
+ * index = { cle: [..], famille: [..], catalogue: [..], rang: [..], sousFamille: [..], marque: [..] } (tableaux alignés)
+ * Un mot trouvé dans la désignation vaut 2, dans la famille ou le texte du catalogue 1.
  * rang = bonus précalculé : article actif +5, stocké +3, composant technique -4.
  * Renvoie les numéros de lignes (0 = première ligne de données) triés par pertinence.
  */
@@ -93,11 +96,13 @@ function chercherMotsCles(index, mots, alias) {
   var resultats = [];
   for (var i = 0; i < index.cle.length; i++) {
     var cle = ' ' + index.cle[i] + ' ';
-    var fam = null, score = 0, ok = true;
+    var fam = null, cat = null, score = 0, ok = true;
     for (var j = 0; j < motifs.length; j++) {
       if (motifPresent(cle, motifs[j])) { score += 2; continue; }
       if (fam === null) fam = ' ' + index.famille[i] + ' ';
       if (motifPresent(fam, motifs[j])) { score += 1; continue; }
+      if (cat === null) cat = index.catalogue ? ' ' + (index.catalogue[i] || '') + ' ' : '';
+      if (cat.length > 2 && motifPresent(cat, motifs[j])) { score += 1; continue; }
       ok = false; break;
     }
     if (!ok) continue;
@@ -159,8 +164,9 @@ function moteur(question, index, alias, rechercherIdentifiant, filtres) {
       if (autres.length) {
         var motifs = autres.map(function (m) { return construireMotif(m, alias); });
         var filtres = trouves.filter(function (i) {
-          var cle = ' ' + index.cle[i] + ' ', fam = ' ' + index.famille[i] + ' ';
-          return motifs.every(function (mo) { return motifPresent(cle, mo) || motifPresent(fam, mo); });
+          var cle = ' ' + index.cle[i] + ' ', fam = ' ' + index.famille[i] + ' ',
+              cat = index.catalogue ? ' ' + (index.catalogue[i] || '') + ' ' : '';
+          return motifs.every(function (mo) { return motifPresent(cle, mo) || motifPresent(fam, mo) || motifPresent(cat, mo); });
         });
         if (filtres.length) trouves = filtres;
       }
@@ -249,12 +255,14 @@ function lireColonne_(f, col, n) {
 /** Charge les colonnes utiles à la recherche (une seule fois par exécution). */
 function chargerIndex_() {
   if (_index) return _index;
-  // 2 lectures groupées seulement (FAMILLE+SOUS_FAMILLE, CLE+RANG) pour limiter le temps de réponse
+  // 2 lectures groupées seulement (FAMILLE+SOUS_FAMILLE, CLE+RANG+CATALOGUE) pour limiter le temps de réponse
   var f = feuille_(CONFIG.ONGLET_ARTICLES), n = f.getLastRow() - 1, C = CONFIG.COL, memo = {};
-  var fs = f.getRange(2, C.FAMILLE, n, 2).getValues(), cr = f.getRange(2, C.CLE, n, 2).getValues();
+  var avecCatalogue = f.getLastColumn() >= C.CATALOGUE;
+  var fs = f.getRange(2, C.FAMILLE, n, 2).getValues(), cr = f.getRange(2, C.CLE, n, avecCatalogue ? 3 : 2).getValues();
   _index = {
     cle: cr.map(function (r) { return String(r[0]); }),
     rang: cr.map(function (r) { return Number(r[1]) || 0; }),
+    catalogue: avecCatalogue ? cr.map(function (r) { return String(r[2]); }) : null,
     sousFamille: fs.map(function (r) { return String(r[1]); }),
     famille: fs.map(function (r) {
       var k = r[0] + '|' + r[1];
@@ -297,8 +305,8 @@ function rechercherIdentifiantSheets_(id) {
 }
 
 function lireLignes_(lignes) {
-  var f = feuille_(CONFIG.ONGLET_ARTICLES);
-  return lignes.map(function (i) { return f.getRange(i + 2, 1, 1, CONFIG.COL.ETAT).getDisplayValues()[0]; });
+  var f = feuille_(CONFIG.ONGLET_ARTICLES), nb = Math.min(f.getLastColumn(), CONFIG.COL.PAGE_CATALOGUE);
+  return lignes.map(function (i) { return f.getRange(i + 2, 1, 1, nb).getDisplayValues()[0]; });
 }
 
 /** Point d'entrée unique : question → réponse texte + résultat structuré. */
@@ -365,7 +373,7 @@ function chatRepondre(message, contexte, choix) {
     if (v[C.JUSQU_AU - 1]) alertes.push('commandable jusqu\'au ' + v[C.JUSQU_AU - 1]);
     return { code: v[C.CODE - 1], designation: v[C.DESIGNATION - 1], marque: v[C.MARQUE - 1], ref: v[C.REF - 1],
              ean: v[C.EAN - 1], stock: v[C.STOCK - 1], prix: v[C.PRIX - 1], unite: v[C.UNITE - 1],
-             sousFamille: v[C.SOUS_FAMILLE - 1], alertes: alertes };
+             sousFamille: v[C.SOUS_FAMILLE - 1], alertes: alertes, pageCatalogue: v[C.PAGE_CATALOGUE - 1] || '' };
   });
   return {
     type: res.type, total: res.total, recherche: res.recherche || '', affinage: affinage, filtres: filtres,
