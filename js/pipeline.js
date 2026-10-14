@@ -113,7 +113,8 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
             // Cache "schema upgrade" : certaines features (clients actifs tous canaux par mois)
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
             // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
-            const _needsUpgrade = !_S.lowMemMode && _S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal);
+            // Idem pour le contenu des BL (co-achats de la fiche article, oct. 2026) : absent des sessions plus anciennes.
+            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length));
             if (!_needsUpgrade) {
               showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
               btn.disabled = false;
@@ -126,7 +127,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
               collapseImportZone();
               return;
             }
-            showToast('⚠️ Cache ancien — mise à jour nécessaire pour un refilter tous canaux correct. Analyse en cours…', 'warning', 6000);
+            showToast('Session enregistrée par une version précédente de PRISME : nouvelle lecture des fichiers…', 'info', 6000);
           }
         }
       }
