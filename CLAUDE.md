@@ -456,7 +456,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 `finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`, `ventesLocalHorsMagFull`,
 `caClientParStore`, `chalandiseData`, `ventesTerrain`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
-`benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
+`benchLists`, `coBL`/`coBLn` (co-achats fiche article : BL de 2 à 15 articles, 12 mois, agence), `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
 `_selectedMetier`, `_globalCanal`, `periodFilterStart`, `periodFilterEnd`
 
 ### Règle de mutation `periodFilterStart/End`
