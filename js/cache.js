@@ -701,6 +701,16 @@ export async function _savePartieDone(store, dataKey, done) {
   try { await _partiePut(`done|${store}|${dataKey}`, done); } catch (e) { console.warn('[PRISME] Actions partie non sauvegardées :', e); }
 }
 
+// ── Suivi des relances clients : 'rel|<store>' → { cc: [{ d:'AAAA-MM-JJ', s:'appele'|'rdv'|'sans_suite'|'note', n:'…' }, …] } ──
+export async function _loadRelances(store) {
+  if (!store) return {};
+  try { return (await _partieGet('rel|' + store)) || {}; } catch (_) { return {}; }
+}
+export async function _saveRelances(store, rel) {
+  if (!store) return;
+  try { await _partiePut('rel|' + store, rel); } catch (e) { console.warn('[PRISME] Relances non sauvegardées :', e); }
+}
+
 // ── Suivi : photo des articles à chaque chargement (même base PRISME_PARTIE, survit aux purges) ──
 // Clés : 'snaps|<store>' → [dataKey…] (24 derniers) ; 'snap|<store>|<dataKey>' → {key, t, a:{code:[…]}}
 const SNAP_MAX = 24;
@@ -751,7 +761,7 @@ export async function _importPartieBackup(obj) {
   if (!obj || typeof obj !== 'object') throw new Error('Fichier de sauvegarde invalide');
   let n = 0;
   for (const [k, v] of Object.entries(obj)) {
-    if (!/^(hist|done|snap|snaps)\|/.test(k)) continue;
+    if (!/^(hist|done|snap|snaps|rel)\|/.test(k)) continue;
     await _partiePut(k, v); n++;
   }
   return n;

@@ -1349,6 +1349,11 @@
     .pt-link:disabled { opacity:.35; cursor:default; }
     /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
     #tabArbitrage, #tabPortefeuille, #tabAnimation { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    /* Suivi de relance (relances.js) — fiche client */
+    .rl-box { margin:0 0 12px; padding:10px 12px; border-radius:12px; border:1px solid var(--pt-line, var(--b-default)); }
+    .rl-btn { min-height:32px; padding:0 12px; font-size:13px; }
+    .rl-note { flex:1 1 220px; min-height:32px; padding:0 10px; border-radius:8px; border:1px solid var(--b-default); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:13px; }
+    .rl-hist { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--t-secondary); }
     /* Depuis le dernier chargement (suivi.js) */
     .sv-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
     .sv-col { gap:6px; min-width:0; }
@@ -2118,8 +2123,8 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020f';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
+    var ASSET_V = '20261020g';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');
