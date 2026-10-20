@@ -1492,7 +1492,9 @@ async function _handleParseMessage(data) {
           valeurStock: valeurStockS, ancienMin: ancienMinS, ancienMax: ancienMaxS,
           nouveauMin: nouveauMinS, nouveauMax: nouveauMaxS,
           ageJours: ageJoursS, isNouveaute: isNouveauteS,
-          enleveTotal: enleveTotalS, couvertureJours: couvertureJoursS, isParent: isParentS
+          enleveTotal: enleveTotalS, couvertureJours: couvertureJoursS, isParent: isParentS,
+          // Dates du fichier stock (ms) : dater une rupture (dernière sortie sans entrée depuis) — fiche article
+          dateSortie: dateSortieS ? dateSortieS.getTime() : null, dateEntree: dateEntreeS ? dateEntreeS.getTime() : null
         });
 
         if (si3 % 50000 === 0 && si3 > 0) {

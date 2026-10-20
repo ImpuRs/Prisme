@@ -696,6 +696,9 @@ function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
   const r=DataStore.finalData.find(d=>d.code===code);
+  // Article de l'agence : nouvelle fiche 360 (article-360.js) ; hors agence : kit d'implantation ci-dessous
+  if(r&&window._renderArticle360&&window._renderArticle360(r,source))return;
+  panel.classList.remove('a360-panel');
   if(!r){
     const lib=_S.libelleLookup?.[code]||code;
     const fam=_S.articleFamille?.[code]||'';
@@ -1851,4 +1854,5 @@ function exportDiagnosticCSV(famille){
   const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
   showToast('📥 Plan de vol exporté','success');
 }
+export { _computeSmartCoAchats };
 export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio };
