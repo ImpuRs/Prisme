@@ -90,7 +90,9 @@ js/
                    renderCurrentTab (aiguillage des onglets)
   suivi.js       — « Ton suivi » (La partie) : photo des articles à chaque chargement (PRISME_PARTIE,
                    'snap|<store>|<dataKey>', 24 max) et bilan vs le chargement précédent (MIN/MAX appliqués
-                   dans l'ERP, ruptures F/M, valeur de stock, score) ; sauvegarde/restauration JSON de PRISME_PARTIE
+                   dans l'ERP, ruptures F/M, valeur de stock, score) ; sauvegarde/restauration JSON de PRISME_PARTIE.
+                   Bloc « Depuis le dernier chargement » en tête de La partie (renderSuiviHead) : nouvelles ruptures F/M,
+                   clients entrés dans « Relancer » (photo `rel`, clientsARelancer sans filtre), MIN/MAX passés dans l'ERP
   contexte.js    — bandeau de contexte en tête d'écran (agence, date des ventes, fenêtre de calcul de
                    l'écran, filtres clients actifs retirables) + navigation clavier (éléments cliquables
                    focusables, Entrée/Espace) ; zones héritées habillées par la classe CSS .pt-legacy
