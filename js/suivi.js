@@ -10,7 +10,8 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro, ptTile } from './utils.js';
+import { formatEuro, escapeHtml } from './utils.js';
+import { clientsARelancer } from './clients-decisions.js';
 import { _saveArticleSnapshot, _loadArticleSnapshot, _exportPartieBackup, _importPartieBackup } from './cache.js';
 
 // Photo : code → [stock, MIN ERP, MAX ERP, MIN PRISME, MAX PRISME, PU, fréquent (F/M = 1)]
@@ -39,7 +40,10 @@ function _kpis(a) {
 export async function recordSuiviAndBilan(dataKey) {
   const store = _S.selectedMyStore;
   if (!store || !dataKey || !(_S.finalData || []).length) return null;
-  const cur = { key: dataKey, t: Date.now(), a: _photo() };
+  // Clients réguliers qui décrochent (liste « Relancer », sans filtre) : cc → CA comptoir 12 mois
+  let rel = {};
+  try { for (const r of clientsARelancer().slice(0, 300)) rel[r.cc] = Math.round(r.ca || 0); } catch (e) { rel = null; }
+  const cur = { key: dataKey, t: Date.now(), a: _photo(), rel };
   const keys = await _saveArticleSnapshot(store, cur);
   const prevKey = [...keys].filter(k => k < dataKey).pop();
   const prev = prevKey ? await _loadArticleSnapshot(store, prevKey) : null;
@@ -56,7 +60,20 @@ export async function recordSuiviAndBilan(dataKey) {
     aAppliquer++;
     if (n[1] === p[3] && n[2] === p[4]) { applied++; libere += (p[2] - p[4]) * p[5]; }
   }
-  _S._suiviBilan = { first: false, prevKey, curKey: dataKey, prev: kp, cur: kc, applied, aAppliquer, libere };
+  // Nouvelles ruptures d'articles fréquents (en stock au chargement précédent, à zéro aujourd'hui) et ruptures résolues
+  const newRupt = [];
+  let rupResolues = 0;
+  for (const c in cur.a) {
+    const n = cur.a[c], p = prev.a[c];
+    if (!p || !n[6] || n[1] <= 0) continue;
+    if (n[0] <= 0 && p[0] > 0) newRupt.push(c);
+    if (n[0] > 0 && p[0] <= 0 && p[6] && p[1] > 0) rupResolues++;
+  }
+  const fd = new Map((_S.finalData || []).map(r => [r.code, r]));
+  newRupt.sort((x, y) => ((fd.get(y)?.W || 0) - (fd.get(x)?.W || 0)));
+  // Clients entrés dans « Relancer » depuis (la photo précédente doit avoir la liste)
+  const newRel = prev.rel && cur.rel ? Object.keys(cur.rel).filter(cc => !(cc in prev.rel)).sort((x, y) => cur.rel[y] - cur.rel[x]) : null;
+  _S._suiviBilan = { first: false, prevKey, curKey: dataKey, prev: kp, cur: kc, applied, aAppliquer, libere, newRupt, rupResolues, newRel, rel: cur.rel };
   return _S._suiviBilan;
 }
 
@@ -67,35 +84,52 @@ const _delta = (v, unit = '', good = 'down') => {
   return `<span class="pt-num pt-strong" style="color:${ok ? 'var(--pt-high)' : 'var(--pt-low)'}">${v > 0 ? '+' : '−'}${unit === '€' ? formatEuro(Math.abs(v)) : Math.abs(v).toLocaleString('fr-FR')}</span>`;
 };
 
-/** Bloc « Ton suivi » pour La partie. */
-export function renderSuiviCard(scoreDelta) {
-  const b = _S._suiviBilan;
-  const backup = `<div class="pt-row" style="gap:16px;flex-wrap:wrap">
+const _libArt = (c) => _S.libelleLookup?.[c] || (_S.finalData || []).find(r => r.code === c)?.libelle || c;
+const _nomCli = (cc) => _S.chalandiseData?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc;
+const _list = (items, open) => items.length ? `<ul class="sv-list">${items.map(x => `<li><button type="button" class="pt-link sv-item" onclick="${open(x)}">${x.html}</button></li>`).join('')}</ul>` : '';
+const _backup = `<div class="pt-row" style="gap:16px;flex-wrap:wrap">
       <button type="button" class="pt-link pt-small" onclick="window._suiviExport()">Sauvegarder l'historique (fichier)</button>
       <label class="pt-link pt-small" style="cursor:pointer">Restaurer une sauvegarde<input type="file" accept=".json" style="display:none" onchange="window._suiviImport(this)"></label>
     </div>`;
-  if (!b) return '';
-  if (b.first) {
-    return `<section class="pt-card pt-col" style="gap:10px">
-      <div class="pt-eyebrow">Ton suivi</div>
-      <p class="pt-muted" style="margin:0">Le suivi démarre avec ces données. Au prochain chargement, tu verras ici ce qui a changé : MIN/MAX appliqués dans l'ERP, ruptures, valeur de stock. L'historique survit à « Purger le cache » ; garde aussi une sauvegarde en fichier.</p>
-      ${backup}
-    </section>`;
-  }
-  const tile = ptTile;
-  return `<section class="pt-card pt-col" style="gap:14px">
+
+/** « Depuis le dernier chargement » : en tête de La partie (rien au premier chargement). */
+export function renderSuiviHead(scoreDelta) {
+  const b = _S._suiviBilan;
+  if (!b || b.first) return '';
+  const rupt = b.newRupt || [];
+  const rel = b.newRel;
+  const reste = b.aAppliquer - b.applied;
+  const ruptItems = rupt.slice(0, 5).map(c => ({ c, html: `${escapeHtml(_libArt(c))} <span class="pt-muted pt-num">${c}</span>` }));
+  const relItems = (rel || []).slice(0, 5).map(cc => ({ cc, html: `${escapeHtml(_nomCli(cc))} <span class="pt-muted pt-num">${formatEuro(b.rel?.[cc] || 0)}</span>` }));
+  const col = (title, n, hint, body) => `<div class="pt-col sv-col"><div class="pt-row" style="gap:10px;align-items:baseline"><span class="pt-num" style="font-size:28px;font-weight:600">${n}</span><span class="pt-strong">${title}</span></div><span class="pt-small pt-muted">${hint}</span>${body}</div>`;
+  return `<section class="pt-card pt-col" style="gap:16px">
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
-      <div class="pt-col" style="gap:2px"><div class="pt-eyebrow">Ton suivi</div><h3 class="pt-h3">Depuis les données du ${_d(b.prevKey)}</h3></div>
-      ${backup}
+      <div class="pt-col" style="gap:2px"><span class="pt-eyebrow">Depuis le dernier chargement</span><h2 class="pt-h3">Ce qui a bougé depuis les données du ${_d(b.prevKey)}</h2></div>
+      <span class="pt-small pt-muted">Score agence ${scoreDelta == null ? '—' : `<span class="pt-num pt-strong">${scoreDelta > 0 ? '+' : ''}${scoreDelta}</span>`} · valeur de stock ${_delta(Math.round(b.cur.valeur - b.prev.valeur), '€')}</span>
     </div>
-    <div class="pt-tiles">
-      ${tile('MIN/MAX appliqués dans l’ERP', `<span class="pt-num">${b.applied.toLocaleString('fr-FR')}</span><span class="pt-small pt-muted"> / ${b.aAppliquer.toLocaleString('fr-FR')}</span>`, `${b.cur.ecarts.toLocaleString('fr-FR')} écarts ERP ≠ PRISME restants${b.libere > 0 ? ` · ${formatEuro(b.libere)} de MAX libérés` : ''}`)}
-      ${tile('Ruptures articles fréquents', `<span class="pt-num">${b.cur.rupt.toLocaleString('fr-FR')}</span> ${_delta(b.cur.rupt - b.prev.rupt)}`, `${b.prev.rupt.toLocaleString('fr-FR')} au chargement précédent`)}
-      ${tile('Valeur de stock', `<span class="pt-num">${formatEuro(b.cur.valeur)}</span>`, `${_delta(Math.round(b.cur.valeur - b.prev.valeur), '€')} vs ${formatEuro(b.prev.valeur)}`)}
-      ${tile('Score agence', `<span class="pt-num">${scoreDelta == null ? '—' : (scoreDelta > 0 ? '+' : '') + scoreDelta}</span>`, 'points depuis le chargement précédent')}
+    <div class="sv-cols">
+      ${col('nouvelles ruptures', rupt.length, `articles fréquents passés à zéro${b.rupResolues ? ` · ${b.rupResolues} remis en stock` : ''}`,
+        _list(ruptItems, x => `window.openArticlePanel?.('${x.c}','suivi')`) + (rupt.length > 5 ? `<button type="button" class="pt-link pt-small" onclick="window.showCockpitInTable?.('ruptures')">Toutes les ruptures →</button>` : ''))}
+      ${col('clients qui décrochent', rel == null ? '—' : rel.length, rel == null ? 'visible au prochain chargement' : 'réguliers entrés dans « Relancer »',
+        _list(relItems, x => `window.openClient360?.('${x.cc}','suivi')`) + (rel && rel.length ? `<button type="button" class="pt-link pt-small" onclick="switchTab('portefeuille')">Voir Tes clients →</button>` : ''))}
+      ${col('MIN/MAX passés dans l’ERP', `${b.applied}<span class="pt-small pt-muted"> / ${b.aAppliquer}</span>`, `${reste > 0 ? `${reste} pas encore appliqués` : 'tout est appliqué'} · ${b.cur.ecarts.toLocaleString('fr-FR')} écarts ERP ≠ PRISME en tout${b.libere > 0 ? ` · ${formatEuro(b.libere)} de MAX libérés` : ''}`,
+        b.cur.ecarts ? `<button type="button" class="pt-link pt-small" onclick="switchTab('arbitrage');setTimeout(()=>document.getElementById('arErpExport')?.scrollIntoView({behavior:'smooth'}),300)">Fichier pour l’ERP →</button>` : '')}
     </div>
+    ${_backup}
   </section>`;
 }
+
+/** Premier chargement : le suivi démarre (en bas de La partie). */
+export function renderSuiviCard() {
+  const b = _S._suiviBilan;
+  if (!b?.first) return '';
+  return `<section class="pt-card pt-col" style="gap:10px">
+      <div class="pt-eyebrow">Ton suivi</div>
+      <p class="pt-muted" style="margin:0">Le suivi démarre avec ces données. Au prochain chargement, tu verras en haut de La partie ce qui a bougé : nouvelles ruptures, clients qui décrochent, MIN/MAX passés dans l'ERP. L'historique survit à « Purger le cache » ; garde aussi une sauvegarde en fichier.</p>
+      ${_backup}
+    </section>`;
+}
+
 
 window._suiviExport = async () => {
   try {

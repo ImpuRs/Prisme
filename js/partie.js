@@ -21,7 +21,7 @@ import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 import { computeClientsPartie } from './clients-decisions.js';
-import { recordSuiviAndBilan, renderSuiviCard } from './suivi.js';
+import { recordSuiviAndBilan, renderSuiviCard, renderSuiviHead } from './suivi.js';
 
 export const CRIT_LABELS = ['Incontournables en stock', 'Prioritaires implantés', 'Sans invendus', 'MIN/MAX à jour dans l’ERP'];
 const LIST_LIMIT = 100;
@@ -339,7 +339,7 @@ function _render() {
       <h2 class="pt-h2">Pas encore de score pour ces données</h2>
       <p class="pt-muted" style="margin:0;line-height:1.6">${p.nbArticles.toLocaleString('fr-FR')} articles chargés, mais rien à mesurer :</p>
       <ul class="pt-muted" style="margin:0;padding-left:20px;line-height:1.8">
-        <li><strong style="color:var(--t-primary)">Assortiment</strong> — l’assortiment se calcule avec un consommé et d'un état du stock <em>multi-agences</em>.</li>
+        <li><strong style="color:var(--t-primary)">Assortiment</strong> — l’assortiment se calcule avec un consommé et un état du stock <em>multi-agences</em>.</li>
         <li><strong style="color:var(--t-primary)">Stock</strong> — aucun article fréquent : les ventes du consommé ne se rapprochent pas des articles du stock (période ou agence différente ?).</li>
       </ul>
     </div></div>`;
@@ -382,6 +382,8 @@ function _render() {
       </div>
     </section>
 
+    ${renderSuiviHead(prev ? delta : null)}
+
     <section class="pt-col" style="gap:12px">
       <div class="pt-row pt-between" style="flex-wrap:wrap;gap:12px;align-items:baseline">
         <h2 class="pt-h2">Ce que tu peux faire maintenant</h2>
@@ -391,7 +393,7 @@ function _render() {
       <p class="pt-small pt-muted">Le gain « +N » est en points de ton score agence (sur 100) une fois l'action menée au bout ; à côté, le gain dans la famille ou le domaine. Le score se met à jour au prochain chargement de données.</p>
     </section>
 
-    ${renderSuiviCard(prev ? delta : null)}
+    ${renderSuiviCard()}
 
     ${p.famList.length ? `<section class="pt-row" style="flex-wrap:wrap;gap:20px;align-items:flex-start">
       <div class="pt-card pt-col pt-famlist">

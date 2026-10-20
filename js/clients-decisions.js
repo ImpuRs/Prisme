@@ -103,15 +103,15 @@ export function computeClientsPartie() {
   return { score, caPrev, caKept, fideliteClients, prev, kept, part, caN1, legN1, nbPart, yN1: b.yN1, lost };
 }
 
-function _decisions() {
+function _decisions(opts = {}) {
   const b = _base();
   if (!b) return null;
   const chal = _S.chalandiseData || new Map();
-  const anyFilter = !!(_S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._distanceMaxKm
+  const anyFilter = !opts.all && !!(_S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._distanceMaxKm
     || _S._selectedClassifs?.size || _S._selectedDepts?.size || _S._selectedDirections?.size || _S._selectedStatuts?.size
     || _S._selectedActivitesPDV?.size || _S._selectedStatutDetaille);
   // Sans fiche chalandise, un client ne peut satisfaire aucun filtre client : visible seulement sans filtre.
-  const okCom = (cc) => { const i = chal.get(cc); return i ? _clientPassesFilters(i, cc) : !anyFilter; };
+  const okCom = (cc) => { if (opts.all) return true; const i = chal.get(cc); return i ? _clientPassesFilters(i, cc) : !anyFilter; };
   const row = (cc, extra) => {
     const i = chal.get(cc);
     return { cc, nom: i?.nom || _S.clientNomLookup?.[cc] || cc, metier: i?.metier || '', commercial: i?.commercial || '', ville: i?.ville || '', classif: i?.classification || '', ...extra };
@@ -248,6 +248,11 @@ function _card(key, rows) {
     <p class="pt-small pt-muted" style="margin:0">${d.sub(rows)}</p>
     <button type="button" class="pt-btn ar-dec-cta" onclick="_tcShow('${key}')">Voir la liste →</button>`}
   </article>`;
+}
+
+/** Clients réguliers qui décrochent (liste « Relancer »), sans les filtres de l'écran — pour « Ton suivi ». */
+export function clientsARelancer() {
+  return _decisions({ all: true })?.relancer || [];
 }
 
 export function renderTesClients() {
