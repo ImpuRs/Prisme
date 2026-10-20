@@ -69,8 +69,8 @@
 </style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js" integrity="sha384-MxYzyD/P1Tiwjf3BibYJ8DaQl52GyNGftAcZWCdTUUQjQMBesITcTBBeRzPTGrB+" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js" integrity="sha384-qGqUxu/ijvTTXdt5IBMq1JYJmMIVV70gsjFy/yXa4Uw2SN65wdEBZMHeaovs2czX" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="stage">
@@ -91,7 +91,14 @@ if ('serviceWorker' in navigator) {
   var _swHadController = !!navigator.serviceWorker.controller, _swReloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!_swHadController || _swReloading) return;
-    _swReloading = true; location.reload();
+    _swReloading = true;
+    // Pas de rechargement d'office (on peut être en plein inventaire) : bandeau, rechargement quand on veut
+    var b = document.createElement('div');
+    b.setAttribute('role', 'status');
+    b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10000;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#1b2130;color:#f4f6fa;border:1px solid #fb923c;font:600 14px system-ui;box-shadow:0 8px 28px rgba(0,0,0,.5)';
+    b.innerHTML = '<span style="flex:1">Nouvelle version du Scan disponible</span><button style="min-height:44px;padding:0 16px;border-radius:10px;border:0;background:#fb923c;color:#111;font:800 14px system-ui">Recharger</button>';
+    b.querySelector('button').onclick = function () { location.reload(); };
+    document.body.appendChild(b);
   });
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js', { scope: './scan', updateViaCache: 'none' }).catch(function () {});
@@ -169,7 +176,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v17 · 20/10/2026';
+const SCAN_VERSION = 'v18 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -2317,7 +2324,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         window._loadPaddleOCR(),
         timeout(15000)
       ]);
-      const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser/dist/';
+      const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser@1.0.4/dist/'; // version figée
       const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
       const dic = await dicRes.text();
       await Promise.race([
@@ -2523,7 +2530,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       if (_audioCtx.state === 'suspended') _audioCtx.resume();
     } catch(e){}
     let cancelled = false;
-    (async () => {
+    const start = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -2552,9 +2559,24 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         console.warn('Camera:', err);
         setUnreadable(true);
       }
-    })();
+    };
+    start();
+    // Retour dans l'appli (iPhone : la caméra est coupée en arrière-plan) → la relancer si elle ne tourne plus
+    const onVis = () => {
+      if (document.visibilityState !== 'visible' || cancelled) return;
+      const tr = streamRef.current?.getVideoTracks?.()[0];
+      const v = videoRef.current;
+      if (!tr || tr.readyState === 'ended' || tr.muted || (v && v.paused)) {
+        if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        if (scanTimer.current) clearTimeout(scanTimer.current);
+        start();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVis);
       if (scanTimer.current) clearTimeout(scanTimer.current);
       if (directBufRef.current?.timer) clearTimeout(directBufRef.current.timer);
       directBufRef.current = null;
@@ -3538,19 +3560,27 @@ function EmplacementSheet({ code, onClose, onPick }) {
       streamRef.current = stream;
       const v = videoRef.current; if (!v) { setScanning(false); return; }
       v.srcObject = stream; v.play();
+      const cv = document.createElement('canvas');
+      const found = (raw) => {
+        setVal(String(raw).toUpperCase().trim());
+        if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current = null; }
+        setScanning(false);
+      };
       const detect = async () => {
         if (!streamRef.current) return;
         if (typeof BarcodeDetector !== 'undefined') {
           const bd = new BarcodeDetector({ formats:['code_128','code_39','ean_13','ean_8','qr_code'] });
           const res = await bd.detect(v).catch(()=>[]);
-          if (res.length > 0) {
-            const raw = res[0].rawValue.toUpperCase().trim();
-            setVal(raw);
-            streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current = null;
-            setScanning(false); return;
-          }
+          if (res.length > 0) { found(res[0].rawValue); return; }
+        } else if (typeof ZXingWASM !== 'undefined' && v.videoWidth) {
+          // Safari iPhone n'a pas BarcodeDetector : même lecteur que l'écran caméra
+          cv.width = v.videoWidth; cv.height = v.videoHeight;
+          const ctx = cv.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(v, 0, 0);
+          const res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, cv.width, cv.height), { formats: ['Code128', 'Code39', 'EAN-13', 'EAN-8', 'QRCode'], maxNumberOfSymbols: 1 }).catch(() => []);
+          if (res.length > 0 && res[0].text) { found(res[0].text); return; }
         }
-        if (streamRef.current) requestAnimationFrame(detect);
+        if (streamRef.current) setTimeout(detect, 120);
       };
       v.onloadedmetadata = () => detect();
     } catch(e) { setScanning(false); }
