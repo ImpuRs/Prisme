@@ -29,7 +29,7 @@ import { renderSidebarAgenceSelector } from './main.js';
 import { applyPeriodFilter, buildPeriodFilter } from './periode.js';
 import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCanal, _syncTabAccess } from './pipeline.js';
 
-  export function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'t-tertiary':isGood?'c-ok':'c-danger';const bg=diff===0?'s-card-alt':isGood?'i-ok-bg':'i-danger-bg';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold t-secondary mb-1">'+m.label+'</p><p class="text-sm font-extrabold t-primary">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
+  export function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'t-tertiary':isGood?'c-ok':'c-danger';const bg=diff===0?'s-card-alt':isGood?'i-ok-bg':'i-danger-bg';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-xs font-bold t-secondary mb-1">'+m.label+'</p><p class="text-sm font-extrabold t-primary">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
   // ── Pré-calcul squelette en idle ──────────────────────────────────────────
   export function _scheduleIdleSquelette(){
@@ -191,14 +191,14 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       if(colisContainer&&sorted.length>0){
         const rows=sorted.map(i=>{
           const actionLbl=i.i2===0?'<span class="text-cyan-700 font-bold">📦 Mettre en rayon</span>':'<span class="c-caution font-bold">👁️ Vérifier visibilite</span>';
-          return `<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
+          return `<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-xs font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-xs">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-xs whitespace-nowrap">${actionLbl}</td></tr>`;
         });
         colisContainer.innerHTML=`<div class="i-info-bg rounded-xl border-t-4" style="border-top-color:var(--c-action)">
           <div class="flex items-center justify-between px-4 py-3">
             <span class="font-bold t-primary flex items-center gap-2">📦→🏪 Colis a stocker <span class="badge bg-c-action t-inverse">${sorted.length}</span></span>
             <span class="cockpit-link i-info-bg t-secondary cursor-pointer" onclick="showCockpitInTable('colisrayon');switchTab('table')">📋 Voir dans Articles</span>
           </div>
-          <div class="px-5 pb-5"><p class="text-[11px] t-secondary mb-3">≥5 enleves, 0 preleve — 📦 stock=0 a mettre en rayon · 👁️ stock>0 a rendre visible.</p>
+          <div class="px-5 pb-5"><p class="text-xs t-secondary mb-3">≥5 enleves, 0 preleve — 📦 stock=0 a mettre en rayon · 👁️ stock>0 a rendre visible.</p>
             <div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-info-bg t-secondary sticky top-0"><tr><th class="py-2 px-2">Code / Libelle</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">Action</th></tr></thead><tbody id="actionColisRayon" class="divide-y b-light">${rows.join('')}</tbody></table></div>
           </div>
         </div>`;
@@ -254,7 +254,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     }
     if(!pills.length){el.innerHTML='';return;}
     pills.push(`<a href="conv.html" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded no-underline" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);cursor:pointer"><span style="color:#a78bfa">🔄 Convertisseur XLSX → CSV</span></a>`);
-    el.innerHTML=`<div class="flex flex-wrap gap-2 px-4 py-2 text-[10px]">${pills.join('')}</div>`;
+    el.innerHTML=`<div class="flex flex-wrap gap-2 px-4 py-2 text-xs">${pills.join('')}</div>`;
   }
 
   export function _renderStockPills(){
@@ -276,8 +276,8 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       const grayed=p.count===0?'opacity-40':'';
       const onclick=p.cockpit?`onclick="showCockpitInTable('${p.cockpit}');switchTab('table')"`:p.onclick?`onclick="${p.onclick}"`:'';
       return `<div class="flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer hover:s-hover transition-colors ${grayed}" ${onclick}>
-        <span class="text-[10px] flex items-center gap-1.5"><span>${p.icon}</span><span class="font-semibold" style="color:${p.color}">${p.label}</span></span>
-        <span class="text-[11px] font-extrabold" style="color:${p.color}">${p.count}</span>
+        <span class="text-xs flex items-center gap-1.5"><span>${p.icon}</span><span class="font-semibold" style="color:${p.color}">${p.label}</span></span>
+        <span class="text-xs font-extrabold" style="color:${p.color}">${p.count}</span>
       </div>`;
     }).join('');
   }
@@ -316,8 +316,8 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     if(!badges.length){container.innerHTML='';container.style.display='none';container._clearFns=[];return;}
     container.style.display='flex';
     container.innerHTML=badges.map((b,i)=>
-      `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--i-info-bg);color:var(--c-action);border:1px solid var(--p-blue-300)">${escapeHtml(b.label)}<button onclick="_clearBadge(${i})" style="background:none;border:none;cursor:pointer;color:var(--c-action);font-size:12px;line-height:1;padding:0">×</button></span>`
-    ).join('')+(badges.length>1?`<button onclick="resetFilters()" style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--b-default);background:none;color:var(--t-tertiary);cursor:pointer">Tout effacer</button>`:'');
+      `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 8px;border-radius:20px;background:var(--i-info-bg);color:var(--c-action);border:1px solid var(--p-blue-300)">${escapeHtml(b.label)}<button onclick="_clearBadge(${i})" style="background:none;border:none;cursor:pointer;color:var(--c-action);font-size:12px;line-height:1;padding:0">×</button></span>`
+    ).join('')+(badges.length>1?`<button onclick="resetFilters()" style="font-size:12px;padding:2px 8px;border-radius:20px;border:1px solid var(--b-default);background:none;color:var(--t-tertiary);cursor:pointer">Tout effacer</button>`:'');
     container._clearFns=badges.map(b=>b.clear);
   }
   window._clearBadge=function(i){const container=document.getElementById('activeFilterBadges');if(container?._clearFns?.[i])container._clearFns[i]();};
@@ -358,7 +358,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       updateActiveAgeIndicator();
     }
     const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=DataStore.filteredData.slice(start,start+PAGE_SIZE);
-    document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
+    document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:12px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
     _renderActiveFilterBadges();renderTableContext();
     // Colonne 🌐 (clients zone hors agence) : masquée tant qu'aucun article n'a de signal
     _S._webColEmpty=!(_S.chalandiseReady&&DataStore.finalData.some(r=>(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2)); // appliqué par _applyColVisibility
@@ -387,8 +387,8 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMax}</td>
-      ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-[10px] text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':Math.round(r.caHorsMagasin)+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-[10px]">—</td>`}
-      <td class="px-2 py-2 text-center text-[10px] ${r.pullIndex!=null?(r.pullIndex>=80?'text-sky-400 font-bold':r.pullIndex>=40?'t-primary font-semibold':'text-amber-500 font-semibold'):'t-disabled'}">${r.pullIndex!=null?r.pullIndex+'%':'—'}</td>
+      ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-xs text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':Math.round(r.caHorsMagasin)+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-xs">—</td>`}
+      <td class="px-2 py-2 text-center text-xs ${r.pullIndex!=null?(r.pullIndex>=80?'text-sky-400 font-bold':r.pullIndex>=40?'t-primary font-semibold':'text-amber-500 font-semibold'):'t-disabled'}">${r.pullIndex!=null?r.pullIndex+'%':'—'}</td>
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="16" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
     _applyColVisibility();
@@ -465,7 +465,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     html+='</div><p class="pt-small pt-muted" style="margin:12px 0 0">Clic sur une case : ses articles dans l’onglet Articles. Survol : la règle de gestion.</p>';
     const mc=document.getElementById('abcMatrixContainer');if(mc)mc.innerHTML=html;
     // Attractivité par Famille (migrée depuis Mon Stock)
-    const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:i-danger-bg"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${escapeHtml(fam)}">${escapeHtml(fam)}</td><td class="py-2 px-3 text-center t-secondary text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-1.5"><div class="perf-bar bg-c-danger rounded-full" style="width:${barW}%"></div></div><span class="c-danger font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">Aucune donnée famille</td></tr>';}
+    const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:i-danger-bg"><td class="py-2 px-3 text-xs font-semibold truncate max-w-[200px]" title="${escapeHtml(fam)}">${escapeHtml(fam)}</td><td class="py-2 px-3 text-center t-secondary text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-1.5"><div class="perf-bar bg-c-danger rounded-full" style="width:${barW}%"></div></div><span class="c-danger font-bold text-xs min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">Aucune donnée famille</td></tr>';}
   }
 
   // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────

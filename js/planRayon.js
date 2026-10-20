@@ -802,10 +802,10 @@ function _prSFLabel(csf) {
 function _prSFPills() {
   if (!_prSelectedSFs.size) return '';
   return `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
-    <span class="text-[10px] t-disabled">📂 SF :</span>
-    ${[..._prSelectedSFs].map(csf => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px #f59e0b">
+    <span class="text-xs t-disabled">📂 SF :</span>
+    ${[..._prSelectedSFs].map(csf => `<span class="text-xs px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px #f59e0b">
       ${escapeHtml(_prSFLabel(csf))}
-      <button onclick="window._prToggleSF('${csf.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+      <button onclick="window._prToggleSF('${csf.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:12px">✕</button>
     </span>`).join('')}
   </div>`;
 }
@@ -826,7 +826,7 @@ function _prCouvertureBar(pct) {
     <span style="display:inline-block;width:40px;height:6px;border-radius:3px;background:var(--color-border-tertiary,#e2e8f0);overflow:hidden">
       <span style="display:block;height:100%;width:${pct}%;background:${color}"></span>
     </span>
-    <span style="font-size:10px;font-weight:700;color:${color}">${pct}%</span>
+    <span style="font-size:12px;font-weight:700;color:${color}">${pct}%</span>
   </span>`;
 }
 
@@ -840,10 +840,10 @@ function _prRenderMetiers(fam) {
   const hasDist = _prHasChalDist();
   const sliderHtml = hasDist ? `
     <div class="flex items-center gap-1.5 mb-4">
-      <span class="text-[10px] t-disabled">📍 Distance :</span>
+      <span class="text-xs t-disabled">📍 Distance :</span>
       ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:15,l:'15 km'},{v:30,l:'30 km'}].map(d =>
         `<button onclick="window._prMetierDistChange(${d.v||100})"
-          class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
+          class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
           style="${(!_prMetierDist&&!d.v)||(_prMetierDist===d.v)?'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)':''}">${d.l}</button>`
       ).join('')}
     </div>` : '';
@@ -916,7 +916,7 @@ function _prRenderMetiers(fam) {
   const rows = sorted.map(m => {
     const caMon   = metierPDV.get(m) || 0;
     const nbMon   = metierClientsPDV.get(m)?.size || 0;
-    return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
+    return `<tr class="border-b b-light text-xs hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbMon || '—'}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${caMon > 0 ? formatEuro(caMon) : '—'}</td>
@@ -927,10 +927,10 @@ function _prRenderMetiers(fam) {
   const totClientsMon = new Set();
   for (const s of metierClientsPDV.values()) for (const cc of s) totClientsMon.add(cc);
 
-  return `${sliderHtml}${_prSFPills()}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux · Historique complet</div><div class="overflow-x-auto">
-    <table class="w-full text-[11px]">
+  return `${sliderHtml}${_prSFPills()}<div class="text-xs t-disabled mb-3">Mon agence = consommé tous canaux · Historique complet</div><div class="overflow-x-auto">
+    <table class="w-full text-xs">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
-        <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+        <tr style="color:var(--t-secondary);font-size:12px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
           <th class="py-1.5 px-2 text-right">Cl. agence</th>
           <th class="py-1.5 px-2 text-right">CA agence</th>
@@ -964,23 +964,23 @@ function _prRenderAnalyse(fam) {
   )].sort();
   const empPillsAnalyse = empsInFam.length > 0
     ? `<div class="flex gap-1.5 flex-wrap mb-4 items-center">
-        <span class="text-[10px] t-disabled">📍</span>
+        <span class="text-xs t-disabled">📍</span>
         ${empsInFam.map(emp => {
           const active = _prSelectedEmps.has(emp);
           return `<button onclick="window._prToggleEmp('${emp.replace(/'/g, "\\'")}')"
-            class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary'}"
+            class="text-xs px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary'}"
             style="${active ? 'box-shadow:0 0 0 1.5px var(--c-action)' : ''}">${escapeHtml(emp)}</button>`;
         }).join('')}
-        ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-[10px] t-disabled hover:t-primary ml-1">✕</button>` : ''}
+        ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-xs t-disabled hover:t-primary ml-1">✕</button>` : ''}
       </div>`
     : '';
 
   const marquePills = _prSelectedMarques.size > 0
     ? `<div class="flex gap-1.5 flex-wrap mb-4 items-center">
-        <span class="text-[10px] t-disabled">🏷️</span>
-        ${[..._prSelectedMarques].sort().map(m => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
+        <span class="text-xs t-disabled">🏷️</span>
+        ${[..._prSelectedMarques].sort().map(m => `<span class="text-xs px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
           ${escapeHtml(m)}
-          <button onclick="window._prToggleMarque('${m.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+          <button onclick="window._prToggleMarque('${m.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:12px">✕</button>
         </span>`).join('')}
       </div>`
     : '';
@@ -1017,7 +1017,7 @@ function _prRenderAnalyse(fam) {
 
   // Quand filtre emplacement actif, masquer (opacity) les SFs sans stock dans ces emplacements
   const thSF = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
-    <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+    <tr style="color:var(--t-secondary);font-size:12px;font-weight:600">
       <th class="py-1.5 px-2 text-left">Sous-famille</th>
       <th class="py-1.5 px-2 text-right">En stock</th>
       <th class="py-1.5 px-2 text-right">Réf. cat.</th>
@@ -1029,7 +1029,7 @@ function _prRenderAnalyse(fam) {
     const dimmed = empList && nbStock === 0 && !_prSelectedSFs.has(codeSousFam) ? 'style="opacity:0.45"' : '';
     const csf = codeSousFam;
     return `<tr onclick="window._prToggleSF('${csf.replace(/'/g, "\\'")}')"
-      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}" ${dimmed}>
+      class="border-b b-light hover:s-hover cursor-pointer text-xs ${sel ? 's-hover' : ''}" ${dimmed}>
       <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(sf)}">
         <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
         ${escapeHtml(sf)}
@@ -1038,7 +1038,7 @@ function _prRenderAnalyse(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
       <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune sous-famille.</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-xs">Aucune sous-famille.</td></tr>`;
 
   // Marques — catalogue + stock
   const marqueCount = new Map();
@@ -1058,7 +1058,7 @@ function _prRenderAnalyse(fam) {
     if (marque) stockByMarque.set(marque, (stockByMarque.get(marque) || 0) + 1);
   }
   const thM = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
-    <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+    <tr style="color:var(--t-secondary);font-size:12px;font-weight:600">
       <th class="py-1.5 px-2 text-left">Marque</th>
       <th class="py-1.5 px-2 text-right">En stock</th>
       <th class="py-1.5 px-2 text-right">Réf. cat.</th>
@@ -1069,7 +1069,7 @@ function _prRenderAnalyse(fam) {
     const pct = Math.round(nbStock / nbCat * 100);
     const sel = _prSelectedMarques.has(m);
     return `<tr onclick="window._prToggleMarque('${m.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')"
-      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}">
+      class="border-b b-light hover:s-hover cursor-pointer text-xs ${sel ? 's-hover' : ''}">
       <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">
         <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
         ${escapeHtml(m)}
@@ -1078,26 +1078,26 @@ function _prRenderAnalyse(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
       <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune marque détectée.</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-xs">Aucune marque détectée.</td></tr>`;
 
   const nbSel = _prSelectedSFs.size + _prSelectedMarques.size;
   const selBar = nbSel ? `<div class="mt-3 flex items-center gap-2">
     <button onclick="window._prApplyAnalyseFilter()"
-      class="text-[11px] px-3 py-1.5 rounded-lg s-panel-inner t-inverse cursor-pointer">
+      class="text-xs px-3 py-1.5 rounded-lg s-panel-inner t-inverse cursor-pointer">
       📊 Voir dans Mon Rayon (${nbSel} filtre${nbSel > 1 ? 's' : ''})
     </button>
     <button onclick="window._prClearAnalyseFilter()"
-      class="text-[11px] px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
+      class="text-xs px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
   </div>` : '';
 
   return `${empPillsAnalyse}${_prSFPills()}${marquePills}<div class="grid grid-cols-2 gap-6">
     <div>
-      <h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>
-      <div class="overflow-x-auto"><table class="w-full text-[11px]">${thSF}<tbody>${sfRows}</tbody></table></div>
+      <h4 class="text-xs font-bold t-primary mb-2">Sous-familles</h4>
+      <div class="overflow-x-auto"><table class="w-full text-xs">${thSF}<tbody>${sfRows}</tbody></table></div>
     </div>
     <div>
-      <h4 class="text-[11px] font-bold t-primary mb-2">Marques (top 15)</h4>
-      <div class="overflow-x-auto"><table class="w-full text-[11px]">${thM}<tbody>${marqueRows}</tbody></table></div>
+      <h4 class="text-xs font-bold t-primary mb-2">Marques (top 15)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-xs">${thM}<tbody>${marqueRows}</tbody></table></div>
     </div>
   </div>${selBar}`;
 }
@@ -1184,19 +1184,19 @@ function _prRenderReseau(fam) {
     const _loupe = (code) => `<span class="opacity-50 hover:opacity-100 cursor-pointer" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','planRayon')">🔍</span>`;
     return items.map(p => cols === 6
       ? `<tr class="border-b border-white/5 hover:bg-white/5">
-          <td class="py-1.5 px-2 text-[11px] font-mono">${p.code} ${_loupe(p.code)}</td>
-          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${p.compFreq ?? p.medFreq}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right ${(p.ecartPct != null && p.ecartPct > 0) ? 'text-green-400' : (p.ecartPct != null && p.ecartPct < 0) ? 'text-red-400' : ''}">${p.ecartPct != null ? (p.ecartPct > 0 ? '+' : '') + p.ecartPct + '%' : '—'}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.caMe ?? p.caComp ?? p.myCA)}</td>
+          <td class="py-1.5 px-2 text-xs font-mono">${p.code} ${_loupe(p.code)}</td>
+          <td class="py-1.5 px-2 text-xs max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${p.myFreq}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${p.compFreq ?? p.medFreq}</td>
+          <td class="py-1.5 px-2 text-xs text-right ${(p.ecartPct != null && p.ecartPct > 0) ? 'text-green-400' : (p.ecartPct != null && p.ecartPct < 0) ? 'text-red-400' : ''}">${p.ecartPct != null ? (p.ecartPct > 0 ? '+' : '') + p.ecartPct + '%' : '—'}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${formatEuro(p.caMe ?? p.caComp ?? p.myCA)}</td>
         </tr>`
       : `<tr class="border-b border-white/5 hover:bg-white/5">
-          <td class="py-1.5 px-2 text-[11px] font-mono">${p.code} ${_loupe(p.code)}</td>
-          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${p.medFreq}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.myCA)}</td>
+          <td class="py-1.5 px-2 text-xs font-mono">${p.code} ${_loupe(p.code)}</td>
+          <td class="py-1.5 px-2 text-xs max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${p.myFreq}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${p.medFreq}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${formatEuro(p.myCA)}</td>
         </tr>`
     ).join('');
   };
@@ -1204,10 +1204,10 @@ function _prRenderReseau(fam) {
   // Marque pills (même pattern que les autres onglets)
   const marquePillsReseau = _prSelectedMarques.size > 0
     ? `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
-        <span class="text-[10px] t-disabled">🏷️</span>
-        ${[..._prSelectedMarques].sort().map(m => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
+        <span class="text-xs t-disabled">🏷️</span>
+        ${[..._prSelectedMarques].sort().map(m => `<span class="text-xs px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
           ${escapeHtml(m)}
-          <button onclick="window._prToggleMarque('${escJs(m)}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+          <button onclick="window._prToggleMarque('${escJs(m)}')" class="t-disabled hover:t-primary leading-none" style="font-size:12px">✕</button>
         </span>`).join('')}
       </div>`
     : '';
@@ -1219,7 +1219,7 @@ function _prRenderReseau(fam) {
     <div>
       <h4 class="text-sm font-semibold mb-2" style="color:#22c55e">💎 Mes Pépites <span class="text-xs font-normal t-disabled">(${pepites.length} articles où je surperforme le réseau)</span></h4>
       <div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+        <thead><tr class="text-xs t-disabled uppercase tracking-wide">
           <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
           <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq réseau</th>
           <th class="pb-1 px-2 text-right">Écart</th><th class="pb-1 px-2 text-right">CA moi</th>
@@ -1232,7 +1232,7 @@ function _prRenderReseau(fam) {
     <div>
       <h4 class="text-sm font-semibold mb-2" style="color:#ef4444">🔥 Boulets <span class="text-xs font-normal t-disabled">(${boulets.length} articles où le réseau me surpasse)</span></h4>
       <div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+        <thead><tr class="text-xs t-disabled uppercase tracking-wide">
           <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
           <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq réseau</th>
           <th class="pb-1 px-2 text-right">Écart</th><th class="pb-1 px-2 text-right">CA réseau</th>
@@ -1244,14 +1244,14 @@ function _prRenderReseau(fam) {
     <div>
       <h4 class="text-sm font-semibold mb-2" style="color:#3b82f6">🏆 Incontournables réseau <span class="text-xs font-normal t-disabled">(${incont.length} articles socle/implanter de cette famille)</span></h4>
       ${incont.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+        <thead><tr class="text-xs t-disabled uppercase tracking-wide">
           <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
           <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq méd. réseau</th>
           <th class="pb-1 px-2 text-right">CA moi</th>
         </tr></thead>
         <tbody id="prReseauIncontBody">${_row(incont.slice(0, 20), 5)}</tbody>
       </table></div>
-      ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article socle/implanter identifié — squelette indisponible.</div>`}
+      ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-xs t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article socle/implanter identifié — squelette indisponible.</div>`}
     </div>
 
     ${(() => {
@@ -1297,18 +1297,18 @@ function _prRenderReseau(fam) {
         const lib = _S.libelleLookup?.[a.code] || _S.catalogueDesignation?.get(a.code) || a.code;
         const shortLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib;
         return `<tr class="border-b border-white/5 hover:bg-white/5">
-          <td class="py-1.5 px-2 text-[11px] font-mono">${a.code} ${_loupe(a.code)}</td>
-          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(shortLib)}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${a.nb}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right font-bold" style="color:#ff6b35">${a.det}%</td>
-          <td class="py-1.5 px-2 text-[11px] text-right">${Math.round(a.blAg)}</td>
-          <td class="py-1.5 px-2 text-[11px] text-right font-bold" style="color:#ff6b35">${formatEuro(Math.round(a.caAg))}</td>
+          <td class="py-1.5 px-2 text-xs font-mono">${a.code} ${_loupe(a.code)}</td>
+          <td class="py-1.5 px-2 text-xs max-w-[200px] truncate">${escapeHtml(shortLib)}</td>
+          <td class="py-1.5 px-2 text-xs text-right">${a.nb}</td>
+          <td class="py-1.5 px-2 text-xs text-right font-bold" style="color:#ff6b35">${a.det}%</td>
+          <td class="py-1.5 px-2 text-xs text-right">${Math.round(a.blAg)}</td>
+          <td class="py-1.5 px-2 text-xs text-right font-bold" style="color:#ff6b35">${formatEuro(Math.round(a.caAg))}</td>
         </tr>`;
       }).join('');
       return `<div>
         <h4 class="text-sm font-semibold mb-2" style="color:#ff6b35">🚀 Étoiles Montantes <span class="text-xs font-normal t-disabled">(${stars.length} articles — faible détention × fort CA × forte rotation)</span></h4>
         <div class="overflow-x-auto"><table class="w-full text-left">
-          <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+          <thead><tr class="text-xs t-disabled uppercase tracking-wide">
             <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
             <th class="pb-1 px-2 text-right">Agences</th><th class="pb-1 px-2 text-right">Détention</th>
             <th class="pb-1 px-2 text-right">BL/Ag</th><th class="pb-1 px-2 text-right">CA/Ag</th>
@@ -1477,6 +1477,7 @@ window._prSetTab = function(tab) {
   _prDetailTab = tab;
   document.querySelectorAll('[data-prtab]').forEach(btn => {
     btn.classList.toggle('ar-chip-on', btn.dataset.prtab === tab);
+    btn.setAttribute('aria-pressed', String(btn.dataset.prtab === tab));
   });
   const fam = _prFindFam(_prOpenFam);
   const el  = document.getElementById('prDetailContent');
@@ -1534,11 +1535,11 @@ window._prReseauShowMoreIncont = function() {
   if (!tbody) return;
   const shown = _prReseauIncontAll.slice(0, _prReseauIncontPage);
   tbody.innerHTML = shown.map(p => `<tr class="border-b border-white/5 hover:bg-white/5">
-    <td class="py-1.5 px-2 text-[11px] font-mono">${p.code} <span class="opacity-50 hover:opacity-100 cursor-pointer" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${p.code}','planRayon')">🔍</span></td>
-    <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
-    <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
-    <td class="py-1.5 px-2 text-[11px] text-right">${p.medFreq}</td>
-    <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.myCA)}</td>
+    <td class="py-1.5 px-2 text-xs font-mono">${p.code} <span class="opacity-50 hover:opacity-100 cursor-pointer" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${p.code}','planRayon')">🔍</span></td>
+    <td class="py-1.5 px-2 text-xs max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+    <td class="py-1.5 px-2 text-xs text-right">${p.myFreq}</td>
+    <td class="py-1.5 px-2 text-xs text-right">${p.medFreq}</td>
+    <td class="py-1.5 px-2 text-xs text-right">${formatEuro(p.myCA)}</td>
   </tr>`).join('');
   const remaining = _prReseauIncontAll.length - _prReseauIncontPage;
   if (btn) {
@@ -1587,7 +1588,7 @@ const _prBridge = {
     const hasReseau = (_S.benchLists?.pepites?.length || 0) + (_S.benchLists?.pepitesOther?.length || 0) > 0;
     const tabs = [['metiers', 'Métiers acheteurs'], ['analyse', 'Analyse de la gamme'], ...(hasReseau ? [['reseau', 'Réseau']] : [])];
     return `<div class="pt-row" style="gap:8px;flex-wrap:wrap">${tabs.map(([k, l]) =>
-      `<button type="button" class="ar-chip${_prDetailTab === k ? ' ar-chip-on' : ''}" data-prtab="${k}" onclick="window._prSetTab('${k}')">${l}</button>`).join('')}</div>
+      `<button type="button" class="ar-chip${_prDetailTab === k ? ' ar-chip-on' : ''}" aria-pressed="${!!(_prDetailTab === k)}" data-prtab="${k}" onclick="window._prSetTab('${k}')">${l}</button>`).join('')}</div>
       <div id="prDetailContent" class="pf-legacy"></div>`;
   },
 };
@@ -1916,11 +1917,11 @@ function _renderPilotageMetierContent() {
 
   const hasDist = _S.chalandiseReady && _prHasChalDist();
   const distBtns = hasDist ? `<div class="flex items-center gap-1.5 mt-2">
-    <span class="text-[10px] t-disabled">📍 Distance :</span>
+    <span class="text-xs t-disabled">📍 Distance :</span>
     ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:15,l:'15 km'},{v:30,l:'30 km'}].map(d => {
       const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
       return `<button onclick="window._prMetierViewDist(${d.v})"
-        class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
+        class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
         style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : ''}">${d.l}</button>`;
     }).join('')}
   </div>` : '';
@@ -1932,7 +1933,7 @@ function _renderPilotageMetierContent() {
         value="${_prSelectedMetier2 ? escapeHtml(_prSelectedMetier2 === '__NON_RENSEIGNE__' ? '⚠ Non renseigné' : _prSelectedMetier2) : ''}"
         class="px-3 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none" style="width:260px;${_prSelectedMetier2 ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
       <datalist id="prMetierDatalist"></datalist>
-      ${_prSelectedMetier2 ? `<button onclick="window._prSelectMetier('')" class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary cursor-pointer">✕ Reset</button>` : ''}
+      ${_prSelectedMetier2 ? `<button onclick="window._prSelectMetier('')" class="text-xs px-2 py-1 rounded border b-light t-secondary hover:t-primary cursor-pointer">✕ Reset</button>` : ''}
     </div>
     ${distBtns}
   </div>`;
@@ -1962,11 +1963,11 @@ function _renderMetierBody() {
   const nbClients = _prMetierNbClients || 0;
 
   let html = `<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-    <div class="s-card rounded-lg p-2 text-center" title="CA zone = CA tous canaux, clients zone de chalandise"><div class="text-[10px] t-disabled">CA Zone</div><div class="text-[14px] font-bold t-primary">${formatEuro(totalCaZone)}</div></div>
-    <div class="s-card rounded-lg p-2 text-center" title="CA agence = canal MAGASIN, clients zone"><div class="text-[10px] t-disabled">Mon CA <span class="text-[8px]">(MAG)</span></div><div class="text-[14px] font-bold" style="color:#22c55e">${formatEuro(totalMonCA)}</div></div>
-    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">PdM globale</div><div class="text-[14px] font-bold" style="color:${globalPdm >= 40 ? '#22c55e' : globalPdm >= 15 ? '#f59e0b' : '#ef4444'}">${globalPdm}%</div></div>
-    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Articles</div><div class="text-[14px] font-bold t-primary">${nbEnStock}<span class="text-[10px] t-disabled">/${articles.length}</span></div><div class="text-[9px] t-disabled">en stock</div></div>
-    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Clients zone${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
+    <div class="s-card rounded-lg p-2 text-center" title="CA zone = CA tous canaux, clients zone de chalandise"><div class="text-xs t-disabled">CA Zone</div><div class="text-[14px] font-bold t-primary">${formatEuro(totalCaZone)}</div></div>
+    <div class="s-card rounded-lg p-2 text-center" title="CA agence = canal MAGASIN, clients zone"><div class="text-xs t-disabled">Mon CA <span class="text-xs">(MAG)</span></div><div class="text-[14px] font-bold" style="color:#22c55e">${formatEuro(totalMonCA)}</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-xs t-disabled">PdM globale</div><div class="text-[14px] font-bold" style="color:${globalPdm >= 40 ? '#22c55e' : globalPdm >= 15 ? '#f59e0b' : '#ef4444'}">${globalPdm}%</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-xs t-disabled">Articles</div><div class="text-[14px] font-bold t-primary">${nbEnStock}<span class="text-xs t-disabled">/${articles.length}</span></div><div class="text-xs t-disabled">en stock</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-xs t-disabled">Clients zone${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
   </div>`;
 
   // ── Geste 2 : Kit Dépannage remonté en tête ──
@@ -1974,15 +1975,15 @@ function _renderMetierBody() {
   if (_kit && (_kit.consommables.length || _kit.valeur.length)) {
     html += `<div class="mb-4 p-3 rounded-xl border" style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(245,158,11,0.06));border-color:rgba(59,130,246,0.25)">
       <h4 class="text-[13px] font-extrabold t-primary mb-2">🔧 Kit Dépannage — Roue de Secours Premium</h4>
-      <p class="text-[10px] t-disabled mb-2">Articles commandés par les clients du métier que tu n'as PAS en stock. Deviens leur plan B d'urgence.</p>
+      <p class="text-xs t-disabled mb-2">Articles commandés par les clients du métier que tu n'as PAS en stock. Deviens leur plan B d'urgence.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
     if (_kit.consommables.length) {
       html += `<div class="s-card rounded-lg p-2" style="border-left:3px solid #3b82f6">
-        <div class="text-[10px] font-bold mb-1" style="color:#3b82f6">JE REMPLIS — Consommables Fréquents</div>
-        <table class="w-full text-[10px]"><tbody>`;
+        <div class="text-xs font-bold mb-1" style="color:#3b82f6">JE REMPLIS — Consommables Fréquents</div>
+        <table class="w-full text-xs"><tbody>`;
       for (const a of _kit.consommables) {
         html += `<tr class="border-b b-light">
-          <td class="py-0.5 px-1 font-mono text-[9px]">${a.code}</td>
+          <td class="py-0.5 px-1 font-mono text-xs">${a.code}</td>
           <td class="py-0.5 px-1 truncate max-w-[150px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle.slice(0, 30))}</td>
           <td class="py-0.5 px-1 text-right">${a.bl} BL</td>
           <td class="py-0.5 px-1 text-right">${a.nbCli} cli</td>
@@ -1992,11 +1993,11 @@ function _renderMetierBody() {
     }
     if (_kit.valeur.length) {
       html += `<div class="s-card rounded-lg p-2" style="border-left:3px solid #f59e0b">
-        <div class="text-[10px] font-bold mb-1" style="color:#f59e0b">JE REMPLIS — Jamais en Panne</div>
-        <table class="w-full text-[10px]"><tbody>`;
+        <div class="text-xs font-bold mb-1" style="color:#f59e0b">JE REMPLIS — Jamais en Panne</div>
+        <table class="w-full text-xs"><tbody>`;
       for (const a of _kit.valeur) {
         html += `<tr class="border-b b-light">
-          <td class="py-0.5 px-1 font-mono text-[9px]">${a.code}</td>
+          <td class="py-0.5 px-1 font-mono text-xs">${a.code}</td>
           <td class="py-0.5 px-1 truncate max-w-[150px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle.slice(0, 30))}</td>
           <td class="py-0.5 px-1 text-right font-bold">${formatEuro(a.ca)}</td>
           <td class="py-0.5 px-1 text-right">${a.nbCli} cli</td>
@@ -2021,7 +2022,7 @@ function _renderMetierBody() {
   // LEFT: Family breakdown — compact list style
   html += `<div style="max-height:480px;overflow-y:auto">`;
   if (famBreak.length) {
-    html += `<div class="text-[11px] font-bold t-primary mb-2">📊 Familles — ${famBreak.length}</div>`;
+    html += `<div class="text-xs font-bold t-primary mb-2">📊 Familles — ${famBreak.length}</div>`;
     for (const f of famBreak.slice(0, 30)) {
       const active = _prMFilterFam === f.codeFam;
       const pdmColor = f.pdm == null ? '#64748b' : f.pdm >= 40 ? '#22c55e' : f.pdm >= 15 ? '#f59e0b' : '#ef4444';
@@ -2029,11 +2030,11 @@ function _renderMetierBody() {
       const famClassif = _sqFamClassifPills.get(f.codeFam) || 'surveiller';
       const b = ACTION_BADGE[famClassif] || ACTION_BADGE.surveiller;
       html += `<div onclick="window._prMFilterFamFn('${f.codeFam}')"
-        class="px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-[11px] mb-0.5 flex items-center gap-1 ${active ? 'font-bold' : 'hover:s-panel-inner'}"
+        class="px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs mb-0.5 flex items-center gap-1 ${active ? 'font-bold' : 'hover:s-panel-inner'}"
         style="${active ? `background:${b.color}22;border-left:3px solid ${b.color}` : ''}">
         <span style="color:${b.color}">${b.icon}</span>
         <span class="t-primary">${escapeHtml(f.libFam)}</span>
-        <span class="text-[9px]" style="color:#64748b;margin-left:4px">${f.nbEnStock}/${f.nbArts}</span>
+        <span class="text-xs" style="color:#64748b;margin-left:4px">${f.nbEnStock}/${f.nbArts}</span>
       </div>`;
     }
   }
@@ -2052,10 +2053,10 @@ function _renderMetierBody() {
       const monCA = articles.filter(a => a.codeFam === _prMFilterFam).reduce((s, a) => s + (a.monCA || 0), 0);
       html += `<div class="flex flex-wrap gap-2 mb-3 items-center p-2 rounded-lg" style="background:${fb.color}10;border:1px solid ${fb.color}30">
         <span class="text-[12px] font-extrabold t-primary">${fb.icon} ${escapeHtml(selFam.libFam)}</span>
-        <span class="text-[10px] s-card rounded px-2 py-0.5" title="CA tous canaux, clients zone de chalandise"><span class="t-disabled">CA Zone</span> <strong class="t-primary">${formatEuro(selFam.caZone)}</strong></span>
-        <span class="text-[10px] s-card rounded px-2 py-0.5" title="CA canal MAGASIN, clients zone de chalandise"><span class="t-disabled">Mon CA <span class="text-[7px]">(MAG)</span></span> <strong style="color:#22c55e">${formatEuro(monCA)}</strong></span>
-        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">PdM</span> <strong style="color:${pdmC}">${selFam.pdm != null ? selFam.pdm + '%' : '—'}</strong></span>
-        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">Stock</span> <strong class="t-primary">${selFam.nbEnStock}/${selFam.nbArts}</strong></span>
+        <span class="text-xs s-card rounded px-2 py-0.5" title="CA tous canaux, clients zone de chalandise"><span class="t-disabled">CA Zone</span> <strong class="t-primary">${formatEuro(selFam.caZone)}</strong></span>
+        <span class="text-xs s-card rounded px-2 py-0.5" title="CA canal MAGASIN, clients zone de chalandise"><span class="t-disabled">Mon CA <span class="text-[7px]">(MAG)</span></span> <strong style="color:#22c55e">${formatEuro(monCA)}</strong></span>
+        <span class="text-xs s-card rounded px-2 py-0.5"><span class="t-disabled">PdM</span> <strong style="color:${pdmC}">${selFam.pdm != null ? selFam.pdm + '%' : '—'}</strong></span>
+        <span class="text-xs s-card rounded px-2 py-0.5"><span class="t-disabled">Stock</span> <strong class="t-primary">${selFam.nbEnStock}/${selFam.nbArts}</strong></span>
       </div>`;
     }
   }
@@ -2076,17 +2077,17 @@ function _renderMetierBody() {
   for (const [val, label, cnt] of [['oui', '✅ En stock', stockOui], ['non', '❌ Pas en stock', stockNon]]) {
     const active = _prMFilterStock === val;
     html += `<button onclick="window._prMFilterStockFn('${val}')"
-      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold s-panel-inner' : 'hover:t-primary s-card'}">${label} <strong>${cnt}</strong></button>`;
+      class="text-xs px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold s-panel-inner' : 'hover:t-primary s-card'}">${label} <strong>${cnt}</strong></button>`;
   }
   if (!_prMFilterFam) {
-    html += `<span class="mx-1 text-[10px] t-disabled">|</span>`;
+    html += `<span class="mx-1 text-xs t-disabled">|</span>`;
     // Action famille filter pills — only when no family selected
     for (const ac of ACTION_LIST) {
       if (!actionCounts[ac]) continue;
       const b = ACTION_BADGE[ac];
       const active = _prMFilterRole === ac;
       html += `<button onclick="window._prMFilterRoleFn('${ac}')"
-        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+        class="text-xs px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
         style="border-color:${b.dot}40;${active ? `background:${b.bg};color:${b.color};box-shadow:0 0 0 1px ${b.dot}` : `color:${b.color}`}">${b.icon} ${b.label} <strong>${actionCounts[ac]}</strong></button>`;
     }
   }
@@ -2124,8 +2125,8 @@ function _renderMetierBody() {
   };
 
   html += `<div class="overflow-x-auto" style="max-height:560px;overflow-y:auto">
-    <table class="w-full text-[11px]">
-      <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
+    <table class="w-full text-xs">
+      <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-xs">
         ${th('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         ${th('stock', 'Stock')}
@@ -2143,20 +2144,20 @@ function _renderMetierBody() {
     const stockColor = a.inStock ? '#22c55e' : '#ef4444';
     // Geste 4 : verdict au lieu de Action
     const _sqA = window._getArticleSqInfo?.(a.code);
-    let verdictCell = '<span class="t-disabled text-[9px]">—</span>';
+    let verdictCell = '<span class="t-disabled text-xs">—</span>';
     if (_sqA) {
       const _vc = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
       const _vl = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
-      verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
-      if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.label || _sqA.verdict.name)}</span>`;
+      verdictCell = `<span class="text-xs px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
+      if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-xs" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.label || _sqA.verdict.name)}</span>`;
     }
     const _nbAg = a.nbAgencesReseau || 0;
     const _agColor = _nbAg >= 5 ? '#22c55e' : _nbAg >= 3 ? '#f59e0b' : 'var(--t-secondary)';
     html += `<tr class="border-b b-light hover:s-panel-inner transition-colors cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
-      <td class="py-1 px-2 font-mono text-[10px]">${a.code} ${_copyCodeBtn(a.code)}</td>
+      <td class="py-1 px-2 font-mono text-xs">${a.code} ${_copyCodeBtn(a.code)}</td>
       <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
-      ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
+      ${!_prMFilterFam ? `<td class="py-1 px-2 text-xs t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
       <td class="py-1 px-2 text-right font-bold">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1 px-2 text-right" style="color:#a78bfa">${a.caMetier ? formatEuro(a.caMetier) : '—'}</td>
       <td class="py-1 px-2 text-right" style="color:#3b82f6">${a.caReseau ? formatEuro(a.caReseau) : '—'}</td>
@@ -2169,13 +2170,13 @@ function _renderMetierBody() {
 
   if (shown.length < sorted.length) {
     html += `<div class="text-center py-2"><button onclick="window._prMoreMetierArts()"
-      class="text-[11px] t-secondary hover:t-primary cursor-pointer">▼ Voir plus (${shown.length}/${sorted.length})</button></div>`;
+      class="text-xs t-secondary hover:t-primary cursor-pointer">▼ Voir plus (${shown.length}/${sorted.length})</button></div>`;
   }
 
   html += `<div class="flex gap-2 mt-2">
     <button onclick="window._prExportMetierCSV()"
-      class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
-    <span class="text-[10px] t-disabled self-center">${filtered.length} articles${_prMFilterFam || _prMFilterStock || _prMFilterRole ? ' (filtré)' : ''}</span>
+      class="text-xs t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
+    <span class="text-xs t-disabled self-center">${filtered.length} articles${_prMFilterFam || _prMFilterStock || _prMFilterRole ? ' (filtré)' : ''}</span>
   </div>`;
 
   // Fermer le right panel et le grid split-screen
@@ -2185,21 +2186,21 @@ function _renderMetierBody() {
   const _topV = _prMetierLivres?.topValeur;
   const _topF = _prMetierLivres?.topFreq;
   if (_topV?.length || _topF?.length) {
-    html += `<details class="mt-4 border-t b-light pt-3"><summary class="text-[11px] font-bold t-primary cursor-pointer mb-2">📊 Portrait-Robot — Top 20 Valeur & Fréquence</summary>
+    html += `<details class="mt-4 border-t b-light pt-3"><summary class="text-xs font-bold t-primary cursor-pointer mb-2">📊 Portrait-Robot — Top 20 Valeur & Fréquence</summary>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
     if (_topV?.length) {
-      html += `<div class="s-card rounded-lg p-2"><div class="text-[10px] font-bold t-secondary mb-1">💰 TOP 20 — Valeur (CA)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-[10px]"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">CA</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
+      html += `<div class="s-card rounded-lg p-2"><div class="text-xs font-bold t-secondary mb-1">💰 TOP 20 — Valeur (CA)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-xs"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">CA</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
       for (const a of _topV) {
         const sb = a.inStock ? '<span style="color:#22c55e">✓</span>' : '<span style="color:#ef4444">✕</span>';
-        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-[9px]">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
+        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-xs">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
       }
       html += `</tbody></table></div></div>`;
     }
     if (_topF?.length) {
-      html += `<div class="s-card rounded-lg p-2"><div class="text-[10px] font-bold t-secondary mb-1">🔄 TOP 20 — Fréquence (BL)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-[10px]"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">BL</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
+      html += `<div class="s-card rounded-lg p-2"><div class="text-xs font-bold t-secondary mb-1">🔄 TOP 20 — Fréquence (BL)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-xs"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">BL</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
       for (const a of _topF) {
         const sb = a.inStock ? '<span style="color:#22c55e">✓</span>' : '<span style="color:#ef4444">✕</span>';
-        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-[9px]">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${a.bl}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
+        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-xs">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${a.bl}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
       }
       html += `</tbody></table></div></div>`;
     }
@@ -2312,7 +2313,7 @@ export function renderPlanRayon() {
   _prFdMapCache = null;
 
   if (!_S.ventesParAgence || !Object.keys(_S.ventesParAgence).length || !_S.finalData?.length) {
-    el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
+    el.innerHTML = '<div class="text-xs t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
     return;
   }
 
@@ -2320,7 +2321,7 @@ export function renderPlanRayon() {
   const data = computePlanStock();
   console.log('[PERF plan] computePlanStock', (performance.now() - _t0 | 0) + 'ms');
   if (!data || !data.families.length) {
-    el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Aucune famille détectée.</div>';
+    el.innerHTML = '<div class="text-xs t-disabled py-3 text-center">Aucune famille détectée.</div>';
     return;
   }
 
@@ -2373,12 +2374,12 @@ function _buildPlanBenchCheckboxes() {
   const container = document.getElementById('planBenchCheckboxes');
   if (!container) return;
   const stores = [...(_S.storesIntersection || [])].filter(s => s !== _S.selectedMyStore).sort();
-  if (!stores.length) { container.innerHTML = '<span class="text-[10px] t-disabled">Chargez un Consommé multi-agences</span>'; _updatePlanBenchStatus(0, 0); return; }
+  if (!stores.length) { container.innerHTML = '<span class="text-xs t-disabled">Chargez un Consommé multi-agences</span>'; _updatePlanBenchStatus(0, 0); return; }
   const selected = _S.selectedBenchBassin || new Set();
   const nbChecked = selected.size === 0 ? stores.length : [...selected].filter(s => stores.includes(s)).length;
   container.innerHTML = stores.map(s => {
     const checked = selected.size === 0 || selected.has(s) ? 'checked' : '';
-    return `<label class="flex items-center gap-1.5 text-[10px] t-secondary cursor-pointer hover:t-primary">
+    return `<label class="flex items-center gap-1.5 text-xs t-secondary cursor-pointer hover:t-primary">
       <input type="checkbox" value="${s}" ${checked} onchange="window._onPlanBenchChange()"> ${s}
     </label>`;
   }).join('');

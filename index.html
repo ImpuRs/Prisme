@@ -82,7 +82,7 @@
       --t-primary:       var(--p-slate-800);
       --t-secondary:     var(--p-slate-600);
       --t-tertiary:      var(--p-slate-500);
-      --t-disabled:      var(--p-slate-400);
+      --t-disabled:      var(--p-slate-500);   /* lisible : 4,5:1 sur fond clair (oct. 2026) */
       --t-inverse:       var(--p-slate-200);
       --t-inverse-muted: var(--p-slate-400);
       --t-link:          var(--p-blue-600);
@@ -287,8 +287,8 @@
       /* ── TEXTE ── */
       --t-primary:     #e2e8f4;   /* texte principal */
       --t-secondary:   #a0b1c5;   /* labels secondaires — relevé +1 cran */
-      --t-tertiary:    #7486a0;   /* tertiary — relevé */
-      --t-disabled:    #64748b;   /* disabled, placeholders — relevé de #4a5578 */
+      --t-tertiary:    #8a9ab2;   /* tertiary — ≥ 5:1 sur carte (oct. 2026) */
+      --t-disabled:    #8090a8;   /* infos discrètes — ≥ 4,5:1 sur carte (oct. 2026) */
       --t-inverse:     #e2e8f4;
       --t-inverse-muted: #94a3b8;
       --t-link:        #60a5fa;
@@ -624,7 +624,7 @@
     .tab-btn.active{color:var(--tab-text,var(--i-info-text));border-bottom-color:var(--tab-color,#3b82f6)}
     .tab-btn.active svg{stroke:var(--tab-color,#3b82f6)!important}
     .tab-btn svg{width:16px;height:16px;stroke:var(--c-muted);transition:stroke .2s ease;flex-shrink:0}
-    .canal-pill-btn{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid var(--b-default);background:var(--s-card-alt);color:var(--t-secondary);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+    .canal-pill-btn{font-size:.75rem;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid var(--b-default);background:var(--s-card-alt);color:var(--t-secondary);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
     .canal-pill-btn:hover{background:var(--s-hover);color:var(--t-primary)}
     .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;height:100%}#filterDrawerBtn{display:none!important}}
@@ -1300,6 +1300,11 @@
     .pt-delta-neg { background:var(--s-card-alt); color:var(--pt-low); border:1px solid var(--pt-line); }
     .pt-domain { display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--s-card-alt); border-radius:12px; }
     .pt-domain.pt-dashed { background:transparent; border:1px dashed var(--pt-line); }
+    /* Tuile chiffre commune (ptTile, utils.js) + grille de tuiles */
+    .pt-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+    .pt-tile { display:flex; flex-direction:column; gap:4px; padding:14px 16px; border-radius:14px; background:var(--s-card-alt); min-width:0; }
+    .pt-tile-val { font-size:22px; font-weight:600; color:var(--t-primary); }
+    .pt-tile-hint { line-height:1.35; }
     .pt-domain-val { font-size:22px; font-weight:600; width:40px; text-align:right; }
     .pt-action { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:12px 16px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); }
     .pt-action-main { flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:2px; text-align:left; background:none; border:0; padding:4px 0; cursor:pointer; color:inherit; font:inherit; }
@@ -1509,7 +1514,7 @@
   </div>
   <button id="cancelLoadBtn"
     onclick="window._cancelLoad()"
-    class="mt-4 text-[11px] px-4 py-1.5 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/20 transition-colors">
+    class="mt-4 text-xs px-4 py-1.5 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/20 transition-colors">
     ✕ Annuler le chargement
   </button></div>
 
@@ -1613,7 +1618,7 @@
         <button class="t-disabled hover:t-primary text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
-        <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
+        <p id="sidebarDesktopTitle" class="hidden lg:block text-xs font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
 
         <!-- RECHERCHE — tout en haut, au-dessus de tout (Le Téléporteur) -->
         <div id="terrSearchBlock" class="hidden mb-1.5" style="position:relative">
@@ -1628,7 +1633,7 @@
           <!-- Score IRA sidebar — compat JS -->
           <div id="cematinScoreBlock" class="hidden mb-1"><div id="cematinScoreBadge"></div><div id="cematinScoreText"></div><p id="cematinScoreSub"></p></div>
           <div id="globalFilters" class="hidden flex flex-col gap-1">
-            <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
+            <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-xs border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
 
             <details class="filter-group" open>
               <summary class="filter-group-header">
@@ -1638,13 +1643,13 @@
               </summary>
               <div class="filter-group-body">
                 <div class="flex gap-1">
-                  <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold b-default"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-                  <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold b-default"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+                  <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-xs font-semibold b-default"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+                  <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-xs font-semibold b-default"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
                 </div>
-                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full b-default"><option value="">Verdict</option><option value="À garder">À garder</option><option value="Incontournable qui ralentit">Incontournable qui ralentit</option><option value="Client stratégique qui ralentit">Client stratégique qui ralentit</option><option value="À surveiller">À surveiller</option><option value="À sortir">À sortir</option><option value="Vendu en réseau, jamais ici">Vendu en réseau, jamais ici</option><option value="Acheté hors comptoir">Acheté hors comptoir</option><option value="Gardé à 1 · métier clé">Gardé à 1 · métier clé</option></select>
-                <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-                <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut ERP</option></select>
-                <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">🏗️ Univers</option></select>
+                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full b-default"><option value="">Verdict</option><option value="À garder">À garder</option><option value="Incontournable qui ralentit">Incontournable qui ralentit</option><option value="Client stratégique qui ralentit">Client stratégique qui ralentit</option><option value="À surveiller">À surveiller</option><option value="À sortir">À sortir</option><option value="Vendu en réseau, jamais ici">Vendu en réseau, jamais ici</option><option value="Acheté hors comptoir">Acheté hors comptoir</option><option value="Gardé à 1 · métier clé">Gardé à 1 · métier clé</option></select>
+                <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
+                <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Statut ERP</option></select>
+                <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full hidden"><option value="">🏗️ Univers</option></select>
               </div>
             </details>
 
@@ -1655,33 +1660,33 @@
                 <span class="filter-group-arrow">▶</span>
               </summary>
               <div class="filter-group-body">
-                <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
-                <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
-                <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold b-default i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
-                <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
-                <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
-                <label class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">🔄 Rafraichir stock (ZZAT018)<input type="file" accept=".csv" onchange="refreshFromZZAT018(this)" style="display:none"></label>
-                <label class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">📎 Importer codes-barres (CSV)<input type="file" accept=".csv" onchange="importEanCSV(this)" style="display:none"></label>
-                <button onclick="exportScanData()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-blue-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter pour Scan</button>
-                <button onclick="exportScanDataAG()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter Scan AG (sans prix)</button>
+                <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
+                <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
+                <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-xs font-semibold b-default i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+                <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-xs s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
+                <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
+                <label class="w-full text-left text-xs s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">🔄 Rafraichir stock (ZZAT018)<input type="file" accept=".csv" onchange="refreshFromZZAT018(this)" style="display:none"></label>
+                <label class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">📎 Importer codes-barres (CSV)<input type="file" accept=".csv" onchange="importEanCSV(this)" style="display:none"></label>
+                <button onclick="exportScanData()" class="w-full text-left text-xs s-hover t-secondary hover:bg-blue-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter pour Scan</button>
+                <button onclick="exportScanDataAG()" class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter Scan AG (sans prix)</button>
               </div>
             </details>
 
             <input type="hidden" id="filterCockpit" value="">
             <div class="flex flex-wrap gap-1 mt-0.5">
-              <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
-              <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer i-danger-bg c-danger" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
+              <div id="activeAgeFilter" class="hidden text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
+              <div id="activeCockpitFilter" class="hidden text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer i-danger-bg c-danger" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
             </div>
             <div class="flex items-center justify-between mt-0.5">
-              <span id="filterActiveCount" class="text-[10px] t-disabled font-semibold"></span>
-              <button onclick="resetFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
+              <span id="filterActiveCount" class="text-xs t-disabled font-semibold"></span>
+              <button onclick="resetFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
             </div>
           </div>
         </div>
 
         <!-- Alertes stock pills (populated by JS) -->
         <div id="stockAlertPills" class="mt-4 pt-3 border-t b-light hidden">
-          <p class="text-[9px] font-bold t-disabled uppercase tracking-wider mb-2">Alertes stock</p>
+          <p class="text-xs font-bold t-disabled uppercase tracking-wider mb-2">Alertes stock</p>
           <div class="flex flex-col gap-1" id="stockPillsContainer">
             <!-- Pills injectées par _renderStockPills() -->
           </div>
@@ -1697,35 +1702,35 @@
 
             <!-- ═══ BLOC 1 : LE PÉRIMÈTRE — Global & Figé ═══ -->
             <div class="flex flex-col gap-1" style="border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:8px 10px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.04))">
-              <label class="text-[10px] font-extrabold t-secondary uppercase tracking-wider flex items-center gap-1">👤 Portefeuille</label>
+              <label class="text-xs font-extrabold t-secondary uppercase tracking-wider flex items-center gap-1">👤 Portefeuille</label>
               <div class="relative flex items-center">
                 <input type="text" id="terrCommercialSidebar" placeholder="Nom ou code secteur…"
                   oninput="window._onCommercialInput(this.value)"
                   onchange="window._onCommercialInput(this.value)"
                   class="w-full text-xs py-1.5 px-2 border rounded-lg font-bold s-card"
                   style="border-color:rgba(99,102,241,0.4)" autocomplete="off">
-                <button id="terrCommercialClearSidebar" onclick="window._onCommercialInput('');this.previousElementSibling.value=''" class="absolute right-1.5 text-[11px] c-danger font-bold hover:underline hidden" style="line-height:1">✕</button>
+                <button id="terrCommercialClearSidebar" onclick="window._onCommercialInput('');this.previousElementSibling.value=''" class="absolute right-1.5 text-xs c-danger font-bold hover:underline hidden" style="line-height:1">✕</button>
               </div>
-              <span id="terrCommercialKPISidebar" class="text-[9px] t-disabled font-semibold"></span>
+              <span id="terrCommercialKPISidebar" class="text-xs t-disabled font-semibold"></span>
             </div>
 
             <!-- ═══ ZONE — distance, départements ═══ -->
             <div class="flex flex-col gap-1.5" style="border:1px solid var(--b-light);border-radius:10px;padding:8px 10px">
-              <label class="text-[11px] font-bold t-secondary uppercase tracking-wider">Zone</label>
+              <label class="text-xs font-bold t-secondary uppercase tracking-wider">Zone</label>
                 <div id="distKmWrap" class="flex flex-col gap-0.5">
-                  <label class="text-[10px] font-semibold t-secondary">📍 Distance max</label>
+                  <label class="text-xs font-semibold t-secondary">📍 Distance max</label>
                   <div class="flex flex-wrap gap-1" id="distChips">
-                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Tous</button>
-                    <button onclick="window._setDistanceQuick(2)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">2 km</button>
-                    <button onclick="window._setDistanceQuick(5)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">5 km</button>
-                    <button onclick="window._setDistanceQuick(10)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">10 km</button>
-                    <button onclick="window._setDistanceQuick(15)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">15 km</button>
-                    <button onclick="window._setDistanceQuick(30)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">30 km</button>
+                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Tous</button>
+                    <button onclick="window._setDistanceQuick(2)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">2 km</button>
+                    <button onclick="window._setDistanceQuick(5)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">5 km</button>
+                    <button onclick="window._setDistanceQuick(10)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">10 km</button>
+                    <button onclick="window._setDistanceQuick(15)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">15 km</button>
+                    <button onclick="window._setDistanceQuick(30)" class="dist-quick-btn text-xs py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">30 km</button>
                   </div>
                 </div>
                 <div id="terrDeptDropdownWrap">
-                  <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
+                  <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-xs font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-xs">▼</span>
                   </button>
                   <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
                     <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
@@ -1737,9 +1742,9 @@
             <details id="moreCommerceFilters" class="filter-group">
               <summary class="filter-group-header"><span>Plus de filtres</span><span class="filter-group-arrow">▶</span></summary>
               <div class="filter-group-body" style="gap:8px">
-                <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full" style="margin-bottom:2px">↺ Reset filtres tactiques</button>
+                <button onclick="_resetChalandiseFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full" style="margin-bottom:2px">↺ Reset filtres tactiques</button>
                 <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
-          <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
+          <div style="font-size:0.75rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">
             <button onclick="window._setGlobalCanal('')"             class="terr-canal-chip active" data-global-canal="" style="--chip-color:#6366f1">Tous</button>
             <button onclick="window._setGlobalCanal('MAGASIN')"      class="terr-canal-chip" data-global-canal="MAGASIN" style="--chip-color:#7c3aed">🏪 Magasin</button>
@@ -1764,8 +1769,8 @@
               </summary>
               <div class="filter-group-body">
                 <div id="terrDirectionDropdownWrap">
-                  <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-xs font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-xs">▼</span>
                   </button>
                   <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
                     <div id="terrDirectionChips" class="space-y-0.5"></div>
@@ -1786,11 +1791,11 @@
               </summary>
               <div class="filter-group-body">
                 <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
-                <button id="btnSansMetier" onclick="_toggleSansMetier()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-rose-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🚫 Sans métier renseigné</button>
-                <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+                <button id="btnSansMetier" onclick="_toggleSansMetier()" class="w-full text-left text-xs s-hover t-secondary hover:bg-rose-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🚫 Sans métier renseigné</button>
+                <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-xs s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
                 <div id="terrClassifDropdownWrap">
-                  <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-xs font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-xs">▼</span>
                   </button>
                   <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
                     <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
@@ -1816,11 +1821,11 @@
                 <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
                   <option value="">Statut actuel: tous</option>
                 </select>
-                <label id="toggleExcludeActifsConsomme" class="text-[10px] flex items-center gap-1.5 cursor-pointer" title="Masque les clients classés inactifs dans la chalandise mais qui ont acheté dans le consommé">
+                <label id="toggleExcludeActifsConsomme" class="text-xs flex items-center gap-1.5 cursor-pointer" title="Masque les clients classés inactifs dans la chalandise mais qui ont acheté dans le consommé">
                   <input type="checkbox" onchange="_toggleExcludeActifsConsomme(this.checked)" class="rounded accent-amber-500">
                   <span class="t-secondary font-semibold">Vrais inactifs uniquement</span>
                 </label>
-                <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
+                <label id="togglePerdu24m" class="text-xs flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
                   <span class="t-secondary font-semibold">Inclure inactifs &gt;12m</span>
                 </label>
@@ -1837,14 +1842,14 @@
           <details class="filter-group" open>
             <summary>🔭 Comparer avec<span class="filter-group-arrow">›</span></summary>
             <div class="filter-group-body">
-              <p class="text-[10px] t-disabled mb-1">Cocher les agences à inclure dans la médiane</p>
+              <p class="text-xs t-disabled mb-1">Cocher les agences à inclure dans la médiane</p>
               <div id="planBenchCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
-              <div id="planBenchStatus" class="text-[10px] mt-1.5 hidden"></div>
-              <label class="flex items-center gap-2 mt-3 pt-3 border-t border-white/10 text-[10px] t-secondary cursor-pointer hover:t-primary select-none">
+              <div id="planBenchStatus" class="text-xs mt-1.5 hidden"></div>
+              <label class="flex items-center gap-2 mt-3 pt-3 border-t border-white/10 text-xs t-secondary cursor-pointer hover:t-primary select-none">
                 <input type="checkbox" id="planCanalMagToggle" onchange="window._onPlanCanalMagToggle()">
                 <span>🏪 Comptoir uniquement</span>
               </label>
-              <div id="planCanalMagStatus" class="text-[9px] t-disabled mt-0.5 hidden">CA Réseau filtré canal Magasin</div>
+              <div id="planCanalMagStatus" class="text-xs t-disabled mt-0.5 hidden">CA Réseau filtré canal Magasin</div>
             </div>
           </details>
         </div>
@@ -1960,11 +1965,11 @@
         <span class="text-base">💡</span>
         <div>
           <p class="text-xs font-bold c-caution">Enrichissez votre analyse</p>
-          <p id="enrichBannerMsg" class="text-[10px] t-secondary">Ajoutez la Zone de Chalandise pour activer Commerce &amp; Clients</p>
+          <p id="enrichBannerMsg" class="text-xs t-secondary">Ajoutez la Zone de Chalandise pour activer Commerce &amp; Clients</p>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button onclick="expandImportZone()" class="text-[10px] font-bold c-caution border b-dark i-caution-bg px-3 py-1 rounded-lg transition-colors">+ Ajouter</button>
+        <button onclick="expandImportZone()" class="text-xs font-bold c-caution border b-dark i-caution-bg px-3 py-1 rounded-lg transition-colors">+ Ajouter</button>
         <button onclick="document.getElementById('enrichBanner').classList.add('hidden')" class="c-caution text-lg leading-none">×</button>
       </div>
     </div>
@@ -2093,7 +2098,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020b';
+    var ASSET_V = '20261020c';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

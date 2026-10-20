@@ -108,7 +108,7 @@ function _buildDeptFilter(){
   const allSel=!_S._selectedDepts.size;
   container.innerHTML=depts.map(([dept,cnt])=>{
     const sel=allSel||_S._selectedDepts.has(dept);
-    return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:i-danger-bg"><input type="checkbox" ${sel?'checked':''} onchange="_toggleDept('${dept}')" class="rounded accent-rose-600"><span class="font-semibold">${dept}</span><span class="t-disabled">(${cnt})</span></label>`;
+    return`<label class="flex items-center gap-1.5 text-xs py-0.5 px-1 rounded cursor-pointer hover:i-danger-bg"><input type="checkbox" ${sel?'checked':''} onchange="_toggleDept('${dept}')" class="rounded accent-rose-600"><span class="font-semibold">${dept}</span><span class="t-disabled">(${cnt})</span></label>`;
   }).join('');
   if(labelEl){const selCount=allSel?depts.length:_S._selectedDepts.size;labelEl.textContent=`🗺️ Dépt: ${selCount}/${depts.length}`;}
 }
@@ -304,14 +304,14 @@ function _onTerrClientSearch(){
         }
       }
       if(results.length){
-        suggestEl.innerHTML=results.map(r=>`<div onclick="window._terrSelectClient('${r.cc}')" class="px-3 py-2 cursor-pointer hover:s-hover border-b b-light text-[11px]" style="border-color:rgba(148,163,184,0.15)">
+        suggestEl.innerHTML=results.map(r=>`<div onclick="window._terrSelectClient('${r.cc}')" class="px-3 py-2 cursor-pointer hover:s-hover border-b b-light text-xs" style="border-color:rgba(148,163,184,0.15)">
           <span class="font-bold t-primary">${r.cc}</span>
           <span class="t-secondary ml-1">${r.nom}</span>
-          ${r.metier?`<span class="text-[9px] t-disabled ml-1">· ${r.metier}</span>`:''}
+          ${r.metier?`<span class="text-xs t-disabled ml-1">· ${r.metier}</span>`:''}
         </div>`).join('');
         suggestEl.classList.remove('hidden');
       } else {
-        suggestEl.innerHTML='<div class="px-3 py-2 text-[10px] t-disabled">Aucun client trouvé</div>';
+        suggestEl.innerHTML='<div class="px-3 py-2 text-xs t-disabled">Aucun client trouvé</div>';
         suggestEl.classList.remove('hidden');
       }
     } else if(suggestEl){
@@ -494,7 +494,7 @@ function _buildOverviewFilterChips(){
   const allC=!_S._selectedClassifs.size;
   const cEl=document.getElementById('terrOverviewClassifChips');
   const availClassifList=CLASSIF_ORDER.filter(c=>availClassifs.has(c));
-  if(cEl)cEl.innerHTML=availClassifList.map(c=>{const sel=allC||_S._selectedClassifs.has(c);return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)" class="rounded"><span class="font-semibold">${c}</span></label>`;}).join('');
+  if(cEl)cEl.innerHTML=availClassifList.map(c=>{const sel=allC||_S._selectedClassifs.has(c);return`<label class="flex items-center gap-1.5 text-xs py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)" class="rounded"><span class="font-semibold">${c}</span></label>`;}).join('');
   const classifLabelEl=document.getElementById('terrClassifLabel');
   if(classifLabelEl){if(allC)classifLabelEl.textContent='Classif: toutes';else{const sel=[..._S._selectedClassifs];classifLabelEl.textContent=sel.length<=2?'Classif: '+sel.join(', '):'Classif: '+sel.length+'/'+availClassifList.length;}}
   // Group 1 — Activité PDV Zone <select>
@@ -516,7 +516,7 @@ function _buildOverviewFilterChips(){
   const sortedDirections=[...availDirections].sort((a,b)=>a.localeCompare(b,'fr'));
   const allDir=!_S._selectedDirections.size;
   const dirEl=document.getElementById('terrDirectionChips');
-  if(dirEl)dirEl.innerHTML=sortedDirections.map(d=>{const sel=allDir||_S._selectedDirections.has(d);const dEsc=d.replace(/'/g,"\\'");return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewDirection('${dEsc}',event)" class="rounded"><span class="font-semibold">${d}</span></label>`;}).join('');
+  if(dirEl)dirEl.innerHTML=sortedDirections.map(d=>{const sel=allDir||_S._selectedDirections.has(d);const dEsc=d.replace(/'/g,"\\'");return`<label class="flex items-center gap-1.5 text-xs py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewDirection('${dEsc}',event)" class="rounded"><span class="font-semibold">${d}</span></label>`;}).join('');
   const dirLabelEl=document.getElementById('terrDirectionLabel');
   if(dirLabelEl){if(allDir)dirLabelEl.textContent='Direction: toutes';else{const sel=[..._S._selectedDirections];dirLabelEl.textContent=sel.length===1?'Direction: '+sel[0]:('Direction: '+sel.length+'/'+sortedDirections.length);}}
   // Univers <select> — source prioritaire : _clientDominantUnivers (valeurs calculées) ;
@@ -652,7 +652,7 @@ function _buildChalandiseOverviewInner(force){
   const _axisLabel=_isSec?'Secteur':'Direction';
   const _toggleEl=document.getElementById('terrOverviewToggle');
   if(_toggleEl){
-    _toggleEl.innerHTML=`<button type="button" class="ar-chip${!_isSec?' ar-chip-on':''}" onclick="window._overviewToggleMode('direction')">Par direction</button><button type="button" class="ar-chip${_isSec?' ar-chip-on':''}" onclick="window._overviewToggleMode('secteur')">Par secteur</button>`;
+    _toggleEl.innerHTML=`<button type="button" class="ar-chip${!_isSec?' ar-chip-on':''}" aria-pressed="${!!(!_isSec)}" onclick="window._overviewToggleMode('direction')">Par direction</button><button type="button" class="ar-chip${_isSec?' ar-chip-on':''}" aria-pressed="${!!(_isSec)}" onclick="window._overviewToggleMode('secteur')">Par secteur</button>`;
   }
   // Fixed thead — axis label adapts to mode
   const colSpan=10;

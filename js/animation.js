@@ -5,7 +5,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro, escapeHtml, famLib, _copyCodeBtn, defaultPeriodRange, readExcel, readExcelAsObjects, extractClientCode, parseCSVTextToHR } from './utils.js';
+import { formatEuro, escapeHtml, famLib, _copyCodeBtn, defaultPeriodRange, readExcel, readExcelAsObjects, extractClientCode, parseCSVTextToHR, ptTile } from './utils.js';
 import { computeAnimation } from './engine.js';
 import { getVentesHorsMagFullMap } from './sales.js';
 
@@ -226,9 +226,9 @@ function _renderBrandInsights(cross) {
     <div class="px-4 py-3 border-b" style="background:linear-gradient(135deg,#ede9fe,#c4b5fd);border-color:#8b5cf6">
       <div class="flex items-center justify-between">
         <h4 class="font-extrabold text-sm" style="color:#5b21b6">📊 Data Fournisseur — ${cross.nbLignes} lignes analysées</h4>
-        <button onclick="window._animClearBrandFile()" class="text-[10px] px-3 py-1.5 rounded-lg border cursor-pointer" style="border-color:#8b5cf6;color:#5b21b6">✕ Retirer</button>
+        <button onclick="window._animClearBrandFile()" class="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style="border-color:#8b5cf6;color:#5b21b6">✕ Retirer</button>
       </div>
-      <div class="flex flex-wrap gap-3 mt-2 text-[10px]" style="color:#5b21b6">
+      <div class="flex flex-wrap gap-3 mt-2 text-xs" style="color:#5b21b6">
         <span class="font-bold">${cross.nbArticles} articles</span>
         <span>${cross.nbAbsents} absents de mon rayon</span>
         <span>${cross.nbRuptures} en rupture</span>
@@ -247,25 +247,25 @@ function _renderBrandInsights(cross) {
           <span class="acc-arrow t-disabled">▶</span>
           <span class="font-bold text-[12px]" style="color:#f59e0b">🏪 ${cross.produitsComptoir.length} Produits Comptoir — PU < 100€, Pull élevé</span>
         </div>
-        <span class="text-[10px] t-disabled">Pull % = clients uniques ÷ fréquence</span>
+        <span class="text-xs t-disabled">Pull % = clients uniques ÷ fréquence</span>
       </summary>
       <div class="px-4 py-2">
-        <p class="text-[9px] t-disabled mb-2">Filtre : PU < 100€ + ≥ 4 BL. Pull élevé = acheté par beaucoup de clients différents (comptoir). Pull bas = poussé par quelques gros clients (chantier). Ceux marqués "En stock" sont prêts pour la tête de gondole.</p>
+        <p class="text-xs t-disabled mb-2">Filtre : PU < 100€ + ≥ 4 BL. Pull élevé = acheté par beaucoup de clients différents (comptoir). Pull bas = poussé par quelques gros clients (chantier). Ceux marqués "En stock" sont prêts pour la tête de gondole.</p>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="s-panel-inner t-inverse text-[10px]">
+          <thead class="s-panel-inner t-inverse text-xs">
             <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Pull %</th><th class="py-1.5 px-2 text-right">Clients</th><th class="py-1.5 px-2 text-right">BL</th><th class="py-1.5 px-2 text-right">PU moy.</th><th class="py-1.5 px-2 text-right">CA fourn.</th></tr>
           </thead>
           <tbody id="brandTbody_comptoir">${top.map(a => {
             const pullBg = a.pullPct >= 80 ? '#dcfce7' : a.pullPct >= 50 ? '#fef3c7' : '#f1f5f9';
             const pullColor = a.pullPct >= 80 ? '#166534' : a.pullPct >= 50 ? '#92400e' : '#475569';
-            const stockTag = a.statut === 'present' ? ' <span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
-            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+            const stockTag = a.statut === 'present' ? ' <span class="text-xs px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
+            return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
               <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
               <td class="py-1.5 px-2 t-primary" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.libelle)}${stockTag}</td>
-              <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
-              <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
+              <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>
+              <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
               <td class="py-1.5 px-2 text-right font-bold" style="color:#f59e0b">${a.nbClientsFournisseur}</td>
               <td class="py-1.5 px-2 text-right t-secondary">${a.nbBL}</td>
               <td class="py-1.5 px-2 text-right t-secondary">${formatEuro(a.puFourn)}</td>
@@ -273,7 +273,7 @@ function _renderBrandInsights(cross) {
             </tr>`;
           }).join('')}</tbody>
         </table>
-        ${cross.produitsComptoir.length > 20 ? `<button id="brandMore_comptoir" onclick="window._brandShowMore('comptoir',20)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.produitsComptoir.length - 20} restants)</button>` : ''}
+        ${cross.produitsComptoir.length > 20 ? `<button id="brandMore_comptoir" onclick="window._brandShowMore('comptoir',20)" class="mt-1 mb-1 ml-2 text-xs font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.produitsComptoir.length - 20} restants)</button>` : ''}
       </div>
     </details>`;
   }
@@ -287,23 +287,23 @@ function _renderBrandInsights(cross) {
           <span class="acc-arrow t-disabled">▶</span>
           <span class="font-bold text-[12px]" style="color:#dc2626">🕳️ ${absents.length} articles absents de mon rayon</span>
         </div>
-        <span class="text-[10px] t-disabled">${formatEuro(absents.reduce((s, a) => s + a.caFournisseur, 0))} CA fournisseur</span>
+        <span class="text-xs t-disabled">${formatEuro(absents.reduce((s, a) => s + a.caFournisseur, 0))} CA fournisseur</span>
       </summary>
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="s-panel-inner t-inverse text-[10px]">
+          <thead class="s-panel-inner t-inverse text-xs">
             <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Qté</th><th class="py-1.5 px-2 text-right">Clients fourn.</th></tr>
           </thead>
-          <tbody id="brandTbody_absents">${absents.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+          <tbody id="brandTbody_absents">${absents.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-xs">
             <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
             <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
-            <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+            <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>
             <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
             <td class="py-1.5 px-2 text-right t-secondary">${a.qteFournisseur}</td>
             <td class="py-1.5 px-2 text-right t-secondary">${a.nbClientsFournisseur}</td>
           </tr>`).join('')}</tbody>
         </table>
-        ${absents.length > 30 ? `<button id="brandMore_absents" onclick="window._brandShowMore('absents',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${absents.length - 30} restants)</button>` : ''}
+        ${absents.length > 30 ? `<button id="brandMore_absents" onclick="window._brandShowMore('absents',30)" class="mt-1 mb-1 ml-2 text-xs font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${absents.length - 30} restants)</button>` : ''}
       </div>
     </details>`;
   }
@@ -316,26 +316,26 @@ function _renderBrandInsights(cross) {
           <span class="acc-arrow t-disabled">▶</span>
           <span class="font-bold text-[12px]" style="color:#dc2626">🎯 ${cross.captables.length} clients zone — achètent ailleurs, pas chez moi</span>
         </div>
-        <span class="text-[10px] t-disabled">${formatEuro(cross.captables.reduce((s, c) => s + c.caFournisseur, 0))} CA fuite</span>
+        <span class="text-xs t-disabled">${formatEuro(cross.captables.reduce((s, c) => s + c.caFournisseur, 0))} CA fuite</span>
       </summary>
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="s-panel-inner t-inverse text-[10px]">
+          <thead class="s-panel-inner t-inverse text-xs">
             <tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2">Métier</th><th class="py-1.5 px-2">CP</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Articles</th></tr>
           </thead>
           <tbody id="brandTbody_captables">${cross.captables.slice(0, 30).map(c => {
             const ccSafe = (c.cc || '').replace(/'/g, "\\'");
-            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
-              <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-[9px] t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
-              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
-              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
-              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+            return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+              <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-xs t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
+              <td class="py-1.5 px-2 text-xs">${escapeHtml(c.metier)}</td>
+              <td class="py-1.5 px-2 text-xs">${escapeHtml(c.cp)}</td>
+              <td class="py-1.5 px-2 text-xs">${escapeHtml(c.commercial)}</td>
               <td class="py-1.5 px-2 text-right font-bold" style="color:#dc2626">${formatEuro(c.caFournisseur)}</td>
               <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>
-        ${cross.captables.length > 30 ? `<button id="brandMore_captables" onclick="window._brandShowMore('captables',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.captables.length - 30} restants)</button>` : ''}
+        ${cross.captables.length > 30 ? `<button id="brandMore_captables" onclick="window._brandShowMore('captables',30)" class="mt-1 mb-1 ml-2 text-xs font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.captables.length - 30} restants)</button>` : ''}
       </div>
     </details>`;
   }
@@ -351,21 +351,21 @@ function _renderBrandInsights(cross) {
       </summary>
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="s-panel-inner t-inverse text-[10px]">
+          <thead class="s-panel-inner t-inverse text-xs">
             <tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2">Métier</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Articles</th></tr>
           </thead>
           <tbody id="brandTbody_fideles">${cross.fideles.slice(0, 30).map(c => {
             const ccSafe = (c.cc || '').replace(/'/g, "\\'");
-            return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+            return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
               <td class="py-1.5 px-2 font-bold max-w-[180px] truncate">${escapeHtml(c.nom)}</td>
-              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
-              <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+              <td class="py-1.5 px-2 text-xs">${escapeHtml(c.metier)}</td>
+              <td class="py-1.5 px-2 text-xs">${escapeHtml(c.commercial)}</td>
               <td class="py-1.5 px-2 text-right font-bold" style="color:#16a34a">${formatEuro(c.caFournisseur)}</td>
               <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>
-        ${cross.fideles.length > 30 ? `<button id="brandMore_fideles" onclick="window._brandShowMore('fideles',30)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.fideles.length - 30} restants)</button>` : ''}
+        ${cross.fideles.length > 30 ? `<button id="brandMore_fideles" onclick="window._brandShowMore('fideles',30)" class="mt-1 mb-1 ml-2 text-xs font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${cross.fideles.length - 30} restants)</button>` : ''}
       </div>
     </details>`;
   }
@@ -380,32 +380,32 @@ function _renderBrandInsights(cross) {
         </div>
       </summary>
       <div class="px-4 py-2">
-        <p class="text-[10px] t-disabled mb-2">Métiers qui achètent le plus cette marque dans le fichier fournisseur. Les cibles sont vos clients du même métier qui ne sont PAS dans le fichier fournisseur.</p>`;
+        <p class="text-xs t-disabled mb-2">Métiers qui achètent le plus cette marque dans le fichier fournisseur. Les cibles sont vos clients du même métier qui ne sont PAS dans le fichier fournisseur.</p>`;
 
     for (let _ci = 0; _ci < cross.ciblageMetier.length; _ci++) {
       const m = cross.ciblageMetier[_ci];
       html += `<details class="border b-light rounded-lg mb-2">
-        <summary class="px-3 py-2 cursor-pointer select-none hover:s-hover text-[11px]">
+        <summary class="px-3 py-2 cursor-pointer select-none hover:s-hover text-xs">
           <span class="acc-arrow t-disabled">▶</span>
           <span class="font-bold">${escapeHtml(m.metier)}</span>
           <span class="t-disabled ml-2">${m.totalCibles} cibles · ${formatEuro(m.caMetier)} CA fournisseur</span>
         </summary>
         <div class="overflow-x-auto">
-          <table class="min-w-full text-[11px]">
-            <thead class="text-[9px] t-disabled">
+          <table class="min-w-full text-xs">
+            <thead class="text-xs t-disabled">
               <tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2">CP</th><th class="py-1 px-2">Commercial</th><th class="py-1 px-2 text-right">CA Leg.</th></tr>
             </thead>
             <tbody id="brandTbody_ciblage_${_ci}">${m.cibles.slice(0, 15).map(c => {
               const ccSafe = (c.cc || '').replace(/'/g, "\\'");
               return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
                 <td class="py-1 px-2 font-bold">${escapeHtml(c.nom)}</td>
-                <td class="py-1 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
-                <td class="py-1 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+                <td class="py-1 px-2 text-xs">${escapeHtml(c.cp)}</td>
+                <td class="py-1 px-2 text-xs">${escapeHtml(c.commercial)}</td>
                 <td class="py-1 px-2 text-right font-bold c-action">${c.caLeg > 0 ? formatEuro(c.caLeg) : '—'}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
-          ${m.cibles.length > 15 ? `<button id="brandMore_ciblage_${_ci}" onclick="window._brandShowMore('ciblage_${_ci}',15)" class="mt-1 mb-1 ml-2 text-[10px] font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${m.cibles.length - 15} restants)</button>` : ''}
+          ${m.cibles.length > 15 ? `<button id="brandMore_ciblage_${_ci}" onclick="window._brandShowMore('ciblage_${_ci}',15)" class="mt-1 mb-1 ml-2 text-xs font-bold c-action hover:underline cursor-pointer">▼ Voir plus (${m.cibles.length - 15} restants)</button>` : ''}
         </div>
       </details>`;
     }
@@ -462,12 +462,12 @@ window._brandShowMore = function(panelId, step) {
     renderFn = a => {
       const pullBg = a.pullPct >= 80 ? '#dcfce7' : a.pullPct >= 50 ? '#fef3c7' : '#f1f5f9';
       const pullColor = a.pullPct >= 80 ? '#166534' : a.pullPct >= 50 ? '#92400e' : '#475569';
-      const stockTag = a.statut === 'present' ? ' <span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
-      return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
+      const stockTag = a.statut === 'present' ? ' <span class="text-xs px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock</span>' : '';
+      return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','animation')">
         <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
         <td class="py-1.5 px-2 t-primary" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.libelle)}${stockTag}</td>
-        <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
-        <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
+        <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>
+        <td class="py-1.5 px-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold" style="background:${pullBg};color:${pullColor}">${a.pullPct}%</span></td>
         <td class="py-1.5 px-2 text-right font-bold" style="color:#f59e0b">${a.nbClientsFournisseur}</td>
         <td class="py-1.5 px-2 text-right t-secondary">${a.nbBL}</td>
         <td class="py-1.5 px-2 text-right t-secondary">${formatEuro(a.puFourn)}</td>
@@ -476,30 +476,30 @@ window._brandShowMore = function(panelId, step) {
     };
   } else if (panelId === 'absents') {
     items = cross.articles.filter(a => a.statut === 'absent');
-    renderFn = a => `<tr class="border-b b-light hover:s-hover text-[11px]">
+    renderFn = a => `<tr class="border-b b-light hover:s-hover text-xs">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
       <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
-      <td class="py-1.5 px-2 text-[9px] t-secondary">${escapeHtml(a.famLabel)}</td>
+      <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:#8b5cf6">${formatEuro(a.caFournisseur)}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.qteFournisseur}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbClientsFournisseur}</td>
     </tr>`;
   } else if (panelId === 'captables') {
     items = cross.captables;
-    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
-      <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-[9px] t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
-      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
-      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
-      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+      <td class="py-1.5 px-2 font-bold max-w-[180px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} <span class="text-xs t-disabled font-mono">${escapeHtml(c.cc)}</span></td>
+      <td class="py-1.5 px-2 text-xs">${escapeHtml(c.metier)}</td>
+      <td class="py-1.5 px-2 text-xs">${escapeHtml(c.cp)}</td>
+      <td class="py-1.5 px-2 text-xs">${escapeHtml(c.commercial)}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:#dc2626">${formatEuro(c.caFournisseur)}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
     </tr>`; };
   } else if (panelId === 'fideles') {
     items = cross.fideles;
-    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
+    renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
       <td class="py-1.5 px-2 font-bold max-w-[180px] truncate">${escapeHtml(c.nom)}</td>
-      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.metier)}</td>
-      <td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-xs">${escapeHtml(c.metier)}</td>
+      <td class="py-1.5 px-2 text-xs">${escapeHtml(c.commercial)}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:#16a34a">${formatEuro(c.caFournisseur)}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${c.nbArtsFournisseur}</td>
     </tr>`; };
@@ -510,8 +510,8 @@ window._brandShowMore = function(panelId, step) {
     items = m.cibles;
     renderFn = c => { const ccSafe = (c.cc||'').replace(/'/g,"\\'"); return `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
       <td class="py-1 px-2 font-bold">${escapeHtml(c.nom)}</td>
-      <td class="py-1 px-2 text-[10px]">${escapeHtml(c.cp)}</td>
-      <td class="py-1 px-2 text-[10px]">${escapeHtml(c.commercial)}</td>
+      <td class="py-1 px-2 text-xs">${escapeHtml(c.cp)}</td>
+      <td class="py-1 px-2 text-xs">${escapeHtml(c.commercial)}</td>
       <td class="py-1 px-2 text-right font-bold c-action">${c.caLeg > 0 ? formatEuro(c.caLeg) : '—'}</td>
     </tr>`; };
   } else return;
@@ -660,7 +660,7 @@ export function initAnimationSearch() {
       ].slice(0, 15);
 
       if (!combined.length) {
-        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune marque trouvée</div>';
+        results.innerHTML = '<div class="p-3 text-xs t-disabled">Aucune marque trouvée</div>';
         results.classList.remove('hidden');
         return;
       }
@@ -782,13 +782,7 @@ function _brandBench() {
   return list;
 }
 
-function _tile(label, value, hint, color) {
-  return `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-    <span class="pt-eyebrow" style="font-size:12px">${label}</span>
-    <span class="pt-num" style="font-size:22px;font-weight:600;color:${color || 'var(--t-primary)'}">${value}</span>
-    <span class="pt-small pt-muted" style="line-height:1.35">${hint || ''}</span>
-  </div>`;
-}
+const _tile = ptTile;
 
 function _signed(v) { return `${v >= 0 ? '+' : '−'}${formatEuro(Math.abs(v))}`; }
 
@@ -858,7 +852,7 @@ function _renderInvites(data) {
   const coms = [...new Set(all.map(c => c.commercial).filter(Boolean))].sort();
   const list = _invFiltered(data);
   const shown = _invAll ? list : list.slice(0, 30);
-  const chip = (k, label) => `<button type="button" class="ar-chip${_invFilter === k ? ' ar-chip-on' : ''}" onclick="window._animInvFilter('${k}')">${label} <span class="pt-num">${counts[k] || 0}</span></button>`;
+  const chip = (k, label) => `<button type="button" class="ar-chip${_invFilter === k ? ' ar-chip-on' : ''}" aria-pressed="${!!(_invFilter === k)}" onclick="window._animInvFilter('${k}')">${label} <span class="pt-num">${counts[k] || 0}</span></button>`;
   const rows = shown.map(c => {
     const r = INV_RAISONS[c.raison];
     return `<tr class="ar-click" onclick="window.openClient360?.('${_jsq(c.cc)}','animation')">

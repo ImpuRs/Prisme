@@ -63,7 +63,7 @@ function _toastRender(toast, container) {
   el.appendChild(msgEl);
   if (toast.undoFn) {
     const undoBtn = document.createElement('button');
-    undoBtn.className = 'text-[10px] font-extrabold underline cursor-pointer ml-1 shrink-0';
+    undoBtn.className = 'text-xs font-extrabold underline cursor-pointer ml-1 shrink-0';
     undoBtn.textContent = toast.undoLabel;
     undoBtn.onclick = (e) => { e.stopPropagation(); toast.undoFn(); _toastRemove(el, toast.id); };
     el.appendChild(undoBtn);
@@ -547,7 +547,7 @@ export function initColSelector() {
       <input type="checkbox" data-colkey="${c.key}" ${vis[c.key] !== false ? 'checked' : ''} class="accent-emerald-500">
       <span class="text-gray-200">${c.label}</span>
     </label>`
-  ).join('') + `<div class="border-t border-gray-600 mt-2 pt-2"><button onclick="window._colResetAll()" class="text-[10px] text-cyan-400 hover:text-cyan-300">Tout afficher</button></div>`;
+  ).join('') + `<div class="border-t border-gray-600 mt-2 pt-2"><button onclick="window._colResetAll()" class="text-xs text-cyan-400 hover:text-cyan-300">Tout afficher</button></div>`;
   panel.addEventListener('change', e => {
     const key = e.target.dataset?.colkey;
     if (!key) return;
@@ -739,7 +739,7 @@ export function openReporting() {
     </div>
   </div>
   <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${esc(reportText)}</textarea>
-  <p class="text-[10px] t-inverse-muted mt-2">Prompt structuré — collez dans Claude, ChatGPT ou Gemini. Modifiable avant envoi.</p>`;
+  <p class="text-xs t-inverse-muted mt-2">Prompt structuré — collez dans Claude, ChatGPT ou Gemini. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
 }
@@ -913,19 +913,19 @@ export function renderHealthScore() {
     { label: 'Surstock', val: surstock, ok: surstock <= totalRefs * 0.03 },
   ];
   const pills = dims.map(d =>
-    `<span class="text-[10px] px-2 py-0.5 rounded-full border" style="${d.ok ? 'border-color:var(--c-ok);color:var(--i-ok-text);background:var(--i-ok-bg)' : 'border-color:var(--c-caution);color:var(--i-caution-text);background:var(--i-caution-bg)'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
+    `<span class="text-xs px-2 py-0.5 rounded-full border" style="${d.ok ? 'border-color:var(--c-ok);color:var(--i-ok-text);background:var(--i-ok-bg)' : 'border-color:var(--c-caution);color:var(--i-caution-text);background:var(--i-caution-bg)'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
   ).join('');
   const healthHtml = `<div class="flex items-center gap-4 py-3 px-4 s-card rounded-xl border shadow-sm flex-wrap">
     <div class="flex items-center gap-2">
       <span class="text-2xl">${icon}</span>
       <div>
-        <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
+        <p class="text-xs font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
         <p class="text-xl font-extrabold" style="color:${color}">${score}<span class="text-sm font-normal t-disabled">/100</span></p>
       </div>
       <div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-2">
         <div class="h-full rounded-full" style="width:${score}%;background:${color}"></div>
       </div>
-      <span class="text-[10px] font-bold" style="color:${color}">${label}</span>
+      <span class="text-xs font-bold" style="color:${color}">${label}</span>
     </div>
     <div class="flex flex-wrap gap-1.5 ml-auto">${pills}</div>
   </div>`;

@@ -10,7 +10,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro } from './utils.js';
+import { formatEuro, ptTile } from './utils.js';
 import { _saveArticleSnapshot, _loadArticleSnapshot, _exportPartieBackup, _importPartieBackup } from './cache.js';
 
 // Photo : code → [stock, MIN ERP, MAX ERP, MIN PRISME, MAX PRISME, PU, fréquent (F/M = 1)]
@@ -82,14 +82,13 @@ export function renderSuiviCard(scoreDelta) {
       ${backup}
     </section>`;
   }
-  const tile = (label, val, hint) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-      <span class="pt-eyebrow" style="font-size:12px">${label}</span><span style="font-size:22px;font-weight:600">${val}</span><span class="pt-small pt-muted">${hint}</span></div>`;
+  const tile = ptTile;
   return `<section class="pt-card pt-col" style="gap:14px">
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
       <div class="pt-col" style="gap:2px"><div class="pt-eyebrow">Ton suivi</div><h3 class="pt-h3">Depuis les données du ${_d(b.prevKey)}</h3></div>
       ${backup}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+    <div class="pt-tiles">
       ${tile('MIN/MAX appliqués dans l’ERP', `<span class="pt-num">${b.applied.toLocaleString('fr-FR')}</span><span class="pt-small pt-muted"> / ${b.aAppliquer.toLocaleString('fr-FR')}</span>`, `${b.cur.ecarts.toLocaleString('fr-FR')} écarts ERP ≠ PRISME restants${b.libere > 0 ? ` · ${formatEuro(b.libere)} de MAX libérés` : ''}`)}
       ${tile('Ruptures articles fréquents', `<span class="pt-num">${b.cur.rupt.toLocaleString('fr-FR')}</span> ${_delta(b.cur.rupt - b.prev.rupt)}`, `${b.prev.rupt.toLocaleString('fr-FR')} au chargement précédent`)}
       ${tile('Valeur de stock', `<span class="pt-num">${formatEuro(b.cur.valeur)}</span>`, `${_delta(Math.round(b.cur.valeur - b.prev.valeur), '€')} vs ${formatEuro(b.prev.valeur)}`)}
