@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { _S } from './state.js';
+import { rowVerdictLabel } from './engine.js';
 import { buildChalandiseStore } from './chalandise-store.js';
 
 
@@ -277,6 +278,7 @@ function _buildScanPayload() {
       _sqClassif: r?._sqClassif || '',
       _sqRole: r?._sqRole || '',
       _sqVerdict: r?._sqVerdict || '',
+      _sqLabel: rowVerdictLabel(r), // libellé clair (« À garder », « À sortir »…) affiché par le Scan
       medMinReseau: r?.medMinReseau,
       medMaxReseau: r?.medMaxReseau,
       _vitesseReseau: !!(r?._vitesseReseau),

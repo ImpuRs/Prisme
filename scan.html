@@ -170,7 +170,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v14 · 20/10/2026';
+const SCAN_VERSION = 'v15 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -249,17 +249,21 @@ const VC = {
 
 // (Jeu de démonstration retiré oct. 2026 : sans données, le Scan affiche quoi faire au lieu de faux articles.)
 
-const SQ_LABEL = { socle:'Socle', surveiller:'Surveiller', a_implanter:'À implanter', dormant:'Dormant' };
+const SQ_LABEL = { socle:'À garder', surveiller:'À surveiller', implanter:'À implanter', a_implanter:'À implanter', challenger:'À sortir', dormant:'À sortir' };
 
-// Verdict stock — proxy léger de _verdict() côté scan.js (sans W/vitesse pour l'instant).
-function _verdict(stock, min, max) {
+// Verdict stock. Rupture / sous le min : MIN ERP (ce que l'ERP réapprovisionne).
+// Sur-stock : au-dessus du MAX PRISME, comme dans PRISME (pMax) ; MAX ERP seulement si PRISME n'a pas de MAX.
+const _cap = (max, pMax) => (pMax != null ? pMax : max);
+function _verdict(stock, min, max, pMax) {
+  const cap = _cap(max, pMax);
   if (stock < 0) return 'rupture';
   if (stock === 0 && min > 0) return 'rupture';
   if (min > 0 && stock < min) return 'sousmin';
-  if (max > 0 && stock > max) return 'surstock';
+  if (cap > 0 && stock > cap) return 'surstock';
   return 'ok';
 }
-function _primary(verdict, stock, min, max, statut) {
+function _primary(verdict, stock, min, max, statut, pMax) {
+  const cap = _cap(max, pMax);
   const finDeVie = /fin de (s[ée]rie|stock|catalogue)/i.test(statut||'');
   // Stock négatif → corriger le stock ERP, vider MIN/MAX
   if (stock < 0) return { kind:'corriger_stock', label:'Corriger stock', qty: 0, sub:`Stock ERP : ${stock} · vérifier le rayon` };
@@ -268,7 +272,7 @@ function _primary(verdict, stock, min, max, statut) {
   if (finDeVie) return null; // fin de série + stock 0 → rien à faire
   if (verdict === 'rupture')  return { kind:'commander', label:'Commander', qty: Math.max(min, 1), sub:`Stock ${stock} < MIN ${min}` };
   if (verdict === 'sousmin')  return { kind:'commander', label:'Commander', qty: min - stock,     sub:`Stock ${stock} < MIN ${min}` };
-  if (verdict === 'surstock') return { kind:'retour', label:'Retour centrale', qty: stock - max, sub:`${stock - max} pcs au-dessus du MAX` };
+  if (verdict === 'surstock') return { kind:'retour', label:'Retour centrale', qty: stock - cap, sub:`${stock - cap} pcs au-dessus du MAX${pMax != null ? ' PRISME' : ''}` };
   return null;
 }
 function _secondary(it) {
@@ -317,7 +321,8 @@ function loadEngineData(engine) {
     const max   = it.ancienMax ?? 0;
     const eMin  = it.ancienMin    ?? 0;
     const eMax  = it.ancienMax    ?? 0;
-    const verdict = _verdict(stock, min, max);
+    const pMin  = it.nouveauMin ?? null, pMax = it.nouveauMax ?? null; // MIN/MAX PRISME
+    const verdict = _verdict(stock, min, max, pMax);
     const fam = _famDisplay(it);
     return {
       code:    it.code,
@@ -326,15 +331,18 @@ function loadEngineData(engine) {
       fam,
       empl:    it.emplacement || '—',
       stock,
+      // Prix de VENTE moyen (CA ÷ quantités, réseau) — prixUnitaire de PRISME est un prix de valorisation du stock,
+      // pas un prix à annoncer en rayon
       prix:    it.prixMoyenReseau ?? null,
       marge:   it.txMargeReseau   ?? null,
-      min, max, erpMin: eMin, erpMax: eMax,
+      min, max, erpMin: eMin, erpMax: eMax, pMin, pMax,
+      ventes:  it.W ?? null, qteVendue: it.V ?? null, // 12 mois : nombre de ventes (BL) et pièces prélevées
       refFourn: it._refFourn || null,
       couv:    (it.couvertureJours != null && it.couvertureJours < 9999) ? it.couvertureJours : 0,
       statut:  it.statut || 'Actif',
       verdict,
-      sq:      SQ_LABEL[it._sqClassif] || (it._sqVerdict || 'Socle'),
-      primary: _primary(verdict, stock, min, max, it.statut),
+      sq:      it._sqLabel || SQ_LABEL[it._sqClassif] || '', // libellé clair calculé par PRISME
+      primary: _primary(verdict, stock, min, max, it.statut, pMax),
       secondary: _secondary(it),
       _raw:    it, // garde l'original sous le coude pour passes futures (W, vitesse, ABC…)
     };
@@ -378,8 +386,8 @@ function _applyZzatOverlay() {
     if (max != null) a.max = a.erpMax = max;
     if (empl) a.empl = empl;
     if (statut) a.statut = statut;
-    a.verdict = _verdict(a.stock, a.min, a.max);
-    a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut);
+    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
+    a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
     up++;
   }
@@ -796,8 +804,8 @@ function App() {
     openArticle(zoneArts[0].code, tourZone);
   };
   const _refreshArticle = (a) => {
-    a.verdict = _verdict(a.stock, a.min, a.max);
-    a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut);
+    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
+    a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
   };
   const addAction = (code, kind, label, dest, eta) => {
@@ -1581,7 +1589,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const erpPending = (a.secondary || []).find(s => s.kind === 'erp' && !addedActions.some(x => x.kind === 'erp'));
   const pMin = a._raw?.nouveauMin || 0, pMax = a._raw?.nouveauMax || 0;
   const prismePrimary = erpPending && (a.primary?.kind === 'commander' || a.primary?.kind === 'retour')
-    ? _primary(_verdict(a.stock, pMin, pMax), a.stock, pMin, pMax, a.statut) : undefined;
+    ? _primary(_verdict(a.stock, pMin, pMax, pMax), a.stock, pMin, pMax, a.statut, pMax) : undefined;
   const minMaxConflict = prismePrimary !== undefined && prismePrimary?.kind !== a.primary.kind;
   const doErpAdjust = () => onAddAction(erpPending.kind, `${erpPending.label} (${erpPending.sub})`, 'ERP central', '≤ 5 min');
 
@@ -1639,7 +1647,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           <div style={{fontSize:28,fontWeight:900,color:T.t1,marginTop:8,letterSpacing:.5}} className="tn">{a.code}</div>
           <div style={{fontSize:13,color:T.t2,marginTop:4,maxWidth:280,lineHeight:1.4}}>{a.lib}</div>
           <div style={{marginTop:22,padding:'10px 14px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,display:'grid',gridTemplateColumns:'repeat(4,minmax(48px,1fr))',gap:14}}>
-            {[['Stock', a.stock, '#86efac'],['Min', a.min, T.t1],['Max', a.max, T.t1],['Couv.', _couvLabel(a), T.t1]].map(([k,val,c])=>(
+            {[['Stock', a.stock, '#86efac'],['Min ERP', a.min, T.t1],['Max ERP', a.max, T.t1],['Ventes 12 m', a.ventes ?? '—', T.t1]].map(([k,val,c])=>(
               <div key={k} style={{textAlign:'center'}}>
                 <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
                 <div style={{fontSize:18,fontWeight:900,color:c,marginTop:2,lineHeight:1}} className="tn">{val}</div>
@@ -1756,19 +1764,19 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
               <div style={{fontSize:11,color:T.t3,marginTop:1}}>actuel</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min ERP</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.min}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>seuil</div>
+              <div style={{fontSize:11,color:a.pMin != null && a.pMin !== a.min ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMin != null ? `PRISME ${a.pMin}` : 'seuil'}</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max ERP</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.max}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>cible</div>
+              <div style={{fontSize:11,color:a.pMax != null && a.pMax !== a.max ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMax != null ? `PRISME ${a.pMax}` : 'cible'}</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Couv.</div>
-              <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{_couvLabel(a)}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{a.vitesse||''}</div>
+              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Ventes 12 m</div>
+              <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.ventes != null ? a.ventes : '—'}</div>
+              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{a.qteVendue ? `${a.qteVendue} pcs` : ''}{_couvLabel(a) !== '—' ? `${a.qteVendue ? ' · ' : ''}${_couvLabel(a)}` : ''}</div>
             </div>
           </div>
 
@@ -1785,7 +1793,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             </div>
             {a.prix != null && (
               <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
-                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix moy. <span style={{color:T.t3,fontWeight:500,fontSize:10}}>· {a.marge}%</span></div>
+                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix de vente moy.</div>
                 <div style={{fontSize:15,fontWeight:700,color:T.t1,marginTop:2,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2)} €</div>
               </button>
             )}
@@ -1811,8 +1819,8 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
               )}
               <div><span style={{color:T.t3}}>Réf. fournisseur</span> <strong style={{color:T.t1}} className="mono">{a.refFourn || '—'}</strong></div>
               <div><span style={{color:T.t3}}>Statut</span> <strong style={{color:T.t1}}>{a.statut}</strong></div>
-              <div><span style={{color:T.t3}}>Squelette</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>
-              <div><span style={{color:T.t3}}>ERP MIN/MAX</span> <strong style={{color:T.t1}}>{(a.erpMin === a.min && a.erpMax === a.max) ? `${a.min}/${a.max}` : `${a.erpMin}/${a.erpMax} (à corriger)`}</strong></div>
+              {a.sq && <div><span style={{color:T.t3}}>Assortiment</span> <strong style={{color:T.t1}}>{a.sq}</strong></div>}
+              <div><span style={{color:T.t3}}>MIN/MAX</span> <strong style={{color:T.t1}}>ERP {a.erpMin}/{a.erpMax}{a.pMin != null ? ` · PRISME ${a.pMin}/${a.pMax}` : ''}</strong>{a._raw?._vitesseReseau ? <span style={{color:T.t3}}> (rythme du réseau)</span> : null}</div>
             </div>
           )}
           </>}
@@ -3675,7 +3683,7 @@ function PCArticle({ a, onClose }) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:12}}>
         {SCAN_CONFIG.prix !== false && a.prix != null ? (
           <button onClick={()=>setPriceShown(p=>!p)} title="Cliquer pour afficher / masquer" style={{...cell,color:T.t1,cursor:'pointer',textAlign:'left'}}>
-            <div style={pcStatLbl}>Prix moy. {priceShown ? '' : '· cliquer'}</div>
+            <div style={pcStatLbl}>Prix de vente moyen {priceShown ? '· réseau' : '· cliquer'}</div>
             <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,filter:priceShown?'none':'blur(6px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2).replace('.',',')} €</div>
           </button>
         ) : (
@@ -3693,8 +3701,25 @@ function PCArticle({ a, onClose }) {
           <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5,wordBreak:'break-all'}} className="mono">{a.refFourn || '—'}</div>
         </div>
       </div>
+      {!a.catalogOnly && (
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:8}}>
+          <div style={cell}>
+            <div style={pcStatLbl}>MIN / MAX</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}} className="tn">ERP {a.erpMin}/{a.erpMax}</div>
+            {a.pMin != null && <div style={{fontSize:13,fontWeight:700,marginTop:2,color:(a.pMin !== a.erpMin || a.pMax !== a.erpMax) ? '#facc15' : T.t2}} className="tn">PRISME {a.pMin}/{a.pMax}{a._raw?._vitesseReseau ? ' · rythme du réseau' : ''}</div>}
+          </div>
+          <div style={cell}>
+            <div style={pcStatLbl}>Ventes 12 mois</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}} className="tn">{a.ventes != null ? `${a.ventes} vente${a.ventes > 1 ? 's' : ''}` : '—'}{a.qteVendue ? ` · ${a.qteVendue} pcs` : ''}</div>
+          </div>
+          <div style={cell}>
+            <div style={pcStatLbl}>Assortiment</div>
+            <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5}}>{a.sq || '—'}</div>
+          </div>
+        </div>
+      )}
       {SCAN_CONFIG.prix !== false && a.prix != null && a.statut && (
-        <div style={{fontSize:12,color:T.t3,marginTop:12}}>Statut : <span style={{color:T.t2,fontWeight:600}}>{a.statut}</span></div>
+        <div style={{fontSize:13,color:T.t3,marginTop:12}}>Statut : <span style={{color:T.t2,fontWeight:600}}>{a.statut}</span></div>
       )}
     </div>
   );
