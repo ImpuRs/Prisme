@@ -91,13 +91,16 @@ window._erpSens = (k) => { OPT.sens = k; renderErpExport(); };
 window._erpZeros = (v) => { OPT.zeros = !!v; renderErpExport(); };
 window._erpOpt = (k, v) => { OPT[k] = !!v; renderErpExport(); };
 window._erpSep = (v) => { OPT.sep = v === ',' ? ',' : ';'; renderErpExport(); };
-window._erpExport = () => {
-  const list = _filtered(computeErpChanges());
-  if (!list.length) return;
+/** Télécharge un fichier d'import ERP (ref ; emplacement ; min ; max) pour une liste d'articles finalData. */
+export function downloadErpFile(rows, suffix = '') {
   const sep = OPT.sep;
   const q = (v) => { const s = String(v ?? ''); return s.includes(sep) || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-  const lines = [['ref', 'emplacement', 'min', 'max'].join(sep), ...list.map(x => [x.code, q(x.empl), x.nMin, x.nMax].join(sep))];
+  const lines = [['ref', 'emplacement', 'min', 'max'].join(sep), ...rows.map(x => [x.code, q(x.empl ?? x.emplacement), x.nMin ?? x.nouveauMin ?? 0, x.nMax ?? x.nouveauMax ?? 0].join(sep))];
   const blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob); const a = document.createElement('a');
-  a.href = url; a.download = `PRISME_minmax_ERP_${_S.selectedMyStore || ''}_${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);
+  a.href = url; a.download = `PRISME_minmax_ERP_${_S.selectedMyStore || ''}${suffix ? '_' + suffix : ''}_${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);
+}
+window._erpExport = () => {
+  const list = _filtered(computeErpChanges());
+  if (list.length) downloadErpFile(list);
 };

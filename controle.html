@@ -101,7 +101,7 @@ async function runChecks() {
   $('verdict').className = 'mid'; $('verdict').textContent = 'Contrôle en cours…';
   if (document.visibilityState === 'hidden') line('Fenêtre', null, 'page en arrière-plan : Chrome suspend l’affichage animé, Conquête peut paraître vide — relance avec la fenêtre visible');
   line('Session', true, `${S.finalData.length.toLocaleString('fr-FR')} articles · ${S.selectedMyStore} · ${S.ventesLocalMag12MG?.size || 0} clients comptoir`);
-  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['animation', 'Animation'], ['table', 'Base articles']];
+  const screens = [['partie', 'La partie'], ['arbitrage', 'Décisions stock'], ['plan', 'Plan'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['animation', 'Animation'], ['table', 'Base articles']];
   for (const [id, label] of screens) {
     await check(`Écran · ${label}`, async () => { W.switchTab(id); await sleep(900); return (activeTab()?.innerText || '').trim().length; }, 300);
   }

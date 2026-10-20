@@ -16,6 +16,7 @@ import { escapeHtml, formatEuro } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_FAM_MIN_REFS, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { computeSquelette, verdictLabel } from './engine.js';
 import { computePartie, CRIT_LABELS } from './partie.js';
+import { downloadErpFile } from './export-erp.js';
 import { getArticleLastSaleMonthIdx, monthIdxFromDate, getVentesHorsMagFullMap } from './sales.js';
 
 const ROW_LIMIT = 60;
@@ -145,8 +146,8 @@ function _groups(f) {
       euro: (arts) => `${arts.filter(r => r.stockActuel > 0).length} en stock`,
       head: ['Stock', 'Ventes', 'Clients', 'Réseau', 'Précision'],
       row: (r) => [r.stockActuel, r.W || 0, cli(r.code), ag(r.code), _tag(r._sqVerdict, 'À surveiller')] },
-    { key: 'recalibrer', verb: 'Recalibrer le MIN/MAX', arts: [...f.calKOArts],
-      why: 'MIN/MAX ERP éloigné de la reco PRISME (écart > 1 sur le MIN ou > 2 sur le MAX).',
+    { key: 'recalibrer', verb: 'MIN/MAX à passer dans l’ERP', arts: [...f.calKOArts], erp: true,
+      why: 'MIN/MAX ERP éloigné du calcul PRISME (écart > 1 sur le MIN ou > 2 sur le MAX). « Fichier pour l’ERP » = même format que Pilotage Stock › Décisions › Mettre à jour l’ERP, limité à cette famille.',
       euro: () => 'ERP → reco',
       head: ['Stock', 'Ventes', 'ERP', 'Reco PRISME'],
       row: (r) => [r.stockActuel, r.W || 0, _mm(r), `<strong>${r.nouveauMin}/${r.nouveauMax}</strong>`] },
@@ -207,7 +208,7 @@ function _group(g) {
         <tbody>${rows}</tbody></table></div>
         <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px;gap:12px;flex-wrap:wrap">
           <span>${n > shown.length ? `${shown.length} sur ${n} · <button type="button" class="pt-link" onclick="_pfMore('${g.key}')">tout afficher</button>` : `${n} article${n > 1 ? 's' : ''}`}</span>
-          <button type="button" class="pt-link" onclick="_pfCsv('${g.key}')">Exporter en CSV</button>
+          <span class="pt-row" style="gap:16px">${g.erp ? `<button type="button" class="pt-link" onclick="_pfErp('${g.key}')">Fichier pour l’ERP</button>` : ''}<button type="button" class="pt-link" onclick="_pfCsv('${g.key}')">Exporter en CSV</button></span>
         </div></div>
     </div>` : ''}
   </details>`;
@@ -277,7 +278,7 @@ export function renderPlanFamille(host, bridge) {
   _host = host; _bridge = bridge;
   _p = computePartie({ minRefs: 1 });
   if (!_p || !_p.famList.length) {
-    host.innerHTML = '<div class="pt-wrap"><div class="pt-card pt-muted">Pas encore de squelette : charge un consommé multi-agences et l’état du stock.</div></div>';
+    host.innerHTML = '<div class="pt-wrap"><div class="pt-card pt-muted">Pas encore d’assortiment calculé : charge un consommé multi-agences et l’état du stock.</div></div>';
     return;
   }
   _ctx = _buildCtx();
@@ -313,6 +314,13 @@ window._pfSearch = (v, enter) => {
     if (first) { window._pfPick(first.k); return; }
   }
   _renderListOnly();
+};
+window._pfErp = (key) => {
+  const f = _p?.famList.find(x => x.k === _sel);
+  const g = f && _groups(f).find(x => x.key === key);
+  if (!g) return;
+  const arts = _sf ? g.arts.filter(a => _S.catalogueFamille?.get(a.code)?.codeSousFam === _sf) : g.arts;
+  downloadErpFile(arts, f.k);
 };
 window._pfCsv = (key) => {
   const f = _p?.famList.find(x => x.k === _sel);

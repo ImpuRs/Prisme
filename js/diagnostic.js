@@ -737,9 +737,9 @@ function openArticlePanel(code,source){
       const vitLine=vitesse>0?`<div class="text-xs t-disabled">Rotation réseau : ${vitesse.toFixed(1)} pièces/mois (Top ${vr?.nbAgTop||0} agences, ${totBL} BL, ${formatEuro(totCA)}${_isRareKit?' · ⚠ fréquence rare':''})</div>`:'';
       kitHtml=`<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)">
         <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-xs font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAgKit} agences)</span></div>
-        <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-xs t-secondary ml-2">(Vitesse Réseau)</span></div>
+        <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-xs t-secondary ml-2">(rythme du réseau)</span></div>
         ${vitLine}${medLine}
-        <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
+        <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (rythme du réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
       </div>`;
     }
     // Co-achats (Smart — 5 gestes Coach)
@@ -769,10 +769,10 @@ function openArticlePanel(code,source){
   // ── Affichage MIN/MAX — source automatique (local ou Vitesse Réseau via flag _vitesseReseau) ──
   const _isVitesse=!!r._vitesseReseau;
   const _isFallbackERP=!!r._fallbackERP;
-  const _srcTag=_isFallbackERP?'Méd. ERP':_isVitesse?'Vitesse':'';
+  const _srcTag=_isFallbackERP?'Médiane ERP réseau':_isVitesse?'Rythme réseau':'';
   const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-xs text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
   const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-xs text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
-  const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-xs text-violet-400">(Méd. ERP Réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-xs text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
+  const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-xs text-violet-400">(médiane ERP du réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-xs text-violet-400">(rythme du réseau)</span>':'MIN / MAX PRISME';
   const _statutRaw=r.statut||'';
   const _statutLow=_statutRaw.toLowerCase();
   const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')||_statutLow.includes('fin de catalogue')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';
@@ -788,8 +788,8 @@ function openArticlePanel(code,source){
   // Bouton Commander — adapté au verdict : Relance (Schizo), Implanter (Vitesse), Commander (local)
   const _isSchizo=_isVitesse&&r.stockActuel>0&&(r.W||0)===0;
   const _cmdLabel=_isSchizo?'Objectif Relance':_isVitesse?'Implanter':'Commander';
-  const _cmdTip=_isSchizo?`Vitesse Réseau : ${r.nouveauMin}`:`MIN calculé : ${r.nouveauMin}`;
-  const commanderHtml=r.nouveauMin>0?`<div class="mt-3"><button onclick="navigator.clipboard.writeText('${code} — ${_cmdLabel} MIN ${r.nouveauMin} / MAX ${r.nouveauMax}${_isVitesse?' (Vitesse Réseau)':''}').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='${_cmdLabel} (${_cmdTip})',1500)" class="w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2.5 px-4 rounded-lg transition-colors">${_cmdLabel} (${_cmdTip})</button></div>`:'';
+  const _cmdTip=_isSchizo?`Rythme du réseau : ${r.nouveauMin}`:`MIN calculé : ${r.nouveauMin}`;
+  const commanderHtml=r.nouveauMin>0?`<div class="mt-3"><button onclick="navigator.clipboard.writeText('${code} — ${_cmdLabel} MIN ${r.nouveauMin} / MAX ${r.nouveauMax}${_isVitesse?' (rythme du réseau)':''}').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='${_cmdLabel} (${_cmdTip})',1500)" class="w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2.5 px-4 rounded-lg transition-colors">${_cmdLabel} (${_cmdTip})</button></div>`:'';
   // Buyers section — compute once, reuse for plan
   const buyers=_S.articleClients.get(code);
   let buyerList=[];
@@ -862,7 +862,7 @@ function openArticlePanel(code,source){
     const rows=topCo.map(c=>{
       const _sqI=window._getArticleSqInfo?.(c.code);
       const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
-        :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
+        :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors assortiment de référence">⚪ Marginal</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-xs" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok" title="${c.nbBL} BL sur ${totalBLWithArticle}">${c.pct}%</td><td class="py-1 px-2 text-center text-xs font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
     const lowBLNote=totalBLWithArticle<10?`<p class="text-xs mt-1" style="color:rgba(255,255,255,0.4)">Peu de BL : à prendre comme une piste, pas une règle.</p>`:'';
@@ -870,7 +870,7 @@ function openArticlePanel(code,source){
   }
   // Verdict Squelette pour onglet Perf
   const _sqInfo = window._getArticleSqInfo?.(code);
-  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.label||_sqInfo.verdict.name}` : '⚪ Hors squelette';
+  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.label||_sqInfo.verdict.name}` : '⚪ Hors assortiment';
   const _sqBadge = `<span class="text-xs font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
   // Sparklines
   const _artSpk = _articleSparkline(code);

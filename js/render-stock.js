@@ -312,7 +312,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     if(cockpit)badges.push({label:cockpitLabel||cockpit,clear:()=>clearCockpitFilter()});
     if(emp)badges.push({label:`Empl : ${emp}`,clear:()=>{document.getElementById('filterEmplacement').value='';onFilterChange();}});
     if(univers)badges.push({label:`Univers : ${univers}`,clear:()=>{document.getElementById('filterMetier').value='';onFilterChange();}});
-    if(verdict){const vLabels={socle:'🟢 Socle',implanter:'🔴 Trou critique',challenger:'🟡 Challenger',surveiller:'🔵 Surveiller'};badges.push({label:`Verdict : ${vLabels[verdict]||verdict}`,clear:()=>{document.getElementById('filterVerdict').value='';onFilterChange();}});}
+    if(verdict){const vLabels={socle:'🟢 À garder',implanter:'🔴 Trou critique',challenger:'🟡 Challenger',surveiller:'🔵 Surveiller'};badges.push({label:`Verdict : ${vLabels[verdict]||verdict}`,clear:()=>{document.getElementById('filterVerdict').value='';onFilterChange();}});}
     if(!badges.length){container.innerHTML='';container.style.display='none';container._clearFns=[];return;}
     container.style.display='flex';
     container.innerHTML=badges.map((b,i)=>
@@ -437,7 +437,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     const TONE={AF:'high',AM:'high',BF:'high',CF:'high',BM:'base',AR:'mid',BR:'mid',CM:'mid',CR:'low'};
     const TONE_LBL={high:'À tenir',base:'Standard',mid:'À revoir',low:'À sortir'};
     const RECOS={
-      AF:'Capitaines — zéro rupture. Stock de sécurité, commande auto, emplacement premium.',
+      AF:'Incontournables — zéro rupture. Stock de sécurité, commande auto, emplacement premium.',
       AM:'Gros CA à cycle long — stock tampon faible, réappro maîtrisée.',
       AR:'Forte valeur, vente rare — viser zéro stock physique, commande spéciale.',
       BF:'Petits prix qui tournent — automatiser (2 bacs), le moins de temps possible à gérer.',
@@ -445,7 +445,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       BR:'Déclinant qui s’ignore — 1 unité max, pas de réappro auto, en revue de sortie.',
       CF:'Incontournable comptoir — doit toujours être là : son absence frustre plus que son stock ne coûte.',
       CM:'Zone de simplification — remplacer plusieurs références par une seule ?',
-      CR:'Poids mort — on sort, sauf article d’appel métier (garder 1 unité).'
+      CR:'Invendus — on sort, sauf article d’appel métier (garder 1 unité).'
     };
     const FMR_LBL={F:'Fréquent<br><span class="pt-muted pt-small">≥12 ventes</span>',M:'Moyen<br><span class="pt-muted pt-small">4 à 11</span>',R:'Rare<br><span class="pt-muted pt-small">≤3</span>'};
     const ABC_LBL={A:'A<br><span class="pt-muted pt-small">80 % du CA</span>',B:'B<br><span class="pt-muted pt-small">15 %</span>',C:'C<br><span class="pt-muted pt-small">5 %</span>'};

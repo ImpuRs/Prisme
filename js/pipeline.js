@@ -526,7 +526,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();
       if (!lowMem) assertPostParseInvariants();
-      if(useMulti){updateProgress(94,100,'Verdicts Squelette…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
+      if(useMulti){updateProgress(94,100,'Verdicts assortiment…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
       updateProgress(95,100,'Affichage…');await yieldToMain();
 
       // Repeupler les selects depuis finalData
@@ -1084,7 +1084,7 @@ _S.articleMonthlySales=monthlySales;
       if(!isRefilter){
         if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
         updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);_mark('ABC/FMR');assertPostParseInvariants();
-        if(useMulti){updateProgress(94,100,'Verdicts Squelette…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
+        if(useMulti){updateProgress(94,100,'Verdicts assortiment…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
         updateProgress(95,100,'Affichage…');await yieldToMain();
         populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
         buildSqLookup();
