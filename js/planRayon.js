@@ -150,7 +150,7 @@ const VERDICT_MATRIX = {
   },
   surveiller: {
     incontournable: { name: "L'Alerte Rouge",   icon: '🚨', color: '#f59e0b', tip: 'Incontournable qui ralentit — risque de divorce client maximal. ACTION : Vérifier prix de vente et dernière rupture. Ne pas laisser s\'endormir.' },
-    nouveaute:      { name: 'Le Stagiaire',      icon: '🔰', color: '#f59e0b', tip: 'Statut normal pour toute nouveauté. 90-120j pour faire ses preuves. ACTION : On observe avant de décider : Socle ou Challenger.' },
+    nouveaute:      { name: 'Le Stagiaire',      icon: '🔰', color: '#f59e0b', tip: 'Statut normal pour toute nouveauté. 90-120j pour faire ses preuves. ACTION : On observe avant de décider : à garder ou à sortir.' },
     specialiste:    { name: 'Le Point de Rupture', icon: '⚡', color: '#f59e0b', tip: 'Si le produit de tes clients strat. ralentit, c\'est peut-être que le client s\'en va. ACTION : On contacte le client.' },
     standard:       { name: 'Le Déclinant',      icon: '📉', color: '#94a3b8', tip: 'Il a bien marché mais son heure est peut-être passée. Se dirige vers Challenger. ACTION : Réduire stock et observer.' },
   },
@@ -1251,7 +1251,7 @@ function _prRenderReseau(fam) {
         </tr></thead>
         <tbody id="prReseauIncontBody">${_row(incont.slice(0, 20), 5)}</tbody>
       </table></div>
-      ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-xs t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article socle/implanter identifié — squelette indisponible.</div>`}
+      ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-xs t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article à garder ou à implanter — assortiment indisponible.</div>`}
     </div>
 
     ${(() => {
@@ -2136,7 +2136,7 @@ function _renderMetierBody() {
         ${th('caReseau', 'CA Réseau', 'text-right', 'CA toutes agences, tous clients, tous métiers')}
         ${th('reseau', 'Agences', 'text-right', 'Nb agences réseau vendant cet article')}
         ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
-        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Verdict Squelette">Verdict</th>
+        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Verdict">Verdict</th>
       </tr></thead><tbody>`;
 
   for (const a of shown) {

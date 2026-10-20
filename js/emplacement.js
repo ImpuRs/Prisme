@@ -112,7 +112,7 @@ export function computePerfEmplacement() {
 const STATUT_BADGE = {
   moteur:     { label: 'Moteur',     tone: 'high', action: 'Top 80 % du CA du magasin — soigner la marge et la rotation' },
   trafic:     { label: 'Trafic',     tone: 'mid',  action: 'Fait venir des clients (≥3) — fiabiliser le stock, simplifier l’offre' },
-  poids_mort: { label: 'Poids mort', tone: 'low',  action: 'Ni CA ni clients (<3 sur 12 mois) — déstocker ou réattribuer l’emplacement' },
+  poids_mort: { label: 'Quasi mort', tone: 'low',  action: 'Ni CA ni clients (<3 sur 12 mois) — déstocker ou réattribuer l’emplacement' },
 };
 
 let _empFilterStatut = ''; // '' | 'moteur' | 'trafic' | 'poids_mort'

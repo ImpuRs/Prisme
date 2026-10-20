@@ -1336,6 +1336,7 @@
     .pt-link:disabled { opacity:.35; cursor:default; }
     /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
     #tabArbitrage, #tabPortefeuille, #tabAnimation { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    .ar-recall { gap:10px 22px; flex-wrap:wrap; align-items:baseline; padding:12px 18px; border-radius:14px; border:1px solid var(--pt-line); }
     .ar-head { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
     .ar-stack { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--pt-line); gap:2px; }
     .ar-stack > span { display:block; height:100%; min-width:3px; }
@@ -1578,7 +1579,7 @@
       <div class="supertab-group" id="stg-stock">
         <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
         <div class="supertab-pills" id="stpills-stock" role="tablist">
-          <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
+          <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Décisions</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
         </div>
       </div>
@@ -1890,7 +1891,7 @@
         <section class="pt-col" style="gap:12px">
           <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
             <h3 class="pt-h3">Pour démarrer</h3>
-            <span class="pt-small pt-muted">Ces deux fichiers suffisent : stock, MIN/MAX, squelette, réseau</span>
+            <span class="pt-small pt-muted">Ces deux fichiers suffisent : stock, MIN/MAX, assortiment, réseau</span>
           </div>
           <div class="ob-grid">
             <label id="dropConsomme" class="ob-card ob-req" for="fileConsomme">
@@ -2098,7 +2099,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020c';
+    var ASSET_V = '20261020d';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

@@ -20,7 +20,6 @@ import { renderErpExport } from './export-erp.js';
 import { computePerfEmplacement, computeEnlevesSansRayon, renderArbitrageRayonBlock, openArbitrageSection } from './emplacement.js';
 
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
-const _bar = (v, color, h = 8) => `<span class="pt-track" style="height:${h}px"><span class="pt-fill" style="width:${Math.max(0, Math.min(100, v))}%;background:${color}"></span></span>`;
 const _val = (r) => r.valeurStock != null ? r.valeurStock : (r.stockActuel || 0) * (r.prixUnitaire || 0);
 const _n = (v) => Number(v || 0).toLocaleString('fr-FR');
 const _plural = (n, s, p) => n > 1 ? p : s;
@@ -71,26 +70,13 @@ function _compute() {
 function _head(d) {
   const { sp } = d;
   const wS = Math.round(PARTIE_STOCK_W_SERVICE * 100);
-  const score = sp.score == null
-    ? `<div class="pt-col" style="gap:10px"><span class="pt-eyebrow">Score Stock</span>
-        <p class="pt-muted" style="margin:0">Pas de score : aucun article fréquent mesurable. Vérifie que le consommé et l’état du stock portent sur la même agence.</p></div>`
-    : `<div class="pt-col" style="gap:18px">
-        <div class="pt-row pt-between" style="align-items:flex-start;gap:12px">
-          <div class="pt-col" style="gap:4px"><span class="pt-eyebrow">Score Stock</span>
-            <button type="button" class="pt-link pt-small" style="padding:0;text-align:left" onclick="switchTab('partie')">Le même que dans La partie →</button></div>
-          <div class="pt-num pt-big" style="color:${_col(sp.score)}">${sp.score}<span class="pt-muted" style="font-size:20px">/100</span></div>
-        </div>
-        <div class="pt-col" style="gap:6px">
-          <div class="pt-row pt-between pt-small"><span title="Part des articles fréquents (F/M) en stock">Disponibilité des articles fréquents <span class="pt-muted">· compte pour ${wS} %</span></span><span class="pt-num pt-strong">${sp.service} %</span></div>
-          ${_bar(sp.service, _col(sp.service))}
-          <span class="pt-small pt-muted">Articles fréquents (F, M) en stock</span>
-        </div>
-        <div class="pt-col" style="gap:6px">
-          <div class="pt-row pt-between pt-small"><span>Hors sur-stock <span class="pt-muted">· compte pour ${100 - wS} %</span></span><span class="pt-num pt-strong">${sp.propre} %</span></div>
-          ${_bar(sp.propre, _col(sp.propre))}
-          <span class="pt-small pt-muted">Références en stock sous leur MAX PRISME</span>
-        </div>
-      </div>`;
+  // Le score Stock se lit dans La partie : ici, une ligne de rappel avec ses deux critères.
+  const score = sp.score == null ? '' : `<div class="pt-row ar-recall">
+      <span><span class="pt-eyebrow">Score Stock</span> <span class="pt-num pt-strong" style="color:${_col(sp.score)}">${sp.score}/100</span></span>
+      <span class="pt-small pt-muted">Disponibilité des articles fréquents <span class="pt-num pt-strong">${sp.service} %</span> · compte pour ${wS} %</span>
+      <span class="pt-small pt-muted">Hors sur-stock <span class="pt-num pt-strong">${sp.propre} %</span> · compte pour ${100 - wS} %</span>
+      <button type="button" class="pt-link pt-small" onclick="switchTab('partie')">Voir dans La partie →</button>
+    </div>`;
 
   const segs = [
     { k: 'vend', label: 'Se vend', sub: 'vendu ≥4 fois en 12 mois', color: 'var(--pt-high)' },
@@ -106,8 +92,7 @@ function _head(d) {
       <span class="pt-col" style="align-items:flex-end"><span class="pt-num pt-strong pt-small">${formatEuro(d.split[s.k])}</span><span class="pt-num pt-small pt-muted">${Math.round(pct(d.split[s.k]))} %</span></span>
     </div>`).join('');
 
-  return `<section class="ar-head">
-    <div class="pt-card">${score}</div>
+  return `${score}<section>
     <div class="pt-card pt-col" style="gap:18px">
       <div class="pt-row pt-between" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div class="pt-col" style="gap:4px"><span class="pt-eyebrow">Valeur du stock</span>
@@ -160,12 +145,6 @@ function _layout() {
       <h3 class="pt-h2">Pour creuser</h3>
       <div id="arbitrageRayonBlock"></div>
       <div id="arbitrageEnlBlock"></div>
-      <details class="ar-sec" id="arSecMatrix">
-        <summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Matrice ABC × FMR</span>
-          <span class="pt-small pt-muted" id="arMatrixSub">Poids dans le CA × fréquence de vente</span></span>
-          <span class="ar-chev" aria-hidden="true"></span></summary>
-        <div class="ar-sec-body"><div id="abcMatrixContainer" style="overflow-x:auto"></div></div>
-      </details>
     </section>
   </div>`;
 }
@@ -181,9 +160,6 @@ export function renderArbitrageTab() {
     `${dt ? `Données au ${new Date(dt).toLocaleDateString('fr-FR')} · ` : ''}${_n(d.nbArticles)} articles · ${_S.selectedMyStore || ''}`;
   document.getElementById('arHead').innerHTML = _head(d);
   document.getElementById('arDecisions').innerHTML = _decisions(d);
-  const inv = d.decisions.find(x => x.key === 'retourner');
-  document.getElementById('arMatrixSub').textContent =
-    `Poids dans le CA × fréquence de vente · ${_n(inv.n)} ${_plural(inv.n, 'article jamais vendu', 'articles jamais vendus')} (${formatEuro(inv.euro)}) hors matrice`;
   renderErpExport();
   renderArbitrageRayonBlock();
 }

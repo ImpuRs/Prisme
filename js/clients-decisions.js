@@ -19,7 +19,6 @@ import { _clientPassesFilters, isCapteLegallais, isClientAgence } from './engine
 
 const ROWS = 60;
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
-const _bar = (v, h = 8) => `<span class="pt-track" style="height:${h}px"><span class="pt-fill" style="width:${Math.max(0, Math.min(100, v))}%;background:${_col(v)}"></span></span>`;
 const _n = (v) => Number(v || 0).toLocaleString('fr-FR');
 const _eur = (v) => formatEuro(Math.round(v || 0));
 const _pl = (n, a, b) => n > 1 ? b : a;
@@ -261,36 +260,27 @@ export function renderTesClients() {
   const dt = _S.consommePeriodMaxFull || _S.consommePeriodMax;
   const com = _S._selectedCommercial;
   const nbFiltres = [_S._selectedCommercial, _S._selectedMetier, _S._filterStrategiqueOnly, _S._distanceMaxKm, _S._selectedClassifs?.size, _S._selectedDepts?.size, _S._selectedDirections?.size, _S._selectedStatuts?.size, _S._selectedActivitesPDV?.size, _S._selectedStatutDetaille].filter(Boolean).length;
-  const scoreCard = sc.score == null
-    ? `<div class="pt-card pt-muted">Pas encore de score Clients : il faut au moins 12 mois d’historique de ventes.</div>`
-    : `<div class="pt-card pt-col" style="gap:18px">
-        <div class="pt-row pt-between" style="align-items:flex-start;gap:12px">
-          <div class="pt-col" style="gap:4px"><span class="pt-eyebrow">Score Clients · fidélité</span>
-            <button type="button" class="pt-link pt-small" style="padding:0;text-align:left" onclick="switchTab('partie')">Compte dans La partie →</button></div>
-          <div class="pt-num pt-big" style="color:${_col(sc.score)}">${sc.score}<span class="pt-muted" style="font-size:20px">/100</span></div>
-        </div>
-        <div class="pt-col" style="gap:6px">
-          ${_bar(sc.score)}
-          <span class="pt-small pt-muted">Sur les 6 mois précédents, ${_eur(sc.caPrev)} de CA comptoir ; ${sc.score} % venaient de clients revenus depuis (${_eur(sc.caKept)}).</span>
-        </div>
-        <div class="pt-col" style="gap:4px">
-          <span class="pt-small"><span class="pt-strong">À titre d’info</span> <span class="pt-muted">· hors score</span></span>
-          <span class="pt-small pt-muted">En nombre : ${_n(sc.kept)} clients revenus sur ${_n(sc.prev)} (${sc.fideliteClients} %) — beaucoup de clients de passage.</span>
-          ${sc.part != null ? `<span class="pt-small pt-muted">Part de portefeuille : ton comptoir = ${sc.part} % du CA Legallais ${sc.yN1} de ${_n(sc.nbPart)} clients (${_eur(sc.caN1)} sur ${_eur(sc.legN1)}) — le reste passe en livraison et par les représentants.</span>` : ''}
-        </div>
-      </div>`;
+  // Le score Clients se lit dans La partie : ici, une ligne de rappel.
+  const scoreCard = sc.score == null ? '' : `<div class="pt-row ar-recall">
+      <span><span class="pt-eyebrow">Score Clients · fidélité</span> <span class="pt-num pt-strong" style="color:${_col(sc.score)}">${sc.score}/100</span></span>
+      <span class="pt-small pt-muted">${sc.score} % des ${_eur(sc.caPrev)} de CA comptoir du semestre précédent viennent de clients revenus depuis</span>
+      <button type="button" class="pt-link pt-small" onclick="switchTab('partie')">Voir dans La partie →</button>
+    </div>`;
+  const infos = sc.score == null ? '' : `<span class="pt-small pt-muted">En nombre : ${_n(sc.kept)} clients revenus sur ${_n(sc.prev)} (${sc.fideliteClients} %) — beaucoup de clients de passage.</span>
+        ${sc.part != null ? `<span class="pt-small pt-muted">Part de portefeuille : ton comptoir = ${sc.part} % du CA Legallais ${sc.yN1} de ${_n(sc.nbPart)} clients (${_eur(sc.caN1)} sur ${_eur(sc.legN1)}) — le reste passe en livraison et par les représentants.</span>` : ''}`;
   host.innerHTML = `<div class="pt-wrap">
     <header class="pt-col" style="gap:6px">
       <span class="pt-eyebrow">Pilotage commercial</span>
       <h2 class="pt-h2" style="font-size:28px">Tes clients</h2>
       <span class="pt-small pt-muted">${escapeHtml(_S.selectedMyStore || '')} · ventes au comptoir${dt ? ` · données au ${new Date(dt).toLocaleDateString('fr-FR')}` : ''}${nbFiltres ? ` · listes filtrées (${nbFiltres} filtre${nbFiltres > 1 ? 's' : ''}${com ? ` dont ${escapeHtml(com)}` : ''}) — le score reste celui de l’agence` : ''}</span>
     </header>
-    <section class="ar-head">
-      ${scoreCard}
+    ${scoreCard}
+    <section>
       <div class="pt-card pt-col" style="gap:14px">
         <span class="pt-eyebrow">Ta clientèle comptoir</span>
         <div class="pt-num" style="font-size:40px;font-weight:600;line-height:1">${_n(dec.nbActifs)}<span class="pt-muted" style="font-size:16px;font-weight:400"> clients sur 12 mois</span></div>
         <span class="pt-muted">${_eur(dec.ca12)} de CA comptoir · panier annuel moyen ${_eur(dec.nbActifs ? dec.ca12 / dec.nbActifs : 0)}</span>
+        ${infos}
         <span class="pt-small pt-muted">Vue territoire et zone de chalandise : <button type="button" class="pt-link pt-small" style="padding:0" onclick="switchTab('commerce')">Conquête Terrain</button></span>
       </div>
     </section>

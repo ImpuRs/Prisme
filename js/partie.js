@@ -23,7 +23,7 @@ import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.j
 import { computeClientsPartie } from './clients-decisions.js';
 import { recordSuiviAndBilan, renderSuiviCard } from './suivi.js';
 
-export const CRIT_LABELS = ['Socle tenu en rayon', 'Trous comblés', 'Rayon propre', 'MIN/MAX calibrés'];
+export const CRIT_LABELS = ['Incontournables en stock', 'Prioritaires implantés', 'Sans invendus', 'MIN/MAX à jour dans l’ERP'];
 const LIST_LIMIT = 100;
 
 // ── Calcul ───────────────────────────────────────────────────
@@ -189,7 +189,7 @@ export function computePartie({ minRefs = PARTIE_FAM_MIN_REFS } = {}) {
       add(1, title, { socle: c.socle + k, trous: c.trous - k });
     }
     if (c.pm) add(2, `Sortir ${c.pm} invendu${c.pm > 1 ? 's' : ''} (retour centrale)`, { pm: 0, stock: c.stock - c.pm });
-    if (c.calKO) add(3, `Aligner ${c.calKO} MIN/MAX sur la reco PRISME`, { calKO: 0 });
+    if (c.calKO) add(3, `Passer ${c.calKO} MIN/MAX PRISME dans l’ERP`, { calKO: 0 });
   }
   if (sp.gainRuptures >= 1) push({ id: 'stock:ruptures', fam: null, cockpit: 'ruptures', title: `Commander les articles fréquents en rupture (${sp.rupArts.length})`, where: 'Stock · Disponibilité' }, sp.gainRuptures, 1, 'sur le Stock');
   if (sp.gainSaso >= 1) push({ id: 'stock:saso', fam: null, cockpit: 'saso', title: `Ramener ${sp.sasoArts.length} articles en sur-stock sous leur MAX PRISME`, where: 'Stock · Sur-stock' }, sp.gainSaso, 1, 'sur le Stock');
@@ -339,7 +339,7 @@ function _render() {
       <h2 class="pt-h2">Pas encore de score pour ces données</h2>
       <p class="pt-muted" style="margin:0;line-height:1.6">${p.nbArticles.toLocaleString('fr-FR')} articles chargés, mais rien à mesurer :</p>
       <ul class="pt-muted" style="margin:0;padding-left:20px;line-height:1.8">
-        <li><strong style="color:var(--t-primary)">Assortiment</strong> — le squelette a besoin d'un consommé et d'un état du stock <em>multi-agences</em>.</li>
+        <li><strong style="color:var(--t-primary)">Assortiment</strong> — l’assortiment se calcule avec un consommé et d'un état du stock <em>multi-agences</em>.</li>
         <li><strong style="color:var(--t-primary)">Stock</strong> — aucun article fréquent : les ventes du consommé ne se rapprochent pas des articles du stock (période ou agence différente ?).</li>
       </ul>
     </div></div>`;
@@ -371,8 +371,8 @@ function _render() {
       <div class="pt-card pt-col" style="gap:10px">
         <div class="pt-eyebrow">Tes trois parties</div>
         ${p.hasSquelette
-          ? _domainRow('Assortiment', `Squelette · ${p.famList.length} familles`, p.assort)
-          : _domainRow('Assortiment', 'Charge un consommé multi-agences pour activer le squelette', null, true)}
+          ? _domainRow('Assortiment', `${p.famList.length} familles notées`, p.assort)
+          : _domainRow('Assortiment', 'Charge un consommé multi-agences pour calculer l’assortiment', null, true)}
         ${p.stock != null
           ? _domainRow('Stock', `Disponibilité ${p.stockDetail.service} % · ${p.stockDetail.saso} sur-stocks`, p.stock)
           : _domainRow('Stock', 'Aucune vente rapprochée des articles en stock', null, true)}

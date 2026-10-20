@@ -627,7 +627,7 @@ const _CTX = {
   fins: ['Fins de série', 'à écouler'],
   colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
 };
-const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
+const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Décisions stock', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
 function _currentTabId() {
   const pill = document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
   return pill?.dataset.subtab || document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || '';
