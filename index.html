@@ -1497,6 +1497,16 @@
     .pf-select { min-height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--pt-line); background:var(--s-card-alt); color:var(--t-primary); font:inherit; font-size:14px; max-width:100%; }
     .pf-g .pt-table td { white-space:nowrap; }
     .pf-g .pt-table td.pf-lib { white-space:normal; min-width:200px; max-width:320px; line-height:1.3; }
+    /* Plan › Par famille : liste + détail côte à côte ; la liste ne colle (sticky) que si les deux tiennent */
+    .pf-layout { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,1fr); gap:20px; align-items:start; }
+    .pf-famcol { position:sticky; top:8px; z-index:3; min-width:0; }
+    .pf-famscroll { gap:2px; max-height:calc(100vh - 260px); overflow-y:auto; }
+    .pf-detail { min-width:0; }
+    @media (max-width:1180px) {
+      .pf-layout { grid-template-columns:1fr; }
+      .pf-famcol { position:static; }
+      .pf-famscroll { max-height:320px; }
+    }
     .pf-crit { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; }
   </style>
 </head>
@@ -2123,7 +2133,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020g';
+    var ASSET_V = '20261020h';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

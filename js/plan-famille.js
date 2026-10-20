@@ -255,13 +255,13 @@ function _render() {
       <h2 class="pt-h2" style="font-size:28px">Ton rayon, famille par famille</h2>
       <span class="pt-small pt-muted">Même note que dans La partie · ventes MAGASIN 12 mois · ${_p.famList.length} familles</span>
     </header>
-    <section class="pt-row" style="flex-wrap:wrap;gap:20px;align-items:flex-start">
-      <div class="pt-card pt-famlist pt-col" style="flex:1 1 320px;max-width:380px;position:sticky;top:8px">
+    <section class="pf-layout">
+      <div class="pt-card pt-famlist pt-col pf-famcol">
         <input id="pfSearch" type="search" class="pf-search" placeholder="Famille ou code article (6 chiffres)" value="${escapeHtml(_q)}"
           oninput="_pfSearch(this.value)" onkeydown="if(event.key==='Enter')_pfSearch(this.value,true)" autocomplete="off">
-        <div id="pfList" class="pt-col" style="gap:2px;max-height:calc(100vh - 260px);overflow-y:auto">${_famList()}</div>
+        <div id="pfList" class="pt-col pf-famscroll">${_famList()}</div>
       </div>
-      <div style="flex:999 1 560px;min-width:0">${_detail()}</div>
+      <div class="pf-detail">${_detail()}</div>
     </section>
   </div>`;
   const l = document.getElementById('pfList');
