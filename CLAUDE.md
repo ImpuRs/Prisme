@@ -94,6 +94,8 @@ js/
   contexte.js    — bandeau de contexte en tête d'écran (agence, date des ventes, fenêtre de calcul de
                    l'écran, filtres clients actifs retirables) + navigation clavier (éléments cliquables
                    focusables, Entrée/Espace) ; zones héritées habillées par la classe CSS .pt-legacy
+  recherche.js   — recherche unique (barre du haut) : code/libellé article, code/nom client → fiche ;
+                   « / » ou Ctrl+K pour y aller, ↑/↓ + Entrée
   scan-export.js — exports Scan mobile, rafraîchissement ZZAT018, import EAN (window.* seulement)
 index.html       — structure HTML + CSS (198 tokens CSS, thème dark/mixed)
 ```
