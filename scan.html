@@ -354,18 +354,24 @@ function loadEngineData(engine) {
 let ARTICLES = [];
 let _artByCode = new Map(); // code → article (O(1) lookup)
 let _artByRef  = new Map(); // refFourn → article (O(1) lookup)
-function _rebuildArtIndex() {
+function _indexArticles() {
   _artByCode = new Map();
   _artByRef  = new Map();
   for (const a of ARTICLES) {
     _artByCode.set(a.code, a);
     if (a.refFourn) _artByRef.set(a.refFourn, a);
   }
+}
+function _rebuildArtIndex() {
+  _indexArticles();
   _applyZzatOverlay();
 }
+let _BASE_ROWS = null; // lignes d'origine des données chargées (pour réappliquer un import ZZAT depuis la base complète)
 
 // ── Stock ZZAT importé : gardé (localStorage) et réappliqué à chaque chargement des données ──
-// Une analyse PRISME plus récente que l'import (session live, JSON) fait foi : l'import est alors oublié.
+// Le ZZAT fait foi sur la LISTE des articles : après import, la base du Scan = exactement les articles du ZZAT
+// (absents du ZZAT retirés, présents seulement dans le ZZAT ajoutés), stock / MIN-MAX / emplacement / statut du ZZAT.
+// Un fichier stock PRISME plus récent que l'import fait foi : l'import est alors oublié.
 const ZZAT_KEY = 'prisme_zzat';
 let _DATA_TS = 0; // date du stock des données chargées (fichier stock PRISME si connu, sinon sauvegarde), 0 si inconnue
 let _zzatMem = null; // import gardé en mémoire si le navigateur refuse de l'enregistrer (quota plein)
@@ -379,9 +385,11 @@ function _applyZzatOverlay() {
   // Import d'une autre agence : gardé mais pas appliqué
   if (z.ag && CTX.agency && CTX.agency !== '—' && z.ag !== CTX.agency) { window._zzatInfo = { t: z.t, name: z.name, n: 0, autreAgence: z.ag }; return 0; }
   let up = 0;
-  for (const code in z.rows) {
-    const a = _artByCode.get(code); if (!a) continue;
-    const [stock, min, max, empl, statut] = z.rows[code];
+  const keep = [];
+  for (const a of ARTICLES) {
+    const r = z.rows[a.code];
+    if (!r) continue; // absent du ZZAT : retiré de la base
+    const [stock, min, max, empl, statut] = r;
     a.stock = stock;
     if (min != null) a.min = a.erpMin = min;
     if (max != null) a.max = a.erpMax = max;
@@ -390,10 +398,30 @@ function _applyZzatOverlay() {
     a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
     a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
-    up++;
+    keep.push(a); up++;
   }
-  window._zzatInfo = { t: z.t, name: z.name, n: up };
+  // Présents seulement dans le ZZAT : ajoutés depuis ses colonnes (pas de ventes ni de MIN/MAX PRISME)
+  let added = 0;
+  for (const code in z.rows) {
+    if (_artByCode.has(code)) continue;
+    const [stock, min, max, empl, statut, lib, fam, sous] = z.rows[code];
+    const a = loadEngineData([{ code, libelle: lib || '', famille: fam || '', sousFamille: sous || '', emplacement: empl || '',
+      statut: statut || '', stockActuel: stock, ancienMin: min ?? 0, ancienMax: max ?? 0, _zzatOnly: true }])[0];
+    if (a) { keep.push(a); added++; }
+  }
+  const removed = ARTICLES.length - up;
+  ARTICLES = keep;
+  _indexArticles();
+  window._zzatInfo = { t: z.t, name: z.name, n: up, added, removed, total: keep.length };
   return up;
+}
+/** Message après import ZZAT. */
+function _zzatMsg(up) {
+  if (up < 0) return '✕ CSV invalide — colonnes Article/Stock manquantes';
+  const z = window._zzatInfo;
+  if (z?.autreAgence) return `✕ ZZAT de l'agence ${z.autreAgence} : non appliqué ici`;
+  if (!z) return '✕ Import non appliqué';
+  return `✓ Base = ZZAT : ${z.total.toLocaleString('fr-FR')} articles (${z.n.toLocaleString('fr-FR')} mis à jour${z.added ? `, ${z.added} ajoutés` : ''}${z.removed ? `, ${z.removed} retirés` : ''})`;
 }
 /** Découpe une ligne CSV « ; » en tenant compte des guillemets. */
 function _csvSplit(line) {
@@ -418,6 +446,9 @@ function _importZzatText(txt, name) {
   const iMax = hdr.findIndex(h => /qte\s*max/.test(h));
   const iEmpl = hdr.findIndex(h => h === 'emplacement');
   const iStat = hdr.findIndex(h => h === 'statut');
+  const iLib = hdr.findIndex(h => /^libell?[eé]/.test(h) || h === 'designation' || h === 'désignation');
+  const iFam = hdr.findIndex(h => h === 'famille');
+  const iSous = hdr.findIndex(h => h === 'sous-famille' || h === 'sous famille');
   if (iArt < 0 || iStk < 0) return -1;
   const rows = {};
   for (let i = 1; i < lines.length; i++) {
@@ -426,15 +457,16 @@ function _importZzatText(txt, name) {
     if (!code) continue;
     if (code.length < 6) code = code.padStart(6, '0'); // zéros de tête retirés par Excel
     rows[code] = [_int(cols[iStk]), iMin >= 0 ? _int(cols[iMin]) : null, iMax >= 0 ? _int(cols[iMax]) : null,
-      iEmpl >= 0 ? cols[iEmpl] : '', iStat >= 0 ? cols[iStat] : ''];
+      iEmpl >= 0 ? cols[iEmpl] : '', iStat >= 0 ? cols[iStat] : '',
+      iLib >= 0 ? cols[iLib] : '', iFam >= 0 ? cols[iFam] : '', iSous >= 0 ? cols[iSous] : ''];
   }
   const z = { t: Date.now(), name: name || '', ag: CTX.agency && CTX.agency !== '—' ? CTX.agency : '', rows };
   _zzatMem = null;
   try { localStorage.removeItem(ZZAT_KEY); localStorage.setItem(ZZAT_KEY, JSON.stringify(z)); }
   catch (e) { _zzatMem = z; _gToast('⚠ Import appliqué pour cette séance seulement (mémoire du navigateur pleine)'); }
-  // Repartir des données d'origine : un article absent du nouvel import ne garde pas l'ancienne valeur
-  ARTICLES = ARTICLES.map(a => (a._raw ? loadEngineData([a._raw])[0] : a)).filter(Boolean);
-  _rebuildArtIndex(); // réapplique l'import
+  // Repartir de la base d'origine complète (pas de la base déjà filtrée par un import précédent)
+  ARTICLES = _BASE_ROWS ? loadEngineData(_BASE_ROWS) : ARTICLES.map(a => (a._raw ? loadEngineData([a._raw])[0] : a)).filter(Boolean);
+  _rebuildArtIndex(); // applique l'import
   DATA_SOURCE = 'zzat';
   window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'zzat' } }));
   return window._zzatInfo?.n || 0;
@@ -457,7 +489,7 @@ function _pickZzatFile() {
   inp.onchange = async () => {
     const f = inp.files?.[0]; if (!f) return;
     const up = _importZzatText(await _readTextAuto(f), f.name);
-    _gToast(up < 0 ? '✕ CSV invalide — colonnes Article/Stock manquantes' : `✓ Stock à jour : ${up} articles (ZZAT)`);
+    _gToast(_zzatMsg(up));
   };
   inp.click();
 }
@@ -565,6 +597,7 @@ function _fallbackJson() {
 function _useRows(rows, meta, source) {
   _hydrated = true;
   _DATA_TS = meta?.stockTs || meta?.timestamp || 0;
+  _BASE_ROWS = rows;
   ARTICLES = loadEngineData(rows); _rebuildArtIndex();
   DATA_SOURCE = source;
   const st = meta?.store || meta?.selectedMyStore;
@@ -1060,7 +1093,7 @@ function App() {
               if (f.name.toLowerCase().endsWith('.csv') || (txt[0] !== '{' && txt[0] !== '[' && txt.includes(';'))) {
                 try {
                   const up = _importZzatText(await _readTextAuto(f), f.name);
-                  showToast(up < 0 ? '✕ CSV invalide — colonnes Article/Stock manquantes' : `✓ ${up} articles mis à jour depuis ZZAT`);
+                  showToast(_zzatMsg(up));
                 } catch(e) { showToast('✕ Erreur lecture CSV'); }
                 return;
               }
@@ -1072,6 +1105,7 @@ function App() {
                            : Array.isArray(j.finalData) ? j.finalData
                            : null;
                 if (!rows || !rows.length) { showToast('✕ JSON invalide'); return; }
+                _BASE_ROWS = rows;
                 ARTICLES = loadEngineData(rows); _rebuildArtIndex();
                 DATA_SOURCE = 'import';
                 window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'import' } }));
