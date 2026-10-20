@@ -35,6 +35,7 @@ import './partie.js';
 // bench.js démantelé — fonctions réseau supprimées
 import { renderTerritoireTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4 } from './commerce.js';
 // ── Modules extraits de main.js (oct. 2026) ──
+import './recherche.js'; // recherche unique (barre du haut)
 import './scan-export.js'; // exports Scan / ZZAT018 / EAN — fonctions window.* uniquement
 import { _refilterFromByMonth, applyPeriodFilter, toggleTabPeriodDropdown } from './periode.js';
 import { processData } from './pipeline.js';
