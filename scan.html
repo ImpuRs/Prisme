@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0a0c10" />
-<title>PRISME Scan · prototype C</title>
+<title>PRISME Scan</title>
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
@@ -22,7 +22,8 @@
   .mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
   button{transition:transform .08s ease,background-color .15s ease,border-color .15s ease}
   button:active{transform:scale(.985)}
-  button:focus-visible,input:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+  button:focus-visible,input:focus-visible{outline:2px solid #fb923c !important;outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
   /* Stage: fake bezel for desktop preview only */
   #stage{height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 800px at 50% 30%,#22262e 0%,#0a0c10 100%)}
   .phone{position:relative;width:390px;height:780px;border-radius:48px;background:#000;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 2px #1a1d24,0 0 0 6px #2a2f38}
@@ -170,7 +171,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v15 · 20/10/2026';
+const SCAN_VERSION = 'v16 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -210,15 +211,15 @@ function _unitCost(a) {
 // ── Theme ─────────────────────────────────────────────────────
 const T = {
   bg: '#0a0c10', card: '#13171f', card2: '#1a1f29', border: '#252a35',
-  t1: '#f4f6fa', t2: '#a3acba', t3: '#7d8696', accent: '#fb923c',
+  t1: '#f4f6fa', t2: '#a3acba', t3: '#8a9ab2', accent: '#fb923c', // t3 ≥ 4,5:1 sur tous les fonds (oct. 2026)
   accentInk: '#1a0e05', accentSoft: 'rgba(251,146,60,.12)',
 };
 // Alertes accueil : le négatif (anomalie ERP) se distingue de la rupture par la saturation
 const ALERT = {
-  neg:      { c:'#ef4444', bg:'rgba(239,68,68,.22)',  fg:'#fecaca', l:'nég' },
-  rupt:     { c:'#fca5a5', bg:'rgba(252,165,165,.12)', fg:'#fca5a5', l:'rupt' },
-  sousmin:  { c:'#fbbf24', bg:'rgba(251,191,36,.12)',  fg:'#fbbf24', l:'<min' },
-  surstock: { c:'#a78bfa', bg:'rgba(167,139,250,.13)', fg:'#c4b5fd', l:'sur' },
+  neg:      { c:'#ef4444', bg:'rgba(239,68,68,.22)',  fg:'#fecaca', l:'négatif' },
+  rupt:     { c:'#fca5a5', bg:'rgba(252,165,165,.12)', fg:'#fca5a5', l:'rupture' },
+  sousmin:  { c:'#fbbf24', bg:'rgba(251,191,36,.12)',  fg:'#fbbf24', l:'sous min' },
+  surstock: { c:'#a78bfa', bg:'rgba(167,139,250,.13)', fg:'#c4b5fd', l:'sur-stock' },
 };
 const ALERT_KEYS = ['neg','rupt','sousmin','surstock'];
 const VC = {
@@ -1200,9 +1201,9 @@ function TopBar({ title='PRISME', sub, back, onBack, onMenu, brand, badgeTxt, st
       <div style={{flex:1, minWidth:0}}>
         <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
           <div style={{fontSize:brand?15:14,fontWeight:800,color:T.t1,letterSpacing:brand?1.2:-.2,lineHeight:1.1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{title}</div>
-          {badgeTxt && <span className="mono" style={{fontSize:9.5,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6,flexShrink:0}}>{badgeTxt}</span>}
+          {badgeTxt && <span className="mono" style={{fontSize:12,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6,flexShrink:0}}>{badgeTxt}</span>}
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:T.t3,marginTop:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T.t3,marginTop:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">
           {status && <span style={{width:6,height:6,borderRadius:99,flexShrink:0,background:status==='off'?'#fbbf24':status==='load'?T.t3:'#22c55e',boxShadow:status==='on'?'0 0 0 3px rgba(34,197,94,.15)':'none',animation:status==='load'?'pulse 1.2s infinite':'none'}} />}
           <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{sub}</span>
         </div>
@@ -1248,7 +1249,7 @@ const pillBtn = () => ({
 });
 const badge = (bg,fg) => ({
   minWidth:18,height:18,padding:'0 5px',borderRadius:99,background:bg,color:fg,
-  fontSize:10,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',
+  fontSize:12,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',
 });
 
 // ── Inventaire banner (sticky en haut) ────────────────────────
@@ -1261,15 +1262,15 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-          <span style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
+          <span style={{fontSize:12,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
           <span style={{fontSize:12,fontWeight:800,color:T.t1}}>{zone}</span>
         </div>
         <div style={{marginTop:4,height:4,background:'rgba(0,0,0,.3)',borderRadius:99}}>
           <div style={{height:'100%',width:pct+'%',background:'#22c55e',borderRadius:99,transition:'width .3s'}} />
         </div>
-        <div style={{fontSize:10,color:T.t2,marginTop:3}} className="tn">{doneCount}/{total} · {total-doneCount} restants · voir liste</div>
+        <div style={{fontSize:12,color:T.t2,marginTop:3}} className="tn">{doneCount}/{total} · {total-doneCount} restants · voir liste</div>
       </div>
-      <button onClick={(e)=>{e.stopPropagation(); onExit();}} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
+      <button onClick={(e)=>{e.stopPropagation(); onExit();}} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:12,fontWeight:700}}>Sortir</button>
     </div>
   );
 }
@@ -1328,7 +1329,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
           <div style={{padding:'14px 16px',borderRadius:16,marginBottom:12,background:'radial-gradient(120% 140% at 100% 0%,rgba(239,68,68,.14),transparent 55%),#11141b',border:`1px solid ${T.border}`}}>
             <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12}}>
               <div style={{minWidth:0}}>
-                <div style={{fontSize:10.5,fontWeight:800,letterSpacing:1.4,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
+                <div style={{fontSize:12,fontWeight:800,letterSpacing:1.4,textTransform:'uppercase',color:'#fca5a5'}}>Actions requises</div>
                 <div style={{fontSize:12,color:T.t2,marginTop:4}}>{emplList.length} emplacement{emplList.length>1?'s':''} à visiter{treatedCount>0 && <span style={{color:'#86efac'}}> · {treatedCount} traité{treatedCount>1?'s':''}</span>}</div>
               </div>
               <span style={{fontSize:44,fontWeight:900,color:T.t1,letterSpacing:-2,lineHeight:.9}} className="tn">{shown.length.toLocaleString('fr-FR')}</span>
@@ -1358,11 +1359,11 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
                 <div style={{display:'flex',alignItems:'center',gap:12,width:'100%'}}>
                   <div style={{flexShrink:0,maxWidth:'58%',display:'flex',alignItems:'baseline',gap:8}}>
                     <span className={zone==='—'?'':'mono'} style={{fontSize:zone==='—'?14:20,fontWeight:800,color:zone==='—'?T.t2:T.accent,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',minWidth:0}}>{zone==='—' ? 'Sans emplacement' : zone}</span>
-                    <span className="tn" style={{fontSize:11,color:T.t3,flexShrink:0}}>{e.total} réf{e.total>1?'s':''}</span>
+                    <span className="tn" style={{fontSize:12,color:T.t3,flexShrink:0}}>{e.total} réf{e.total>1?'s':''}</span>
                   </div>
                   <div style={{flex:1,minWidth:0,display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
                     {ALERT_KEYS.map(k => e[k] > 0 && (
-                      <span key={k} className="tn" style={{padding:'2px 7px',borderRadius:6,background:ALERT[k].bg,color:ALERT[k].fg,fontSize:10.5,fontWeight:800,whiteSpace:'nowrap'}}>{e[k]} {ALERT[k].l}</span>
+                      <span key={k} className="tn" style={{padding:'2px 7px',borderRadius:6,background:ALERT[k].bg,color:ALERT[k].fg,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>{e[k]} {ALERT[k].l}</span>
                     ))}
                   </div>
                   <span style={{color:T.t3,display:'flex'}}><Ico d={ICONS.fwd} s={14} sw={2.5} /></span>
@@ -1380,8 +1381,8 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
           </div>
         </>) : (
           <div style={{padding:'14px 16px',borderRadius:14,background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.25)',marginBottom:14,display:'flex',gap:10,alignItems:'center'}}>
-            <div style={{width:36,height:36,borderRadius:99,background:'rgba(34,197,94,.18)',color:'#86efac',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.check} s={20} sw={3} /></div>
-            <div><div style={{fontSize:13,fontWeight:800,color:T.t1}}>Tout est à jour</div><div style={{fontSize:11,color:T.t2,marginTop:2}}>Aucune action en attente · {ARTICLES.length} réfs</div></div>
+            <div style={{width:44,height:44,borderRadius:99,background:'rgba(34,197,94,.18)',color:'#86efac',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.check} s={20} sw={3} /></div>
+            <div><div style={{fontSize:13,fontWeight:800,color:T.t1}}>Tout est à jour</div><div style={{fontSize:12,color:T.t2,marginTop:2}}>Aucune action en attente · {ARTICLES.length} réfs</div></div>
           </div>
         )}
 
@@ -1412,12 +1413,12 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
                 borderLeft:`3px solid ${v.edge}`,color:T.t1,textAlign:'left',
               }}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700}} className="mono"><span style={{color:T.t3}}>{a.code}</span><span style={{color:T.accent}}>{a.empl}</span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:700}} className="mono"><span style={{color:T.t3}}>{a.code}</span><span style={{color:T.accent}}>{a.empl}</span></div>
                   <div style={{fontSize:13,fontWeight:600,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                  <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                  <div style={{fontSize:12,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
                 </div>
               </button>
             );
@@ -1430,7 +1431,7 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   );
 }
 
-const sectionLabel = {fontSize:10.5,color:T.t3,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',margin:'4px 4px 8px'};
+const sectionLabel = {fontSize:12,color:T.t3,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',margin:'4px 4px 8px'};
 const statCard = () => ({padding:'14px 14px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`,textAlign:'left',color:T.t1});
 
 function ModeBtn({ dot, icon, l, s, onClick, active }) {
@@ -1446,7 +1447,7 @@ function ModeBtn({ dot, icon, l, s, onClick, active }) {
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:700}}>{l}{active && ' · actif'}</div>
-        <div style={{fontSize:11,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</div>
+        <div style={{fontSize:12,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</div>
       </div>
       <Ico d={ICONS.fwd} s={14} sw={2.5} />
     </button>
@@ -1502,15 +1503,15 @@ function SearchScreen({ onClose, onPick, onScan }) {
   return (
     <>
       <div style={{padding:'8px 12px 6px',display:'flex',alignItems:'center',gap:8,background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-        <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.back} /></button>
+        <button aria-label="Retour" onClick={onClose} style={btnIcon()}><Ico d={ICONS.back} /></button>
         <div style={{flex:1,display:'flex',alignItems:'center',gap:8,padding:'0 6px 0 12px',background:T.card,borderRadius:12,border:`1.5px solid ${q?T.accent:T.border}`,height:42,color:q?T.accent:T.t3}}>
           <Ico d={ICONS.search} s={16} />
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder={numPad?"Référence...":"Code, libellé, empl..."} autoFocus
             inputMode={numPad?'numeric':'text'}
             style={{flex:1,background:'none',border:'none',color:T.t1,fontSize:15,fontWeight:q?700:400,outline:'none',letterSpacing:q?.5:0}} className="tn" />
-          {q && <button onClick={()=>setQ('')} style={{background:'none',border:'none',color:T.t3,fontSize:18,cursor:'pointer',padding:'4px 8px'}}>✕</button>}
+          {q && <button aria-label="Effacer" onClick={()=>setQ('')} style={{background:'none',border:'none',color:T.t3,fontSize:18,cursor:'pointer',padding:'4px 8px'}}>✕</button>}
         </div>
-        <button onClick={onScan} style={{...btnIcon(),background:T.accent,color:'#1a0e05',width:40,height:40,borderRadius:11}}>
+        <button aria-label="Scanner" onClick={onScan} style={{...btnIcon(),background:T.accent,color:'#1a0e05',width:44,height:44,borderRadius:11}}>
           <Ico d={ICONS.scan} s={18} sw={2.5} />
         </button>
       </div>
@@ -1518,14 +1519,14 @@ function SearchScreen({ onClose, onPick, onScan }) {
         <button onClick={()=>{setNumPad(m=>!m);setTimeout(()=>inputRef.current?.focus(),50);}} style={{
           padding:'5px 10px',borderRadius:99,border:`1px solid ${numPad?'rgba(74,222,128,.6)':T.border}`,
           background:numPad?'rgba(74,222,128,.15)':'transparent',
-          color:numPad?'#4ade80':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
+          color:numPad?'#4ade80':T.t3,fontSize:12,fontWeight:800,cursor:'pointer',
         }}>{numPad ? '123' : 'ABC'}</button>
         {<button onClick={()=>setCatalogMode(m=>!m)} style={{
           padding:'5px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
           background:catalogMode?'rgba(96,165,250,.15)':'transparent',
-          color:catalogMode?'#60a5fa':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
+          color:catalogMode?'#60a5fa':T.t3,fontSize:12,fontWeight:800,cursor:'pointer',
         }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
-        {catalogMode && <span style={{fontSize:11,color:T.t3}}>{CATALOGUE ? Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR') + ' articles' : 'Chargement du catalogue…'}</span>}
+        {catalogMode && <span style={{fontSize:12,color:T.t3}}>{CATALOGUE ? Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR') + ' articles' : 'Chargement du catalogue…'}</span>}
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
@@ -1557,16 +1558,16 @@ function SearchScreen({ onClose, onPick, onScan }) {
                 }}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <span style={{fontSize:11,color:T.t3,fontWeight:700}} className="mono">{a.code}</span>
-                      {isCat && <span style={{fontSize:11,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
+                      <span style={{fontSize:12,color:T.t3,fontWeight:700}} className="mono">{a.code}</span>
+                      {isCat && <span style={{fontSize:12,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
                     </div>
                     <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
-                    <div style={{fontSize:11,color:isCat?'#60a5fa':T.accent,fontWeight:600,marginTop:1}}>{isCat?a.fam:a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
+                    <div style={{fontSize:12,color:isCat?'#60a5fa':T.accent,fontWeight:600,marginTop:1}}>{isCat?a.fam:a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                   </div>
                   {!isCat && (
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:18,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{a.stock}</div>
-                      <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
+                      <div style={{fontSize:12,color:T.t3,marginTop:2}} className="tn">{a.min}/{a.max}</div>
                     </div>
                   )}
                 </button>
@@ -1626,21 +1627,21 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         <TopBar title={a.code} sub="Article hors agence" back onBack={onBack} />
         <div style={{flex:1,padding:'18px 14px',overflow:'auto'}}>
           <div style={{padding:'18px 16px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`}}>
-            <div style={{fontSize:10,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:'uppercase'}}>Catalogue Legallais</div>
+            <div style={{fontSize:12,color:T.accent,fontWeight:900,letterSpacing:1.1,textTransform:'uppercase'}}>Catalogue Legallais</div>
             <div style={{fontSize:24,fontWeight:900,color:T.t1,marginTop:8,letterSpacing:.5}} className="tn">{a.code}</div>
             <div style={{fontSize:15,fontWeight:800,color:T.t1,marginTop:10,lineHeight:1.35}}>{a.lib}</div>
             <div style={{fontSize:12,color:T.t2,marginTop:8,lineHeight:1.5}}>{a.marque}{a.marque && a.fam ? ' · ' : ''}{a.fam}</div>
             <div style={{marginTop:14,padding:'12px',borderRadius:12,background:'rgba(251,146,60,.10)',border:'1px solid rgba(251,146,60,.28)'}}>
               <div style={{fontSize:12,fontWeight:800,color:T.accent}}>Article non référencé dans cette agence</div>
-              <div style={{fontSize:11,color:T.t2,marginTop:4,lineHeight:1.45}}>Le code-barres existe au catalogue, mais pas dans la base stock locale chargée.</div>
+              <div style={{fontSize:12,color:T.t2,marginTop:4,lineHeight:1.45}}>Le code-barres existe au catalogue, mais pas dans la base stock locale chargée.</div>
             </div>
             <div style={{marginTop:14,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               <div style={{padding:'10px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Statut</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Statut</div>
                 <div style={{fontSize:12,color:T.t1,fontWeight:800,marginTop:3}}>{a.statut}</div>
               </div>
               <div style={{padding:'10px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Emplacement</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',fontWeight:900,letterSpacing:.6}}>Emplacement</div>
                 <div style={{fontSize:12,color:T.t1,fontWeight:800,marginTop:3}}>{a.empl}</div>
               </div>
             </div>
@@ -1660,9 +1661,9 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
     return (
       <>
         <div style={{padding:'12px 14px',background:'#22c55e',color:'#06200f',display:'flex',alignItems:'center',gap:10,minHeight:52}}>
-          <button onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#06200f',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
+          <button aria-label="Retour" onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#06200f',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>OK · {a.empl}</div>
+            <div style={{fontSize:12,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>OK · {a.empl}</div>
             <div style={{fontSize:13,fontWeight:700}} className="tn">{a.code}</div>
           </div>
         </div>
@@ -1676,7 +1677,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           <div style={{marginTop:22,padding:'10px 14px',background:T.card,borderRadius:12,border:`1px solid ${T.border}`,display:'grid',gridTemplateColumns:'repeat(4,minmax(48px,1fr))',gap:14}}>
             {[['Stock', a.stock, '#86efac'],['Min ERP', a.min, T.t1],['Max ERP', a.max, T.t1],['Ventes 12 m', a.ventes ?? '—', T.t1]].map(([k,val,c])=>(
               <div key={k} style={{textAlign:'center'}}>
-                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>{k}</div>
                 <div style={{fontSize:18,fontWeight:900,color:c,marginTop:2,lineHeight:1}} className="tn">{val}</div>
               </div>
             ))}
@@ -1698,9 +1699,9 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
       {/* Verdict bandeau pleine largeur — remplace TopBar pour les états actionnables */}
       {a.primary && !invMode ? (
         <div style={{padding:'12px 14px',background:v.edge,color:'#0a0c10',display:'flex',alignItems:'center',gap:10,minHeight:52}}>
-          <button onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#0a0c10',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
+          <button aria-label="Retour" onClick={onBack} style={{width:44,height:44,borderRadius:12,border:'none',background:'rgba(0,0,0,.18)',color:'#0a0c10',padding:0,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ico d={ICONS.back} /></button>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:10,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>{_verdictLabel(a)} · {a.empl}</div>
+            <div style={{fontSize:12,fontWeight:900,letterSpacing:1.4,textTransform:'uppercase',opacity:.7}}>{_verdictLabel(a)} · {a.empl}</div>
             <div style={{fontSize:13,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="tn">{a.code} · {a.lib}</div>
           </div>
         </div>
@@ -1714,7 +1715,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         {!invMode && a.primary && !addedActions.some(x=>x.kind===a.primary.kind) && (
           <div className="pop" style={{padding:'18px 4px 6px',background:'linear-gradient(180deg,'+v.edge+'22 0%, transparent 80%)',borderRadius:16,marginBottom:10,position:'relative'}}>
             <div style={{padding:'0 14px'}}>
-              <div style={{fontSize:11,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase'}}>Recommandation PRISME</div>
+              <div style={{fontSize:12,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase'}}>Recommandation PRISME</div>
               <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:6}}>
                 <div style={{width:46,height:46,borderRadius:13,background:v.bg,color:v.fg,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'center'}}>
                   <Ico d={a.primary.kind==='retour' ? ICONS.back : a.primary.kind==='corriger_stock' ? ICONS.edit : ICONS.cart} s={24} sw={2} />
@@ -1771,8 +1772,8 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         <div className="pop" style={{background:T.card,borderRadius:16,border:`1px solid ${T.border}`,padding:'12px 14px',position:'relative',overflow:'hidden'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:16,color:T.t1,fontWeight:800}} className="mono">{a.code}</span>
-            <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</span>
-            <span style={{marginLeft:'auto',fontSize:10,color:T.t3,fontWeight:600}}>{a.sq}</span>
+            <span style={{padding:'2px 8px',borderRadius:99,background:v.bg,color:v.fg,fontSize:12,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>● {_verdictLabel(a)}</span>
+            <span style={{marginLeft:'auto',fontSize:12,color:T.t3,fontWeight:600}}>{a.sq}</span>
           </div>
           <div style={{fontSize:14,fontWeight:700,color:T.t1,marginTop:5,lineHeight:1.3}}>{a.lib}</div>
           <div style={{fontSize:12,color:T.t2,marginTop:2}}>{[a.marque, a.fam].filter(Boolean).join(' · ')}</div>
@@ -1786,24 +1787,24 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           {/* KPI row : Stock / Min / Max / Couv. */}
           <div style={{marginTop:12,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Stock</div>
+              <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Stock</div>
               <div style={{fontSize:20,fontWeight:900,color:v.fg,marginTop:2,lineHeight:1}} className="tn">{a.stock}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>actuel</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}}>actuel</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min ERP</div>
+              <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Min ERP</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.min}</div>
-              <div style={{fontSize:11,color:a.pMin != null && a.pMin !== a.min ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMin != null ? `PRISME ${a.pMin}` : 'seuil'}</div>
+              <div style={{fontSize:12,color:a.pMin != null && a.pMin !== a.min ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMin != null ? `PRISME ${a.pMin}` : 'seuil'}</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max ERP</div>
+              <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Max ERP</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.max}</div>
-              <div style={{fontSize:11,color:a.pMax != null && a.pMax !== a.max ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMax != null ? `PRISME ${a.pMax}` : 'cible'}</div>
+              <div style={{fontSize:12,color:a.pMax != null && a.pMax !== a.max ? '#facc15' : T.t3,marginTop:1}} className="tn">{a.pMax != null ? `PRISME ${a.pMax}` : 'cible'}</div>
             </div>
             <div style={{padding:'8px 4px',background:'#0a0c10',borderRadius:10,textAlign:'center'}}>
-              <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Ventes 12 m</div>
+              <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:800}}>Ventes 12 m</div>
               <div style={{fontSize:18,fontWeight:900,color:T.t1,marginTop:2,lineHeight:1}} className="tn">{a.ventes != null ? a.ventes : '—'}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{a.qteVendue ? `${a.qteVendue} pcs` : ''}{_couvLabel(a) !== '—' ? `${a.qteVendue ? ' · ' : ''}${_couvLabel(a)}` : ''}</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}} className="tn">{a.qteVendue ? `${a.qteVendue} pcs` : ''}{_couvLabel(a) !== '—' ? `${a.qteVendue ? ' · ' : ''}${_couvLabel(a)}` : ''}</div>
             </div>
           </div>
 
@@ -1814,31 +1815,31 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:12,display:'flex',alignItems:'center',gap:10}}>
               <div style={{width:32,height:32,borderRadius:9,background:T.accentSoft,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={ICONS.pin} s={16} sw={2} /></div>
               <div style={{minWidth:0}}>
-                <div style={{fontSize:10,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:800}}>Emplacement</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:800}}>Emplacement</div>
                 <div style={{fontSize:17,fontWeight:800,color:T.accent,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="mono">{a.empl}</div>
               </div>
             </div>
             {a.prix != null && (
               <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
-                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix de vente moy.</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix de vente moy.</div>
                 <div style={{fontSize:15,fontWeight:700,color:T.t1,marginTop:2,filter:priceShown?'none':'blur(5px)',transition:'filter .15s'}} className="tn">{a.prix.toFixed(2)} €</div>
               </button>
             )}
           </div>
 
           {/* Détails intégrés */}
-          <button onClick={()=>setDetailsOpen(d=>!d)} style={{marginTop:8,width:'100%',padding:'8px 10px',background:'#0a0c10',borderRadius:10,color:T.t3,fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5,border:'none'}}>
+          <button onClick={()=>setDetailsOpen(d=>!d)} style={{marginTop:8,width:'100%',padding:'8px 10px',background:'#0a0c10',borderRadius:10,color:T.t3,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5,border:'none'}}>
             <Ico d={detailsOpen ? "<path d='M18 15l-6-6-6 6'/>" : "<path d='M6 9l6 6 6-6'/>"} s={12} sw={2.5} />{detailsOpen ? 'Masquer' : 'Plus de détails'}
           </button>
           {detailsOpen && (
-            <div style={{padding:'8px 10px',color:T.t2,fontSize:11,lineHeight:1.8,background:'#0a0c10',borderRadius:'0 0 10px 10px',marginTop:-2}}>
+            <div style={{padding:'8px 10px',color:T.t2,fontSize:12,lineHeight:1.8,background:'#0a0c10',borderRadius:'0 0 10px 10px',marginTop:-2}}>
               <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}} className="mono">{_eanByCode.get(a.code) || '—'}</strong></div>
               {getCustomEansForCode(a.code).length > 0 && (
                 <div style={{marginTop:2,marginBottom:2}}>
                   <span style={{color:T.t3}}>Associations</span>
                   {getCustomEansForCode(a.code).map(ean=>(
                     <div key={ean} style={{display:'inline-flex',alignItems:'center',gap:4,marginLeft:6,padding:'1px 6px',background:'rgba(251,146,60,.12)',borderRadius:6}}>
-                      <strong style={{color:T.t1,fontSize:11}} className="mono">{ean}</strong>
+                      <strong style={{color:T.t1,fontSize:12}} className="mono">{ean}</strong>
                       <button onClick={(ev)=>{ ev.stopPropagation(); removeCustomEan(ean); setFlip(f=>f+1); }} style={{background:'none',border:'none',color:'#fca5a5',fontSize:13,fontWeight:800,padding:'0 2px',cursor:'pointer',lineHeight:1}}>x</button>
                     </div>
                   ))}
@@ -1857,7 +1858,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         {invMode && (
           <div className="pop" style={{marginTop:10,padding:'12px 14px 14px',background:'#16301f',borderRadius:14,border:'1px solid rgba(34,197,94,.3)'}}>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
-              <div style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Quantité comptée</div>
+              <div style={{fontSize:12,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Quantité comptée</div>
               {invVal !== '' && parseInt(invVal,10) !== a.stock && (
                 <div style={{fontSize:12,fontWeight:800,color:'#fbbf24'}} className="tn">écart {parseInt(invVal,10)-a.stock>0?'+':''}{parseInt(invVal,10)-a.stock}</div>
               )}
@@ -1872,7 +1873,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
         {/* Actions déjà ajoutées */}
         {addedActions.length > 0 && (
           <div className="pop" style={{marginTop:10,padding:'10px 12px',background:T.accentSoft,borderRadius:14,border:'1px solid rgba(251,146,60,.28)'}}>
-            <div style={{fontSize:10.5,color:T.accent,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>{addedActions.length} action{addedActions.length>1?'s':''} en attente</div>
+            <div style={{fontSize:12,color:T.accent,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>{addedActions.length} action{addedActions.length>1?'s':''} en attente</div>
             {addedActions.map((act,i)=>(
               <div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:12.5,color:T.t1,padding:'3px 0'}}><span style={{color:'#86efac',display:'flex'}}><Ico d={ICONS.check} s={14} sw={3} /></span>{act.label}</div>
             ))}
@@ -1893,7 +1894,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 <div style={{width:40,height:40,borderRadius:10,background:'rgba(234,179,8,.16)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:800}}>ERP</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:800}}>{erpAction.label}</div>
-                  <div style={{fontSize:11,opacity:.75,marginTop:1}}>{erpAction.sub}</div>
+                  <div style={{fontSize:12,opacity:.75,marginTop:1}}>{erpAction.sub}</div>
                 </div>
                 <Ico d={ICONS.fwd} s={18} sw={2.5} />
               </button>
@@ -1947,7 +1948,7 @@ function StockGauge({ stock, min, max, color }) {
         <div style={{position:'absolute',top:0,bottom:0,left:0,width:sp+'%',borderRadius:99,background:color,opacity:.55}} />
         <div style={{position:'absolute',top:-4,left:`calc(${sp}% - 2px)`,width:4,height:16,borderRadius:2,background:color,boxShadow:'0 0 0 2px #0a0c10'}} />
       </div>
-      <div style={{position:'relative',height:14,marginTop:5,fontSize:10,color:T.t3,fontWeight:700}} className="tn">
+      <div style={{position:'relative',height:14,marginTop:5,fontSize:12,color:T.t3,fontWeight:700}} className="tn">
         <span style={{position:'absolute',left:0}}>0</span>
         {max > 0 && <span style={{position:'absolute',left:pct(min)+'%',transform:'translateX(-50%)',whiteSpace:'nowrap'}}>{max === min ? `min/max ${min}` : `min ${min}`}</span>}
         {max > 0 && max !== min && <span style={{position:'absolute',left:pct(max)+'%',transform:'translateX(-50%)',whiteSpace:'nowrap'}}>max {max}</span>}
@@ -1991,7 +1992,7 @@ function Sheet({ children, onClose, title, h='auto' }) {
         <div style={{width:40,height:5,borderRadius:99,background:'#2e3440',margin:'8px auto 0'}} />
         {title && <div style={{padding:'10px 14px 6px 18px',display:'flex',alignItems:'center'}}>
           <div style={{flex:1,fontSize:16,fontWeight:800,color:T.t1,letterSpacing:-.2}}>{title}</div>
-          <button onClick={onClose} style={{...btnIcon(),background:T.card2,borderRadius:99,width:36,height:36}} aria-label="Fermer"><Ico d={ICONS.close} s={16} /></button>
+          <button onClick={onClose} style={{...btnIcon(),background:T.card2,borderRadius:99,width:44,height:44}} aria-label="Fermer"><Ico d={ICONS.close} s={16} /></button>
         </div>}
         {children}
       </div>
@@ -2018,7 +2019,7 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
   return (
     <Sheet onClose={onClose} title="Que veux-tu faire ?">
       <div style={{padding:'4px 14px 0'}}>
-        <div style={{fontSize:11.5,color:T.t3,padding:'0 4px 10px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}><span className="mono" style={{color:T.t2,fontWeight:700}}>{a.code}</span> · {a.lib}</div>
+        <div style={{fontSize:12,color:T.t3,padding:'0 4px 10px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}><span className="mono" style={{color:T.t2,fontWeight:700}}>{a.code}</span> · {a.lib}</div>
         {all.map((x,i)=>(
           <button key={i} onClick={()=>onAdd(x.kind, x.label + (x.sub&&x.kind==='erp'?' · '+x.sub:'') + (x.qty?` (${x.qty} pcs)`:''), x.dest, x.eta)} style={{
             width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 14px',
@@ -2031,7 +2032,7 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
               : <div style={{width:40,height:40,borderRadius:10,background:x.primary?'rgba(0,0,0,.18)':T.card2,color:x.primary?'inherit':T.t2,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Ico d={KIND_ICON[x.kind] || ICONS.fwd} s={18} sw={2} /></div>}
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:800}}>{x.label}</div>
-              <div style={{fontSize:11,opacity:.75,marginTop:1}}>{x.sub}</div>
+              <div style={{fontSize:12,opacity:.75,marginTop:1}}>{x.sub}</div>
             </div>
             <Ico d={ICONS.fwd} s={16} sw={2.5} />
           </button>
@@ -2078,7 +2079,7 @@ function ZonePickerSheet({ onClose, onPick }) {
               }}
             />
             {q && (
-              <button onClick={()=>setQ('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',padding:6,background:'transparent',border:'none',color:T.t3,cursor:'pointer'}}>
+              <button aria-label="Effacer" onClick={()=>setQ('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',padding:6,background:'transparent',border:'none',color:T.t3,cursor:'pointer'}}>
                 <Ico d={ICONS.close} s={14} sw={2.5} />
               </button>
             )}
@@ -2094,9 +2095,9 @@ function ZonePickerSheet({ onClose, onPick }) {
             }}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:16,fontWeight:800,color:T.accent,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="mono">{z}</div>
-                <div style={{fontSize:11,color:T.t2,marginTop:2}} className="tn">{e.count} article{e.count>1?'s':''}</div>
+                <div style={{fontSize:12,color:T.t2,marginTop:2}} className="tn">{e.count} article{e.count>1?'s':''}</div>
               </div>
-              {e.alerts > 0 && <span className="tn" style={{padding:'2px 8px',borderRadius:6,background:ALERT.sousmin.bg,color:ALERT.sousmin.fg,fontSize:10.5,fontWeight:800}}>{e.alerts} alerte{e.alerts>1?'s':''}</span>}
+              {e.alerts > 0 && <span className="tn" style={{padding:'2px 8px',borderRadius:6,background:ALERT.sousmin.bg,color:ALERT.sousmin.fg,fontSize:12,fontWeight:800}}>{e.alerts} alerte{e.alerts>1?'s':''}</span>}
               <Ico d={ICONS.fwd} s={14} sw={2.5} />
             </button>
           ))}
@@ -2131,12 +2132,12 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:700,color:x.danger?'#fca5a5':T.t1}}>{x.l}</div>
-              <div style={{fontSize:11,color:T.t2,marginTop:1}}>{x.s}</div>
+              <div style={{fontSize:12,color:T.t2,marginTop:1}}>{x.s}</div>
             </div>
             <Ico d={ICONS.fwd} s={14} sw={2.5} />
           </button>
         ))}
-        <div style={{textAlign:'center',fontSize:11,color:T.t3,padding:'8px 0 4px'}} className="tn">PRISME Scan · {SCAN_VERSION}</div>
+        <div style={{textAlign:'center',fontSize:12,color:T.t3,padding:'8px 0 4px'}} className="tn">PRISME Scan · {SCAN_VERSION}</div>
       </div>
     </Sheet>
   );
@@ -2167,6 +2168,12 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const ocrRequestRef = useRef(false); // OCR seulement à la demande (bouton « Lire l'étiquette »)
   const [ocrAsk, setOcrAsk] = useState(false);
   const [ocrFail, setOcrFail] = useState(false);
+  const [torch, setTorch] = useState(null); // null = pas de lampe sur cet appareil, false/true = éteinte/allumée
+  const toggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+    if (!track) return;
+    try { await track.applyConstraints({ advanced: [{ torch: !torch }] }); setTorch(!torch); } catch (e) { setTorch(null); }
+  };
   const ocrBusyRef = useRef(false);
   const lastOcrTimeRef = useRef(0);
   const paddleOcrRef = useRef(null);
@@ -2482,10 +2489,11 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
             const z = Math.min(1.5, caps.zoom.max);
             await track.applyConstraints({ advanced: [{ zoom: z }] });
           }
+          if (caps?.torch) setTorch(false); // lampe disponible (Android ; iPhone : non exposée par Safari)
         } catch(e){}
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().then(() => { scanLoop(); });
+          videoRef.current.play().then(() => { scanLoop(); }).catch(() => setUnreadable(true)); // lecture vidéo refusée (économie d'énergie…)
         }
       } catch (err) {
         console.warn('Camera:', err);
@@ -2530,49 +2538,55 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         </div>
 
         {/* close */}
-        <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:38,height:38,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:'#fff',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <button aria-label="Fermer la caméra" onClick={onClose} style={{position:'absolute',top:14,left:14,width:44,height:44,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:'#fff',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <Ico d={ICONS.close} s={18} sw={2.5} />
         </button>
 
         {/* Counter pill (top center) */}
         <div style={{position:'absolute',top:14,left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:6,padding:'6px 10px 6px 8px',background:'rgba(0,0,0,.6)',borderRadius:99,backdropFilter:'blur(8px)'}}>
-          <div style={{width:20,height:20,borderRadius:99,background:detected.length>0?'#22c55e':'rgba(255,255,255,.15)',color:'#000',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}} className="tn">{detected.length}</div>
-          <span style={{fontSize:11,color:'#fff',fontWeight:700,letterSpacing:.3}}>scanné{detected.length>1?'s':''}</span>
+          <div style={{width:20,height:20,borderRadius:99,background:detected.length>0?'#22c55e':'rgba(255,255,255,.15)',color:'#000',fontSize:12,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}} className="tn">{detected.length}</div>
+          <span style={{fontSize:12,color:'#fff',fontWeight:700,letterSpacing:.3}}>scanné{detected.length>1?'s':''}</span>
           {counts.attention > 0 && (
             <>
               <span style={{width:1,height:12,background:'rgba(255,255,255,.2)'}} />
               <Dot c="#ef4444" s={6} />
-              <span style={{fontSize:11,color:'#fca5a5',fontWeight:700}} className="tn">{counts.attention}</span>
+              <span style={{fontSize:12,color:'#fca5a5',fontWeight:700}} className="tn">{counts.attention}</span>
             </>
           )}
         </div>
 
         {/* Haptic toggle */}
-        <button onClick={()=>setHaptic(h=>!h)} style={{position:'absolute',top:14,right:96,width:38,height:38,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:haptic?'#fb923c':'rgba(255,255,255,.4)',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} title={haptic?'Vibreur on':'Vibreur off'}>
+        <button aria-label="Son et vibration" aria-pressed={haptic} onClick={()=>setHaptic(h=>!h)} style={{position:'absolute',top:14,right:96,width:44,height:44,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:haptic?'#fb923c':'rgba(255,255,255,.4)',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} title={haptic?'Vibreur on':'Vibreur off'}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             {haptic ? <><path d="M12 6v12"/><path d="M8 9v6"/><path d="M16 9v6"/><path d="M4 11v2"/><path d="M20 11v2"/></> : <><path d="M12 6v12"/><path d="M3 3l18 18"/></>}
           </svg>
         </button>
 
         {/* mode chip */}
-        <div style={{position:'absolute',top:14,right:14,padding:'6px 10px',background: continu ? 'rgba(96,165,250,.9)' : 'rgba(251,146,60,.9)',color: continu ? '#fff' : '#1a0e05',borderRadius:99,fontSize:10,fontWeight:800,letterSpacing:.5}}>{continu ? 'CONTINU' : 'DIRECT'}</div>
+        <div style={{position:'absolute',top:14,right:14,padding:'6px 10px',background: continu ? 'rgba(96,165,250,.9)' : 'rgba(251,146,60,.9)',color: '#0a0c10',borderRadius:99,fontSize:12,fontWeight:800,letterSpacing:.5}}>{continu ? 'CONTINU' : 'DIRECT'}</div>
 
         {/* Dup notice */}
         {unreadable && (
-          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(239,68,68,.95)',color:'#fff',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>⚠ Caméra indisponible · autorise l’accès</div>
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(185,28,28,.96)',color:'#fff',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>⚠ Caméra indisponible · autorise l’accès</div>
         )}
         {catLoading && (
-          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(96,165,250,.95)',color:'#fff',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>Recherche dans le catalogue…</div>
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(96,165,250,.95)',color:'#0a0c10',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>Recherche dans le catalogue…</div>
         )}
         {dupNotice && (
-          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(251,191,36,.95)',color:'#1a0e05',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>↻ Déjà scanné · {dupNotice.code}</div>
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',padding:'8px 14px',background:'rgba(251,191,36,.95)',color:'#1a0e05',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>↻ Déjà scanné · {dupNotice.code}</div>
         )}
         {unknownNotice && (
-          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:'rgba(239,68,68,.95)',color:'#fff',borderRadius:99,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>
+          <div className="pop" style={{position:'absolute',top:60,left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:'rgba(185,28,28,.96)',color:'#fff',borderRadius:99,fontSize:12,fontWeight:800,whiteSpace:'nowrap'}}>
             <span>? {unknownNotice}</span>
-            <button onClick={()=>{ setUnknownNotice(null); onUnknown && onUnknown(unknownNotice); }} style={{background:'#fff',color:'#b91c1c',border:'none',borderRadius:99,padding:'3px 10px',fontSize:10,fontWeight:900,cursor:'pointer'}}>Associer</button>
-            <button onClick={()=>setUnknownNotice(null)} style={{background:'none',border:'none',color:'rgba(255,255,255,.7)',fontSize:14,fontWeight:800,cursor:'pointer',padding:'0 2px'}}>✕</button>
+            <button onClick={()=>{ setUnknownNotice(null); onUnknown && onUnknown(unknownNotice); }} style={{background:'#fff',color:'#b91c1c',border:'none',borderRadius:99,padding:'3px 10px',fontSize:12,fontWeight:900,cursor:'pointer'}}>Associer</button>
+            <button aria-label="Fermer" onClick={()=>setUnknownNotice(null)} style={{background:'none',border:'none',color:'rgba(255,255,255,.7)',fontSize:14,fontWeight:800,cursor:'pointer',padding:'0 2px'}}>✕</button>
           </div>
+        )}
+
+        {/* Lampe torche */}
+        {torch !== null && (
+          <button aria-label={torch ? 'Éteindre la lampe' : 'Allumer la lampe'} aria-pressed={torch} onClick={toggleTorch}
+            style={{position:'absolute',bottom:52,left:14,width:52,height:52,borderRadius:99,border:'1px solid rgba(255,255,255,.35)',background:torch?'#fde68a':'rgba(0,0,0,.6)',color:torch?'#111':'#fff',fontSize:22,display:'flex',alignItems:'center',justifyContent:'center'}}>🔦</button>
         )}
 
         {/* OCR à la demande */}
@@ -2594,7 +2608,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         </div>
         {detected.length === 0 ? (
           <div style={{padding:'14px 18px 12px',color:T.t2,fontSize:12,textAlign:'center'}}>
-            <div style={{fontSize:11,opacity:.6,fontWeight:600,letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>En attente</div>
+            <div style={{fontSize:12,opacity:.6,fontWeight:600,letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>En attente</div>
             <div style={{display:'flex',gap:4,justifyContent:'center'}}>
               {[0,1,2].map(i => <div key={i} style={{width:8,height:8,borderRadius:99,background:T.t3,animation:`pulse 1.4s ease-in-out ${i*.2}s infinite`}} />)}
             </div>
@@ -2603,7 +2617,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           <div style={{padding:'4px 14px 0'}}>
             <div style={{display:'flex',alignItems:'center',padding:'4px 4px 8px'}}>
               <div style={{flex:1,fontSize:13,fontWeight:800,color:T.t1}}>{detected.length} article{detected.length>1?'s':''}</div>
-              <button onClick={()=>setDetected([])} style={{background:'none',border:'none',color:'#fca5a5',fontSize:11,fontWeight:800,padding:6}}>EFFACER</button>
+              <button onClick={()=>setDetected([])} style={{background:'none',border:'none',color:'#fca5a5',fontSize:12,fontWeight:800,padding:6}}>EFFACER</button>
             </div>
             {detected.map(d => {
               const v = VC[d.verdict];
@@ -2619,15 +2633,15 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <span style={{fontSize:15,color:T.t1,fontWeight:900,fontFamily:'ui-monospace,monospace'}} className="tn">{d.code}</span>
-                      {d.barHint && <span style={{fontSize:10,color:T.accent,fontWeight:700}} className="tn">{d.barHint}</span>}
-                      <span style={{padding:'1px 6px',borderRadius:99,background:v.bg,color:v.fg,fontSize:11,fontWeight:800,letterSpacing:.3,textTransform:'uppercase'}}>{v.label}</span>
+                      {d.barHint && <span style={{fontSize:12,color:T.accent,fontWeight:700}} className="tn">{d.barHint}</span>}
+                      <span style={{padding:'1px 6px',borderRadius:99,background:v.bg,color:v.fg,fontSize:12,fontWeight:800,letterSpacing:.3,textTransform:'uppercase'}}>{v.label}</span>
                     </div>
                     <div style={{fontSize:12,fontWeight:500,color:T.t3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{d.lib}</div>
-                    <div style={{fontSize:11,color:T.accent,fontWeight:600,marginTop:1}}>{d.empl}</div>
+                    <div style={{fontSize:12,color:T.accent,fontWeight:600,marginTop:1}}>{d.empl}</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontSize:16,fontWeight:800,color:v.fg,lineHeight:1}} className="tn">{d.stock}</div>
-                    <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{d.min}/{d.max}</div>
+                    <div style={{fontSize:12,color:T.t3,marginTop:2}} className="tn">{d.min}/{d.max}</div>
                   </div>
                 </button>
               );
@@ -2741,27 +2755,27 @@ function DouchetteScreen({ onBack, onArticle }) {
           }}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:16,color:T.t1,fontWeight:900,letterSpacing:.4}} className="tn">{last.code}</span>
-              <span style={{padding:'2px 8px',borderRadius:99,background:VC[last.verdict].bg,color:VC[last.verdict].fg,fontSize:10,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>{VC[last.verdict].label}</span>
-              <span style={{marginLeft:'auto',fontSize:10,color:'#a78bfa',fontWeight:700}}>● SCANNÉ</span>
+              <span style={{padding:'2px 8px',borderRadius:99,background:VC[last.verdict].bg,color:VC[last.verdict].fg,fontSize:12,fontWeight:800,letterSpacing:.5,textTransform:'uppercase'}}>{VC[last.verdict].label}</span>
+              <span style={{marginLeft:'auto',fontSize:12,color:'#a78bfa',fontWeight:700}}>● SCANNÉ</span>
             </div>
             <div style={{fontSize:18,fontWeight:800,marginTop:8,lineHeight:1.25}}>{last.lib}</div>
             <div style={{fontSize:12,color:T.t2,marginTop:3}}>{[last.marque, last.fam].filter(Boolean).join(' · ')}</div>
             <div style={{marginTop:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Stock</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Stock</div>
                 <div style={{fontSize:22,fontWeight:900,color:VC[last.verdict].fg,marginTop:2}} className="tn">{last.stock}</div>
-                <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{last.min}/{last.max}</div>
+                <div style={{fontSize:12,color:T.t3,marginTop:2}} className="tn">{last.min}/{last.max}</div>
               </div>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Empl.</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Empl.</div>
                 <div style={{fontSize:14,fontWeight:800,color:T.accent,marginTop:4}}>{last.empl}</div>
               </div>
               <div style={{padding:'10px 12px',background:'#0a0c10',borderRadius:10}}>
-                <div style={{fontSize:11,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Couv.</div>
+                <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.6,fontWeight:700}}>Couv.</div>
                 <div style={{fontSize:14,fontWeight:800,color:T.t1,marginTop:4}} className="tn">{_couvLabel(last)}</div>
               </div>
             </div>
-            <div style={{marginTop:10,fontSize:11,color:T.t3,textAlign:'right'}}>Tape pour la fiche complète →</div>
+            <div style={{marginTop:10,fontSize:12,color:T.t3,textAlign:'right'}}>Tape pour la fiche complète →</div>
           </button>
         )}
 
@@ -2775,7 +2789,7 @@ function DouchetteScreen({ onBack, onArticle }) {
                   background:'rgba(255,255,255,.02)',borderRadius:8,border:'none',
                   color:T.t2,textAlign:'left',
                 }}>
-                  <span style={{fontSize:11,color:T.t3,fontWeight:600,minWidth:50}} className="tn">{h.code}</span>
+                  <span style={{fontSize:12,color:T.t3,fontWeight:600,minWidth:50}} className="tn">{h.code}</span>
                   <span style={{flex:1,fontSize:12,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.lib}</span>
                 </button>
               ))}
@@ -2817,7 +2831,7 @@ function EanSheet({ onClose, onPick }) {
                   <div key={ean} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:T.card,borderRadius:10,border:`1px solid ${T.border}`,marginBottom:4}}>
                     <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>onPick(code)}>
                       <div style={{fontSize:12,fontWeight:700,color:T.accent,fontFamily:'ui-monospace,monospace'}} className="tn">{ean}</div>
-                      <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{code} <span style={{color:T.t2,fontFamily:'inherit'}}>{a?.lib || '?'}</span></div>
+                      <div style={{fontSize:12,color:T.t3,marginTop:1}} className="tn">{code} <span style={{color:T.t2,fontFamily:'inherit'}}>{a?.lib || '?'}</span></div>
                     </div>
                     <button onClick={()=>{ removeCustomEan(ean); setFlip(f=>f+1); }} style={{background:'none',border:'none',color:'#fca5a5',fontSize:16,fontWeight:800,padding:'4px 8px',cursor:'pointer'}}>x</button>
                   </div>
@@ -2846,9 +2860,9 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
     <Sheet onClose={onClose} title="Code non reconnu">
       <div style={{padding:'4px 14px 0'}}>
         <div style={{padding:'14px 16px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.25)',borderRadius:12,marginBottom:10}}>
-          <div style={{fontSize:10,color:'#fca5a5',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>EAN scanné</div>
+          <div style={{fontSize:12,color:'#fca5a5',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>EAN scanné</div>
           <div style={{fontSize:18,fontWeight:800,color:T.t1,marginTop:4,fontFamily:'ui-monospace,monospace'}} className="tn">{code}</div>
-          <div style={{fontSize:11,color:T.t2,marginTop:4}}>Ce code n'existe pas dans le catalogue PRISME.</div>
+          <div style={{fontSize:12,color:T.t2,marginTop:4}}>Ce code n'existe pas dans le catalogue PRISME.</div>
         </div>
         {!picking ? (
           <>
@@ -2868,9 +2882,9 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
                   background:T.card,borderRadius:10,border:`1px solid ${T.border}`,color:T.t1,textAlign:'left',marginBottom:4,
                 }}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code}</div>
+                    <div style={{fontSize:12,color:T.t3,fontWeight:600}} className="tn">{a.code}</div>
                     <div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
-                    <div style={{fontSize:10,color:T.accent}}>{a.empl}</div>
+                    <div style={{fontSize:12,color:T.accent}}>{a.empl}</div>
                   </div>
                   <Ico d={ICONS.fwd} s={14} sw={2.5} />
                 </button>
@@ -2909,16 +2923,16 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
         <button onClick={()=>onPick(x.code)} style={{display:'block',width:'100%',background:'transparent',border:'none',color:T.t1,textAlign:'left',padding:0,cursor:'pointer'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:15,fontWeight:900,color:T.t1,fontFamily:'ui-monospace,monospace'}} className="tn">{x.code}</span>
-            <span style={{fontSize:11,color:T.accent,fontWeight:700}}>{a?.empl || '—'}</span>
-            {v && <span style={{padding:'1px 5px',borderRadius:99,background:v.bg,color:v.fg,fontSize:10,fontWeight:800,textTransform:'uppercase',marginLeft:'auto'}}>{v.label}</span>}
+            <span style={{fontSize:12,color:T.accent,fontWeight:700}}>{a?.empl || '—'}</span>
+            {v && <span style={{padding:'1px 5px',borderRadius:99,background:v.bg,color:v.fg,fontSize:12,fontWeight:800,textTransform:'uppercase',marginLeft:'auto'}}>{v.label}</span>}
           </div>
           <div style={{fontSize:13,fontWeight:700,marginTop:2}}>{x.label}</div>
-          {a && <div style={{fontSize:11,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>}
+          {a && <div style={{fontSize:12,color:T.t2,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>}
         </button>
         {x.status==='pending' && (
           <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid rgba(255,255,255,.05)',display:'flex',justifyContent:'flex-end',gap:6}}>
-            <button onClick={()=>onValidate(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(34,197,94,.25)',background:'rgba(34,197,94,.08)',color:'#86efac',fontSize:11,fontWeight:800}}>Fait</button>
-            <button onClick={()=>onUndo(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'transparent',color:T.t2,fontSize:11,fontWeight:700}}>Annuler</button>
+            <button onClick={()=>onValidate(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(34,197,94,.25)',background:'rgba(34,197,94,.08)',color:'#86efac',fontSize:12,fontWeight:800}}>Fait</button>
+            <button onClick={()=>onUndo(x.code, x.id)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.12)',background:'transparent',color:T.t2,fontSize:12,fontWeight:700}}>Annuler</button>
           </div>
         )}
       </div>
@@ -2926,7 +2940,7 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
   };
   const Section = ({ title, items, color }) => items.length === 0 ? null : (
     <div style={{marginBottom:10}}>
-      <div style={{fontSize:10,color:color,fontWeight:800,letterSpacing:.8,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
+      <div style={{fontSize:12,color:color,fontWeight:800,letterSpacing:.8,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
         <span>{title}</span><span style={{color:T.t3,fontWeight:600}}>· {items.length}</span>
       </div>
       {items.map(x => <Row key={x.id} x={x} />)}
@@ -2938,18 +2952,18 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
         {all.length === 0 ? (
           <div style={{textAlign:'center',padding:'30px 20px',color:T.t2}}>
             <div style={{fontSize:13}}>Rien aujourd'hui</div>
-            <div style={{fontSize:11,color:T.t3,marginTop:6}}>Scanne un article pour commencer</div>
+            <div style={{fontSize:12,color:T.t3,marginTop:6}}>Scanne un article pour commencer</div>
           </div>
         ) : (
           <>
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,marginBottom:12}}>
               <div style={{padding:'8px 10px',background:'rgba(251,191,36,.08)',borderRadius:10,border:'1px solid rgba(251,191,36,.3)'}}>
                 <div style={{fontSize:18,fontWeight:900,color:'#fbbf24'}} className="tn">{pending.length}</div>
-                <div style={{fontSize:11,color:T.t2,marginTop:1}}>en attente</div>
+                <div style={{fontSize:12,color:T.t2,marginTop:1}}>en attente</div>
               </div>
               <div style={{padding:'8px 10px',background:'rgba(34,197,94,.08)',borderRadius:10,border:'1px solid rgba(34,197,94,.25)'}}>
                 <div style={{fontSize:18,fontWeight:900,color:'#86efac'}} className="tn">{validated.length}</div>
-                <div style={{fontSize:11,color:T.t2,marginTop:1}}>validees</div>
+                <div style={{fontSize:12,color:T.t2,marginTop:1}}>validees</div>
               </div>
             </div>
             <Section title="En attente" items={pending} color="#fbbf24" />
@@ -3025,12 +3039,12 @@ function LabelsSheet({ onClose, actions, onMarkPrinted, onMarkAllPrinted }) {
         {list.length === 0 ? (
           <div style={{textAlign:'center',padding:'30px 20px',color:T.t2}}>
             <div style={{fontSize:13}}>Aucune étiquette en attente</div>
-            <div style={{fontSize:11,color:T.t3,marginTop:6}}>Ajoute "Étiquette manquante" sur une fiche article</div>
+            <div style={{fontSize:12,color:T.t3,marginTop:6}}>Ajoute "Étiquette manquante" sur une fiche article</div>
           </div>
         ) : (
           <>
             {pending.length > 0 && (<>
-              <div style={{fontSize:10,color:'#c4b5fd',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
+              <div style={{fontSize:12,color:'#c4b5fd',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
                 <span>À imprimer</span><span style={{color:T.t3,fontWeight:600}}>· {pending.length}</span>
               </div>
               {pending.map((x,i)=>(
@@ -3038,13 +3052,13 @@ function LabelsSheet({ onClose, actions, onMarkPrinted, onMarkAllPrinted }) {
                   <Dot c="#a78bfa" s={7} />
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:12,color:T.t1,fontFamily:'ui-monospace,Menlo,monospace',fontWeight:700}}>{x.code}</div>
-                    <div style={{fontSize:11,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{x.lib}</div>
+                    <div style={{fontSize:12,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{x.lib}</div>
                   </div>
                   <button onClick={()=>onMarkPrinted(x.code, x.id)} style={{
                     padding:'8px 12px',borderRadius:10,
                     border:'1px solid rgba(34,197,94,.35)',
                     background:'rgba(34,197,94,.12)',color:'#86efac',
-                    fontSize:11,fontWeight:800,letterSpacing:.3,
+                    fontSize:12,fontWeight:800,letterSpacing:.3,
                     display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',
                   }}>
                     <Ico d={ICONS.check} s={12} sw={2.5} />
@@ -3072,7 +3086,7 @@ function LabelsSheet({ onClose, actions, onMarkPrinted, onMarkAllPrinted }) {
 
             {printed.length > 0 && (
               <div style={{marginTop: pending.length > 0 ? 14 : 0}}>
-                <div style={{fontSize:10,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
+                <div style={{fontSize:12,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase',padding:'4px 4px 8px',display:'flex',alignItems:'center',gap:6}}>
                   <span>Imprimées</span><span style={{color:T.t3,fontWeight:600}}>· {printed.length}</span>
                 </div>
                 {printed.map((x,i)=>(
@@ -3080,7 +3094,7 @@ function LabelsSheet({ onClose, actions, onMarkPrinted, onMarkAllPrinted }) {
                     <Ico d={ICONS.check} s={13} sw={2.5} />
                     <div style={{flex:1,minWidth:0}}>
                       <span style={{fontSize:12,color:T.t2,fontFamily:'ui-monospace,Menlo,monospace',fontWeight:600}}>{x.code}</span>
-                      <span style={{fontSize:11,color:T.t3,marginLeft:8}}>{x.lib}</span>
+                      <span style={{fontSize:12,color:T.t3,marginLeft:8}}>{x.lib}</span>
                     </div>
                   </div>
                 ))}
@@ -3110,17 +3124,17 @@ function StockEditSheet({ code, onClose, onConfirm }) {
   return (
     <Sheet onClose={onClose} title="Modifier le stock">
       <div style={{padding:'4px 14px 0'}}>
-        <div style={{fontSize:11,color:T.t3,padding:'0 4px 10px'}} className="tn">{a.code} · {a.lib}</div>
+        <div style={{fontSize:12,color:T.t3,padding:'0 4px 10px'}} className="tn">{a.code} · {a.lib}</div>
         <div style={{padding:'18px 16px',background:'rgba(255,255,255,.03)',borderRadius:14,border:`1px solid ${T.border}`,marginBottom:12,textAlign:'center'}}>
-          <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>ERP actuel</div>
+          <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>ERP actuel</div>
           <div style={{fontSize:18,color:T.t2,fontWeight:700,marginTop:2,marginBottom:14}} className="tn">{a.stock} pcs</div>
-          <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau stock</div>
+          <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau stock</div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginTop:6}}>
             <button onClick={()=>setVal(v=>{const x=Math.max(0,(parseInt(v,10)||0)-1);return String(x);})} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.05)',color:T.t1,fontSize:28,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center'}}>-</button>
             <div style={{fontSize:48,fontWeight:900,color:T.t1,lineHeight:1,minWidth:80,textAlign:'center'}} className="tn">{val}</div>
             <button onClick={()=>setVal(v=>{const x=Math.min(9999,(parseInt(v,10)||0)+1);return String(x);})} style={{width:64,height:64,borderRadius:14,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.05)',color:T.t1,fontSize:28,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
           </div>
-          <div style={{fontSize:11,color: delta === 0 ? T.t3 : (delta > 0 ? '#86efac' : '#fca5a5'),marginTop:6,fontWeight:700}} className="tn">
+          <div style={{fontSize:12,color: delta === 0 ? T.t3 : (delta > 0 ? '#86efac' : '#fca5a5'),marginTop:6,fontWeight:700}} className="tn">
             {delta === 0 ? '— aucun ecart —' : (delta > 0 ? `+${delta} pcs` : `${delta} pcs`)}
           </div>
         </div>
@@ -3163,7 +3177,7 @@ function ConfirmSheet({ info, onClose, onUndo, onHome, onNext, tourZone }) {
             <Ico d={ICONS.check} s={32} sw={3} />
           </div>
           <div style={{fontSize:15,fontWeight:800,color:T.t1,marginTop:12}}>{info.label}</div>
-          {a && <div style={{fontSize:11,color:T.t3,marginTop:2}} className="tn">{info.code} · {a.lib}</div>}
+          {a && <div style={{fontSize:12,color:T.t3,marginTop:2}} className="tn">{info.code} · {a.lib}</div>}
         </div>
 
         {!undone && count > 0 && (
@@ -3173,7 +3187,7 @@ function ConfirmSheet({ info, onClose, onUndo, onHome, onNext, tourZone }) {
             display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:8,
           }}>
             <span>Annuler</span>
-            <span style={{fontSize:11,opacity:.75}} className="tn">{count}s</span>
+            <span style={{fontSize:12,opacity:.75}} className="tn">{count}s</span>
           </button>
         )}
         {onNext ? (
@@ -3218,15 +3232,15 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
   return (
     <>
       <div style={{padding:'10px 14px',display:'flex',alignItems:'center',gap:10,background:'#16301f',borderBottom:`1px solid ${T.border}`,minHeight:52}}>
-        <button onClick={onExit} style={btnIcon()}><Ico d={ICONS.back} /></button>
+        <button aria-label="Quitter" onClick={onExit} style={btnIcon()}><Ico d={ICONS.back} /></button>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-            <span style={{fontSize:11,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
+            <span style={{fontSize:12,color:'#86efac',fontWeight:800,letterSpacing:.6,textTransform:'uppercase'}}>Inventaire</span>
             <span style={{fontSize:14,fontWeight:800,color:T.t1}}>Zone {zone}</span>
           </div>
-          <div style={{fontSize:10,color:T.t2,marginTop:2}} className="tn">{done}/{items.length} comptés · {ecarts} écart{ecarts>1?'s':''}</div>
+          <div style={{fontSize:12,color:T.t2,marginTop:2}} className="tn">{done}/{items.length} comptés · {ecarts} écart{ecarts>1?'s':''}</div>
         </div>
-        <button onClick={onExit} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:11,fontWeight:700}}>Sortir</button>
+        <button onClick={onExit} style={{minHeight:40,padding:'0 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.1)',background:'transparent',color:'#fca5a5',fontSize:12,fontWeight:700}}>Sortir</button>
       </div>
 
       <div style={{padding:'8px 14px',background:'#0a0c10',borderBottom:`1px solid ${T.border}`}}>
@@ -3242,11 +3256,11 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
             <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(T.card, T.border)}>
               <div style={{width:32,height:32,borderRadius:9,background:'rgba(255,255,255,.04)',color:T.t3,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,fontWeight:800}}>○</div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:12,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
                 <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
               </div>
               <div style={{textAlign:'right'}}>
-                <div style={{fontSize:10,color:T.t3}}>ERP</div>
+                <div style={{fontSize:12,color:T.t3}}>ERP</div>
                 <div style={{fontSize:16,fontWeight:800,color:T.t2}} className="tn">{a.stock}</div>
               </div>
             </button>
@@ -3265,12 +3279,12 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
                   <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(ok?'rgba(34,197,94,.06)':'rgba(251,191,36,.08)', ok?'rgba(34,197,94,.2)':'rgba(251,191,36,.3)')}>
                     <div style={{width:32,height:32,borderRadius:9,background:c+'22',color:c,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:900}}>{ok?'✓':'⚠'}</div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                      <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:12,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
                       <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     </div>
                     <div style={{textAlign:'right'}}>
-                      <div style={{fontSize:10,color:T.t3}} className="tn">ERP {a.stock}</div>
-                      <div style={{fontSize:16,fontWeight:800,color:c}} className="tn">{n}{ecart!==0 && <span style={{fontSize:10,marginLeft:4}}>({ecart>0?'+':''}{ecart})</span>}</div>
+                      <div style={{fontSize:12,color:T.t3}} className="tn">ERP {a.stock}</div>
+                      <div style={{fontSize:16,fontWeight:800,color:c}} className="tn">{n}{ecart!==0 && <span style={{fontSize:12,marginLeft:4}}>({ecart>0?'+':''}{ecart})</span>}</div>
                     </div>
                   </button>
                 );
@@ -3326,24 +3340,24 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
         <div className="pop" style={{padding:'14px 16px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,marginBottom:14}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8}}>
             <div>
-              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Vérifiés</div>
+              <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Vérifiés</div>
               <div style={{fontSize:22,fontWeight:900,color:'#86efac',marginTop:2}} className="tn">{items.length}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>/ {codes.length}</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}}>/ {codes.length}</div>
             </div>
             <div>
-              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Non vér.</div>
+              <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Non vér.</div>
               <div style={{fontSize:22,fontWeight:900,color:'#fca5a5',marginTop:2}} className="tn">{nonScanned.length}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>absents</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}}>absents</div>
             </div>
             <div>
-              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Écarts</div>
+              <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Écarts</div>
               <div style={{fontSize:22,fontWeight:900,color:'#fbbf24',marginTop:2}} className="tn">{corrections.length}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}} className="tn">{hasCost ? `${valDelta>=0?'+':''}${valDelta.toFixed(0)}€` : 'à corriger'}</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}} className="tn">{hasCost ? `${valDelta>=0?'+':''}${valDelta.toFixed(0)}€` : 'à corriger'}</div>
             </div>
             <div>
-              <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Attendus</div>
+              <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Attendus</div>
               <div style={{fontSize:22,fontWeight:900,color:T.t1,marginTop:2}} className="tn">{codes.length}</div>
-              <div style={{fontSize:11,color:T.t3,marginTop:1}}>ERP</div>
+              <div style={{fontSize:12,color:T.t3,marginTop:1}}>ERP</div>
             </div>
           </div>
         </div>
@@ -3352,7 +3366,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
           <>
             <div style={{...sectionLabel, color:'#fb923c', display:'flex', alignItems:'center', gap:8}}>
               <span style={{flex:1}}>Changer emplacement ({extrasList.length})</span>
-              <button onClick={onValidExtras} style={{padding:'4px 10px',borderRadius:6,border:'none',background:'#22c55e',color:'#06200f',fontSize:10,fontWeight:800,cursor:'pointer'}}>Tous corrigés ✓</button>
+              <button onClick={onValidExtras} style={{padding:'4px 10px',borderRadius:6,border:'none',background:'#22c55e',color:'#06200f',fontSize:12,fontWeight:800,cursor:'pointer'}}>Tous corrigés ✓</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:14}}>
               {extrasList.map(({a, n}) => (
@@ -3364,14 +3378,14 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                   }}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:800,letterSpacing:.5}} className="tn">{a.code}</div>
-                      <div style={{fontSize:11,color:T.t3,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                      <div style={{fontSize:12,color:T.t3,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontSize:10,color:T.t3}}>ERP : {a.empl||'—'}</div>
-                      <div style={{fontSize:11,color:'#fb923c',fontWeight:700,marginTop:1}}>→ {zone}</div>
+                      <div style={{fontSize:12,color:T.t3}}>ERP : {a.empl||'—'}</div>
+                      <div style={{fontSize:12,color:'#fb923c',fontWeight:700,marginTop:1}}>→ {zone}</div>
                     </div>
                   </button>
-                  <button onClick={()=>onRemoveExtra(a.code)} style={{width:40,height:40,borderRadius:10,border:'1px solid rgba(248,113,113,.3)',background:'rgba(248,113,113,.08)',color:'#fca5a5',fontSize:14,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Retirer">✕</button>
+                  <button onClick={()=>onRemoveExtra(a.code)} aria-label="Retirer" style={{width:44,height:44,borderRadius:10,border:'1px solid rgba(248,113,113,.3)',background:'rgba(248,113,113,.08)',color:'#fca5a5',fontSize:14,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}} title="Retirer">✕</button>
                 </div>
               ))}
             </div>
@@ -3394,7 +3408,7 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                   </div>
                   <div style={{textAlign:'right',flexShrink:0}}>
                     <div style={{fontSize:15,fontWeight:800}} className="tn">ERP {a.stock}</div>
-                    <div style={{fontSize:10,color:'#fca5a5',marginTop:1,fontWeight:700}}>Non vérifié</div>
+                    <div style={{fontSize:12,color:'#fca5a5',marginTop:1,fontWeight:700}}>Non vérifié</div>
                   </div>
                 </button>
               ))}
@@ -3418,12 +3432,12 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:17,fontWeight:900,fontFamily:'ui-monospace,monospace',color: ok ? T.t1 : T.t1}} className="tn">{a.code}</div>
                       <div style={{fontSize:12,color:T.t2,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
-                      {!ok && <div style={{fontSize:11,color:T.t2,marginTop:2}} className="tn">ERP {a.stock} → <strong style={{color:T.t1}}>{n}</strong></div>}
+                      {!ok && <div style={{fontSize:12,color:T.t2,marginTop:2}} className="tn">ERP {a.stock} → <strong style={{color:T.t1}}>{n}</strong></div>}
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
                       <div style={{fontSize: ok ? 16 : 24,fontWeight:900,color: ok ? T.t2 : T.t1}} className="tn">{n}</div>
-                      {!ok && <div style={{padding:'2px 8px',borderRadius:99,background:c+'22',color:c,fontSize:11,fontWeight:800,marginTop:2}} className="tn">{ecart>0?'+':''}{ecart}</div>}
-                      {ok && <div style={{color:'#86efac',fontSize:10,fontWeight:700,marginTop:2}}>✓</div>}
+                      {!ok && <div style={{padding:'2px 8px',borderRadius:99,background:c+'22',color:c,fontSize:12,fontWeight:800,marginTop:2}} className="tn">{ecart>0?'+':''}{ecart}</div>}
+                      {ok && <div style={{color:'#86efac',fontSize:12,fontWeight:700,marginTop:2}}>✓</div>}
                     </div>
                   </button>
                 );
@@ -3497,12 +3511,12 @@ function EmplacementSheet({ code, onClose, onPick }) {
       <div style={{padding:'4px 14px 0'}}>
         <div style={{padding:'12px 14px',background:'rgba(255,255,255,.03)',borderRadius:12,border:`1px solid ${T.border}`,marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Actuel</div>
+            <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Actuel</div>
             <div style={{fontSize:20,fontWeight:800,color:T.t2,marginTop:2}} className="tn">{a.empl}</div>
           </div>
           <div style={{fontSize:22,color:T.t3,fontWeight:300}}>→</div>
           <div style={{flex:1,textAlign:'right'}}>
-            <div style={{fontSize:11,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau</div>
+            <div style={{fontSize:12,color:T.t3,fontWeight:700,letterSpacing:.6,textTransform:'uppercase'}}>Nouveau</div>
             <div style={{fontSize:20,fontWeight:800,color:isValid?'#fb923c':T.t3,marginTop:2}} className="tn">{val || '—'}</div>
           </div>
         </div>
@@ -3511,7 +3525,7 @@ function EmplacementSheet({ code, onClose, onPick }) {
             flex:1,padding:'12px 14px',background:'#0a0c10',border:`1px solid ${T.border}`,borderRadius:11,
             color:T.t1,fontSize:14,fontWeight:700,letterSpacing:.5,fontFamily:'inherit',outline:'none',
           }} className="tn" />
-          <button onClick={scanScan} style={{
+          <button aria-label="Scanner un emplacement" onClick={scanScan} style={{
             width:48,padding:0,borderRadius:11,border:`1px solid ${scanning?T.accent:T.border}`,
             background:scanning?'rgba(251,146,60,.15)':T.card,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center',
           }} title="Scanner l'étiquette de rayon">
@@ -3544,7 +3558,7 @@ function EmplacementSheet({ code, onClose, onPick }) {
                 {filtered.slice(0,30).map(e => (
                   <button key={e} onClick={()=>setVal(e)} style={emplChip(val===e)}>{e}</button>
                 ))}
-                {filtered.length > 30 && <span style={{fontSize:10,color:T.t3,padding:'4px 8px'}}>+{filtered.length-30}</span>}
+                {filtered.length > 30 && <span style={{fontSize:12,color:T.t3,padding:'4px 8px'}}>+{filtered.length-30}</span>}
               </div>
             </>
           ) : null;
@@ -3587,16 +3601,16 @@ const IS_PC = (() => {
 
 const kbd = {
   display:'inline-block',padding:'1px 5px',borderRadius:3,background:'rgba(255,255,255,.06)',
-  border:'1px solid #252a35',fontSize:10,fontWeight:700,color:'#9aa3b2',fontFamily:'inherit',
+  border:'1px solid #252a35',fontSize:12,fontWeight:700,color:'#9aa3b2',fontFamily:'inherit',
 };
 const pcBtn = {
   padding:'10px 18px',borderRadius:10,border:`1px solid ${T.border}`,background:T.card,
   color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.3,
 };
 const pcStat = {padding:'18px 18px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`};
-const pcStatLbl = {fontSize:11,fontWeight:800,letterSpacing:.6,color:T.t3,textTransform:'uppercase'};
+const pcStatLbl = {fontSize:12,fontWeight:800,letterSpacing:.6,color:T.t3,textTransform:'uppercase'};
 const pcStatVal = {fontSize:36,fontWeight:900,color:T.t1,marginTop:6,letterSpacing:-1};
-const pcStatSub = {fontSize:11,color:T.t2,marginTop:4};
+const pcStatSub = {fontSize:12,color:T.t2,marginTop:4};
 const pcCellSmall = {padding:'10px 12px',background:'#0a0c10',borderRadius:10};
 const pcActionBtn = {
   padding:'12px 14px',borderRadius:11,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.02)',
@@ -3615,13 +3629,13 @@ function CopyBtn({ code, large }) {
     <button onClick={click} title="Copier le code" style={{
       padding:'5px 10px',borderRadius:7,border:`1px solid ${copied?'#22c55e':T.border}`,
       background:copied?'rgba(34,197,94,.12)':T.card,color:copied?'#86efac':T.t2,
-      fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5,letterSpacing:.3,
+      fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5,letterSpacing:.3,
     }}>
       <span>{copied?'Copié ✓':'Copier'}</span>
     </button>
   );
   return (
-    <button onClick={click} title="Copier le code" style={{
+    <button aria-label="Copier" onClick={click} title="Copier le code" style={{
       width:36,border:'none',borderLeft:`1px solid ${T.border}`,
       background:copied?'rgba(34,197,94,.15)':'rgba(255,255,255,.02)',
       color:copied?'#86efac':T.t3,fontSize:13,fontWeight:700,cursor:'pointer',
@@ -3645,7 +3659,7 @@ function PCEmpty({ agency }) {
       <div style={{width:64,height:64,margin:'0 auto 18px',borderRadius:18,background:T.card,border:`1px solid ${T.border}`,color:T.accent,display:'flex',alignItems:'center',justifyContent:'center'}}>
         <Ico d={ICONS.search} s={28} sw={2} />
       </div>
-      <div style={{fontSize:11,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency} · {ARTICLES.length.toLocaleString('fr-FR')} articles</div>
+      <div style={{fontSize:12,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency} · {ARTICLES.length.toLocaleString('fr-FR')} articles</div>
       <div style={{fontSize:32,fontWeight:900,letterSpacing:-1,marginTop:8}}>Rechercher un article</div>
       <div style={{fontSize:14,color:T.t2,marginTop:10,lineHeight:1.5}}>
         Scanne l'article avec la douchette ou tape dans le champ à gauche.
@@ -3654,11 +3668,11 @@ function PCEmpty({ agency }) {
         {HINTS.map(([l,ex]) => (
           <div key={l} style={{padding:'8px 12px',borderRadius:10,background:T.card,border:`1px solid ${T.border}`,textAlign:'left'}}>
             <div style={{fontSize:12,fontWeight:700,color:T.t1}}>{l}</div>
-            <div style={{fontSize:11,color:T.t3,marginTop:1}} className="mono">{ex}</div>
+            <div style={{fontSize:12,color:T.t3,marginTop:1}} className="mono">{ex}</div>
           </div>
         ))}
       </div>
-      <div style={{marginTop:28,fontSize:11,color:T.t3,display:'flex',gap:18,justifyContent:'center',flexWrap:'wrap'}}>
+      <div style={{marginTop:28,fontSize:12,color:T.t3,display:'flex',gap:18,justifyContent:'center',flexWrap:'wrap'}}>
         <span><kbd style={kbd}>Entrée</kbd> ouvre le 1er résultat</span>
         <span><kbd style={kbd}>Esc</kbd> efface / ferme la fiche</span>
         <span>Catalogue : articles hors agence</span>
@@ -3892,14 +3906,14 @@ function PCApp() {
         <div style={{display:'flex',alignItems:'center',gap:10}}>
           <BrandMark s={30} />
           <div style={{fontSize:14,fontWeight:900,letterSpacing:1.5,color:T.t1}}>PRISME</div>
-          <span className="mono" style={{fontSize:10,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6}}>{SCAN_VERSION.split(' ')[0]}</span>
+          <span className="mono" style={{fontSize:12,fontWeight:700,color:T.accent,background:T.accentSoft,border:'1px solid rgba(251,146,60,.25)',padding:'1px 6px',borderRadius:6}}>{SCAN_VERSION.split(' ')[0]}</span>
         </div>
-        <div style={{padding:'3px 10px',borderRadius:6,background:T.card,border:`1px solid ${T.border}`,fontSize:11,fontWeight:700,letterSpacing:.5,color:T.t1}}>{CTX.agency}</div>
-        <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{ARTICLES.length.toLocaleString('fr-FR')} réfs</div>
+        <div style={{padding:'3px 10px',borderRadius:6,background:T.card,border:`1px solid ${T.border}`,fontSize:12,fontWeight:700,letterSpacing:.5,color:T.t1}}>{CTX.agency}</div>
+        <div style={{fontSize:12,color:T.t3,fontWeight:600}} className="tn">{ARTICLES.length.toLocaleString('fr-FR')} réfs</div>
         <div style={{flex:1}} />
         <div style={{display:'flex',alignItems:'center',gap:8,padding:'5px 11px',borderRadius:99,background:scannerActive?'rgba(251,146,60,.15)':T.card,border:`1px solid ${scannerActive?T.accent:T.border}`,transition:'all .2s'}}>
           <div style={{width:7,height:7,borderRadius:99,background:scannerActive?T.accent:'#5b6473',animation:scannerActive?'pulseDot 1s infinite':'none'}} />
-          <span style={{fontSize:11,fontWeight:700,color:scannerActive?T.accent:T.t2,letterSpacing:.3}}>
+          <span style={{fontSize:12,fontWeight:700,color:scannerActive?T.accent:T.t2,letterSpacing:.3}}>
             {scannerActive ? 'Douchette détectée' : 'Douchette prête'}
           </span>
         </div>
@@ -3918,7 +3932,7 @@ function PCApp() {
         {/* Left: scan input + live results */}
         <div style={{width:440,flexShrink:0,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',background:'#0c0f15'}}>
           <form onSubmit={onSubmit} style={{padding:'18px 18px 14px',borderBottom:`1px solid ${T.border}`}}>
-            <div style={{fontSize:11,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>Scanner ou rechercher</div>
+            <div style={{fontSize:12,color:T.t3,fontWeight:800,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>Scanner ou rechercher</div>
             <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 10px 0 16px',background:T.card,borderRadius:14,border:`2px solid ${q?T.accent:T.border}`,height:60,transition:'border-color .15s',color:q||scannerActive?T.accent:T.t3}}>
               <Ico d={scannerActive?ICONS.scan:ICONS.search} s={20} sw={2.5} />
               <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} autoFocus
@@ -3927,13 +3941,13 @@ function PCApp() {
               {q && <button type="button" onClick={()=>{setQ('');inputRef.current?.focus();}} style={{background:'none',border:'none',color:T.t3,cursor:'pointer',padding:'4px 4px',display:'flex'}} aria-label="Effacer"><Ico d={ICONS.close} s={18} /></button>}
               <button type="submit" disabled={!q.trim()} style={{height:42,padding:'0 14px',borderRadius:9,border:'none',background:q.trim()?T.accent:T.border,color:q.trim()?'#1a0e05':T.t3,fontSize:12,fontWeight:800,cursor:q.trim()?'pointer':'default',letterSpacing:.5}}>Enter</button>
             </div>
-            <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
+            <div style={{fontSize:12,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
               <span><kbd style={kbd}>Enter</kbd> ouvrir</span>
               <span><kbd style={kbd}>Esc</kbd> effacer</span>
               {<button type="button" onClick={()=>setCatalogMode(m=>!m)} style={{
                 padding:'3px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
                 background:catalogMode?'rgba(96,165,250,.15)':'transparent',
-                color:catalogMode?'#60a5fa':T.t3,fontSize:10,fontWeight:800,cursor:'pointer',
+                color:catalogMode?'#60a5fa':T.t3,fontSize:12,fontWeight:800,cursor:'pointer',
               }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
               <span style={{marginLeft:'auto',color:scannerActive?T.accent:T.t3}}>douchette auto</span>
             </div>
@@ -3961,7 +3975,7 @@ function PCApp() {
                     }}>
                       <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={13} sw={2} /></span>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:11,color:T.t3,fontWeight:600}}><span className="mono">{a.code}</span> · {tStr}</div>
+                        <div style={{fontSize:12,color:T.t3,fontWeight:600}}><span className="mono">{a.code}</span> · {tStr}</div>
                         <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                       </div>
                       <div style={{fontSize:15,fontWeight:800,color:d.c}} className="tn">{d.n ?? '—'}</div>
@@ -3993,11 +4007,11 @@ function PCApp() {
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:13,color:T.t2,fontWeight:700}} className="mono">{a.code}</div>
                           <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:T.t1,marginTop:2}}>{a.lib}</div>
-                          <div style={{fontSize:11,color:T.accent,fontWeight:700,marginTop:1}}><span className="mono">{a.empl}</span><span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
+                          <div style={{fontSize:12,color:T.accent,fontWeight:700,marginTop:1}}><span className="mono">{a.empl}</span><span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                         </div>
                         <div style={{textAlign:'right'}}>
                           <div style={{fontSize:18,fontWeight:800,color:d.c,lineHeight:1}} className="tn">{d.n ?? '—'}</div>
-                          <div style={{fontSize:10.5,color:d.c,opacity:.8,marginTop:3,fontWeight:700,whiteSpace:'nowrap'}}>{a.catalogOnly ? 'hors agence' : d.n > 0 ? 'en stock' : 'indispo.'}</div>
+                          <div style={{fontSize:12,color:d.c,opacity:.8,marginTop:3,fontWeight:700,whiteSpace:'nowrap'}}>{a.catalogOnly ? 'hors agence' : d.n > 0 ? 'en stock' : 'indispo.'}</div>
                         </div>
                       </button>
                       <CopyBtn code={a.code} />
@@ -4046,13 +4060,13 @@ function PCApp() {
           <div style={{width:300,flexShrink:0,borderLeft:`1px solid ${T.border}`,background:'#0c0f15',display:'flex',flexDirection:'column'}}>
             <div style={{padding:'14px 16px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
-                <div style={{fontSize:11,fontWeight:800,letterSpacing:.6,color:T.t1}}>Historique session</div>
-                <div style={{fontSize:10,color:T.t3,marginTop:2}}>{history.length} scan{history.length>1?'s':''}</div>
+                <div style={{fontSize:12,fontWeight:800,letterSpacing:.6,color:T.t1}}>Historique session</div>
+                <div style={{fontSize:12,color:T.t3,marginTop:2}}>{history.length} scan{history.length>1?'s':''}</div>
               </div>
-              <button onClick={()=>setHistory([])} disabled={!history.length} style={{background:'none',border:'none',color:history.length?T.t3:'#3a3f4d',fontSize:11,cursor:history.length?'pointer':'default',fontWeight:700}}>Vider</button>
+              <button onClick={()=>setHistory([])} disabled={!history.length} style={{background:'none',border:'none',color:history.length?T.t3:'#8090a8',fontSize:12,cursor:history.length?'pointer':'default',fontWeight:700}}>Vider</button>
             </div>
             <div style={{flex:1,overflow:'auto',padding:'8px 8px'}}>
-              {history.length === 0 && <div style={{padding:'30px 14px',textAlign:'center',color:T.t3,fontSize:11}}>Aucun scan pour le moment.</div>}
+              {history.length === 0 && <div style={{padding:'30px 14px',textAlign:'center',color:T.t3,fontSize:12}}>Aucun scan pour le moment.</div>}
               {history.map((h, i) => {
                 const a = _artByCode.get(h.code) || _catalogArticle(h.code);
                 const d = a ? _dispo(a) : { c:T.t3 };
@@ -4063,11 +4077,11 @@ function PCApp() {
                     width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 10px',
                     background:code===h.code?T.card:'transparent',borderRadius:8,border:'none',color:T.t1,textAlign:'left',cursor:'pointer',marginBottom:1,
                   }}>
-                    <span style={{fontSize:10.5,color:T.t3,width:52,fontWeight:600}} className="tn">{tStr}</span>
+                    <span style={{fontSize:12,color:T.t3,width:52,fontWeight:600}} className="tn">{tStr}</span>
                     <span style={{width:7,height:7,borderRadius:99,background:d.c,flexShrink:0}} />
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="mono">{h.code}</div>
-                      <div style={{fontSize:11,color:T.t1,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?a.lib:'?'}</div>
+                      <div style={{fontSize:12,color:T.t3,fontWeight:600}} className="mono">{h.code}</div>
+                      <div style={{fontSize:12,color:T.t1,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?a.lib:'?'}</div>
                     </div>
                     <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={12} sw={2} /></span>
                   </button>
@@ -4079,7 +4093,7 @@ function PCApp() {
       </div>
 
       {/* Hint footer */}
-      <div style={{height:28,padding:'0 18px',display:'flex',alignItems:'center',gap:18,fontSize:10,color:T.t3,fontWeight:600,background:'#0d1016',borderTop:`1px solid ${T.border}`,flexShrink:0}}>
+      <div style={{height:28,padding:'0 18px',display:'flex',alignItems:'center',gap:18,fontSize:12,color:T.t3,fontWeight:600,background:'#0d1016',borderTop:`1px solid ${T.border}`,flexShrink:0}}>
         <span>Mode PC · {CTX.agency} · {SCAN_VERSION}</span>
         <span><kbd style={kbd}>/</kbd> recherche</span>
         <span><kbd style={kbd}>Esc</kbd> efface, puis ferme la fiche</span>
