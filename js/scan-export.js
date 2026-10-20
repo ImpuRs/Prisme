@@ -6,7 +6,7 @@
 'use strict';
 
 import { _S, invalidateCache } from './state.js';
-import { computeSquelette, computeVitesseReseau, rowVerdictLabel } from './engine.js';
+import { computeSquelette, computeVitesseReseau, rowVerdictLabel, isInvendu } from './engine.js';
 import { showToast, renderAll } from './ui.js';
 import { _saveSessionToIDB } from './cache.js';
 import { DataStore } from './store.js';
@@ -153,7 +153,7 @@ function _exportScan(withPrices) {
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
       matriceVerdict: _M_LABELS[mKey] || '',
-      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r),
+      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r), _invendu: isInvendu(r),
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
       isParent: r.isParent, _refFourn: r._refFourn || '',
     };
