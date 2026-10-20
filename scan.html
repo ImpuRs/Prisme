@@ -131,7 +131,7 @@ const AGENCY = (() => {
 let SCAN_CONFIG = {};
 fetch('config.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(c=>{
   SCAN_CONFIG=c;
-  if (c.retour===false) { ARTICLES = loadEngineData(window._rawEngineData||ENGINE_DATA); _rebuildArtIndex(); document.dispatchEvent(new Event('prisme-data')); }
+  if (c.retour===false && ARTICLES.length) { ARTICLES = ARTICLES.map(a => loadEngineData([a._raw])[0]).filter(Boolean); _rebuildArtIndex(); window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source: DATA_SOURCE } })); }
 });
 
 // Libellés famille dès le démarrage (constants.js est un module ESM sans dépendance)
@@ -170,7 +170,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v13 · 15/10/2026';
+const SCAN_VERSION = 'v14 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -247,16 +247,7 @@ const VC = {
 //   couvertureJours→couv · _sqClassif→sq (label) · _refFourn→refFourn
 //   verdict, primary, secondary = dérivés (cf. _verdict, _primary, _secondary)
 
-// Mock = échantillon en shape MOTEUR (pas en shape UI). Sert quand IDB est vide.
-const ENGINE_DATA = [
-  { code:'264821', libelle:'Foret béton SDS-Plus Ø10 L260', marque:'Bosch Pro', famille:'Outillage électroportatif', sousFamille:null, _refFourn:'2608685976', emplacement:'B12-C3', stockActuel:8, prixMoyenReseau:14.90, txMargeReseau:38, nouveauMin:2, nouveauMax:4, ancienMin:2, ancienMax:6, couvertureJours:92, statut:'Actif', _sqClassif:'socle' },
-  { code:'108342', libelle:'Vis bois Spax Wirox 5×60 T25 (×200)', marque:'Spax', famille:'Visserie', sousFamille:'Bois', _refFourn:'SP-0191040500605', emplacement:'A04-B1', stockActuel:0, prixMoyenReseau:18.20, txMargeReseau:42, nouveauMin:6, nouveauMax:18, ancienMin:6, ancienMax:18, couvertureJours:0, statut:'Actif', _sqClassif:'a_implanter' },
-  { code:'512004', libelle:'Robinet d\u2019arrêt droit MF Ø15', marque:'Comap', famille:'Plomberie', sousFamille:'Robinetterie', _refFourn:'7050015B', emplacement:'D08-A2', stockActuel:3, prixMoyenReseau:6.40, txMargeReseau:31, nouveauMin:2, nouveauMax:5, ancienMin:2, ancienMax:5, couvertureJours:24, statut:'Actif', _sqClassif:'socle' },
-  { code:'264820', libelle:'Foret béton SDS-Plus Ø8 L160', marque:'Bosch Pro', famille:'Outillage électroportatif', sousFamille:null, _refFourn:null, emplacement:'B12-C2', stockActuel:4, prixMoyenReseau:11.50, txMargeReseau:36, nouveauMin:2, nouveauMax:4, ancienMin:2, ancienMax:4, couvertureJours:32, statut:'Actif', _sqClassif:'socle' },
-  { code:'264823', libelle:'Foret béton SDS-Plus Ø12 L300', marque:'Bosch Pro', famille:'Outillage électroportatif', sousFamille:null, _refFourn:null, emplacement:'B12-C4', stockActuel:1, prixMoyenReseau:18.60, txMargeReseau:35, nouveauMin:2, nouveauMax:4, ancienMin:2, ancienMax:4, couvertureJours:14, statut:'Actif', _sqClassif:'surveiller' },
-  { code:'264822', libelle:'Foret béton SDS-Plus Ø10 L160', marque:'Bosch Pro', famille:'Outillage électroportatif', sousFamille:null, _refFourn:null, emplacement:'B12-C3', stockActuel:0, prixMoyenReseau:13.20, txMargeReseau:37, nouveauMin:2, nouveauMax:4, ancienMin:2, ancienMax:4, couvertureJours:0, statut:'Actif', _sqClassif:'socle' },
-  { code:'264850', libelle:'Coffret 7 forets béton SDS+', marque:'Bosch Pro', famille:'Outillage électroportatif', sousFamille:null, _refFourn:null, emplacement:'B12-A1', stockActuel:2, prixMoyenReseau:42.80, txMargeReseau:29, nouveauMin:1, nouveauMax:3, ancienMin:1, ancienMax:3, couvertureJours:48, statut:'Actif', _sqClassif:'socle' },
-];
+// (Jeu de démonstration retiré oct. 2026 : sans données, le Scan affiche quoi faire au lieu de faux articles.)
 
 const SQ_LABEL = { socle:'Socle', surveiller:'Surveiller', a_implanter:'À implanter', dormant:'Dormant' };
 
@@ -367,12 +358,17 @@ function _rebuildArtIndex() {
 // ── Stock ZZAT importé : gardé (localStorage) et réappliqué à chaque chargement des données ──
 // Une analyse PRISME plus récente que l'import (session live, JSON) fait foi : l'import est alors oublié.
 const ZZAT_KEY = 'prisme_zzat';
-let _DATA_TS = 0; // date des données chargées (session PRISME / JSON), 0 si inconnue
-function _loadZzat() { try { return JSON.parse(localStorage.getItem(ZZAT_KEY) || 'null'); } catch (e) { return null; } }
+let _DATA_TS = 0; // date du stock des données chargées (fichier stock PRISME si connu, sinon sauvegarde), 0 si inconnue
+let _zzatMem = null; // import gardé en mémoire si le navigateur refuse de l'enregistrer (quota plein)
+function _loadZzat() { if (_zzatMem) return _zzatMem; try { return JSON.parse(localStorage.getItem(ZZAT_KEY) || 'null'); } catch (e) { return null; } }
 function _applyZzatOverlay() {
   const z = _loadZzat();
+  window._zzatInfo = null;
   if (!z?.rows) return 0;
-  if (_DATA_TS && z.t < _DATA_TS) { try { localStorage.removeItem(ZZAT_KEY); } catch (e) {} return 0; }
+  // Un fichier stock PRISME plus récent que l'import fait foi : l'import est oublié
+  if (_DATA_TS && z.t < _DATA_TS) { _zzatMem = null; try { localStorage.removeItem(ZZAT_KEY); } catch (e) {} return 0; }
+  // Import d'une autre agence : gardé mais pas appliqué
+  if (z.ag && CTX.agency && CTX.agency !== '—' && z.ag !== CTX.agency) { window._zzatInfo = { t: z.t, name: z.name, n: 0, autreAgence: z.ag }; return 0; }
   let up = 0;
   for (const code in z.rows) {
     const a = _artByCode.get(code); if (!a) continue;
@@ -390,10 +386,23 @@ function _applyZzatOverlay() {
   window._zzatInfo = { t: z.t, name: z.name, n: up };
   return up;
 }
+/** Découpe une ligne CSV « ; » en tenant compte des guillemets. */
+function _csvSplit(line) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+    else if (c === ';' && !q) { out.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur.trim());
+  return out;
+}
+const _int = (v) => { const n = parseInt(String(v || '').replace(/[\s  ]/g, ''), 10); return isNaN(n) ? 0 : n; };
 /** Lit un CSV ZZAT (état du stock ERP), le garde et l'applique. Retourne le nb d'articles mis à jour, ou -1 si invalide. */
 function _importZzatText(txt, name) {
   const lines = txt.split(/\r?\n/).filter(l => l.trim());
-  const hdr = (lines[0] || '').split(';').map(h => h.trim().toLowerCase());
+  const hdr = _csvSplit(lines[0] || '').map(h => h.toLowerCase());
   const iArt = hdr.findIndex(h => h === 'article');
   const iStk = hdr.findIndex(h => h === 'stock');
   const iMin = hdr.findIndex(h => /qte\s*min/.test(h));
@@ -403,17 +412,23 @@ function _importZzatText(txt, name) {
   if (iArt < 0 || iStk < 0) return -1;
   const rows = {};
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';').map(c => c.trim());
-    const code = cols[iArt]; if (!code) continue;
-    rows[code] = [parseInt(cols[iStk]) || 0, iMin >= 0 ? (parseInt(cols[iMin]) || 0) : null, iMax >= 0 ? (parseInt(cols[iMax]) || 0) : null,
+    const cols = _csvSplit(lines[i]);
+    let code = (cols[iArt] || '').replace(/\D/g, '');
+    if (!code) continue;
+    if (code.length < 6) code = code.padStart(6, '0'); // zéros de tête retirés par Excel
+    rows[code] = [_int(cols[iStk]), iMin >= 0 ? _int(cols[iMin]) : null, iMax >= 0 ? _int(cols[iMax]) : null,
       iEmpl >= 0 ? cols[iEmpl] : '', iStat >= 0 ? cols[iStat] : ''];
   }
-  try { localStorage.setItem(ZZAT_KEY, JSON.stringify({ t: Date.now(), name: name || '', rows })); }
-  catch (e) { _gToast('⚠ Import appliqué mais non gardé (mémoire du navigateur pleine)'); }
-  const up = _applyZzatOverlay();
+  const z = { t: Date.now(), name: name || '', ag: CTX.agency && CTX.agency !== '—' ? CTX.agency : '', rows };
+  _zzatMem = null;
+  try { localStorage.removeItem(ZZAT_KEY); localStorage.setItem(ZZAT_KEY, JSON.stringify(z)); }
+  catch (e) { _zzatMem = z; _gToast('⚠ Import appliqué pour cette séance seulement (mémoire du navigateur pleine)'); }
+  // Repartir des données d'origine : un article absent du nouvel import ne garde pas l'ancienne valeur
+  ARTICLES = ARTICLES.map(a => (a._raw ? loadEngineData([a._raw])[0] : a)).filter(Boolean);
+  _rebuildArtIndex(); // réapplique l'import
   DATA_SOURCE = 'zzat';
   window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'zzat' } }));
-  return up;
+  return window._zzatInfo?.n || 0;
 }
 /** Petit message hors composant (mode PC, sans toast React). */
 function _gToast(msg) {
@@ -448,9 +463,24 @@ function _rebuildEanByCode() {
 // Cache _catalogArticle results to avoid recreating objects
 const _catalogCache = new Map();
 
-let DATA_SOURCE = 'loading'; // 'loading' | 'mock' | 'idb'
+/** Source et date des données pour l'en-tête : « · données du 6 oct. », « · stock ZZAT du 20 oct. »… */
+function _srcLabel() {
+  const d = (t) => t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+  if (DATA_SOURCE === 'loading') return ' · chargement…';
+  if (DATA_SOURCE === 'empty') return ' · aucune donnée';
+  if (window._zzatInfo?.n) return ` · stock ZZAT du ${d(window._zzatInfo.t)}`;
+  const t = window._dataInfo?.t;
+  const src = { json: 'fichier publié', import: 'fichier importé' }[DATA_SOURCE];
+  return `${src ? ' · ' + src : ''}${t ? ' · données du ' + d(t) : ''}`;
+}
+let DATA_SOURCE = 'loading'; // 'loading' | 'idb' | 'json' | 'zzat' | 'import' | 'empty'
 let CATALOGUE = null; // catalogue-marques.json brut {M,F,S,A,E,R}
 
+function _ean13Ok(s) {
+  if (!/^\d{13}$/.test(s)) return false;
+  let t = 0; for (let i = 0; i < 12; i++) t += (+s[i]) * (i % 2 ? 3 : 1);
+  return (10 - t % 10) % 10 === +s[12];
+}
 function _normCode(raw) {
   const s = String(raw || '').replace(/\D/g, '');
   return s ? s.replace(/^0+/, '').padStart(6, '0') : '';
@@ -511,67 +541,60 @@ function removeCustomEan(ean) { _customEanMap.delete(ean); _saveCustomEan(); }
 function getCustomEansForCode(code) { return [..._customEanMap.entries()].filter(([,c])=>c===code).map(([ean])=>ean); }
 
 // ── IDB hydrate ──────────────────────────────────────────────
-// Lit IndexedDB PRISME (clé 'scan' prioritaire, sinon 'current') comme scan.js.
-// Si trouvé : remplace ARTICLES et notifie l'app (custom event 'prisme-data').
+// Ordre : IndexedDB PRISME clé 'scan' (allégée, écrite à chaque sauvegarde) → clé 'current' (session complète,
+// seulement si 'scan' manque) → data/index.json → aucune donnée (écran « quoi faire »).
+// Le Scan n'ouvre la base qu'en lecture : s'il ne la trouve pas, il ne la crée pas (sinon PRISME la trouverait incomplète).
+let _hydrated = false;
+function _noData() {
+  ARTICLES = []; _rebuildArtIndex(); DATA_SOURCE = 'empty';
+  window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: 0, source:'empty' } }));
+}
+function _fallbackJson() {
+  if (_hydrated) return; _hydrated = true;
+  _fetchScanJson().then(ok => { if (!ok) _noData(); }).catch(_noData);
+}
+function _useRows(rows, meta, source) {
+  _hydrated = true;
+  _DATA_TS = meta?.stockTs || meta?.timestamp || 0;
+  ARTICLES = loadEngineData(rows); _rebuildArtIndex();
+  DATA_SOURCE = source;
+  const st = meta?.store || meta?.selectedMyStore;
+  if (st) { CTX.agency = st; CTX.greeting = st; }
+  window._dataInfo = { t: meta?.dataDate || meta?.timestamp || 0, source };
+  console.log('[Prisme] ' + source + ' · ' + ARTICLES.length + ' articles');
+  window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source } }));
+}
 function hydrateFromIDB() {
-  if (typeof indexedDB === 'undefined') { ARTICLES = loadEngineData(ENGINE_DATA); _rebuildArtIndex(); DATA_SOURCE = 'mock'; return; }
+  if (typeof indexedDB === 'undefined') { _fallbackJson(); return; }
+  setTimeout(() => { if (!_hydrated) { console.warn('[Prisme] IndexedDB ne répond pas → JSON'); _fallbackJson(); } }, 6000);
   let req;
-  try { req = indexedDB.open('PRISME', 2); } catch (e) { return; }
-  req.onerror = () => {};
-  req.onupgradeneeded = () => {
-    try {
-      const db = req.result;
-      if (!db.objectStoreNames.contains('session')) db.createObjectStore('session');
-    } catch (e) {}
-  };
+  try { req = indexedDB.open('PRISME'); } catch (e) { _fallbackJson(); return; }
+  req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (e) {} }; // base absente : ne pas la créer
+  req.onerror = () => _fallbackJson();
+  req.onblocked = () => _fallbackJson();
   req.onsuccess = () => {
     const db = req.result;
-    if (!db.objectStoreNames.contains('session')) { ARTICLES = loadEngineData(ENGINE_DATA); _rebuildArtIndex(); DATA_SOURCE = 'mock'; return; }
-    const tx = db.transaction('session', 'readonly');
-    const store = tx.objectStore('session');
+    if (_hydrated) { db.close(); return; }
+    if (!db.objectStoreNames.contains('session')) { db.close(); _fallbackJson(); return; }
     const grab = (key) => new Promise(res => {
-      const r = store.get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+      try { const r = db.transaction('session', 'readonly').objectStore('session').get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }
+      catch (e) { res(null); }
     });
-    Promise.all([grab('scan'), grab('current')]).then(([scan, current]) => {
-      // Charger la table EAN si disponible
+    grab('scan').then(scan => {
+      if (scan?.articles?.length) return [scan, null];
+      return grab('current').then(cur => [scan, cur]);
+    }).then(([scan, current]) => {
+      db.close();
+      if (_hydrated) return;
       const eanData = scan?.ean || current?.ean;
       if (eanData && typeof eanData === 'object') {
         window._eanMap = new Map(Object.entries(eanData));
-        console.log('[Prisme] EAN map · ' + window._eanMap.size + ' entrées');
         _rebuildEanByCode();
       }
-      const hasLive = current?.finalData?.length > 0;
-      // Si session PRISME live → la préférer
-      if (hasLive) {
-        _DATA_TS = current.timestamp || 0;
-        ARTICLES = loadEngineData(current.finalData); _rebuildArtIndex();
-        DATA_SOURCE = 'idb';
-        if (current.selectedMyStore) { CTX.agency = current.selectedMyStore; CTX.greeting = CTX.agency; }
-        console.log('[Prisme] IDB session live · ' + ARTICLES.length + ' articles');
-        window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'idb' } }));
-        return;
-      }
-      // Sinon essayer le JSON distant
-      if (!hasLive) {
-        _fetchScanJson().then(ok => {
-          if (ok) return;
-          // Fallback IDB scan
-          const rows = (scan?.articles?.length ? scan.articles
-                       : scan?.finalData?.length ? scan.finalData
-                       : null);
-          if (!rows) {
-            console.log('[Prisme] IDB vide → fallback mock');
-            ARTICLES = loadEngineData(ENGINE_DATA); _rebuildArtIndex(); DATA_SOURCE = 'mock';
-            window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } }));
-            return;
-          }
-          ARTICLES = loadEngineData(rows); _rebuildArtIndex();
-          DATA_SOURCE = 'idb';
-          console.log('[Prisme] IDB scan · ' + ARTICLES.length + ' articles');
-          window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'idb' } }));
-        });
-      }
-    });
+      if (scan?.articles?.length) return _useRows(scan.articles, scan, 'idb');
+      if (current?.finalData?.length) return _useRows(current.finalData, { ...current, stockTs: current._stockFileTs, dataDate: current.consommePeriodMaxFull || current.consommePeriodMax }, 'idb');
+      _fallbackJson();
+    }).catch(() => _fallbackJson());
   };
 }
 
@@ -588,14 +611,8 @@ function _fetchScanJson() {
         console.log('[Prisme] EAN map JSON · ' + window._eanMap.size + ' entrées');
         _rebuildEanByCode();
       }
-      _DATA_TS = data?.timestamp || (data?.date ? Date.parse(data.date) || 0 : 0);
-      ARTICLES = loadEngineData(rows); _rebuildArtIndex();
-      DATA_SOURCE = 'json';
       const m = f.match(/prisme-scan-(.+)\.json/);
-      if (m) CTX.agency = m[1];
-      CTX.greeting = CTX.agency;
-      console.log('[Prisme] JSON · ' + ARTICLES.length + ' articles depuis data/' + f);
-      window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'json' } }));
+      _useRows(rows, { timestamp: data?.timestamp || (data?.date ? Date.parse(data.date) || 0 : 0), dataDate: data?.dataDate, stockTs: data?.stockTs, store: data?.store || (m && m[1]) }, 'json');
       return true;
     });
   }).catch(() => false);
@@ -994,7 +1011,7 @@ function App() {
         if (k === 'invStop') { if (confirm("Abandonner l'inventaire en cours ? Les comptages seront perdus.")) cancelInv(); }
         if (k === 'ean') { setSheet('ean'); return; }
         if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
-        if (k === 'purge') { ARTICLES = loadEngineData(ENGINE_DATA); _rebuildArtIndex(); DATA_SOURCE = 'mock'; window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'mock' } })); showToast('Cache purgé'); }
+        if (k === 'purge') { if (confirm("Oublier le stock ZZAT importé et recharger les données de PRISME ?")) { try { localStorage.removeItem(ZZAT_KEY); } catch (e) {} location.reload(); } }
         if (k === 'import') {
           const inp = document.createElement('input');
           inp.type = 'file'; inp.accept = '.json,.csv,application/json,text/csv';
@@ -1259,10 +1276,16 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
     <>
       <TopBar brand onMenu={onMenu} title="PRISME" badgeTxt={SCAN_VERSION.split(' ')[0]}
         status={navigator.onLine === false ? 'off' : DATA_SOURCE==='loading' ? 'load' : 'on'}
-        sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${DATA_SOURCE==='idb'?'':DATA_SOURCE==='loading'?' · chargement…':' · '+DATA_SOURCE}`} />
+        sub={`${t.agency} · ${_nowLabel()}${navigator.onLine === false ? ' · hors-ligne' : ''}${_srcLabel()}`} />
       {invMode && <InvBanner doneCount={invDoneCount} total={invTotal} zone={invZone} onTap={onInvOpen} onExit={onInvExit} />}
       {ARTICLES.length === 0 ? (
-        <div style={{flex:1}} />
+        DATA_SOURCE === 'loading' ? <div style={{flex:1}} /> :
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 28px',textAlign:'center',gap:12}}>
+          <div style={{fontSize:17,fontWeight:800,color:T.t1}}>Aucune donnée sur cet appareil</div>
+          <div style={{fontSize:14,lineHeight:1.55,color:T.t2,maxWidth:320}}>Ouvre PRISME sur ce même navigateur et charge tes fichiers, ou récupère le dernier fichier publié avec « Resynchroniser ». Tu peux aussi importer un CSV ZZAT depuis le menu.</div>
+          <button onClick={()=>{ _fetchScanJson().then(ok => { if (!ok) _gToast('Aucun fichier publié trouvé'); }); }} style={{marginTop:6,minHeight:48,padding:'0 22px',borderRadius:14,border:0,background:T.accent,color:'#111',fontSize:15,fontWeight:800}}>Resynchroniser</button>
+          <button onClick={onMenu} style={{minHeight:44,padding:'0 18px',borderRadius:12,border:`1px solid ${T.border}`,background:'transparent',color:T.t1,fontSize:14,fontWeight:700}}>Ouvrir le menu</button>
+        </div>
       ) : (
       <div style={{flex:1,padding:'14px 16px 0',overflow:'auto',display:'flex',flexDirection:'column'}}>
 
@@ -1471,23 +1494,12 @@ function SearchScreen({ onClose, onPick, onScan }) {
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
-        {!q.trim() && DATA_SOURCE !== 'mock' && (
+        {!q.trim() && (
           <div style={{padding:'36px 20px 0',textAlign:'center',color:T.t3}}>
             <div style={{width:52,height:52,margin:'0 auto 14px',borderRadius:16,background:T.card,border:`1px solid ${T.border}`,color:T.t2,display:'flex',alignItems:'center',justifyContent:'center'}}><Ico d={ICONS.search} s={22} sw={2} /></div>
             <div style={{fontSize:14,fontWeight:700,color:T.t1}}>Chercher un article</div>
             <div style={{fontSize:12,lineHeight:1.5,marginTop:6}}>Code article, libellé, marque, réf. fournisseur ou emplacement.<br/>{numPad ? <>Passez en <b style={{color:T.t2}}>ABC</b> pour saisir du texte.</> : <><b style={{color:T.t2}}>Catalogue</b> : articles hors agence.</>}</div>
           </div>
-        )}
-        {!q.trim() && DATA_SOURCE === 'mock' && (
-          <>
-            <div style={sectionLabel}>Suggestions</div>
-            {['foret béton', 'spax 5x60', 'B12-C3'].map(s => (
-              <button key={s} onClick={()=>setQ(s)} style={chipRow()}>
-                <Ico d={ICONS.search} s={14} sw={2} />
-                <span style={{flex:1,textAlign:'left',fontSize:13}}>{s}</span>
-              </button>
-            ))}
-          </>
         )}
         {q.trim() && results.length === 0 && (
           <div style={{textAlign:'center',padding:'40px 20px',color:T.t2}}>
@@ -2068,7 +2080,7 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
     ...(invMode ? [{ k:'invStop', l:"Arrêter l'inventaire en cours", s:'Abandonne le comptage et purge', dot:'#f87171', ic:ICONS.stop, danger:true }] : []),
     { k:'ean', l:`Codes-barres associés (${_customEanMap.size})`, s:'Voir et gérer les associations EAN', dot:'#fb923c', ic:ICONS.scan },
     { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#60a5fa', ic:ICONS.sync },
-    { k:'purge', l:'Purger le cache local', s:'Tout effacer', dot:'#f87171', ic:ICONS.trash, danger:true },
+    { k:'purge', l:'Oublier l’import ZZAT', s:'Recharger les données PRISME', dot:'#f87171', ic:ICONS.trash, danger:true },
   ];
   return (
     <Sheet onClose={onClose} title="Menu">
@@ -2117,6 +2129,9 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const emptyFramesRef = useRef(0); // compteur frames sans détection
   const ocrReadyRef = useRef(false);
   const ocrLoadingRef = useRef(false);
+  const ocrRequestRef = useRef(false); // OCR seulement à la demande (bouton « Lire l'étiquette »)
+  const [ocrAsk, setOcrAsk] = useState(false);
+  const [ocrFail, setOcrFail] = useState(false);
   const ocrBusyRef = useRef(false);
   const lastOcrTimeRef = useRef(0);
   const paddleOcrRef = useRef(null);
@@ -2127,8 +2142,10 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   // Résoudre un code-barre scanné → code article PRISME
   const resolveBarcode = (barcode, rawText) => {
     const clean = barcode.replace(/\D/g, '');
-    // 1) Code article direct (5-6 chiffres)
-    let a = _artByCode.get(clean) || _artByCode.get(_normCode(clean));
+    const numeric = /^\d+$/.test(barcode.trim());
+    // 1) Code article direct (5-6 chiffres) — seulement si le code lu n'a que des chiffres
+    //    (un Code128 fournisseur « SP-019123 » n'est pas l'article 019123)
+    let a = numeric ? (_artByCode.get(clean) || _artByCode.get(_normCode(clean))) : null;
     if (a) return a.code;
     // 2) Ref fournisseur (avec et sans espaces)
     a = _artByRef.get(barcode) || _artByRef.get(barcode.toUpperCase());
@@ -2143,7 +2160,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       if (c && (_artByCode.get(c) || _catalogHas(c))) return c;
     }
     // 5) Code 5-6 chiffres dans le catalogue national (pas en stock local)
-    if (/^\d{5,6}$/.test(clean) && _catalogHas(clean)) return _normCode(clean);
+    if (numeric && /^\d{5,6}$/.test(clean) && _catalogHas(clean)) return _normCode(clean);
     return null; // inconnu
   };
 
@@ -2188,7 +2205,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
 
   const initOCR = async () => {
     if (ocrReadyRef.current || ocrLoadingRef.current) return;
-    if (window._ortFailed || typeof ort === 'undefined') { console.warn('[OCR] ONNX Runtime unavailable'); return; }
+    if (window._ortFailed || typeof ort === 'undefined') { console.warn('[OCR] ONNX Runtime unavailable'); ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true); return; }
     ocrLoadingRef.current = true;
     try {
       // Config iOS-compatible (onnxruntime issue #22086)
@@ -2217,7 +2234,8 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       console.log('[OCR] PaddleOCR ready');
     } catch(e) {
       console.warn('[OCR] load error:', e);
-      // keep ocrLoadingRef=true to prevent retry
+      // Échec (réseau, mémoire) : on le dit et on permet de réessayer
+      ocrLoadingRef.current = false; ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true);
     }
   };
 
@@ -2245,7 +2263,8 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
         const text = (p.text || '').replace(/\s/g, '');
         if (!text) continue;
         const matches = text.match(/(?<!\d)\d{13}(?!\d)|(?<!\d)\d{5,6}(?!\d)/g) || [];
-        for (const m of matches) ocrResults.push({ text: m, format: 'OCR' });
+        // Prix, quantités, références : on ne garde qu'un EAN-13 à clé valide ou le code d'un article en stock
+        for (const m of matches) if (m.length === 13 ? _ean13Ok(m) : _artByCode.has(_normCode(m))) ocrResults.push({ text: m, format: 'OCR' });
       }
       return ocrResults;
     } catch(e) {
@@ -2332,8 +2351,10 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
 
       // Stage 4 — PaddleOCR fallback (lazy-load + snapshot HD)
       const ef = emptyFramesRef.current;
-      if (ef >= 15 && !ocrReadyRef.current && !ocrLoadingRef.current) { console.log('[Scan] OCR init triggered at frame', ef); initOCR(); }
-      if (ef >= 20 && ocrReadyRef.current && !ocrBusyRef.current && merged.length === 0) {
+      // OCR (lourd : OpenCV + modèles, plusieurs dizaines de Mo) : uniquement à la demande
+      if (ocrRequestRef.current && !ocrReadyRef.current && !ocrLoadingRef.current) { console.log('[Scan] OCR demandé'); initOCR(); }
+      if (ocrRequestRef.current && ocrReadyRef.current && !ocrBusyRef.current && merged.length === 0) {
+        ocrRequestRef.current = false; setOcrAsk(false);
         const ocrRes = await runOCR();
         for (const r of ocrRes) {
           if (!r.text || seen.has(r.text)) continue;
@@ -2519,6 +2540,12 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           </div>
         )}
 
+        {/* OCR à la demande */}
+        <button onClick={()=>{ ocrRequestRef.current = true; setOcrAsk(true); setOcrFail(false); }} disabled={ocrAsk}
+          style={{position:'absolute',bottom:56,left:'50%',transform:'translateX(-50%)',minHeight:44,padding:'0 18px',borderRadius:99,border:'1px solid rgba(255,255,255,.35)',background:'rgba(0,0,0,.6)',color:'#fff',fontSize:13,fontWeight:800}}>
+          {ocrAsk ? (ocrReadyRef.current ? 'Lecture de l’étiquette…' : 'Chargement de la lecture d’étiquette…') : ocrFail ? 'Lecture d’étiquette indisponible · réessayer' : 'Pas de code-barres ? Lire l’étiquette'}
+        </button>
+
         {/* hint */}
         <div style={{position:'absolute',bottom:24,left:0,right:0,textAlign:'center',color:'rgba(255,255,255,.7)',fontSize:12,fontWeight:500,padding:'0 20px'}}>
           {detected.length === 0 ? 'Pointez le code-barre dans le cadre...' : (continu ? 'Continue · ou tape ↑ pour traiter' : '1 scan effectué')}
@@ -2611,19 +2638,22 @@ function DouchetteScreen({ onBack, onArticle }) {
 
   const bufRef = useRef('');
   const timerRef = useRef(null);
+  const [miss, setMiss] = useState(null);
   const find = (raw) => {
     const clean = raw.replace(/\D/g,'');
-    let a = _artByCode.get(clean);
+    const numeric = /^\d+$/.test(raw.trim()); // même règle que la caméra : « SP-019123 » n'est pas l'article 019123
+    let a = numeric ? (_artByCode.get(clean) || _artByCode.get(_normCode(clean))) : null;
     if (!a) a = _artByRef.get(raw) || _artByRef.get(raw.toUpperCase());
     if (!a && _customEanMap.has(clean)) { const m = _normCode(_customEanMap.get(clean)); a = _artByCode.get(m) || _catalogArticle(m); }
     if (!a && window._eanMap) { const c = _normCode(window._eanMap.get(clean)); a = _artByCode.get(c) || _catalogArticle(c); }
-    if (!a) a = _catalogArticle(clean);
+    if (!a && numeric) a = _catalogArticle(clean);
     return a;
   };
   const resolveAndShow = async (raw) => {
     let a = find(raw);
     if (!a && !CATALOGUE && await _ensureCatalogue()) a = find(raw);
-    if (!a) return;
+    if (!a) { _beepError(); setMiss(raw); setTimeout(() => setMiss(m => m === raw ? null : m), 3000); return; } // code inconnu : on le dit
+    setMiss(null);
     setLast({...a, ts:Date.now()});
     setHistory(h => [{code:a.code, lib:a.lib, ts:Date.now()}, ...h].slice(0,8));
   };
@@ -2645,8 +2675,6 @@ function DouchetteScreen({ onBack, onArticle }) {
     if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timerRef.current); flush(); }
   };
 
-  const fakeScan = (code) => resolveAndShow(code);
-
   return (
     <>
       <TopBar title="Mode douchette" sub="Scanner Zebra · clavier masqué" back onBack={onBack} />
@@ -2661,6 +2689,7 @@ function DouchetteScreen({ onBack, onArticle }) {
         style={{position:'fixed',top:0,left:0,width:'100%',height:44,opacity:0.01,zIndex:-1,fontSize:16,border:'none'}}
       />
       <div style={{flex:1,padding:'14px 16px',overflow:'auto',display:'flex',flexDirection:'column'}}>
+        {miss && <div role="alert" style={{marginBottom:12,padding:'12px 14px',borderRadius:12,background:'#7f1d1d',color:'#fff',fontSize:14,fontWeight:700}}>Code inconnu : {miss}</div>}
         {!last ? (
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:'30px 20px'}}>
             <div style={{width:88,height:88,borderRadius:99,background:'rgba(167,139,250,.12)',display:'flex',alignItems:'center',justifyContent:'center',color:'#a78bfa',marginBottom:14}}>
@@ -2668,11 +2697,6 @@ function DouchetteScreen({ onBack, onArticle }) {
             </div>
             <div style={{fontSize:16,fontWeight:800,color:T.t1}}>En attente de scan</div>
             <div style={{fontSize:12,color:T.t2,marginTop:6,maxWidth:240,lineHeight:1.5}}>Pointe la douchette Zebra et appuie sur la gâchette. Le clavier ne s'affichera pas.</div>
-            {DATA_SOURCE === 'mock' && <div style={{marginTop:18,display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
-              {ARTICLES.slice(0,3).map(x=>(
-                <button key={x.code} onClick={()=>fakeScan(x.code)} style={{padding:'6px 10px',borderRadius:99,background:'rgba(255,255,255,.04)',border:`1px solid ${T.border}`,color:T.t2,fontSize:11,fontWeight:600}} className="tn">simuler {x.code}</button>
-              ))}
-            </div>}
           </div>
         ) : (
           <button onClick={()=>onArticle(last.code)} key={last.ts} className="pop" style={{
@@ -3729,7 +3753,12 @@ function PCApp() {
       } else if (e.key === 'Enter') {
         buf.chars = ''; buf.tStart = 0;
       }
-      if (e.key === 'Escape') { setCode(null); setQ(''); setUnknown(null); inputRef.current?.focus(); }
+      // Échap : 1er appui efface le champ, 2e ferme la fiche ; « / » ramène dans le champ de recherche
+      if (e.key === 'Escape') {
+        if (inputRef.current?.value) setQ(''); else { setCode(null); setUnknown(null); }
+        inputRef.current?.focus();
+      }
+      if (e.key === '/' && document.activeElement !== inputRef.current) { e.preventDefault(); inputRef.current?.focus(); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -3738,16 +3767,20 @@ function PCApp() {
   const lookup = async (raw) => {
     const trimmed = String(raw||'').trim();
     if (!trimmed) return;
+    // Vider le champ tout de suite : un scan suivant (douchette en rafale) ne doit pas se coller à celui-ci
+    const firstResult = results[0]?.code;
+    setQ('');
     // Code exact (6 chiffres, EAN, ref fournisseur)
     let c = findArt(trimmed);
     // Code/EAN hors agence : charger le catalogue à la demande puis réessayer
     // (toujours pour une saisie numérique : un code/EAN exact passe avant les résultats texte)
     if (!c && !CATALOGUE && (/^\d+$/.test(trimmed.replace(/\s/g,'')) || results.length === 0) && await _ensureCatalogue()) c = findArt(trimmed);
     // Sinon prendre le 1er résultat de la recherche texte
-    if (!c && results.length > 0) c = results[0].code;
+    // 1er résultat texte seulement pour une vraie recherche (mots), jamais pour un code scanné inconnu
+    const looksLikeCode = !/\s/.test(trimmed) && /\d/.test(trimmed) && trimmed.length >= 6;
+    if (!c && firstResult && !scannerActive && !looksLikeCode) c = firstResult;
     if (c) {
       setCode(c);
-      setQ('');
       setUnknown(null);
       setFlashKey(k=>k+1);
       const wasScan = scannerActive || /^\d{6,14}$/.test(trimmed);
@@ -3756,8 +3789,8 @@ function PCApp() {
         return [{code:c, ts:Date.now(), mode: wasScan ? 'scan':'search'}, ...filtered].slice(0,50);
       });
     } else {
-      setUnknown(trimmed);
-      setCode(null);
+      setUnknown(trimmed); // la fiche affichée reste : un mauvais scan ne la fait pas perdre
+      try { _beepError(); } catch (e) {}
     }
     inputRef.current?.focus();
   };
@@ -3937,7 +3970,13 @@ function PCApp() {
             </div>
           )}
           {!article && !unknown && DATA_SOURCE !== 'loading' && <PCEmpty agency={CTX.agency} />}
-          {unknown && (
+          {unknown && article && (
+            <div role="alert" style={{margin:'0 0 12px',padding:'10px 14px',borderRadius:12,background:'#7f1d1d',color:'#fff',fontSize:14,fontWeight:700,display:'flex',justifyContent:'space-between',gap:12}}>
+              <span>Code « {unknown} » non trouvé — la fiche ci-dessous est celle d’avant</span>
+              <button onClick={()=>{setUnknown(null);inputRef.current?.focus();}} style={{background:'none',border:0,color:'#fff',fontWeight:800,cursor:'pointer'}}>OK</button>
+            </div>
+          )}
+          {unknown && !article && (
             <div style={{maxWidth:560,margin:'80px auto',padding:'28px',background:T.card,borderRadius:16,border:`1px solid ${T.border}`,textAlign:'center'}}>
               <div style={{fontSize:18,fontWeight:800,color:T.t1}}>Code <span style={{color:T.accent,letterSpacing:1}} className="tn">"{unknown}"</span> non trouvé</div>
               <div style={{fontSize:13,color:T.t2,marginTop:8}}>Pas dans la base agence ni au catalogue.</div>
@@ -3991,7 +4030,7 @@ function PCApp() {
       <div style={{height:28,padding:'0 18px',display:'flex',alignItems:'center',gap:18,fontSize:10,color:T.t3,fontWeight:600,background:'#0d1016',borderTop:`1px solid ${T.border}`,flexShrink:0}}>
         <span>Mode PC · {CTX.agency} · {SCAN_VERSION}</span>
         <span><kbd style={kbd}>/</kbd> recherche</span>
-        <span><kbd style={kbd}>Esc</kbd> retour</span>
+        <span><kbd style={kbd}>Esc</kbd> efface, puis ferme la fiche</span>
         <span style={{marginLeft:'auto'}}>Le clavier va toujours dans le champ de scan.</span>
       </div>
     </div>

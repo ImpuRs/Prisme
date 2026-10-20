@@ -253,6 +253,8 @@ function _buildScanPayload() {
     articles[i] = {
       code,
       libelle: r?.libelle,
+      marque: r?.marque,
+      _refFourn: r?._refFourn,
       famille: r?.famille,
       sousFamille: r?.sousFamille,
       emplacement: r?.emplacement,
@@ -287,6 +289,8 @@ function _buildScanPayload() {
   return {
     version: CACHE_VERSION,
     timestamp: Date.now(),
+    dataDate: (_S.consommePeriodMaxFull || _S.consommePeriodMax)?.getTime?.() || null, // date des ventes (affichée par le Scan)
+    stockTs: _S._stockFileTs || null, // date du fichier stock : un import ZZAT plus récent reste appliqué dans le Scan
     store: myStore,
     selectedMyStore: myStore,
     storesIntersection: [..._S.storesIntersection],
@@ -344,7 +348,7 @@ async function _saveSessionToIDBNow() {
     }
 
     // Mode low-mem (iOS / mobiles) : on évite la session complète (énorme) qui dépasse souvent
-    // le quota IndexedDB et peut provoquer des crashs. scan.html lit la clé 'scan' en priorité.
+    // le quota IndexedDB et peut provoquer des crashs. scan.html lit la clé 'scan' (allégée) en priorité.
     if (_S.lowMemMode) {
       try { db.close(); } catch (_) {}
       localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
@@ -426,6 +430,7 @@ async function _saveSessionToIDBNow() {
       consommePeriodMax:     _S.consommePeriodMax     ? _S.consommePeriodMax.getTime()     : null,
       consommeMoisCouverts:  _S.consommeMoisCouverts,
       consommePeriodMinFull: _S.consommePeriodMinFull ? _S.consommePeriodMinFull.getTime() : null,
+      _stockFileTs:          _S._stockFileTs || null,
       consommePeriodMaxFull: _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : null,
       globalJoursOuvres:     _S.globalJoursOuvres,
       // ── Compteurs agences (non dérivables fiablement post-restore) ──
@@ -573,6 +578,7 @@ export async function _restoreSessionFromIDB() {
     _S.consommePeriodMax     = data.consommePeriodMax     ? new Date(data.consommePeriodMax)     : null;
     _S.consommeMoisCouverts  = data.consommeMoisCouverts  || 0;
     _S.consommePeriodMinFull = data.consommePeriodMinFull ? new Date(data.consommePeriodMinFull) : _S.consommePeriodMin;
+    _S._stockFileTs = data._stockFileTs || null;
     _S.consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : _S.consommePeriodMax;
     _S.globalJoursOuvres     = data.globalJoursOuvres     || 250;
 
@@ -777,7 +783,7 @@ export async function _migrateIDB() {
         req.onsuccess = () => res(req.result);
         req.onerror  = () => res(null);
         // Si la base n'existe pas, onupgradeneeded se déclenche (version 0→1) → on ferme et ignore
-        req.onupgradeneeded = () => { req.result.close(); res(null); };
+        req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (_) {} res(null); }; // base absente : ne pas la créer
       });
     } catch (_) {}
     if (!oldDb) return;

@@ -69,6 +69,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
     const filesC=document.getElementById('fileConsomme').files,f2=document.getElementById('fileStock').files[0];
     if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(filesC.length>1){showToast('📊 '+filesC.length+' fichiers consommé — fusion automatique','info',3000);}
+    if(f2)_S._stockFileTs=f2.lastModified||null; // date du fichier stock (le Scan s'en sert pour garder un import ZZAT plus récent)
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour Pilotage Stock et la Base articles','info',4000);}
     const btn=document.getElementById('btnCalculer');
 

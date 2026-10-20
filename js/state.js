@@ -93,6 +93,7 @@ _S.consommePeriodMin = null;
 _S.consommePeriodMax = null;
 _S.consommeMoisCouverts = 0;
 _S.consommePeriodMinFull = null; // plage totale avant tout filtre période
+_S._stockFileTs = null;         // date (lastModified) du fichier état du stock — Scan : un import ZZAT plus récent prime
 _S.consommePeriodMaxFull = null;
 
 // ── Filtre période global ──
@@ -361,7 +362,7 @@ export function resetAppState() {
 
   // Période
   _S.consommePeriodMin = null; _S.consommePeriodMax = null; _S.consommeMoisCouverts = 0;
-  _S.consommePeriodMinFull = null; _S.consommePeriodMaxFull = null;
+  _S.consommePeriodMinFull = null; _S.consommePeriodMaxFull = null; _S._stockFileTs = null;
   _S.periodFilterStart = null; _S.periodFilterEnd = null;
 
   // Insights
