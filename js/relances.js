@@ -32,6 +32,9 @@ export async function ensureRelances() {
 const _today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const _fmt = (ymd) => { const [y, m, d] = String(ymd).split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); };
 
+/** Toutes les relances de l'agence (après ensureRelances) : { cc: [{ d, s, n }] }. */
+export function relancesData() { return _data; }
+
 /** Dernier statut (hors simple note) d'un client : { s, d, n } ou null. */
 export function relanceLast(cc) {
   const h = _data[cc];

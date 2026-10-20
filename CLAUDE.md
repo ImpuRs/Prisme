@@ -83,7 +83,10 @@ js/
   main.js        — point d'entrée (~360 lignes depuis oct. 2026) : imports, mode mobile, exposition window.*
                    pour les onclick HTML, sélecteur agence, écouteurs, ACTION_REGISTRY
   periode.js     — filtre période global : sélecteur, applyPeriodFilter, _refilterFromByMonth
-  rapport.js     — reporting (rapport région / texte de synthèse)
+  rapport.js     — Reporting (bouton de la barre du haut) : rapport lisible sur dernier mois complet / 3 mois / 12 mois
+                   vs même période N-1 (mois complets seulement) — CA tous canaux, marge, clients, canaux, rang réseau
+                   (_byMonthStoreArtCanal, _byMonthClients), score La partie, stock, clients + relances notées, 3 actions ;
+                   copier le texte, imprimer / PDF, copier pour une IA (consignes + mêmes chiffres, rien n'est envoyé)
   pipeline.js    — moteur de chargement : processData, worker de parsing, _hydrateStateFromParseResult,
                    _postParseMain (MIN/MAX taux de service, Vitesse Réseau), processDataFromRaw
   render-stock.js — rendus stock : renderDashboardAndCockpit, renderTable (Base articles), renderABCTab,

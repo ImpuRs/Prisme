@@ -723,32 +723,6 @@ export function renderInsightsBanner() {
   if (banner) banner.classList.add('hidden');
 }
 
-// ── Reporting ────────────────────────────────────────────────
-export function openReporting() {
-  const overlay = document.getElementById('reportingOverlay');
-  const panel = document.getElementById('reportingPanel');
-  if (!overlay || !panel) return;
-  const _trigger = document.activeElement;
-  const esc=t=>(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const reportText = typeof generateRegionReportText==='function'?generateRegionReportText():(typeof generateReportText==='function'?generateReportText():'');
-  panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
-    <h2 class="text-base font-extrabold text-white shrink-0">📊 Prompt Reporting ${_S.selectedMyStore || ''}</h2>
-    <div class="flex items-center gap-2 shrink-0">
-      <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
-      <button onclick="closeReporting()" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
-    </div>
-  </div>
-  <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${esc(reportText)}</textarea>
-  <p class="text-xs t-inverse-muted mt-2">Prompt structuré — collez dans Claude, ChatGPT ou Gemini. Modifiable avant envoi.</p>`;
-  overlay.classList.add('active');
-  overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
-}
-
-export function closeReporting() {
-  const overlay = document.getElementById('reportingOverlay');
-  if (overlay) { overlay._cleanupFocusTrap?.(); overlay.classList.remove('active'); }
-}
-
 // ── Focus Trap — WCAG 2.1 criterion 2.4.3 ────────────────────
 export function focusTrap(container, trigger) {
   const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -770,14 +744,6 @@ export function focusTrap(container, trigger) {
     container.removeEventListener('keydown', onKey);
     if (trigger && document.body.contains(trigger)) trigger.focus();
   };
-}
-
-export function copyReportText() {
-  const ta = document.getElementById('reportingTextarea');
-  if (!ta) return;
-  navigator.clipboard.writeText(ta.value)
-    .then(() => showToast('📋 Rapport copié dans le presse-papier !', 'success'))
-    .catch(() => { ta.select(); document.execCommand('copy'); showToast('📋 Rapport copié !', 'success'); });
 }
 
 // ── Navbar collapsible ────────────────────────────────────────
