@@ -140,6 +140,7 @@ function openClient360(clientCode, source) {
   try {
     const html = _renderClient360(clientCode, source);
     panel.innerHTML = html || '<p style="color:red">_renderClient360 a retourné vide</p>';
+    window._relanceMount?.(clientCode);
   } catch(e) {
     console.error('[openClient360] erreur dans _renderClient360:', e);
     panel.innerHTML = `<p style="color:red;padding:20px">Erreur : ${e.message}</p>`;
@@ -254,7 +255,7 @@ function _renderClient360(clientCode,source){
     actionText='Client actif — aucune action urgente.';
     actionBg='bg-emerald-900/40 border-emerald-700';
   }
-  const actionBar=`<div class="mb-3 px-3 py-2 rounded-lg border ${actionBg}"><p class="text-xs font-bold t-inverse">⚡ ${actionText}</p></div>`;
+  const actionBar=`<div class="mb-3 px-3 py-2 rounded-lg border ${actionBg}"><p class="text-xs font-bold t-inverse">⚡ ${actionText}</p></div><div id="c360Relance" data-cc="${escapeHtml(clientCode)}"></div>`;
 
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];

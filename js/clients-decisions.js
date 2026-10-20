@@ -16,6 +16,7 @@
 import { _S } from './state.js';
 import { escapeHtml, formatEuro, defaultPeriodRange } from './utils.js';
 import { _clientPassesFilters, isCapteLegallais, isClientAgence } from './engine.js';
+import { ensureRelances, relanceBadge, relanceText } from './relances.js';
 
 const ROWS = 60;
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
@@ -214,7 +215,8 @@ function _list(key, rows, extra) {
       <td><span class="pt-strong">${escapeHtml(r.nom)}</span><br><span class="pt-small pt-muted">${escapeHtml(r.ville || '')}</span></td>
       <td class="pt-small">${escapeHtml(r.metier || '—')}</td>
       <td class="pt-small pt-muted">${escapeHtml(r.commercial || '—')}</td>
-      ${d.cells(r).map(v => `<td class="pt-num ar-r">${v}</td>`).join('')}</tr>`).join('');
+      ${d.cells(r).map(v => `<td class="pt-num ar-r">${v}</td>`).join('')}
+      <td>${relanceBadge(r.cc)}</td></tr>`).join('');
   return `<details class="ar-sec" id="tcSec-${key}" ${open ? 'open' : ''}>
     <summary><span class="pt-row" style="gap:14px;align-items:baseline;flex-wrap:wrap">
       <span class="pt-num" style="font-size:24px;font-weight:600;min-width:44px">${_n(rows.length)}</span>
@@ -227,10 +229,10 @@ function _list(key, rows, extra) {
         ${extra.slice(0, ROWS).map(r => `<tr class="ar-click" onclick="window.openClient360?.('${escapeHtml(r.cc)}','tes-clients')"><td class="pt-strong">${escapeHtml(r.nom)}</td><td class="pt-small pt-muted">${escapeHtml(r.commercial || '—')}</td><td class="pt-num ar-r">${_eur(r.ca)}</td><td class="pt-num ar-r">${r.sil} j</td><td class="pt-num ar-r">${escapeHtml(r.canal)} · ${r.silAll} j</td></tr>`).join('')}
         </tbody></table></div></div></details>` : ''}
       <div class="pt-list"><div class="pt-scroll"><table class="pt-table">
-        <thead><tr><th>Client</th><th>Métier</th><th>Commercial</th>${d.head.map(h => `<th class="ar-r">${h}</th>`).join('')}</tr></thead>
+        <thead><tr><th>Client</th><th>Métier</th><th>Commercial</th>${d.head.map(h => `<th class="ar-r">${h}</th>`).join('')}<th title="Noté dans la fiche client">Suivi</th></tr></thead>
         <tbody>${body}</tbody></table></div>
         <div class="pt-row pt-between pt-small pt-muted" style="padding:10px 12px;gap:12px;flex-wrap:wrap">
-          <span>${rows.length > ROWS ? `${ROWS} premiers sur ${_n(rows.length)}` : `${_n(rows.length)} ${_pl(rows.length, 'client', 'clients')}`} · clic = fiche client</span>
+          <span>${rows.length > ROWS ? `${ROWS} premiers sur ${_n(rows.length)}` : `${_n(rows.length)} ${_pl(rows.length, 'client', 'clients')}`} · clic = fiche client, où noter la relance</span>
           <button type="button" class="pt-link" onclick="_tcCsv('${key}')">Exporter en CSV</button>
         </div></div>
     </div>` : ''}
@@ -255,7 +257,10 @@ export function clientsARelancer() {
   return _decisions({ all: true })?.relancer || [];
 }
 
+let _relReady = '';
 export function renderTesClients() {
+  // Suivi des relances : chargé une fois par agence, puis nouveau rendu
+  if (_relReady !== (_S.selectedMyStore || '')) { const st = _S.selectedMyStore || ''; ensureRelances().then(() => { _relReady = st; renderTesClients(); }); }
   const host = document.getElementById('tabPortefeuille');
   if (!host) return;
   if (!_S._byMonth || !(_S.finalData || []).length) { host.innerHTML = '<div class="pt-wrap"><div class="pt-card pt-muted">Charge un consommé pour voir tes clients.</div></div>'; return; }
@@ -314,12 +319,13 @@ window._tcCsv = (key) => {
   const dec = _decisions(); const d = DEFS[key] || DEFS_PLUS[key];
   if (!dec || !d) return;
   const q = (v) => `"${String(v ?? '').replace(/<[^>]+>/g, '').replace(/"/g, '""')}"`;
-  const head = key === 'rattacher' ? ['Code Client', 'Nom', 'Ville', 'CA 12 mois', 'Commercial (à remplir)'] : ['Code Client', 'Nom', 'Métier', 'Commercial', 'Ville', ...d.head];
+  const head = key === 'rattacher' ? ['Code Client', 'Nom', 'Ville', 'CA 12 mois', 'Commercial (à remplir)'] : ['Code Client', 'Nom', 'Métier', 'Commercial', 'Ville', ...d.head, 'Suivi', 'Appel du (à remplir)', 'Résultat (à remplir)'];
   const lines = [head.map(q).join(';'), ...dec[key].map(r => (key === 'rattacher'
     ? [r.cc, r.nom, r.ville, Math.round(r.ca), '']
-    : [r.cc, r.nom, r.metier, r.commercial, r.ville, ...d.cells(r)]).map(q).join(';'))];
+    : [r.cc, r.nom, r.metier, r.commercial, r.ville, ...d.cells(r), relanceText(r.cc), '', '']).map(q).join(';'))];
   const url = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a'); a.href = url; a.download = `PRISME_${_S.selectedMyStore}_clients_${d.verb.replace(/\s+/g, '-')}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 window.renderTesClients = renderTesClients;
+window._tcRefresh = renderTesClients;

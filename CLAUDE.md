@@ -96,6 +96,9 @@ js/
   contexte.js    — bandeau de contexte en tête d'écran (agence, date des ventes, fenêtre de calcul de
                    l'écran, filtres clients actifs retirables) + navigation clavier (éléments cliquables
                    focusables, Entrée/Espace) ; zones héritées habillées par la classe CSS .pt-legacy
+  relances.js    — suivi des relances clients (Appelé / RDV pris / Sans suite + note, datés) : PRISME_PARTIE
+                   'rel|<agence>' (survit aux purges, dans la sauvegarde JSON) ; bloc dans la fiche client,
+                   colonne « Suivi » et colonnes à remplir dans les listes / CSV de Tes clients
   recherche.js   — recherche unique (barre du haut) : code/libellé article, code/nom client → fiche ;
                    « / » ou Ctrl+K pour y aller, ↑/↓ + Entrée
   scan-export.js — exports Scan mobile, rafraîchissement ZZAT018, import EAN (window.* seulement)
