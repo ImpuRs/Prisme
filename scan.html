@@ -32,7 +32,6 @@
   .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:4px;border-radius:99px;background:rgba(255,255,255,.4);z-index:50}
   .status{position:absolute;top:0;left:0;right:0;padding:14px 32px 0;display:flex;justify-content:space-between;color:#fff;font-size:14px;font-weight:600;z-index:40;font-variant-numeric:tabular-nums}
   .app{position:absolute;top:54px;left:0;right:0;bottom:0;display:flex;flex-direction:column}
-  .safe-bottom{padding-bottom:max(16px, env(safe-area-inset-bottom))}
   /* On touch / small screen: drop the fake bezel, fill viewport, respect safe-areas */
   @media (max-width: 500px), (pointer: coarse){
     #stage{background:#0a0c10;align-items:stretch;justify-content:stretch}
@@ -847,7 +846,6 @@ class ErrorBoundary extends React.Component {
 // ── Pages ─────────────────────────────────────────────────────
 function App() {
   const t = CTX;
-  const [offline, setOffline] = useState(false);
   // Re-render quand hydrateFromIDB() remplace ARTICLES.
   const [dataVersion, bump] = useState(0);
   useEffect(() => {
@@ -986,7 +984,6 @@ function App() {
     setInvMode(false); setInvZone(null); setInvCounts({}); setInvExtras({}); setPage('home');
     showToast(`✓ Inventaire exporté · ${ecarts} écart${ecarts>1?'s':''} à saisir dans l'ERP`);
   };
-  const totalActions = Object.values(actions).reduce((n,a)=>n+a.length,0);
   const hasEtiquettes = Object.values(actions).some(a=>a.some(x=>x.kind==='etiquette'&&x.status==='pending'));
   const pendingActions = Object.values(actions).reduce((n,a)=>n+a.filter(x=>x.status==='pending'&&x.kind!=='etiquette').length,0) + (hasEtiquettes?1:0);
   const invDoneCount = INV_CODES.filter(c => invCounts[c] != null).length;
@@ -1520,7 +1517,6 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
 }
 
 const sectionLabel = {fontSize:12,color:T.t3,fontWeight:800,letterSpacing:1.2,textTransform:'uppercase',margin:'4px 4px 8px'};
-const statCard = () => ({padding:'14px 14px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`,textAlign:'left',color:T.t1});
 
 function ModeBtn({ dot, icon, l, s, onClick, active }) {
   return (
@@ -2036,10 +2032,6 @@ function NumPad({ value, onChange, max=4, fresh=false }) {
   );
 }
 
-const numBtn = () => ({
-  borderRadius:10,border:`1px solid ${T.border}`,background:'rgba(0,0,0,.3)',
-  color:T.t1,display:'flex',alignItems:'center',justifyContent:'center',padding:0,
-});
 
 // ── Sheets ────────────────────────────────────────────────────
 function Sheet({ children, onClose, title, h='auto' }) {
@@ -2731,7 +2723,6 @@ function DouchetteScreen({ onBack, onArticle }) {
   const [history, setHistory] = useState([]); // [{code, ts}]
   const [buf, setBuf] = useState('');
   const inputRef = useRef(null);
-  const lastKeyRef = useRef(0);
 
   // Débloquer AudioContext iOS + refocus hidden input
   useEffect(() => {
@@ -3385,7 +3376,6 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
   const scanned = expected.filter(a => counts[a.code] != null).map(a => ({ a, n: counts[a.code], ecart: counts[a.code] - a.stock }));
   const nonScanned = expected.filter(a => counts[a.code] == null);
   const corrections = scanned.filter(i=>i.ecart !== 0);
-  const corrected = scanned.filter(i=>i.ecart === 0);
   const items = scanned;
   const hasCost = corrections.some(i => _unitCost(i.a) != null);
   const valDelta = corrections.reduce((s,i)=>s + i.ecart * (_unitCost(i.a) ?? 0), 0);
@@ -3668,15 +3658,7 @@ const pcBtn = {
   padding:'10px 18px',borderRadius:10,border:`1px solid ${T.border}`,background:T.card,
   color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.3,
 };
-const pcStat = {padding:'18px 18px',background:T.card,borderRadius:14,border:`1px solid ${T.border}`};
 const pcStatLbl = {fontSize:12,fontWeight:800,letterSpacing:.6,color:T.t3,textTransform:'uppercase'};
-const pcStatVal = {fontSize:36,fontWeight:900,color:T.t1,marginTop:6,letterSpacing:-1};
-const pcStatSub = {fontSize:12,color:T.t2,marginTop:4};
-const pcCellSmall = {padding:'10px 12px',background:'#0a0c10',borderRadius:10};
-const pcActionBtn = {
-  padding:'12px 14px',borderRadius:11,border:`1px solid ${T.border}`,background:'rgba(255,255,255,.02)',
-  color:T.t1,textAlign:'left',cursor:'pointer',display:'flex',alignItems:'center',gap:10,
-};
 
 function CopyBtn({ code, large }) {
   const [copied, setCopied] = useState(false);

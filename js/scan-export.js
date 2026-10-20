@@ -5,30 +5,13 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import './constants.js';
-import { _median } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { computeSquelette, computeVitesseReseau, rowVerdictLabel } from './engine.js';
-import './parser.js';
 import { showToast, renderAll } from './ui.js';
 import { _saveSessionToIDB } from './cache.js';
-import './sales.js';
-import './helpers.js';
-import './client-store.js';
-import './chalandise-store.js';
-import './agence-store.js';
 import { DataStore } from './store.js';
-import './diagnostic.js';
-import './planRayon.js';
-import './arbitrage.js';
-import './minmax.js';
-import './clients-decisions.js';
-import './animation.js';
-import './partie.js';
-import './commerce.js';
 import { renderTable } from './render-stock.js';
 
-// ── Export Scan — fichier léger pour mobile ──────────────────────────
 // ── Rafraichir stock depuis ZZAT018 CSV ──────────────────────────────
 // Le ZZAT fait foi sur la LISTE des articles de l'agence : après rafraîchissement, finalData = exactement les
 // articles du ZZAT (absents du ZZAT retirés, présents seulement dans le ZZAT ajoutés), avec son stock,
@@ -136,130 +119,92 @@ window.importEanCSV = function(fileInput) {
   reader.readAsText(file, 'UTF-8');
 };
 
-window.exportScanData = function() {
-  if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
-  const myStore = _S.selectedMyStore || '';
+// ── Fichier Scan (data/prisme-scan-<agence>.json) ─────────────────────────
+// withPrices = false : version collègues, sans prix ni marge réseau ni articles « à implanter ».
+const _M_LABELS = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+/** CA, quantités et marge d'un article dans les agences du réseau (myStore inclus ou non). */
+function _reseauAgg(code, stores, myStore) {
   const vpm = _S.ventesParAgence || {};
-  const otherStores = Object.keys(vpm).filter(s => s !== myStore);
-  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
-  const articles = DataStore.finalData.map(r => {
-    let reseauAgences = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
-    const allStores = Object.keys(vpm);
-    for (const s of allStores) {
-      const v = vpm[s]?.[r.code];
-      if (!v || v.countBL <= 0) continue;
-      if (s !== myStore) reseauAgences++;
-      totalCA += v.sumCA || 0;
-      totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
-      totalVMB += v.sumVMB || 0;
-    }
-    const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
-    const txMargeReseau = totalQte > 0 ? (totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : 0) : null;
-    const mKey = (r.abcClass || '') + (r.fmrClass || '');
-    return {
-      code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
-      emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
-      prixMoyenReseau, txMargeReseau, prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
-      ancienMin: r.ancienMin, ancienMax: r.ancienMax,
-      nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
-      couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
-      matriceVerdict: _mLabels[mKey] || '',
-      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r),
-      medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
-      _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
-      _reseauAgences: reseauAgences, isParent: r.isParent, _refFourn: r._refFourn || ''
-    };
-  });
-  // ── Ajouter les articles squelette "implanter" absents de finalData ──
-  const fdCodes = new Set(DataStore.finalData.map(r => r.code));
-  const sqData = _S._prSqData || computeSquelette();
-  if (sqData?.directions) {
-    for (const d of sqData.directions) {
-      for (const a of (d.implanter || [])) {
-        if (fdCodes.has(a.code)) continue; // déjà dans finalData
-        let reseauAgences = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
-        for (const s of otherStores) {
-          const v = vpm[s]?.[a.code];
-          if (!v || v.countBL <= 0) continue;
-          reseauAgences++;
-          totalCA += v.sumCA || 0;
-          totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
-          totalVMB += v.sumVMB || 0;
-        }
-        const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
-        const txMargeReseau = totalQte > 0 ? (totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : 0) : null;
-        // Médiane réseau ERP depuis stockParMagasin
-        const _spMins=otherStores.map(s=>_S.stockParMagasin?.[s]?.[a.code]?.qteMin).filter(v=>v>0);
-        const _spMaxs=otherStores.map(s=>_S.stockParMagasin?.[s]?.[a.code]?.qteMax).filter(v=>v>0);
-        const _median=arr=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
-        const medMin=_spMins.length?Math.round(_median(_spMins)):0;
-        const medMax=_spMaxs.length?Math.round(_median(_spMaxs)):0;
-        // Vitesse Réseau centralisée (rotation mensuelle)
-        const _vrScan=computeVitesseReseau(a.code,prixMoyenReseau||0,medMin);
-        let sugMin=_vrScan?_vrScan.min:Math.max(medMin,1);
-        let sugMax=_vrScan?_vrScan.max:Math.max(medMax,sugMin+1);
-        if(!_vrScan&&!_spMins.length&&!_spMaxs.length){sugMin=0;sugMax=0;}
-        articles.push({
-          code: a.code, libelle: a.libelle || '', famille: a.famille || '', sousFamille: '',
-          emplacement: '', statut: '', stockActuel: 0,
-          prixMoyenReseau, txMargeReseau, prixUnitaire: prixMoyenReseau||0, W: 0, V: 0,
-          ancienMin: 0, ancienMax: 0,
-          nouveauMin: sugMin, nouveauMax: sugMax,
-          couvertureJours: 0, abcClass: '', fmrClass: '',
-          matriceVerdict: '',
-          _sqClassif: 'implanter', _sqRole: '', _sqVerdict: a.classification || 'implanter', _sqLabel: 'À implanter',
-          medMinReseau: medMin||null, medMaxReseau: medMax||null,
-          _vitesseReseau: sugMin > 0, _fallbackERP: !!(!_vrScan&&sugMin>0),
-          _reseauAgences: reseauAgences, isParent: false
-        });
-        fdCodes.add(a.code); // éviter les doublons cross-directions
-      }
-    }
+  let n = 0, ca = 0, qte = 0, vmb = 0;
+  for (const s of stores) {
+    const v = vpm[s]?.[code];
+    if (!v || v.countBL <= 0) continue;
+    if (s !== myStore) n++;
+    ca += v.sumCA || 0; qte += (v.sumPrelevee || 0) + (v.sumEnleve || 0); vmb += v.sumVMB || 0;
   }
-  // EAN → code (inverse map pour lookup scanner)
-  const eanMap = {};
-  if (_S.catalogueEAN?.size) {
-    for (const [ean, code] of _S.catalogueEAN) eanMap[ean] = code;
-  }
-  const payload = { version: 2, store: myStore, timestamp: Date.now(), count: articles.length, articles, ean: eanMap };
-  const json = JSON.stringify(payload);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'prisme-scan-' + myStore + '.json'; a.click();
-  URL.revokeObjectURL(url);
-  showToast('📱 Fichier Scan exporté — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
-};
-window.exportScanDataAG = function() {
-  // Export allégé pour collègues : sans prix moyen ni marge réseau
+  return {
+    reseauAgences: n,
+    prixMoyenReseau: qte > 0 ? Math.round(ca / qte * 100) / 100 : null,
+    txMargeReseau: qte > 0 ? (ca > 0 ? Math.round(vmb / ca * 10000) / 100 : 0) : null,
+  };
+}
+function _exportScan(withPrices) {
   if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
   const myStore = _S.selectedMyStore || '';
-  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+  const allStores = Object.keys(_S.ventesParAgence || {});
+  const otherStores = allStores.filter(s => s !== myStore);
   const articles = DataStore.finalData.map(r => {
     const mKey = (r.abcClass || '') + (r.fmrClass || '');
-    return {
-      code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
+    const row = {
+      code: r.code, libelle: r.libelle, marque: r.marque, famille: r.famille, sousFamille: r.sousFamille,
       emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
       W: r.W, V: r.V,
       ancienMin: r.ancienMin, ancienMax: r.ancienMax,
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
-      matriceVerdict: _mLabels[mKey] || '',
+      matriceVerdict: _M_LABELS[mKey] || '',
       _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r),
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
-      isParent: r.isParent, _refFourn: r._refFourn || ''
+      isParent: r.isParent, _refFourn: r._refFourn || '',
     };
+    if (withPrices) {
+      const g = _reseauAgg(r.code, allStores, myStore);
+      Object.assign(row, { prixMoyenReseau: g.prixMoyenReseau, txMargeReseau: g.txMargeReseau, prixUnitaire: r.prixUnitaire,
+        medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau, _reseauAgences: g.reseauAgences });
+    }
+    return row;
   });
-  const eanMap = {};
-  if (_S.catalogueEAN?.size) {
-    for (const [ean, code] of _S.catalogueEAN) eanMap[ean] = code;
+  // Articles « à implanter » absents de finalData (version complète seulement)
+  if (withPrices) {
+    const fdCodes = new Set(DataStore.finalData.map(r => r.code));
+    const sqData = _S._prSqData || computeSquelette();
+    const med = (arr) => { const t = [...arr].sort((x, y) => x - y); return t[Math.floor(t.length / 2)]; };
+    for (const d of (sqData?.directions || [])) {
+      for (const a of (d.implanter || [])) {
+        if (fdCodes.has(a.code)) continue;
+        const g = _reseauAgg(a.code, otherStores, myStore);
+        const mins = otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMin).filter(v => v > 0);
+        const maxs = otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMax).filter(v => v > 0);
+        const medMin = mins.length ? Math.round(med(mins)) : 0, medMax = maxs.length ? Math.round(med(maxs)) : 0;
+        const vr = computeVitesseReseau(a.code, g.prixMoyenReseau || 0, medMin); // rythme du réseau
+        let sugMin = vr ? vr.min : Math.max(medMin, 1);
+        let sugMax = vr ? vr.max : Math.max(medMax, sugMin + 1);
+        if (!vr && !mins.length && !maxs.length) { sugMin = 0; sugMax = 0; }
+        articles.push({
+          code: a.code, libelle: a.libelle || '', famille: a.famille || '', sousFamille: '',
+          emplacement: '', statut: '', stockActuel: 0,
+          prixMoyenReseau: g.prixMoyenReseau, txMargeReseau: g.txMargeReseau, prixUnitaire: g.prixMoyenReseau || 0, W: 0, V: 0,
+          ancienMin: 0, ancienMax: 0, nouveauMin: sugMin, nouveauMax: sugMax,
+          couvertureJours: 0, abcClass: '', fmrClass: '', matriceVerdict: '',
+          _sqClassif: 'implanter', _sqRole: '', _sqVerdict: a.classification || 'implanter', _sqLabel: 'À implanter',
+          medMinReseau: medMin || null, medMaxReseau: medMax || null,
+          _vitesseReseau: sugMin > 0, _fallbackERP: !!(!vr && sugMin > 0),
+          _reseauAgences: g.reseauAgences, isParent: false,
+        });
+        fdCodes.add(a.code);
+      }
+    }
   }
-  const payload = { version: 2, store: myStore, timestamp: Date.now(), count: articles.length, articles, ean: eanMap };
+  const ean = {};
+  if (_S.catalogueEAN?.size) for (const [e, code] of _S.catalogueEAN) ean[e] = code;
+  const dataDate = (_S.consommePeriodMaxFull || _S.consommePeriodMax)?.getTime?.() || null;
+  const payload = { version: 2, store: myStore, timestamp: Date.now(), dataDate, stockTs: _S._stockFileTs || null, count: articles.length, articles, ean };
   const json = JSON.stringify(payload);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'prisme-scan-' + myStore + '.json'; a.click();
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = 'prisme-scan-' + myStore + '.json'; link.click();
   URL.revokeObjectURL(url);
-  showToast('📱 Scan AG exporté (sans prix) — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
-};
+  showToast(`📱 ${withPrices ? 'Fichier Scan' : 'Scan AG (sans prix)'} exporté — ${articles.length} refs (${(json.length / 1024 / 1024).toFixed(1)} Mo)`, 'success');
+}
+window.exportScanData = () => _exportScan(true);
+window.exportScanDataAG = () => _exportScan(false);
