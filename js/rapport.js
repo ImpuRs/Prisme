@@ -1,385 +1,329 @@
 // © 2026 Jawad El Barkaoui — Tous droits réservés
 // PRISME — rapport.js
-// Reporting : rapport région / texte de synthèse
-// Extrait de main.js (oct. 2026). Les fonctions restent exposées via window.* dans main.js.
+// Reporting mensuel (bouton « Reporting » de la barre du haut) : un rapport lisible tel quel,
+// sur une période au choix (dernier mois complet / 3 mois / 12 mois) comparée à la même période N-1.
+//   Chiffres clés (CA tous canaux, marge, clients, canaux) · Réseau (rang, médiane, évolution)
+//   Score agence (La partie) · Stock (photo à la date des données) · Clients (décisions + relances notées)
+//   Nos 3 actions (top de La partie)
+// Sorties : « Copier le texte » (e-mail / Excel), « Imprimer / PDF », « Copier pour une IA » (consignes + données).
+// Sources : _byMonthStoreArtCanal (CA/VMB par agence × mois), _byMonthClients (clients actifs, agence),
+// _byMonthClientCAByCanal (CA par canal, agence) — mêmes chiffres que le reste de l'appli.
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { DORMANT_DAYS, METIERS_STRATEGIQUES } from './constants.js';
-import { formatEuro, pct, fmtDate } from './utils.js';
 import { _S } from './state.js';
-import { _clientPassesFilters } from './engine.js';
-import './parser.js';
-import './ui.js';
-import './cache.js';
-import './sales.js';
-import './helpers.js';
-import './client-store.js';
-import './chalandise-store.js';
-import './agence-store.js';
-import { DataStore } from './store.js';
-import './diagnostic.js';
-import './planRayon.js';
-import './arbitrage.js';
-import './minmax.js';
-import './clients-decisions.js';
-import './animation.js';
-import './partie.js';
-import './commerce.js';
+import { formatEuro, escapeHtml, ptTile } from './utils.js';
+import { isInvendu, excedentSurStock } from './engine.js';
+import { computeStockPartie } from './partie.js';
+import { clientsDecisionsAll } from './clients-decisions.js';
+import { computeErpChanges } from './export-erp.js';
+import { ensureRelances, relancesData } from './relances.js';
 
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const CANAUX = { MAGASIN: 'Comptoir', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS', AUTRE: 'Autre' };
+const PERIODES = { mois: 'Dernier mois', trim: '3 derniers mois', an: '12 derniers mois' };
+let _periode = 'mois';
+let _cache = null, _cacheKey = '';
 
-  // ── Reporting ──
-  export function _getActiveFiltersLabel(){
-    const parts=[];
-    if(_S._selectedCommercial)parts.push(`Commercial : ${_S._selectedCommercial}`);
-    if(_S._selectedMetier)parts.push(`Métier : ${_S._selectedMetier}`);
-    if(_S._selectedDepts?.size)parts.push(`Dept : ${[..._S._selectedDepts].join(', ')}`);
-    if(_S._selectedClassifs?.size)parts.push(`Classif : ${[..._S._selectedClassifs].join(', ')}`);
-    if(_S._selectedActivitesPDV?.size)parts.push(`Activité PDV : ${[..._S._selectedActivitesPDV].join(', ')}`);
-    if(_S._distanceMaxKm>0)parts.push(`Distance : ≤${_S._distanceMaxKm} km`);
-    if(_S._filterStrategiqueOnly)parts.push('Métiers stratégiques uniquement');
-    if(_S._selectedDirections?.size)parts.push(`Direction : ${[..._S._selectedDirections].join(', ')}`);
-    if(_S._selectedUnivers?.size)parts.push(`Univers : ${[..._S._selectedUnivers].join(', ')}`);
-    return parts.length?parts.join(' | '):'';
-  }
-  export function _clientPassesReportFilter(rec){
-    const info=_S.chalandiseData?.get(rec.cc);
-    // Hors zone (pas dans chalandise) → toujours inclus
-    if(!info)return true;
-    // En zone : distance ≤ 10km uniquement (si distance connue)
-    if(info.distanceKm!=null&&info.distanceKm>10)return false;
-    return _clientPassesFilters(info,rec.cc);
-  }
+const _n = (v) => Math.round(v || 0).toLocaleString('fr-FR');
+const _pct = (a, b) => (b > 0 && a >= 0) ? Math.round((a / b - 1) * 1000) / 10 : null;
+const _sgn = (v) => v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString('fr-FR')} %`;
+const _lib = (r) => String(r.libelle || r.code).replace(/\s+/g, ' ').trim();
+const _mLabel = (m) => `${MOIS[((m % 12) + 12) % 12]} ${Math.floor(m / 12)}`;
+const _ymd = (m, last) => { const y = Math.floor(m / 12), mo = m % 12; const d = last ? new Date(y, mo + 1, 0) : new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-  // ── Cohortes clients (partagé entre les deux prompts LLM) ──
-  // Focus FID Pot+ / OCC Pot+ — CA agence uniquement (sans caAutresAgences)
-  export function _computeClientCohorts(withTop5){
-    const result={silencieuxCount:0,silencieuxCA:0,silTop5:[],perdusCount:0,perdusCA:0,potentielsCount:0};
-    if(!_S.clientStore?.size)return result;
-    const isPotPlus=(c)=>{const cl=(c||'').toUpperCase();return cl.includes('FID')&&cl.includes('POT+')||cl.includes('OCC')&&cl.includes('POT+');};
-    const arr=withTop5?[]:null;
-    for(const rec of _S.clientStore.values()){
-      if(!_clientPassesReportFilter(rec))continue;
-      if(!isPotPlus(rec.classification))continue;
-      const d=rec.silenceDaysPDV??rec.silenceDaysAll;
-      const ca=(rec.caPDV||0)+(rec.caHors||0); // CA agence uniquement
-      // Silencieux : 30-60j
-      if(d!==null&&d>30&&d<=60&&ca>0){
-        result.silencieuxCount++;result.silencieuxCA+=ca;
-        if(arr)arr.push({nom:rec.nom,ca,days:d});
-      }
-      // Perdus : 60-180j
-      if(d!==null&&d>60&&d<=180&&ca>0){
-        result.perdusCount++;result.perdusCA+=ca;
-      }
-      // Potentiels
-      if(rec.crossStatus==='potentiel'&&rec.caLegallaisN1>=500&&rec.caLegallaisN1<=50000&&rec.commercial){
-        result.potentielsCount++;
-      }
-    }
-    if(arr){arr.sort((a,b)=>b.ca-a.ca);result.silTop5=arr.slice(0,5);}
-    return result;
-  }
-
-  export function generateRegionReportText(){
-    const pStart=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;
-    const pEnd=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;
-    const agence=_S.selectedMyStore||'—';
-    const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-    const periodHuman=(()=>{
-      if(!pStart||!pEnd)return null;
-      try{
-        const s=new Date(pStart),e=new Date(pEnd);
-        const sm=MOIS[s.getMonth()],em=MOIS[e.getMonth()];
-        if(s.getFullYear()===e.getFullYear()) return sm===em?`${sm} ${s.getFullYear()}`:`${sm} à ${em} ${e.getFullYear()}`;
-        return `${sm} ${s.getFullYear()} à ${em} ${e.getFullYear()}`;
-      }catch{return null;}
-    })();
-    const periodLabel=periodHuman?(periodHuman.charAt(0).toUpperCase()+periodHuman.slice(1)):(pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—');
-    const n=v=>(v||0).toLocaleString('fr');
-    const e=v=>formatEuro(v||0);
-    const pct=v=>v!=null?(+v).toFixed(2)+'%':'—';
-
-    const _ca_all=_S.canalAgence||{};
-    const caMag=_ca_all['MAGASIN']?.ca||0;
-    const vmbMag=_ca_all['MAGASIN']?.sumVMB||0;
-    const blMag=_ca_all['MAGASIN']?.bl||0;
-    const caWeb=_ca_all['INTERNET']?.ca||0;
-    const caRep=_ca_all['REPRESENTANT']?.ca||0;
-    const caDcs=_ca_all['DCS']?.ca||0;
-    const caTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
-    const blTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
-    const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
-    const nbClientsPDV=_S.ventesLocalMagPeriode?.size||0;
-    let nbClientsAll=nbClientsPDV;
-    {const _bmc=_S._byMonthClients;if(_bmc){const _pMin=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;const _pMax=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_pMin&&_pMax){const _si=_pMin.getFullYear()*12+_pMin.getMonth();const _ei=_pMax.getFullYear()*12+_pMax.getMonth();const _set=new Set();for(const midxStr in _bmc){const midx=+midxStr;if(midx>=_si&&midx<=_ei)for(const cc of _bmc[midxStr])_set.add(cc);}if(_set.size>0)nbClientsAll=_set.size;}}else if(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0){nbClientsAll=_S._clientsTousCanaux.size;}}
-    const txMarge=caTotal>0?vmbTotal/caTotal*100:0;
-    const txMargeMag=caMag>0?vmbMag/caMag*100:0;
-
-    let serviceOk=0,serviceTotal=0;
-    for(const r of DataStore.finalData){if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
-    const txDispo=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
-    const ruptures=DataStore.finalData.filter(r=>(r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
-    const dormants=DataStore.finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
-    const dormantVal=Math.round(dormants.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
-    const valStock=Math.round(DataStore.finalData.reduce((s,r)=>s+(r.stockActuel||0)*(r.prixUnitaire||0),0));
-
-    const kpis=_S.benchLists.obsKpis;
-    const hasBench=!!kpis;
-    const lose=(_S.benchLists.obsFamiliesLose||[]).slice(0,5);
-    const win=(_S.benchLists.obsFamiliesWin||[]).slice(0,5);
-    const manquants=_S.benchLists.missed||[];
-    const sp=_S.benchLists.storePerf||{};
-    const spSorted=Object.entries(sp).sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
-    const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
-
-    const _coh2=_computeClientCohorts(false);
-    const {silencieuxCount,silencieuxCA,perdusCount,perdusCA,potentielsCount}=_coh2;
-    const nbNomades=(_S.reseauNomades||[]).length;
-
-    // ── KPIs dérivés ──
-    const vmc=blTotal>0?Math.round(caTotal/blTotal):0;
-    const caParClient=nbClientsAll>0?Math.round(caTotal/nbClientsAll):0;
-    const freqClient=nbClientsAll>0?(blTotal/nbClientsAll).toFixed(1):0;
-
-    // ── Concentration commerciale (top 1 poids %) — CA agence uniquement ──
-    let topComPct=0,topComName='',nbCom=0;
-    if(_S.clientStore?.size && _S.chalandiseReady){
-      const _comCA=new Map();
-      for(const rec of _S.clientStore.values()){
-        if(!_clientPassesReportFilter(rec))continue;
-        const com=rec.commercial;if(!com)continue;
-        const ca=(rec.caPDV||0)+(rec.caHors||0); // CA sur cette agence uniquement
-        if(ca>0)_comCA.set(com,(_comCA.get(com)||0)+ca);
-      }
-      if(_comCA.size>0){
-        nbCom=_comCA.size;
-        const _sorted=[..._comCA.entries()].sort((a,b)=>b[1]-a[1]);
-        topComName=_sorted[0][0];
-        topComPct=caTotal>0?Math.round(_sorted[0][1]/caTotal*100):0;
-      }
-    }
-
-    // ── Top 5 ruptures pour données ──
-    const topRupt=ruptures.sort((a,b)=>(b.W||0)-(a.W||0)).slice(0,5);
-
-    const filtersLabel=_getActiveFiltersLabel();
-    const L=[];
-    L.push(`RÔLE : Tu es chef d'agence en distribution B2B quincaillerie (réseau Legallais). Tu rédiges le reporting mensuel pour ta direction régionale.`);
-    L.push(``);
-    L.push(`FORMAT : Texte brut pour cellule Excel. Pas de markdown, pas de #, pas de **, pas de bullet unicode.`);
-    L.push(`Titres en MAJUSCULES suivis d'un retour ligne. Tirets simples (-) pour les listes.`);
-    L.push(``);
-    L.push(`POSTURE : Parle au nom de l'agence et de l'équipe. Dire "l'agence", "on", "l'équipe". Jamais "je/mon/mes".`);
-    L.push(`Bon : "L'agence termine à 500k€" — "On cible les silencieux de Laborialle".`);
-    L.push(`Mauvais : "Je finis à 500k€" — "Mon équipe va relancer".`);
-    L.push(``);
-    L.push(`PRIORITÉ (identifier AVANT de rédiger) :`);
-    L.push(`- 1 moteur : ce qui tire le CA ce mois`);
-    L.push(`- 1 risque : ce qui peut faire perdre du CA`);
-    L.push(`- 1 levier : action à fort ROI immédiat`);
-    L.push(`Ces 3 éléments DOIVENT apparaître dans la synthèse ou les actions.`);
-    L.push(``);
-    L.push(`HIÉRARCHIE DES RÈGLES :`);
-    L.push(`1. Impact business > 2. Structure du reporting > 3. Style d'écriture.`);
-    L.push(`En cas de conflit, privilégier l'impact business.`);
-    L.push(``);
-    L.push(`RÈGLES D'ÉCRITURE :`);
-    L.push(`- RÈGLE ABSOLUE : 1 phrase = 1 idée = 1 impact business. Interdiction de cumuler plusieurs idées dans une phrase.`);
-    L.push(`- Phrases courtes, toujours chiffrées. Pas d'adjectifs superflus.`);
-    L.push(`- Pas de dramatisation ("scandale", "naufrage", "foudroyant").`);
-    L.push(`- Pas de jargon technique ("F+M" = "articles courants", jamais "ABC/FMR").`);
-    L.push(`- Chaque constat DOIT conclure par son impact business — MAIS varier les transitions :`);
-    L.push(`  Direct : "Marge à -1.5 pts vs médiane. Impact immédiat sur la rentabilité."`);
-    L.push(`  Implicite : "Fréquence stable à 3.2 BL/client, ce qui limite la croissance."`);
-    L.push(`  Décisionnel : "Priorité : activer la vente proactive."`);
-    L.push(`  Tension : "Risque immédiat sur la performance."`);
-    L.push(`  JAMAIS "Donc" systématique — le texte doit se lire comme un brief oral, pas un formulaire.`);
-    L.push(`- Contraste forces/faiblesses — le lecteur sent l'équilibre.`);
-    L.push(`- 350 mots max. Densité > exhaustivité.`);
-    L.push(`- ANTI-DILUTION : si une information n'explique pas un écart et ne justifie pas une action, la supprimer.`);
-    L.push(`- INTERDIT : phrase sans impact business. Phrase purement descriptive.`);
-    L.push(`- INTERDIT : inventer des données, des noms de clients, des montants absents des données fournies.`);
-    L.push(``);
-    L.push(`GESTION DES DONNÉES :`);
-    L.push(`- Donnée manquante → hypothèse prudente, signalée entre parenthèses.`);
-    L.push(`- Données incohérentes → privilégier la tendance, pas la précision.`);
-    L.push(`- Ne jamais arrondir un écart à zéro. Si l'écart existe, le montrer.`);
-    L.push(``);
-    L.push(`STRUCTURE (6 sections, dans cet ordre) :`);
-    L.push(``);
-    L.push(`1. SYNTHÈSE (2 phrases max)`);
-    L.push(`La première phrase DOIT contenir : rang + CA + écart médiane + moteur OU risque.`);
-    L.push(`Conclure : mois de conquête, consolidation, ou alerte.`);
-    L.push(``);
-    L.push(`2. PERFORMANCE (3-4 phrases)`);
-    L.push(`CA total, VMC (${e(vmc)}), CA/client (${e(caParClient)}), fréquence (${freqClient} BL/client), marge vs médiane réseau.`);
-    L.push(`Canaux en UNE phrase (répartition %). Conclure : qu'est-ce qui porte ou freine la performance ?`);
-    L.push(``);
-    L.push(`3. STOCK (2-3 phrases)`);
-    L.push(`Dispo articles courants, ruptures (citer les 2-3 plus critiques par nom), dormants en €.`);
-    L.push(`Verdict obligatoire : FREIN BUSINESS / NEUTRE / LEVIER.`);
-    L.push(``);
-    L.push(`4. RÉSEAU + MÉTIERS (4-5 phrases)`);
-    L.push(`Position réseau en UNE phrase (rang, écart CA vs médiane).`);
-    L.push(`2-3 familles fortes + 2-3 en retrait (avec gap €).`);
-    L.push(`Croiser avec les métiers : quel métier stratégique est sous-capté (captation <20%) ?`);
-    L.push(`Quel métier zone n'achète PAS du tout chez nous (non captés) ?`);
-    L.push(`NE PAS lister — extraire les 2-3 insights qui changent une décision.`);
-    L.push(``);
-    L.push(`5. DYNAMIQUE COMMERCIALE (3-4 phrases)`);
-    L.push(`Concentration : ${nbCom} commerciaux, top 1 = ${topComName} (${topComPct}% du CA). Réparti ou concentré ?`);
-    L.push(`Silencieux + perdus en € (pas de noms). Potentiels : combien, quel levier.`);
-    L.push(`Conclure : l'équipe commerciale est-elle en phase d'attaque ou en défense ?`);
-    L.push(``);
-    L.push(`6. NOS 3 ACTIONS (3 lignes)`);
-    L.push(`Format par action : [Donnée déclencheur] → [Geste concret] → [Date butoir] → [Résultat attendu €].`);
-    L.push(`Mauvais : "Relancer les potentiels".`);
-    L.push(`Bon : "Phoning Laborialle sur ses 9 silencieux (>10k€ CA) — objectif 3 réactivations avant le 25/05".`);
-    L.push(`Chaque action doit être traçable dans 1 mois.`);
-    L.push(``);
-    L.push(`CHECK FINAL (OBLIGATOIRE AVANT ENVOI) :`);
-    L.push(`Vérifier mentalement avant de répondre :`);
-    L.push(`- Le moteur est-il clairement identifiable ? OUI/NON`);
-    L.push(`- Le risque est-il chiffré ? OUI/NON`);
-    L.push(`- Le levier est-il actionnable et daté ? OUI/NON`);
-    L.push(`- Chaque phrase contient-elle un impact business ? OUI/NON`);
-    L.push(`- Une phrase descriptive subsiste-t-elle ? OUI/NON`);
-    L.push(`Si une réponse = NON → corriger avant envoi.`);
-    L.push(``);
-    L.push(`OBJECTIF : Un directeur régional qui lit ce reporting en 90 secondes sait exactement où l'agence en est, ce qui va, ce qui coince, et ce qu'on fait concrètement ce mois-ci.`);
-    L.push('');
-    L.push(`═══════════════════════════════════════════════════`);
-    L.push(`DONNÉES AGENCE ${agence} — ${periodLabel}`);
-    L.push(`PÉRIMÈTRE ANALYSÉ : clients ≤10km + hors zone · classifications FID Pot+ / OCC Pot+ · métiers stratégiques uniquement`);
-    if(filtersLabel)L.push(`FILTRES UI ACTIFS : ${filtersLabel}`);
-    L.push(`═══════════════════════════════════════════════════`);
-
-    L.push('');L.push('VENTES');
-    L.push(`CA total : ${e(caTotal)} | BL : ${n(blTotal)} | Clients : ${n(nbClientsAll)}`);
-    L.push(`Marge globale : ${pct(txMarge)} | VMB : ${e(Math.round(vmbTotal))}`);
-    L.push(`VMC : ${e(vmc)} | CA/client : ${e(caParClient)} | Fréquence : ${freqClient} BL/client`);
-    if(caMag>0)L.push(`Comptoir : ${e(caMag)} (${caTotal>0?Math.round(caMag/caTotal*100):0}%) marge ${pct(txMargeMag)} | ${n(nbClientsPDV)} clients`);
-    if(caWeb>0)L.push(`Internet : ${e(caWeb)}`);
-    if(caRep>0)L.push(`Représentant : ${e(caRep)}`);
-    if(caDcs>0)L.push(`DCS : ${e(caDcs)}`);
-
-    L.push('');L.push('STOCK');
-    L.push(`Valeur : ${e(valStock)} | ${n(DataStore.finalData.length)} réf.`);
-    if(txDispo!=null)L.push(`Disponibilité articles courants : ${txDispo}%`);
-    L.push(`Ruptures articles courants : ${n(ruptures.length)} | Dormants : ${n(dormants.length)} (${e(dormantVal)})`);
-    if(topRupt.length>0){L.push('Top ruptures :');for(const r of topRupt)L.push(`  ${r.code} ${r.libelle||''} (W=${r.W}, fam ${r.famille||''})`);}
-
-    if(hasBench){
-      L.push('');L.push('POSITION RÉSEAU');
-      if(myRankIdx>=0)L.push(`Rang CA : #${myRankIdx+1}/${spSorted.length}`);
-      L.push(`CA : ${e(kpis.mine?.ca||0)} vs méd. ${e(kpis.compared?.ca||0)} (${kpis.compared?.ca>0?Math.round(((kpis.mine?.ca||0)-(kpis.compared?.ca||0))/(kpis.compared?.ca)*100):0}%)`);
-      L.push(`Marge : ${pct(kpis.mine?.txMarge)} vs méd. ${pct(kpis.compared?.txMarge)}`);
-      L.push(`Clients : ${n(kpis.mine?.nbClients||0)} vs méd. ${n(kpis.compared?.nbClients||0)}`);
-      if(manquants.length>0)L.push(`Incontournables manquants : ${n(manquants.filter(m=>(m.myFreq||0)===0).length)} absents + ${n(manquants.filter(m=>(m.myFreq||0)>0).length)} sous-exploités`);
-      if(lose.length>0){L.push('');L.push('FAMILLES EN RETRAIT');for(const f of lose)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (${f.ecartPct}%)`);}
-      if(win.length>0){L.push('');L.push('FAMILLES FORTES');for(const f of win)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (+${f.ecartPct}%)`);}
-    }
-
-    // Commerciaux contributeurs — CA agence uniquement (sans caAutresAgences)
-    if(_S.clientStore?.size && _S.chalandiseReady){
-      const comCA=new Map();
-      const comCli=new Map();
-      const comSil=new Map();
-      for(const rec of _S.clientStore.values()){
-        if(!_clientPassesReportFilter(rec))continue;
-        const com=rec.commercial;
-        if(!com)continue;
-        const ca=(rec.caPDV||0)+(rec.caHors||0); // CA sur cette agence uniquement
-        if(ca>0){
-          comCA.set(com,(comCA.get(com)||0)+ca);
-          comCli.set(com,(comCli.get(com)||0)+1);
-        }
-        const d=rec.silenceDaysPDV??rec.silenceDaysAll;
-        if(d!==null&&d>30&&d<=180&&ca>0){
-          comSil.set(com,(comSil.get(com)||0)+1);
-        }
-      }
-      if(comCA.size>0){
-        const sorted=[...comCA.entries()].sort((a,b)=>b[1]-a[1]);
-        L.push('');L.push('COMMERCIAUX CONTRIBUTEURS');
-        for(const [com,ca] of sorted){
-          const cli=comCli.get(com)||0;
-          const sil=comSil.get(com)||0;
-          const silTag=sil>0?` | ${sil} silencieux/perdus`:'';
-          L.push(`  ${com} : ${e(ca)} CA agence, ${n(cli)} clients actifs${silTag}`);
-        }
-      }
-    }
-
-    // Directions / Secteurs (territoire)
-    if(_S.terrContribByDirection?.size>0){
-      L.push('');L.push('DIRECTIONS COMMERCIALES (territoire)');
-      const sorted=[..._S.terrContribByDirection.entries()].sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
-      for(const [dir,d] of sorted){
-        if(!d.ca)continue;
-        L.push(`  ${dir} : ${e(d.ca)} CA, ${n(d.blTerr||0)} BL territoire`);
-      }
-    }
-
-    // Métiers stratégiques (chalandise) — focus FID Pot+ / OCC Pot+
-    if(_S.clientStore?.size && _S.chalandiseReady){
-      const isStrat=(m)=>{const ml=m.toLowerCase();return METIERS_STRATEGIQUES.some(s=>ml.includes(s));};
-      const isPotPlus=(c)=>{const cl=(c||'').toUpperCase();return cl.includes('FID')&&cl.includes('POT+')||cl.includes('OCC')&&cl.includes('POT+');};
-      const metActifCA=new Map();
-      const metActifCli=new Map();
-      const metZoneCli=new Map();
-      const metZoneCA=new Map();
-      for(const rec of _S.clientStore.values()){
-        if(!_clientPassesReportFilter(rec))continue;
-        const met=rec.metier;
-        if(!met||!isStrat(met))continue; // stratégiques uniquement
-        // Zone : FID Pot+ / OCC Pot+ uniquement
-        if(rec.inChalandise&&isPotPlus(rec.classification)){
-          metZoneCli.set(met,(metZoneCli.get(met)||0)+1);
-          metZoneCA.set(met,(metZoneCA.get(met)||0)+(rec.ca2026||0));
-        }
-        // Clients actifs à l'agence (FID Pot+ / OCC Pot+)
-        const ca=(rec.caPDV||0)+(rec.caHors||0);
-        if(ca>0&&isPotPlus(rec.classification)){
-          metActifCA.set(met,(metActifCA.get(met)||0)+ca);
-          metActifCli.set(met,(metActifCli.get(met)||0)+1);
-        }
-      }
-      if(metActifCA.size>0||metZoneCli.size>0){
-        const allMets=new Set([...metActifCA.keys(),...metZoneCli.keys()]);
-        const metRows=[...allMets].map(met=>{
-          const caAg=metActifCA.get(met)||0;
-          const cliActifs=metActifCli.get(met)||0;
-          const cliZone=metZoneCli.get(met)||0;
-          const caZone=metZoneCA.get(met)||0;
-          const captation=cliZone>0?Math.round(cliActifs/cliZone*100):null; // captation clients (pas CA)
-          return {met,caAg,cliActifs,cliZone,caZone,captation};
-        }).sort((a,b)=>b.caZone-a.caZone);
-
-        L.push('');L.push('MÉTIERS STRATÉGIQUES (FID Pot+ / OCC Pot+ · ≤10km)');
-        for(const m of metRows){
-          const captStr=m.captation!=null?` captation ${m.captation}% (${n(m.cliActifs)}/${n(m.cliZone)})`:'';
-          L.push(`  ${m.met} : ${e(m.caAg)} CA agence / ${e(m.caZone)} CA zone${captStr}`);
-        }
-        const nonCaptes=metRows.filter(m=>m.cliActifs===0&&m.cliZone>0).sort((a,b)=>b.caZone-a.caZone);
-        if(nonCaptes.length>0){
-          L.push('  NON CAPTÉS :');
-          for(const m of nonCaptes.slice(0,5)){
-            L.push(`    ${m.met} : ${e(m.caZone)} CA zone, ${n(m.cliZone)} clients — 0 captés`);
+/** Agrégats mensuels par agence (CA, VMB) et par canal pour mon agence — calculés une fois par jeu de données. */
+function _agg() {
+  const bm = _S._byMonthStoreArtCanal || {};
+  const key = `${_S.selectedMyStore}|${_S.finalData?.length || 0}|${Object.keys(bm).length}|${_S.consommePeriodMaxFull || _S.consommePeriodMax}`;
+  if (_cache && key === _cacheKey) return _cache;
+  const stores = {}, myCanal = {};
+  let minM = Infinity, maxM = -Infinity;
+  for (const [store, canaux] of Object.entries(bm)) {
+    const sm = stores[store] = {};
+    for (const [canal, arts] of Object.entries(canaux)) {
+      for (const months of Object.values(arts)) {
+        for (const [ms, d] of Object.entries(months)) {
+          const m = +ms;
+          if (m < minM) minM = m; if (m > maxM) maxM = m;
+          const e = sm[m] || (sm[m] = { ca: 0, vmb: 0 });
+          e.ca += d.sumCA || 0; e.vmb += d.sumVMB || 0;
+          if (store === _S.selectedMyStore) {
+            const c = myCanal[canal] || (myCanal[canal] = {});
+            c[m] = (c[m] || 0) + (d.sumCA || 0);
           }
         }
       }
     }
-
-    L.push('');L.push('CLIENTS');
-    if(silencieuxCount>0)L.push(`Silencieux 30-60j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
-    if(perdusCount>0)L.push(`Perdus 60-180j : ${n(perdusCount)} (${e(perdusCA)} CA en jeu)`);
-    if(potentielsCount>0)L.push(`Potentiels jamais venus au comptoir : ${n(potentielsCount)}`);
-    if(nbNomades>0)L.push(`Nomades multi-agences : ${n(nbNomades)}`);
-
-    L.push('');L.push(`═══════════════════════════════════════════════════`);
-    L.push(`Source : PRISME · ${periodLabel} · ${new Date().toLocaleDateString('fr-FR')}`);
-    return L.join('\n');
   }
-  // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
+  _cache = { stores, myCanal, minM, maxM };
+  _cacheKey = key;
+  return _cache;
+}
+
+/** Bornes de la période choisie (indices de mois = année × 12 + mois) et de la même période N-1. */
+function _bornes() {
+  const d = new Date(_S.consommePeriodMaxFull || _S.consommePeriodMax || Date.now());
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const last = d.getFullYear() * 12 + d.getMonth() - (d.getDate() < lastDay ? 1 : 0); // dernier mois complet
+  const len = _periode === 'mois' ? 1 : _periode === 'trim' ? 3 : 12;
+  return { a: last - len + 1, b: last, a1: last - len + 1 - 12, b1: last - 12, len };
+}
+
+const _sumRange = (byM, a, b, f = (x) => x) => { let s = 0; for (let m = a; m <= b; m++) if (byM?.[m] != null) s += f(byM[m]); return s; };
+
+function _clientsActifs(a, b) {
+  const bmc = _S._byMonthClients;
+  if (!bmc) return null;
+  const set = new Set();
+  for (let m = a; m <= b; m++) for (const cc of bmc[m] || []) set.add(cc);
+  return set.size;
+}
+
+/** Toutes les données du rapport. */
+function computeRapport() {
+  const ag = _agg();
+  const P = _bornes();
+  const me = _S.selectedMyStore;
+  // N-1 seulement sur des mois complets : le premier mois des données compte s'il commence le 1er
+  const d0 = _S.consommePeriodMinFull || _S.consommePeriodMin;
+  const firstFull = d0 ? new Date(d0).getFullYear() * 12 + new Date(d0).getMonth() + (new Date(d0).getDate() > 1 ? 1 : 0) : ag.minM;
+  const hasN1 = Math.max(ag.minM, firstFull) <= P.a1;
+  const my = ag.stores[me] || {};
+  const ca = _sumRange(my, P.a, P.b, x => x.ca), vmb = _sumRange(my, P.a, P.b, x => x.vmb);
+  const ca1 = hasN1 ? _sumRange(my, P.a1, P.b1, x => x.ca) : null, vmb1 = hasN1 ? _sumRange(my, P.a1, P.b1, x => x.vmb) : null;
+  const canaux = Object.entries(ag.myCanal).map(([k, byM]) => ({ k, label: CANAUX[k] || k, ca: _sumRange(byM, P.a, P.b), ca1: hasN1 ? _sumRange(byM, P.a1, P.b1) : null }))
+    .filter(c => c.ca > 0 || c.ca1 > 0).sort((x, y) => y.ca - x.ca);
+  const cli = _clientsActifs(P.a, P.b), cli1 = hasN1 ? _clientsActifs(P.a1, P.b1) : null;
+
+  // Réseau : CA de chaque agence sur la période, rang, médiane, évolution médiane
+  const rows = Object.entries(ag.stores).map(([s, byM]) => ({ s, ca: _sumRange(byM, P.a, P.b, x => x.ca), ca1: hasN1 ? _sumRange(byM, P.a1, P.b1, x => x.ca) : null })).filter(r => r.ca > 0);
+  rows.sort((x, y) => y.ca - x.ca);
+  const med = (arr) => { const v = arr.filter(x => x != null).sort((x, y) => x - y); if (!v.length) return null; const i = v.length >> 1; return v.length % 2 ? v[i] : (v[i - 1] + v[i]) / 2; };
+  const others = rows.filter(r => r.s !== me);
+  const reseau = rows.length > 1 ? {
+    rang: rows.findIndex(r => r.s === me) + 1, nb: rows.length,
+    med: med(others.map(r => r.ca)),
+    evoMed: hasN1 ? med(others.map(r => r.ca1 ? _pct(r.ca, r.ca1) : null)) : null,
+  } : null;
+
+  // Score agence (La partie) et écart avec le chargement précédent
+  const p = _S._partie;
+  const hist = _S._partieHist || [];
+  const prev = hist.length >= 2 ? hist[hist.length - 2] : null;
+  const score = p ? { global: p.global, assort: p.assort, stock: p.stock, clients: p.clients, delta: prev && p.global != null ? p.global - prev.global : null } : null;
+
+  // Stock : photo à la date des données
+  const fd = _S.finalData || [];
+  const sp = computeStockPartie(fd);
+  let valStock = 0, invN = 0, invVal = 0, excVal = 0;
+  for (const r of fd) {
+    const v = Math.max(0, r.stockActuel || 0) * (r.prixUnitaire || 0);
+    valStock += v;
+    if (isInvendu(r)) { invN++; invVal += v; }
+    excVal += excedentSurStock(r) * (r.prixUnitaire || 0);
+  }
+  const rupTop = [...sp.rupArts].sort((x, y) => (y.W || 0) - (x.W || 0)).slice(0, 5);
+  let erp = null;
+  try { erp = computeErpChanges().length; } catch (_) { /* pas de MIN/MAX */ }
+  const bilan = _S._suiviBilan && !_S._suiviBilan.first ? _S._suiviBilan : null;
+  const stock = { valStock, dispo: sp.service, rup: sp.rupArts.length, rupTop, saso: sp.sasoArts.length, excVal, invN, invVal, erp, appliques: bilan ? { n: bilan.applied, sur: bilan.aAppliquer } : null };
+
+  // Clients : décisions (à la date des données) + relances notées sur la période
+  let dec = null;
+  try { dec = clientsDecisionsAll(); } catch (_) { dec = null; }
+  const sumCa = (l) => (l || []).reduce((s, r) => s + (r.ca || 0), 0);
+  const rel = relancesData() || {};
+  const dA = _ymd(P.a, false), dB = _ymd(P.b, true);
+  const cnt = { appele: 0, rdv: 0, sans_suite: 0 }, relCc = new Set();
+  let revenus = 0;
+  for (const [cc, h] of Object.entries(rel)) {
+    let first = null;
+    for (const e of h) {
+      if (e.d < dA || e.d > dB || !(e.s in cnt)) continue;
+      cnt[e.s]++; relCc.add(cc);
+      if (!first || e.d < first) first = e.d;
+    }
+    const lo = _S.clientLastOrderAll?.get(cc) || _S.clientLastOrder?.get(cc);
+    if (first && lo && new Date(lo) > new Date(first)) revenus++;
+  }
+  const clients = dec ? {
+    fidelite: p?.clients ?? null, detail: p?.clientsDetail || null,
+    relancer: { n: dec.relancer.length, ca: sumCa(dec.relancer) },
+    reconquerir: { n: dec.reconquerir.length, ca: sumCa(dec.reconquerir) },
+    nouveaux: dec.nouveaux.filter(r => r.type === 'Nouveau').length,
+    reactives: dec.nouveaux.filter(r => r.type === 'Réactivé').length,
+    relances: { ...cnt, clients: relCc.size, revenus },
+  } : null;
+
+  const actions = (p?.actions || []).slice(0, 3).map(a => ({ title: a.title, where: a.where, gain: a.gain }));
+
+  return {
+    agence: me, P, hasN1,
+    titre: P.len === 1 ? _mLabel(P.b) : `${_mLabel(P.a)} → ${_mLabel(P.b)}`,
+    titreN1: P.len === 1 ? _mLabel(P.b1) : `${_mLabel(P.a1)} → ${_mLabel(P.b1)}`,
+    dataDate: _S.consommePeriodMaxFull || _S.consommePeriodMax,
+    ventes: { ca, ca1, evo: ca1 ? _pct(ca, ca1) : null, marge: ca ? vmb / ca * 100 : null, marge1: ca1 ? vmb1 / ca1 * 100 : null, cli, cli1, evoCli: cli1 ? _pct(cli, cli1) : null, canaux },
+    reseau, score, stock, clients, actions,
+  };
+}
+
+// ── Rendu ───────────────────────────────────────────────────
+const _evo = (v) => v == null ? '<span class="pt-muted">N-1 indisponible</span>' : `<span class="pt-num pt-strong" style="color:${v >= 0 ? 'var(--pt-high)' : 'var(--pt-low)'}">${_sgn(v)}</span> vs N-1`;
+const _marge = (m) => m == null ? '—' : `${m.toFixed(1).replace('.', ',')} %`;
+const _sec = (title, body) => `<section class="rp-sec"><h3 class="rp-h">${title}</h3>${body}</section>`;
+
+function _html(R) {
+  const v = R.ventes;
+  const tot = v.canaux.reduce((s, c) => s + c.ca, 0) || 1;
+  const canaux = v.canaux.map(c => `<tr><td>${escapeHtml(c.label)}</td><td class="ar-r pt-num">${formatEuro(c.ca)}</td><td class="ar-r pt-num">${Math.round(c.ca / tot * 100)} %</td><td class="ar-r">${c.ca1 ? _sgn(_pct(c.ca, c.ca1)) : '—'}</td></tr>`).join('');
+  const s = R.stock, c = R.clients, sc = R.score, rz = R.reseau;
+  return `
+  <div class="rp-head">
+    <div class="pt-col" style="gap:4px">
+      <span class="pt-eyebrow">Reporting agence ${escapeHtml(R.agence || '')}</span>
+      <h2 class="pt-h2" style="margin:0">${escapeHtml(R.titre.charAt(0).toUpperCase() + R.titre.slice(1))}</h2>
+      <span class="pt-small pt-muted">Comparé à ${escapeHtml(R.titreN1)} · données au ${R.dataDate ? new Date(R.dataDate).toLocaleDateString('fr-FR') : '—'} · le stock et les listes clients sont à la date des données</span>
+    </div>
+    <div class="pt-col rp-noprint" style="gap:8px;align-items:flex-end">
+      <div class="pt-row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end">${Object.entries(PERIODES).map(([k, l]) => `<button type="button" class="ar-chip${_periode === k ? ' ar-chip-on' : ''}" aria-pressed="${_periode === k}" onclick="window._rpPeriode('${k}')">${l}</button>`).join('')}</div>
+      <div class="pt-row" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button type="button" class="pt-btn" onclick="window._rpCopy('texte')">Copier le texte</button>
+        <button type="button" class="pt-btn" onclick="window._rpPrint()">Imprimer / PDF</button>
+        <button type="button" class="pt-btn" onclick="window._rpCopy('ia')" title="Consignes de rédaction + ces chiffres, à coller dans une IA">Copier pour une IA</button>
+        <button type="button" class="pt-btn" onclick="closeReporting()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  ${_sec('Chiffres clés', `<div class="pt-tiles">
+    ${ptTile('CA agence · tous canaux', formatEuro(v.ca), _evo(v.evo))}
+    ${ptTile('Marge', _marge(v.marge), v.marge1 != null ? `${_marge(v.marge1)} il y a un an` : '')}
+    ${ptTile('Clients actifs', v.cli == null ? '—' : _n(v.cli), v.cli == null ? '' : _evo(v.evoCli))}
+    ${rz ? ptTile('Rang réseau (CA)', `${rz.rang}<span class="pt-small pt-muted"> / ${rz.nb}</span>`, rz.med ? `médiane ${formatEuro(rz.med)}${rz.evoMed != null ? ` · réseau ${_sgn(Math.round(rz.evoMed * 10) / 10)} vs N-1` : ''}` : '') : ''}
+  </div>
+  ${canaux ? `<div class="pt-list"><div class="pt-scroll"><table class="pt-table"><thead><tr><th>Canal</th><th class="ar-r">CA</th><th class="ar-r">Part</th><th class="ar-r">vs N-1</th></tr></thead><tbody>${canaux}</tbody></table></div></div>` : ''}`)}
+
+  ${sc ? _sec('Score agence (La partie)', `<div class="pt-tiles">
+    ${ptTile('Score agence', `${sc.global ?? '—'}<span class="pt-small pt-muted"> / 100</span>`, sc.delta == null ? 'pas de chargement précédent' : `${sc.delta > 0 ? '+' : ''}${sc.delta} pt depuis le dernier chargement`)}
+    ${ptTile('Assortiment', sc.assort ?? '—', '')}${ptTile('Stock', sc.stock ?? '—', '')}${ptTile('Clients', sc.clients ?? '—', '')}
+  </div>`) : ''}
+
+  ${_sec('Stock', `<div class="pt-tiles">
+    ${ptTile('Valeur du stock', formatEuro(s.valStock), `${s.dispo != null ? `disponibilité des articles fréquents ${s.dispo} %` : ''}`)}
+    ${ptTile('Ruptures', _n(s.rup), 'articles vendus au moins 3 fois en 12 mois, à zéro')}
+    ${ptTile('Sur-stock', _n(s.saso), `${formatEuro(s.excVal)} au-dessus du MAX PRISME`)}
+    ${ptTile('Jamais vendus', _n(s.invN), `${formatEuro(s.invVal)} immobilisés`)}
+  </div>
+  ${s.rupTop.length ? `<p class="pt-small" style="margin:0"><span class="pt-strong">Ruptures les plus vendues :</span> ${s.rupTop.map(r => `${escapeHtml(_lib(r))} <span class="pt-muted pt-num">${r.code}</span>`).join(' · ')}</p>` : ''}
+  ${s.erp != null ? `<p class="pt-small pt-muted" style="margin:0">${_n(s.erp)} MIN/MAX PRISME différents de l’ERP${s.appliques ? ` · ${_n(s.appliques.n)} appliqués sur ${_n(s.appliques.sur)} depuis le chargement précédent` : ''}.</p>` : ''}`)}
+
+  ${c ? _sec('Clients', `<div class="pt-tiles">
+    ${ptTile('Fidélité comptoir', c.fidelite == null ? '—' : `${c.fidelite} %`, c.detail ? `${_n(c.detail.kept)} clients revenus sur ${_n(c.detail.prev)}` : '')}
+    ${ptTile('À relancer', _n(c.relancer.n), `${formatEuro(c.relancer.ca)} de CA comptoir sur 12 mois`)}
+    ${ptTile('À reconquérir', _n(c.reconquerir.n), `${formatEuro(c.reconquerir.ca)} avant leur départ`)}
+    ${ptTile('Nouveaux · réactivés', `${_n(c.nouveaux)} · ${_n(c.reactives)}`, 'sur les 6 derniers mois')}
+  </div>
+  <p class="pt-small" style="margin:0"><span class="pt-strong">Relances notées sur la période :</span> ${c.relances.clients ? `${_n(c.relances.clients)} clients — ${_n(c.relances.appele)} appels, ${_n(c.relances.rdv)} RDV, ${_n(c.relances.sans_suite)} sans suite · ${_n(c.relances.revenus)} ont racheté depuis` : 'aucune (à noter dans la fiche client)'}</p>`) : ''}
+
+  ${R.actions.length ? _sec('Nos 3 actions', `<ol class="rp-actions">${R.actions.map(a => `<li><span class="pt-strong">${escapeHtml(a.title)}</span> <span class="pt-small pt-muted">${escapeHtml(a.where || '')}</span></li>`).join('')}</ol>`) : ''}`;
+}
+
+/** Version texte (e-mail, cellule Excel) : titres en majuscules, tirets. */
+function _texte(R) {
+  const v = R.ventes, s = R.stock, c = R.clients, sc = R.score, rz = R.reseau;
+  const L = [];
+  L.push(`REPORTING AGENCE ${R.agence} — ${R.titre.toUpperCase()}`);
+  L.push(`Comparé à ${R.titreN1} · données au ${R.dataDate ? new Date(R.dataDate).toLocaleDateString('fr-FR') : '—'}`);
+  L.push('', 'CHIFFRES CLÉS');
+  L.push(`- CA agence tous canaux : ${formatEuro(v.ca)}${v.evo != null ? ` (${_sgn(v.evo)} vs N-1)` : ''}`);
+  if (v.marge != null) L.push(`- Marge : ${_marge(v.marge)}${v.marge1 != null ? ` (${_marge(v.marge1)} il y a un an)` : ''}`);
+  if (v.cli != null) L.push(`- Clients actifs : ${_n(v.cli)}${v.evoCli != null ? ` (${_sgn(v.evoCli)} vs N-1)` : ''}`);
+  const tot = v.canaux.reduce((t, x) => t + x.ca, 0) || 1;
+  if (v.canaux.length) L.push(`- Canaux : ${v.canaux.map(x => `${x.label} ${formatEuro(x.ca)} (${Math.round(x.ca / tot * 100)} %${x.ca1 ? `, ${_sgn(_pct(x.ca, x.ca1))} vs N-1` : ''})`).join(' ; ')}`);
+  if (rz) L.push(`- Réseau : rang ${rz.rang}/${rz.nb} en CA${rz.med ? `, médiane des autres agences ${formatEuro(rz.med)}` : ''}${rz.evoMed != null ? `, réseau ${_sgn(Math.round(rz.evoMed * 10) / 10)} vs N-1` : ''}`);
+  if (sc) {
+    L.push('', 'SCORE AGENCE (LA PARTIE)');
+    L.push(`- ${sc.global}/100${sc.delta != null ? ` (${sc.delta > 0 ? '+' : ''}${sc.delta} pt depuis le dernier chargement)` : ''} · assortiment ${sc.assort ?? '—'} · stock ${sc.stock ?? '—'} · clients ${sc.clients ?? '—'}`);
+  }
+  L.push('', 'STOCK');
+  L.push(`- Valeur : ${formatEuro(s.valStock)}${s.dispo != null ? ` · disponibilité des articles fréquents ${s.dispo} %` : ''}`);
+  L.push(`- Ruptures : ${_n(s.rup)}${s.rupTop.length ? ` (dont ${s.rupTop.slice(0, 3).map(_lib).join(', ')})` : ''}`);
+  L.push(`- Sur-stock : ${_n(s.saso)} articles, ${formatEuro(s.excVal)} au-dessus du MAX PRISME`);
+  L.push(`- Jamais vendus en 12 mois : ${_n(s.invN)} articles, ${formatEuro(s.invVal)} immobilisés`);
+  if (s.erp != null) L.push(`- MIN/MAX : ${_n(s.erp)} à passer dans l'ERP${s.appliques ? ` (${_n(s.appliques.n)}/${_n(s.appliques.sur)} appliqués depuis le chargement précédent)` : ''}`);
+  if (c) {
+    L.push('', 'CLIENTS');
+    if (c.fidelite != null) L.push(`- Fidélité comptoir : ${c.fidelite} %${c.detail ? ` (${_n(c.detail.kept)} clients revenus sur ${_n(c.detail.prev)})` : ''}`);
+    L.push(`- À relancer : ${_n(c.relancer.n)} clients réguliers qui décrochent (${formatEuro(c.relancer.ca)} de CA comptoir 12 mois)`);
+    L.push(`- À reconquérir : ${_n(c.reconquerir.n)} clients perdus depuis 6 à 12 mois (${formatEuro(c.reconquerir.ca)})`);
+    L.push(`- Nouveaux / réactivés sur 6 mois : ${_n(c.nouveaux)} / ${_n(c.reactives)}`);
+    L.push(`- Relances notées sur la période : ${c.relances.clients ? `${_n(c.relances.clients)} clients (${_n(c.relances.appele)} appels, ${_n(c.relances.rdv)} RDV, ${_n(c.relances.sans_suite)} sans suite), ${_n(c.relances.revenus)} ont racheté depuis` : 'aucune'}`);
+  }
+  if (R.actions.length) {
+    L.push('', 'NOS 3 ACTIONS');
+    R.actions.forEach((a, i) => L.push(`${i + 1}. ${a.title}${a.where ? ` (${a.where})` : ''}`));
+  }
+  L.push('', `Source : PRISME · ${new Date().toLocaleDateString('fr-FR')}`);
+  return L.join('\n');
+}
+
+/** Version IA : consignes de rédaction + les mêmes données. */
+function _ia(R) {
+  return [
+    `RÔLE : Tu es chef d'agence en distribution B2B quincaillerie (réseau Legallais). Tu rédiges le reporting de l'agence pour ta direction régionale.`,
+    `FORMAT : texte brut (cellule Excel ou e-mail). Pas de markdown. Titres en MAJUSCULES, tirets simples pour les listes. 300 mots maximum.`,
+    `POSTURE : parler au nom de l'agence et de l'équipe (« l'agence », « on »), jamais « je ».`,
+    `STRUCTURE : 1. SYNTHÈSE (2 phrases : CA et évolution, le moteur, le risque) — 2. PERFORMANCE (CA, marge, clients, canaux, réseau) — 3. STOCK (verdict : frein, neutre ou levier) — 4. CLIENTS (fidélité, à relancer, relances menées) — 5. NOS 3 ACTIONS (geste concret, échéance, résultat attendu en €).`,
+    `RÈGLES : une phrase = une idée chiffrée = un impact business. Pas de jargon, pas de dramatisation. N'invente aucun chiffre ni aucun nom absent des données ; si une donnée manque, le dire.`,
+    '',
+    '═══ DONNÉES ═══',
+    _texte(R),
+  ].join('\n');
+}
+
+let _last = null;
+function _render() {
+  const panel = document.getElementById('reportingPanel');
+  if (!panel) return;
+  try {
+    _last = computeRapport();
+    panel.innerHTML = `<div class="rp">${_html(_last)}</div>`;
+  } catch (e) {
+    console.error('[PRISME] Reporting :', e);
+    panel.innerHTML = `<div class="pt-card"><p>Reporting indisponible : ${escapeHtml(e.message)}</p><button type="button" class="pt-btn" onclick="closeReporting()">Fermer</button></div>`;
+  }
+}
+
+export async function openReporting() {
+  const overlay = document.getElementById('reportingOverlay');
+  if (!overlay) return;
+  if (!(_S.finalData || []).length) { window.showToast?.('Charge d’abord les fichiers', 'info'); return; }
+  const trigger = document.activeElement;
+  await ensureRelances();
+  _render();
+  overlay.classList.add('active');
+  overlay._cleanupFocusTrap = window.focusTrap?.(document.getElementById('reportingPanel'), trigger);
+}
+
+export function closeReporting() {
+  const overlay = document.getElementById('reportingOverlay');
+  if (overlay) { overlay._cleanupFocusTrap?.(); overlay.classList.remove('active'); }
+}
+
+window._rpPeriode = (k) => { _periode = PERIODES[k] ? k : 'mois'; _render(); };
+window._rpCopy = async (kind) => {
+  if (!_last) return;
+  const txt = kind === 'ia' ? _ia(_last) : _texte(_last);
+  try { await navigator.clipboard.writeText(txt); window.showToast?.(kind === 'ia' ? 'Copié : à coller dans une IA' : 'Rapport copié', 'success'); }
+  catch (_) { window.showToast?.('Copie impossible dans ce navigateur', 'error'); }
+};
+window._rpPrint = () => {
+  document.body.classList.add('print-report');
+  const done = () => { document.body.classList.remove('print-report'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  window.print();
+  done();
+};
+window.openReporting = openReporting;
+window.closeReporting = closeReporting;

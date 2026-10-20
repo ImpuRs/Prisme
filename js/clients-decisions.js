@@ -252,6 +252,11 @@ function _card(key, rows) {
   </article>`;
 }
 
+/** Les 5 décisions clients + listes « pour creuser », sans les filtres de l'écran (Reporting). */
+export function clientsDecisionsAll() {
+  return _decisions({ all: true });
+}
+
 /** Clients réguliers qui décrochent (liste « Relancer »), sans les filtres de l'écran — pour « Ton suivi ». */
 export function clientsARelancer() {
   return _decisions({ all: true })?.relancer || [];

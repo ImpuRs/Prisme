@@ -14,7 +14,7 @@ import { extractClientCode, readExcel, _doCopyCode, _copyAllCodesDirect } from '
 import { _S, invalidateCache } from './state.js';
 import { computeClientCrossing, _unikLink, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker } from './parser.js';
-import { showToast, ToastManager, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, openReporting, sortBy, changePage, closeReporting, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
+import { showToast, ToastManager, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, sortBy, changePage, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
 import { prepareSources } from './sources.js';
 import { _clearCache, _showCacheBanner, _onPurgeCache, _saveSessionToIDB } from './cache.js';
 import './sales.js';
@@ -39,7 +39,7 @@ import './recherche.js'; // recherche unique (barre du haut)
 import './scan-export.js'; // exports Scan / ZZAT018 / EAN — fonctions window.* uniquement
 import { _refilterFromByMonth, applyPeriodFilter, toggleTabPeriodDropdown } from './periode.js';
 import { processData } from './pipeline.js';
-import { generateRegionReportText } from './rapport.js';
+import './rapport.js'; // Reporting (window.openReporting / closeReporting)
 import { _renderDataScopeBar, openDiagnosticCell, renderABCTab, renderComparison, renderCurrentTab, renderDashboardAndCockpit, renderTable } from './render-stock.js';
 
 // Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
@@ -221,11 +221,6 @@ window.focusTrap = focusTrap;
 window.ToastManager = ToastManager;
 window.toggleNavKpis = toggleNavKpis;
 window.initDetailsAnimations = initDetailsAnimations;
-window.openReporting = openReporting;
-window.closeReporting = closeReporting;
-window.copyReportText = copyReportText;
-window.generateReportText = generateRegionReportText;
-window.generateRegionReportText = generateRegionReportText;
 window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;

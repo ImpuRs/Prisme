@@ -1349,6 +1349,22 @@
     .pt-link:disabled { opacity:.35; cursor:default; }
     /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
     #tabArbitrage, #tabPortefeuille, #tabAnimation { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    /* Reporting (rapport.js) */
+    #reportingPanel { max-width:1040px; }
+    .rp { display:flex; flex-direction:column; gap:22px; color:var(--t-primary); }
+    .rp-head { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .rp-sec { display:flex; flex-direction:column; gap:12px; }
+    .rp-h { margin:0; font-size:17px; font-weight:600; }
+    .rp-actions { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:8px; }
+    @media print {
+      body.print-report > *:not(#reportingOverlay) { display:none !important; }
+      body.print-report #reportingOverlay { position:static !important; display:block !important; background:none !important; padding:0 !important; }
+      body.print-report #reportingPanel { max-width:none !important; max-height:none !important; overflow:visible !important; box-shadow:none !important; border:0 !important; background:#fff !important; }
+      body.print-report .rp, body.print-report .rp * { color:#111 !important; background:transparent !important; border-color:#ccc !important; }
+      body.print-report .rp-noprint { display:none !important; }
+      body.print-report .pt-tile { border:1px solid #ccc !important; break-inside:avoid; }
+      body.print-report .rp-sec { break-inside:avoid; }
+    }
     /* Suivi de relance (relances.js) — fiche client */
     .rl-box { margin:0 0 12px; padding:10px 12px; border-radius:12px; border:1px solid var(--pt-line, var(--b-default)); }
     .rl-btn { min-height:32px; padding:0 12px; font-size:13px; }
@@ -2133,7 +2149,7 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020h';
+    var ASSET_V = '20261020j';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
