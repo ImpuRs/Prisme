@@ -403,7 +403,7 @@ _S.canalAgence=newCanalAgence;
     const aeEnd=t3end;
     // Warn
     const warnHtml=(ps&&pe&&Math.round((pe-ps)/86400000)<90)
-      ?`<p class="text-[10px] c-caution font-bold mt-2">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`:'';
+      ?`<p class="text-xs c-caution font-bold mt-2">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`:'';
     function buildHtml(sfx){
       const selS=_S.periodFilterStart?_ym(_S.periodFilterStart):_ym(mois[0]);
       const selE=_S.periodFilterEnd?_ym(_S.periodFilterEnd):_ym(mois[mois.length-1]);

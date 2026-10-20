@@ -8,7 +8,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { formatEuro, escapeHtml } from './utils.js';
+import { formatEuro, escapeHtml, ptTile } from './utils.js';
 
 const OPT = { sens: 'tout', zeros: false, implant: false, chers: false, sep: ';' };
 const PRIX_CHER = 150; // €/pièce : mettre en stock une pièce chère jusque-là à 0/0 se décide au cas par cas
@@ -46,7 +46,7 @@ export function renderErpExport() {
   const hausses = n('hausse'), baisses = n('baisse'), zeros = n('zero');
   const sum = (l) => l.reduce((s, x) => s + x.deltaEur, 0);
   const list = _filtered(all);
-  const chip = (k, label, cnt) => `<button type="button" class="ar-chip${OPT.sens === k ? ' ar-chip-on' : ''}" onclick="window._erpSens('${k}')">${label} <span class="pt-num">${cnt.toLocaleString('fr-FR')}</span></button>`;
+  const chip = (k, label, cnt) => `<button type="button" class="ar-chip${OPT.sens === k ? ' ar-chip-on' : ''}" aria-pressed="${!!(OPT.sens === k)}" onclick="window._erpSens('${k}')">${label} <span class="pt-num">${cnt.toLocaleString('fr-FR')}</span></button>`;
   const tag = { hausse: '<span class="ar-tag" data-tone="mid">MAX ↑</span>', baisse: '<span class="ar-tag" data-tone="high">MAX ↓</span>', zero: '<span class="ar-tag" data-tone="low">0/0</span>' };
   const rows = list.slice(0, 40).map(x => `<tr class="ar-click" onclick="window.openArticlePanel?.('${x.code}','arbitrage')">
       <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(x.lib)}</span><span class="pt-small pt-muted pt-num">${x.code}${x.empl ? ' · ' + escapeHtml(x.empl) : ''}</span></div></td>
@@ -56,8 +56,7 @@ export function renderErpExport() {
       <td class="pt-num ar-r">${x.stock}</td>
       <td class="pt-num ar-r" style="color:${x.deltaEur <= 0 ? 'var(--pt-high)' : 'var(--pt-mid)'}">${x.deltaEur <= 0 ? '−' : '+'}${formatEuro(Math.abs(x.deltaEur))}</td>
     </tr>`).join('');
-  const tile = (label, val, hint) => `<div class="pt-col" style="gap:4px;padding:14px 16px;border-radius:14px;background:var(--s-card-alt);min-width:0">
-      <span class="pt-eyebrow" style="font-size:12px">${label}</span><span class="pt-num" style="font-size:22px;font-weight:600">${val}</span><span class="pt-small pt-muted">${hint}</span></div>`;
+  const tile = ptTile;
   el.innerHTML = `<section class="pt-card pt-col" style="gap:16px">
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:flex-start">
       <div class="pt-col" style="gap:4px;flex:1;min-width:280px">
@@ -67,7 +66,7 @@ export function renderErpExport() {
       </div>
       <button type="button" class="pt-btn" onclick="window._erpExport()" ${list.length ? '' : 'disabled'}>Exporter pour l'ERP (${list.length.toLocaleString('fr-FR')} lignes)</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+    <div class="pt-tiles">
       ${tile('MAX à baisser', baisses.length.toLocaleString('fr-FR'), `${formatEuro(Math.abs(sum(baisses)))} de MAX libérés`)}
       ${tile('MAX à monter', hausses.length.toLocaleString('fr-FR'), `${formatEuro(sum(hausses))} de MAX en plus (ruptures évitées)`)}
       ${tile('Passent à 0/0', zeros.length.toLocaleString('fr-FR'), 'plus de réappro (invendus, fins de série…)')}

@@ -21,15 +21,15 @@ export function buildPagerHtml({ total, page, pageSize, action, onCollapse }) {
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
   const cur = Math.max(1, Math.min(page, maxPage));
   const prev = cur > 1
-    ? `<button data-action="${action}" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">\u2190</button>`
-    : `<span class="text-[11px] t-disabled px-1">\u2190</span>`;
+    ? `<button data-action="${action}" data-dir="-1" class="text-xs font-semibold c-action hover:underline px-1 cursor-pointer">\u2190</button>`
+    : `<span class="text-xs t-disabled px-1">\u2190</span>`;
   const next = cur < maxPage
-    ? `<button data-action="${action}" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">\u2192</button>`
-    : `<span class="text-[11px] t-disabled px-1">\u2192</span>`;
+    ? `<button data-action="${action}" data-dir="1" class="text-xs font-semibold c-action hover:underline px-1 cursor-pointer">\u2192</button>`
+    : `<span class="text-xs t-disabled px-1">\u2192</span>`;
   const collapseBtn = onCollapse
-    ? `<button data-action="${onCollapse}" class="text-[10px] t-disabled hover:t-primary cursor-pointer">\u2191 R\u00e9duire</button>`
-    : `<span class="text-[10px] t-disabled">${total} items</span>`;
-  return `<div class="px-4 py-2 border-t b-default flex items-center justify-between">${collapseBtn}<div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${(cur - 1) * pageSize + 1}\u2013${Math.min(cur * pageSize, total)}</span></div>`;
+    ? `<button data-action="${onCollapse}" class="text-xs t-disabled hover:t-primary cursor-pointer">\u2191 R\u00e9duire</button>`
+    : `<span class="text-xs t-disabled">${total} items</span>`;
+  return `<div class="px-4 py-2 border-t b-default flex items-center justify-between">${collapseBtn}<div class="flex items-center gap-1">${prev}<span class="text-xs t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-xs t-disabled">${(cur - 1) * pageSize + 1}\u2013${Math.min(cur * pageSize, total)}</span></div>`;
 }
 
 // ── deltaColor — classe CSS pour ratio caHors/caPDV ─────────────

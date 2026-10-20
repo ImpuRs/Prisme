@@ -172,27 +172,27 @@ function _renderClient360(clientCode,source){
   // ── Classification + badge statut ───────────────────────────────
   const classif=_normalizeClassifLocal(info.classification);
   const classifColors={'FID Pot+':'bg-emerald-700 text-emerald-100','FID Pot-':'bg-gray-600 text-gray-200','OCC Pot+':'bg-blue-700 text-blue-100','OCC Pot-':'bg-blue-900 text-blue-300','NC':'bg-slate-700 text-slate-300'};
-  const classifBadge=classif?`<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${classifColors[classif]||'bg-slate-700 text-slate-300'}">${classif}</span>`:'';
+  const classifBadge=classif?`<span class="text-xs font-bold px-2 py-0.5 rounded-full ${classifColors[classif]||'bg-slate-700 text-slate-300'}">${classif}</span>`:'';
 
   // ── Statut client ────────────────────────────────────────────────
   let statusBadge='',statusBg='';
   if(!artMap&&ca2025===0){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-600 text-slate-200">PROSPECT</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-600 text-slate-200">PROSPECT</span>';
     statusBg='';
   }else if(!artMap&&ca2025>0){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-orange-100">HORS AGENCE</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-700 text-orange-100">HORS AGENCE</span>';
     statusBg='border-l-4 border-orange-500';
   }else if(daysSince!==null&&daysSince>365){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300" title="Sans achat depuis plus d’un an">PERDU</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300" title="Sans achat depuis plus d’un an">PERDU</span>';
     statusBg='border-l-4 border-gray-600';
   }else if(daysSince!==null&&daysSince>180){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-800 text-red-200" title="Silence de 6 à 12 mois — décision « Reconquérir » de Tes clients">À RECONQUÉRIR</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-800 text-red-200" title="Silence de 6 à 12 mois — décision « Reconquérir » de Tes clients">À RECONQUÉRIR</span>';
     statusBg='border-l-4 border-red-600';
   }else if(daysSince!==null&&daysSince>60){
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100" title="Silence de 2 à 6 mois — décision « Relancer » de Tes clients">À RELANCER</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100" title="Silence de 2 à 6 mois — décision « Relancer » de Tes clients">À RELANCER</span>';
     statusBg='border-l-4 border-red-500';
   }else{
-    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">ACTIF</span>';
+    statusBadge='<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">ACTIF</span>';
     statusBg='border-l-4 border-emerald-500';
   }
 
@@ -210,7 +210,7 @@ function _renderClient360(clientCode,source){
         ${classifBadge}
       </div>
       <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
-      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}${info.secteur?' ('+escapeHtml(info.secteur)+')':''}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
+      <p class="text-xs t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}${info.secteur?' ('+escapeHtml(info.secteur)+')':''}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
     </div>
     <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;
@@ -275,8 +275,8 @@ function _renderClient360(clientCode,source){
       periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
     }
     const subLine=_hasPeriodFilter&&_caPdv26>0&&_caPdv26!==caPDV
-      ?`<p class="text-[10px] t-inverse-muted mt-0.5">Année 2026 : <strong class="t-inverse">${formatEuro(_caPdv26)}</strong></p>`:'';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p>${subLine}</div>`);
+      ?`<p class="text-xs t-inverse-muted mt-0.5">Année 2026 : <strong class="t-inverse">${formatEuro(_caPdv26)}</strong></p>`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-xs t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p>${subLine}</div>`);
   }
   // ── Carte 2 : CA Legallais avec tendance N vs N-1 ──
   const ca2026=info.ca2026||0;
@@ -289,18 +289,18 @@ function _renderClient360(clientCode,source){
       const ecartPct=Math.round((ca26Annualise-ca2025)/ca2025*100);
       const trendCol=ecartPct>=0?'#22c55e':'#ef4444';
       const trendArrow=ecartPct>=0?'↗':'↘';
-      trendHtml=`<span class="text-[11px] font-black ml-1" style="color:${trendCol}" title="2026 annualisé (CA à date × 12 / mois écoulés), sans correction saisonnière">${trendArrow} ${ecartPct>0?'+':''}${ecartPct}% <span style="font-weight:400">(annualisé)</span></span>`;
+      trendHtml=`<span class="text-xs font-black ml-1" style="color:${trendCol}" title="2026 annualisé (CA à date × 12 / mois écoulés), sans correction saisonnière">${trendArrow} ${ecartPct>0?'+':''}${ecartPct}% <span style="font-weight:400">(annualisé)</span></span>`;
     }
-    const sub25=ca2025>0&&ca2026>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : ${formatEuro(ca2025)}${trendHtml}</p>`:'';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026>0?ca2026:ca2025)}</p>${sub25}${!ca2026&&ca2025?'':''}</div>`);
+    const sub25=ca2025>0&&ca2026>0?`<p class="text-xs t-inverse-muted mt-0.5">2025 : ${formatEuro(ca2025)}${trendHtml}</p>`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026>0?ca2026:ca2025)}</p>${sub25}${!ca2026&&ca2025?'':''}</div>`);
   } else if(hasChal&&!info.nom){
     // Client absent chalandise — calculer CA via ventes connues (PDV + territoire Qlik)
     const _omniCalc=_S.clientOmniScore?.get(clientCode);
     const _caCalc=_omniCalc?.caTotal||caPDV||0;
     if(_caCalc>0){
-      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-lg font-extrabold" style="color:#fbbf24">${formatEuro(_caCalc)}</p><p class="text-[10px] mt-0.5" style="color:#fbbf24;opacity:0.7">Calculé via ventes · Absent chalandise</p></div>`);
+      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-xs uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-lg font-extrabold" style="color:#fbbf24">${formatEuro(_caCalc)}</p><p class="text-xs mt-0.5" style="color:#fbbf24;opacity:0.7">Calculé via ventes · Absent chalandise</p></div>`);
     } else {
-      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
+      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-xs uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
     }
   }
   if(daysSince!==null){
@@ -312,10 +312,10 @@ function _renderClient360(clientCode,source){
     const canalMap=_S.clientLastOrderByCanal?.get(clientCode);
     const canalRows=[];
     if(canalMap&&canalMap.size>0){
-      for(const c of CANAL_ORDER){const d=canalMap.get(c);if(!d)continue;const dj=Math.round((today-d)/86400000);const dc=dj>180?'c-danger':dj>60?'c-caution':'c-ok';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${CANAL_ICONS[c]||''} ${CANAL_LABELS[c]||c}</span><span class="text-[11px] font-bold ${dc}">${dj}j</span></div>`);}
+      for(const c of CANAL_ORDER){const d=canalMap.get(c);if(!d)continue;const dj=Math.round((today-d)/86400000);const dc=dj>180?'c-danger':dj>60?'c-caution':'c-ok';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-xs t-inverse-muted">${CANAL_ICONS[c]||''} ${CANAL_LABELS[c]||c}</span><span class="text-xs font-bold ${dc}">${dj}j</span></div>`);}
     }
-    if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-[11px] font-bold ${silCol}">${daysSince}j</span></div>`);}
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
+    if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-xs t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-xs font-bold ${silCol}">${daysSince}j</span></div>`);}
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
   }
   const _benchM=_S.chalandiseReady?computeBenchMetier():null;
   const _metierBench=_benchM&&info.metier?_benchM.get(info.metier):null;
@@ -367,29 +367,29 @@ function _renderClient360(clientCode,source){
     const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const onlyPDV=[...famsPDV.entries()].filter(([f])=>!famsHors.has(f)).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    const famTag=(f,ca,color)=>`<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:${color};border-color:${color};opacity:0.85">${escapeHtml(f)}${ca?' '+formatEuro(ca):''}</span>`;
+    const famTag=(f,ca,color)=>`<span class="text-xs px-2 py-0.5 rounded-full border" style="color:${color};border-color:${color};opacity:0.85">${escapeHtml(f)}${ca?' '+formatEuro(ca):''}</span>`;
     omniContent=`<div class="p-3">
   <div class="flex items-start gap-3 mb-4">
     <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[130px]">
       <div class="text-[22px]">${P.icon}</div>
-      <div class="text-[11px] font-bold mt-0.5 t-inverse">${P.label}</div>
-      <div class="text-[9px] t-inverse-muted mt-1">profil canal</div>
+      <div class="text-xs font-bold mt-0.5 t-inverse">${P.label}</div>
+      <div class="text-xs t-inverse-muted mt-1">profil canal</div>
     </div>
     <div class="flex-1">
-      <p class="text-[11px] t-inverse leading-relaxed">${P.piste}</p>
-      <p class="text-[9px] t-inverse-muted uppercase tracking-wide mt-3 mb-1">Canaux utilisés sur 12 mois · dernière commande</p>
-      <div class="flex flex-wrap gap-1">${(omni.canaux||[]).length?omni.canaux.map(c=>`<span class="text-[10px] px-2 py-0.5 rounded-full border b-dark t-inverse">${CANAL_LBL[c.canal]||c.canal} · ${c.jours<=0?'ce jour':c.jours+' j'}</span>`).join(''):'<span class="text-[10px] t-inverse-muted">aucune commande sur 12 mois</span>'}</div>
+      <p class="text-xs t-inverse leading-relaxed">${P.piste}</p>
+      <p class="text-xs t-inverse-muted uppercase tracking-wide mt-3 mb-1">Canaux utilisés sur 12 mois · dernière commande</p>
+      <div class="flex flex-wrap gap-1">${(omni.canaux||[]).length?omni.canaux.map(c=>`<span class="text-xs px-2 py-0.5 rounded-full border b-dark t-inverse">${CANAL_LBL[c.canal]||c.canal} · ${c.jours<=0?'ce jour':c.jours+' j'}</span>`).join(''):'<span class="text-xs t-inverse-muted">aucune commande sur 12 mois</span>'}</div>
     </div>
   </div>
   <div class="mb-4 p-2.5 rounded-lg s-panel-inner border b-dark">
-    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">CA dans ton agence · ${omni.sur12m?'12 mois':'historique chargé'} · tous canaux</p>
+    <p class="text-xs t-inverse-muted uppercase tracking-wide mb-1.5">CA dans ton agence · ${omni.sur12m?'12 mois':'historique chargé'} · tous canaux</p>
     ${omni.caAgence>0?`<div class="flex h-3 rounded-full overflow-hidden mb-1.5"><div style="width:${part}%;background:var(--c-ok)" title="Comptoir"></div><div style="width:${100-part}%;background:var(--c-info,#3b82f6)" title="Autres canaux"></div></div>`:''}
-    <div class="flex justify-between flex-wrap gap-2 text-[10px]"><span style="color:var(--c-ok)">🏪 Comptoir : <strong>${formatEuro(omni.caComptoir)}</strong>${omni.caAgence>0?` (${part} %)`:''}</span><span style="color:var(--c-info,#60a5fa)">📦 Représentant, internet, DCS : <strong>${formatEuro(omni.caHors)}</strong></span></div>
-    ${omni.caAutres>0?`<p class="text-[10px] mt-1.5" style="color:var(--c-caution)">🌐 Dans les autres agences (historique chargé) : <strong>${formatEuro(omni.caAutres)}</strong></p>`:''}
+    <div class="flex justify-between flex-wrap gap-2 text-xs"><span style="color:var(--c-ok)">🏪 Comptoir : <strong>${formatEuro(omni.caComptoir)}</strong>${omni.caAgence>0?` (${part} %)`:''}</span><span style="color:var(--c-info,#60a5fa)">📦 Représentant, internet, DCS : <strong>${formatEuro(omni.caHors)}</strong></span></div>
+    ${omni.caAutres>0?`<p class="text-xs mt-1.5" style="color:var(--c-caution)">🌐 Dans les autres agences (historique chargé) : <strong>${formatEuro(omni.caAutres)}</strong></p>`:''}
   </div>
-  ${onlyHors.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
-  ${both.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
-  ${onlyPDV.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-info,#60a5fa)">🏪 Familles uniquement au comptoir</p><div class="flex flex-wrap gap-1">${onlyPDV.map(([f])=>famTag(f,0,'var(--c-info,#60a5fa)')).join('')}</div></div>`:''}
+  ${onlyHors.length?`<div class="mb-3"><p class="text-xs font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
+  ${both.length?`<div class="mb-3"><p class="text-xs font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
+  ${onlyPDV.length?`<div class="mb-3"><p class="text-xs font-bold mb-1.5" style="color:var(--c-info,#60a5fa)">🏪 Familles uniquement au comptoir</p><div class="flex flex-wrap gap-1">${onlyPDV.map(([f])=>famTag(f,0,'var(--c-info,#60a5fa)')).join('')}</div></div>`:''}
   ${(()=>{
     if(!_metierBench||!_metierBench.troncCommun.length)return'';
     const clientFams=_S.clientFamCA?_S.clientFamCA[clientCode]||{}:{};
@@ -412,15 +412,15 @@ function _renderClient360(clientCode,source){
     const script=`"${escapeHtml(nom)}, ${topFam.pctClients}% des ${metierLabel} se fournissent chez nous en ${escapeHtml(famLib(topFam.fam)||topFam.fam)} (moy. ${formatEuro(topFam.avgCA)}/an). Vous n'en prenez pas — laissez-moi vous faire une offre."`;
     return`<div class="mt-3 pt-3 border-t b-dark">
       <div class="flex items-center justify-between mb-1.5">
-        <p class="text-[9px] font-bold" style="color:#f87171">🕵️ Angles Morts — ${anglesMorts.length} famille${anglesMorts.length>1?'s':''} · ${formatEuro(totalPot)} potentiel</p>
+        <p class="text-xs font-bold" style="color:#f87171">🕵️ Angles Morts — ${anglesMorts.length} famille${anglesMorts.length>1?'s':''} · ${formatEuro(totalPot)} potentiel</p>
       </div>
-      <p class="text-[8px] t-inverse-muted mb-2">Familles achetées par la majorité des ${metierLabel} du réseau, quasi absentes chez ce client (< 5% de la moyenne)</p>
+      <p class="text-xs t-inverse-muted mb-2">Familles achetées par la majorité des ${metierLabel} du réseau, quasi absentes chez ce client (< 5% de la moyenne)</p>
       <div class="flex flex-wrap gap-1 mb-2.5">${anglesMorts.map(t=>
-        `<span class="text-[9px] px-2 py-0.5 rounded-full border cursor-default" style="color:#f87171;border-color:#f87171;opacity:0.85" title="${t.pctClients}% des ${metierLabel} achètent cette famille&#10;CA moyen confrères : ${formatEuro(t.avgCA)}&#10;Ce client : ${formatEuro(t.clientCA)}">${escapeHtml(famLib(t.fam)||t.fam)} <span style="opacity:0.6">${t.pctClients}%</span> · <strong>${formatEuro(t.potentiel)}</strong></span>`
+        `<span class="text-xs px-2 py-0.5 rounded-full border cursor-default" style="color:#f87171;border-color:#f87171;opacity:0.85" title="${t.pctClients}% des ${metierLabel} achètent cette famille&#10;CA moyen confrères : ${formatEuro(t.avgCA)}&#10;Ce client : ${formatEuro(t.clientCA)}">${escapeHtml(famLib(t.fam)||t.fam)} <span style="opacity:0.6">${t.pctClients}%</span> · <strong>${formatEuro(t.potentiel)}</strong></span>`
       ).join('')}</div>
       <div class="p-2.5 rounded-lg border" style="background:rgba(248,113,113,0.08);border-color:rgba(248,113,113,0.2)">
-        <p class="text-[8px] font-bold mb-1" style="color:#f87171">💬 Script vendeur</p>
-        <p class="text-[10px] t-inverse italic leading-relaxed">${script}</p>
+        <p class="text-xs font-bold mb-1" style="color:#f87171">💬 Script vendeur</p>
+        <p class="text-xs t-inverse italic leading-relaxed">${script}</p>
       </div>
     </div>`;
   })()}
@@ -438,7 +438,7 @@ function _renderClient360(clientCode,source){
   let tabsHtml='';
   if(tabs.length){
     const firstTab=tabs[0].id;
-    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" data-cc="${escapeHtml(clientCode)}" data-tab="${escapeHtml(t.id)}" onclick="_c360SwitchTab(this.dataset.cc,this.dataset.tab)" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" data-cc="${escapeHtml(clientCode)}" data-tab="${escapeHtml(t.id)}" onclick="_c360SwitchTab(this.dataset.cc,this.dataset.tab)" class="text-xs font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
 
     // ── Geste 3+4+5 : Regroupement par famille, épuration, tri verdict ──
     const _verdictOrder=(code)=>{
@@ -461,14 +461,14 @@ function _renderClient360(clientCode,source){
       else if(r.stockActuel<=0){stock='<span class="t-disabled">—</span>';}
       else{stock=`<span class="c-ok">${r.stockActuel}</span>`;}
       const cls=grayed?'opacity-50':'';
-      const caCell=grayed?`<td class="py-1 px-2 text-right text-[10px] t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
+      const caCell=grayed?`<td class="py-1 px-2 text-right text-xs t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
       let verdictBadge='';
       const _sqI=window._getArticleSqInfo?.(code);
       if(_sqI&&_sqI.verdict?.name&&_sqI.verdict.name!=='—'){
         const _vc=_sqI.verdict.color||'#94a3b8';
-        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.label||_sqI.verdict.name)}</span>`;
+        verdictBadge=`<span class="text-xs px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.label||_sqI.verdict.name)}</span>`;
       }
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${verdictBadge}</td></tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-xs t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs font-semibold t-inverse">${escapeHtml(lib)}</td>${caCell}<td class="py-1 px-2 text-center text-xs">${stock}</td><td class="py-1 px-2 text-center text-xs t-inverse-muted">${verdictBadge}</td></tr>`;
     };
     // Regrouper par famille
     const _groupByFam=(arts,grayed=false)=>{
@@ -490,13 +490,13 @@ function _renderClient360(clientCode,source){
         const caFam=items.reduce((s,[,d])=>s+(d.sumCA||0),0);
         // Geste 5 : tri par verdict urgence dans chaque famille
         items.sort((a,b)=>_verdictOrder(a[0])-_verdictOrder(b[0])||(b[1].sumCA||0)-(a[1].sumCA||0));
-        html+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art.${!grayed&&caFam>0?' · '+formatEuro(caFam):''}</span></td></tr>`;
+        html+=`<tr><td colspan="5" class="py-1.5 px-2 text-xs font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art.${!grayed&&caFam>0?' · '+formatEuro(caFam):''}</span></td></tr>`;
         html+=items.map(e=>_iciRow(e,grayed)).join('');
       }
       return html;
     };
     const iciRowsPeriod=_groupByFam(iciArtsPeriod,false);
-    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
+    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="5" class="py-1.5 px-2 text-xs t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
     const iciRowsHisto=iciArtsHisto.length?_groupByFam(iciArtsHisto,true):'';
     const iciRows=iciRowsPeriod+iciSeparator+iciRowsHisto;
 
@@ -509,17 +509,17 @@ function _renderClient360(clientCode,source){
       const isSpecial=!/^\d{6}$/.test(code);
       const cls=alreadyHere?'opacity-50':'';
       let verdict='';
-      if(alreadyHere){verdict='<span class="text-[8px] t-disabled">—</span>';}
-      else if(isSpecial&&!r){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold">⛔ Spécial</span>';}
+      if(alreadyHere){verdict='<span class="text-xs t-disabled">—</span>';}
+      else if(isSpecial&&!r){verdict='<span class="text-xs px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold">⛔ Spécial</span>';}
       else if(!r){
         const _sq=window._getArticleSqInfo?.(code);
-        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;}
-        else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';}
+        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-xs px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;}
+        else{verdict='<span class="text-xs px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';}
       }
-      else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture</span>';}
-      else if(r.stockActuel>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-green-900/60 text-green-300 font-bold">✅ Prêt</span>';}
-      else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">⚪ MIN=0</span>';}
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${verdict}</td></tr>`;
+      else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-xs px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture</span>';}
+      else if(r.stockActuel>0){verdict='<span class="text-xs px-1.5 py-0.5 rounded bg-green-900/60 text-green-300 font-bold">✅ Prêt</span>';}
+      else{verdict='<span class="text-xs px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">⚪ MIN=0</span>';}
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-xs t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-xs t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-xs">${verdict}</td></tr>`;
     };
     // Regrouper ailleurs par famille
     const _ailleursGrouped=new Map();
@@ -537,7 +537,7 @@ function _renderClient360(clientCode,source){
     for(const [fam,items] of _ailleursSorted){
       const label=famLib(fam)||fam;
       const caFam=items.reduce((s,[,d])=>s+(d.ca||0),0);
-      ailleursRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
+      ailleursRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-xs font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
       ailleursRows+=items.map(e=>_ailleursRow(e)).join('');
     }
 
@@ -558,14 +558,14 @@ function _renderClient360(clientCode,source){
     for(const [fam,items] of _livreMagSorted){
       const label=famLib(fam)||fam;
       const caFam=items.reduce((s,[,d])=>s+(d.ca||0),0);
-      livreMagRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
+      livreMagRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-xs font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
       livreMagRows+=items.map(e=>_ailleursRow(e)).join('');
     }
 
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${iciRows}</tbody></table>`,
       livremag:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${livreMagRows}</tbody></table>`,
-      ailleurs:`${_autresAg.length?`<div class="text-[11px] t-inverse-muted mb-2 px-1">Achète aussi dans : ${_autresAg.slice(0,6).map(a=>`<strong class="t-inverse">${escapeHtml(a.store)}</strong> ${formatEuro(a.ca)}`).join(' · ')}${_autresAg.length>6?` · +${_autresAg.length-6} agences`:''} <span class="t-disabled">(consommé, tous canaux, historique chargé — « Autres agences » = articles jamais pris ici)</span></div>`:''}<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      ailleurs:`${_autresAg.length?`<div class="text-xs t-inverse-muted mb-2 px-1">Achète aussi dans : ${_autresAg.slice(0,6).map(a=>`<strong class="t-inverse">${escapeHtml(a.store)}</strong> ${formatEuro(a.ca)}`).join(' · ')}${_autresAg.length>6?` · +${_autresAg.length-6} agences`:''} <span class="t-disabled">(consommé, tous canaux, historique chargé — « Autres agences » = articles jamais pris ici)</span></div>`:''}<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 
@@ -578,7 +578,7 @@ function _renderClient360(clientCode,source){
   }
 
   // ── COPIER RÉSUMÉ + EXPORT RADIOGRAPHIE ─────────────────────────
-  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end gap-2"><button data-cc="${escapeHtml(clientCode)}" onclick="_c360ExportRadio(this.dataset.cc)" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📥 Radiographie CSV</button><button data-cc="${escapeHtml(clientCode)}" onclick="_c360CopyResume(this.dataset.cc)" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
+  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end gap-2"><button data-cc="${escapeHtml(clientCode)}" onclick="_c360ExportRadio(this.dataset.cc)" class="text-xs t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📥 Radiographie CSV</button><button data-cc="${escapeHtml(clientCode)}" onclick="_c360CopyResume(this.dataset.cc)" class="text-xs t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
 
   return header+actionBar+summaryBar+tabsHtml+copyBtn;
 }
@@ -710,7 +710,7 @@ function openArticlePanel(code,source){
     const reseauTitle = '🏪 Réseau';
 
     const nbAg = agRows.length;
-    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">QTE PRÉL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary font-bold">${a.qteP||'—'}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
+    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-xs"><thead class="text-xs t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">QTE PRÉL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-xs t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary font-bold">${a.qteP||'—'}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau (centralisé engine.js) ──
     let kitHtml='';
     if(kitRows.length){
@@ -733,11 +733,11 @@ function openArticlePanel(code,source){
       const maxs=kitRows.map(a=>a.max).filter(v=>typeof v==='number'&&v>0);
       const medMin=mins.length?mins.sort((a,b)=>a-b)[Math.floor(mins.length/2)]:null;
       const medMax=maxs.length?maxs.sort((a,b)=>a-b)[Math.floor(maxs.length/2)]:null;
-      const medLine=medMin!=null&&medMax!=null?`<div class="text-[10px] t-disabled mt-1">Méd. réseau MIN/MAX : ${medMin} / ${medMax} <span class="text-[9px]">(info ERP)</span></div>`:'';
-      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Rotation réseau : ${vitesse.toFixed(1)} pièces/mois (Top ${vr?.nbAgTop||0} agences, ${totBL} BL, ${formatEuro(totCA)}${_isRareKit?' · ⚠ fréquence rare':''})</div>`:'';
+      const medLine=medMin!=null&&medMax!=null?`<div class="text-xs t-disabled mt-1">Méd. réseau MIN/MAX : ${medMin} / ${medMax} <span class="text-xs">(info ERP)</span></div>`:'';
+      const vitLine=vitesse>0?`<div class="text-xs t-disabled">Rotation réseau : ${vitesse.toFixed(1)} pièces/mois (Top ${vr?.nbAgTop||0} agences, ${totBL} BL, ${formatEuro(totCA)}${_isRareKit?' · ⚠ fréquence rare':''})</div>`:'';
       kitHtml=`<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)">
-        <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAgKit} agences)</span></div>
-        <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Réseau)</span></div>
+        <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-xs font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAgKit} agences)</span></div>
+        <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-xs t-secondary ml-2">(Vitesse Réseau)</span></div>
         ${vitLine}${medLine}
         <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
       </div>`;
@@ -747,8 +747,8 @@ function openArticlePanel(code,source){
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
-    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL de moins de 15 articles · 12 mois</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
-    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
+    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-xs t-disabled font-normal">${totBL2} BL de moins de 15 articles · 12 mois</span></h4><table class="w-full text-xs"><thead class="text-xs t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-xs font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-xs t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
   const _today=new Date();
@@ -765,14 +765,14 @@ function openArticlePanel(code,source){
   // MIN/MAX Réseau (multi-agences uniquement)
   let _reseauMinMaxRow='';
   let _medMinReseau=null,_medMaxReseau=null;
-  if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){_medMinReseau=_rMins.length?Math.round(_median(_rMins)):null;_medMaxReseau=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="t-tertiary" style="font-size:10px">ERP Réseau <span class="text-[9px]">(déclaratif)</span></span><span class="t-tertiary" style="font-size:10px">${_medMinReseau??'—'} / ${_medMaxReseau??'—'} <span class="text-[9px]">(méd. ${_nbAg} ag.)</span></span>`;}}
+  if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){_medMinReseau=_rMins.length?Math.round(_median(_rMins)):null;_medMaxReseau=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="t-tertiary" style="font-size:12px">ERP Réseau <span class="text-xs">(déclaratif)</span></span><span class="t-tertiary" style="font-size:12px">${_medMinReseau??'—'} / ${_medMaxReseau??'—'} <span class="text-xs">(méd. ${_nbAg} ag.)</span></span>`;}}
   // ── Affichage MIN/MAX — source automatique (local ou Vitesse Réseau via flag _vitesseReseau) ──
   const _isVitesse=!!r._vitesseReseau;
   const _isFallbackERP=!!r._fallbackERP;
   const _srcTag=_isFallbackERP?'Méd. ERP':_isVitesse?'Vitesse':'';
-  const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-[9px] text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
-  const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-[9px] text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
-  const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Méd. ERP Réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
+  const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-xs text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
+  const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-xs text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
+  const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-xs text-violet-400">(Méd. ERP Réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-xs text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
   const _statutRaw=r.statut||'';
   const _statutLow=_statutRaw.toLowerCase();
   const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')||_statutLow.includes('fin de catalogue')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';
@@ -780,10 +780,10 @@ function openArticlePanel(code,source){
   const _empStr=`<span class="t-disabled">Emplacement</span><span class="${r.emplacement?'t-primary font-semibold':'t-disabled'}">${r.emplacement?escapeHtml(r.emplacement):'—'}</span>`;
   const _abcBg=r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)';
   const _fmrBg=r.fmrClass==='F'?'background:rgba(34,197,94,0.18);color:#4ade80':r.fmrClass==='M'?'background:rgba(59,130,246,0.18);color:#93c5fd':r.fmrClass==='R'?'background:rgba(217,119,6,0.18);color:#fbbf24':'color:var(--t-disabled)';
-  const _classifRow=`<span class="t-disabled">Classification</span><span><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${_abcBg}">ABC-${r.abcClass||'—'}</span> <span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${_fmrBg}">FMR-${r.fmrClass||'—'}</span></span>`;
+  const _classifRow=`<span class="t-disabled">Classification</span><span><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:12px;${_abcBg}">ABC-${r.abcClass||'—'}</span> <span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:12px;${_fmrBg}">FMR-${r.fmrClass||'—'}</span></span>`;
   // Moteur 3 — Alerte prix vs réseau
   const _priceGap=computePriceGap(code);
-  const _priceRow=_priceGap?`<span class="t-disabled">PU vs réseau</span><span class="${_priceGap.tropCher?'c-danger font-bold':'c-ok'}">${formatEuro(_priceGap.myPU)} ${_priceGap.ecartPct>=0?'+':''}${_priceGap.ecartPct}% <span class="text-[9px] t-disabled">(Top 3 : ${formatEuro(_priceGap.avgPUTop3)})</span></span>`:'';
+  const _priceRow=_priceGap?`<span class="t-disabled">PU vs réseau</span><span class="${_priceGap.tropCher?'c-danger font-bold':'c-ok'}">${formatEuro(_priceGap.myPU)} ${_priceGap.ecartPct>=0?'+':''}${_priceGap.ecartPct}% <span class="text-xs t-disabled">(Top 3 : ${formatEuro(_priceGap.avgPUTop3)})</span></span>`:'';
   const stockHtml=`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">${_statutRow}${_empStr}<span class="t-disabled">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span>${_classifRow}<span class="t-disabled">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="t-disabled">${_prismeLabel}</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="t-disabled">CA perdu estimé</span><span class="c-danger font-bold">${caEst>0?formatEuro(caEst):'—'}</span>${_priceRow}</div></div>`;
   // Bouton Commander — adapté au verdict : Relance (Schizo), Implanter (Vitesse), Commander (local)
   const _isSchizo=_isVitesse&&r.stockActuel>0&&(r.W||0)===0;
@@ -811,8 +811,8 @@ function openArticlePanel(code,source){
   let buyersHtml='';
   if(buyerList.length){
     const totalCA=buyerList.reduce((s,b)=>s+b.caArt,0);
-    const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(b.cc)}</td><td class="py-1 px-2 text-xs">${escapeHtml(b.nom)}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'c-ok':'t-tertiary'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'c-danger':'t-disabled'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
-    buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="t-disabled text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-[10px] t-tertiary mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
+    const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-xs t-disabled">${escapeHtml(b.cc)}</td><td class="py-1 px-2 text-xs">${escapeHtml(b.nom)}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'c-ok':'t-tertiary'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-xs ${b.daysSince!==null&&b.daysSince>30?'c-danger':'t-disabled'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
+    buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="t-disabled text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-xs"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-xs t-tertiary mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
   }
   // Réseau section — benchmark par agence (CA, BL, MIN/MAX)
   let reseauHtml='';
@@ -835,8 +835,8 @@ function openArticlePanel(code,source){
     if(rows.length){
       const medMin=(()=>{const vals=rows.map(r=>r.min).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
       const medMax=(()=>{const vals=rows.map(r=>r.max).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
-      const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-[10px]" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs font-bold" style="color:var(--t-secondary)">${r.qteP||'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
-      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">${title}</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">QTE PRÉL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+      const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-xs" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs font-bold" style="color:var(--t-secondary)">${r.qteP||'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
+      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">${title}</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-xs" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">QTE PRÉL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
   }
   let canalHtml='';
@@ -863,15 +863,15 @@ function openArticlePanel(code,source){
       const _sqI=window._getArticleSqInfo?.(c.code);
       const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`
         :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
-      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok" title="${c.nbBL} BL sur ${totalBLWithArticle}">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
+      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-xs" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok" title="${c.nbBL} BL sur ${totalBLWithArticle}">${c.pct}%</td><td class="py-1 px-2 text-center text-xs font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
-    const lowBLNote=totalBLWithArticle<10?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">Peu de BL : à prendre comme une piste, pas une règle.</p>`:'';
-    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL de moins de 15 articles · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
+    const lowBLNote=totalBLWithArticle<10?`<p class="text-xs mt-1" style="color:rgba(255,255,255,0.4)">Peu de BL : à prendre comme une piste, pas une règle.</p>`:'';
+    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL de moins de 15 articles · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-xs" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-xs mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
   }
   // Verdict Squelette pour onglet Perf
   const _sqInfo = window._getArticleSqInfo?.(code);
   const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.label||_sqInfo.verdict.name}` : '⚪ Hors squelette';
-  const _sqBadge = `<span class="text-[10px] font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
+  const _sqBadge = `<span class="text-xs font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
   // Sparklines
   const _artSpk = _articleSparkline(code);
   const _famSpk = _familySparkline(r.famille);
@@ -895,8 +895,8 @@ function openArticlePanel(code,source){
       <span class="t-disabled">Fréquence (W)</span><span>${perfW || 0} BL</span>
       <span class="t-disabled">PU</span><span>${r.prixUnitaire > 0 ? formatEuro(r.prixUnitaire) : '—'}</span>
     </div>
-    ${_artSpk ? `<div class="mt-2"><span class="text-[10px] t-disabled">Historique ventes</span>${_artSpk}</div>` : ''}
-    ${_famSpk ? `<div class="mt-1"><span class="text-[10px] t-disabled">Saisonnalité famille</span>${_famSpk}</div>` : ''}
+    ${_artSpk ? `<div class="mt-2"><span class="text-xs t-disabled">Historique ventes</span>${_artSpk}</div>` : ''}
+    ${_famSpk ? `<div class="mt-1"><span class="text-xs t-disabled">Saisonnalité famille</span>${_famSpk}</div>` : ''}
     ${_seasonR ? `<div class="mt-1">${_seasonR}</div>` : ''}
   </div>`;
   // Tab switcher — 3 onglets (séparés = lisibilité pleine largeur)
@@ -929,7 +929,7 @@ function _sparkline(values,opts={}){
   const avgVal=values.reduce((s,v)=>s+v,0)/values.length;
   const trend=lastVal>avgVal*1.2?'c-ok':lastVal<avgVal*0.5?'c-danger':'c-caution';
   const arrow=lastVal>avgVal*1.2?'↗':lastVal<avgVal*0.5?'↘':'→';
-  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="inline-block align-middle" style="overflow:visible"><polyline points="${points}" fill="none" stroke="var(--c-action)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${w}" cy="${(h-(lastVal/max)*(h-2)).toFixed(1)}" r="2" fill="var(--c-action)"/></svg><span class="text-[9px] ${trend} ml-1">${arrow}</span>`;
+  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="inline-block align-middle" style="overflow:visible"><polyline points="${points}" fill="none" stroke="var(--c-action)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${w}" cy="${(h-(lastVal/max)*(h-2)).toFixed(1)}" r="2" fill="var(--c-action)"/></svg><span class="text-xs ${trend} ml-1">${arrow}</span>`;
 }
 function _articleSparkline(code){
   // [Feature A] Respecte _globalPeriodePreset — slicing délégué à main.js via window
@@ -958,26 +958,26 @@ function _diagRenderSummaryBarMetier(l1,l4,l3){
     const ca=l1.caPerduTotal||0;const nbRup=l1.ruptures?.length||0;
     const col=ca>=1000?'c-danger':ca>0?'c-caution':'c-ok';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
+      <p class="text-xs t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
       <p class="text-lg font-extrabold ${col}">${ca>0?formatEuro(ca):'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${nbRup>0?nbRup+' rupture'+(nbRup>1?'s':''):'Pas de rupture'}</p>
+      <p class="text-xs t-inverse-muted">${nbRup>0?nbRup+' rupture'+(nbRup>1?'s':''):'Pas de rupture'}</p>
     </div>`);
   }
   if(l4&&l4.status!=='lock'){
     const nb=l4.perdus||0;const pot=l4.potentiel||0;
     const col=nb>0?'c-caution':'c-ok';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
+      <p class="text-xs t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
       <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
-      <p class="text-[10px] t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
+      <p class="text-xs t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
     </div>`);
   }
   if(l3&&l3.status!=='lock'&&l3.pct!=null){
     const pct=l3.pct;const col=pct>=70?'c-ok':pct>=40?'c-caution':'c-danger';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
-      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Couverture rayon</p>
+      <p class="text-xs t-inverse-muted uppercase tracking-wide truncate">Couverture rayon</p>
       <p class="text-lg font-extrabold ${col}">${pct}%</p>
-      <p class="text-[10px] t-inverse-muted">${l3.totalEnStock||0}/${l3.totalArts||0} articles en stock</p>
+      <p class="text-xs t-inverse-muted">${l3.totalEnStock||0}/${l3.totalArts||0} articles en stock</p>
     </div>`);
   }
   if(!cards.length)return'';
@@ -1002,7 +1002,7 @@ window._diagAFSwitchTab = function(tab) {
   const content=document.getElementById('diagAFContent'); if(!content)return;
   document.querySelectorAll('#diagAFTabs button[data-tab]').forEach(btn=>{
     const active=btn.dataset.tab===tab;
-    btn.className=`text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${active?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}`;
+    btn.className=`text-xs font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${active?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}`;
   });
   const v1=_S._diagLevels?.v1, v2=_S._diagLevels?.v2;
   if(tab==='stock')         content.innerHTML=_diagAFRenderStock(famille,v1||{});
@@ -1033,9 +1033,9 @@ function _diagAFRenderStock(famille,v1) {
     {label:'Ruptures',val:nbRup>0?String(nbRup):'—',sub:caPerdu>0?formatEuro(caPerdu)+' perdu':'Pas de rupture',col:nbRup===0?'c-ok':caPerdu>=1000?'c-danger':'c-caution'},
     {label:'Mal calibrés',val:nbMM>0?String(nbMM):'—',sub:nonCal>0?`dont ${nonCal} sans MIN/MAX`:'Calibrage correct',col:nbMM===0?'c-ok':nbMM>5?'c-danger':'c-caution'},
     {label:'Rendement',val:rendStr,sub:valStock>0?`${formatEuro(Math.round(caFam))} CA · ${formatEuro(Math.round(valStock))} stock`:'Stock vide',col:rendCol},
-  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
-  const linkRup=nbRup>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="window._diagAFNavRuptures()">→ Voir ruptures</button>`:'';
-  const linkMM=nbMM>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="window._diagAFNavMM()">→ Voir mal calibrés</button>`:'';
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-xs t-inverse-muted">${k.sub}</p></div>`).join('');
+  const linkRup=nbRup>0?`<button class="text-xs text-cyan-400 hover:text-cyan-300" onclick="window._diagAFNavRuptures()">→ Voir ruptures</button>`:'';
+  const linkMM=nbMM>0?`<button class="text-xs text-cyan-400 hover:text-cyan-300" onclick="window._diagAFNavMM()">→ Voir mal calibrés</button>`:'';
   return`<div class="flex gap-3 mb-4">${cards}</div>${(linkRup||linkMM)?`<div class="flex flex-wrap gap-4 mt-1">${linkRup}${linkMM}</div>`:''}`;
 }
 
@@ -1058,13 +1058,13 @@ function _renderReseauTab(v3) {
   const inStockNotSold=v3.inStockNotSold||[];
   if(!missing.length&&!inStockNotSold.length)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-sm">✅ Votre gamme est bien alignée avec le réseau — aucun trou détecté.</p></div>`;
   // Squelette verdicts — source unique via _getArticleSqInfo
-  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;};
+  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-xs px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-xs font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.label||_sq.verdict.name)}</span>`;};
   const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
   // KPI cards
   const cards=[
     {label:'Trous gamme',val:String(missing.length),sub:strong>0?`dont ${strong} en forte rotation (F/M)`:'Faible rotation uniquement',col:missing.length===0?'c-ok':strong>2?'c-danger':'c-caution'},
     {label:'En stock non vendus',val:String(inStockNotSold.length),sub:inStockNotSold.length>0?'Articles référencés mais dormants':'Tous vos articles tournent',col:inStockNotSold.length===0?'c-ok':inStockNotSold.length>5?'c-caution':'c-ok'},
-  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-xs t-inverse-muted">${k.sub}</p></div>`).join('');
   // Missing table
   let missingHtml='';
   if(missing.length){
@@ -1072,9 +1072,9 @@ function _renderReseauTab(v3) {
       const rawLib=a.lib||a.code;
       const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
       const fmrCol=a.networkFmr==='F'?'c-ok':a.networkFmr==='M'?'c-caution':'t-disabled';
-      return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-center"><span class="font-bold ${fmrCol}">${a.networkFmr}</span></td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
+      return`<tr class="border-b b-light text-xs"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-center"><span class="font-bold ${fmrCol}">${a.networkFmr}</span></td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
     }).join('');
-    missingHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">🚨 Articles absents — vendus par le réseau</p><div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">FMR rés.</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    missingHtml=`<div class="mt-4"><p class="text-xs font-bold text-white mb-2">🚨 Articles absents — vendus par le réseau</p><div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="border-b b-light text-xs" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">FMR rés.</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
   // In-stock-not-sold table
   let dormantHtml='';
@@ -1082,12 +1082,12 @@ function _renderReseauTab(v3) {
     const rows2=inStockNotSold.map(a=>{
       const rawLib=a.lib||a.code;
       const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
-      return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-right">${a.stockActuel}</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
+      return`<tr class="border-b b-light text-xs"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-right">${a.stockActuel}</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
     }).join('');
-    dormantHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">💤 En stock mais non vendus chez vous</p><div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows2}</tbody></table></div></div>`;
+    dormantHtml=`<div class="mt-4"><p class="text-xs font-bold text-white mb-2">💤 En stock mais non vendus chez vous</p><div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="border-b b-light text-xs" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows2}</tbody></table></div></div>`;
   }
   const nbOther=v3.nbOtherStores||0;
-  return`<div class="flex gap-3 mb-4">${cards}</div><p class="text-[10px] t-inverse-muted mb-1">Comparaison avec ${nbOther} autre${nbOther>1?'s':''} agence${nbOther>1?'s':''} du réseau</p>${missingHtml}${dormantHtml}`;
+  return`<div class="flex gap-3 mb-4">${cards}</div><p class="text-xs t-inverse-muted mb-1">Comparaison avec ${nbOther} autre${nbOther>1?'s':''} agence${nbOther>1?'s':''} du réseau</p>${missingHtml}${dormantHtml}`;
 }
 
 // ── Cell diag — tab switcher & renderers (cases ABC×FMR) ──────────────
@@ -1096,7 +1096,7 @@ window._diagCellSwitchTab = function(tab) {
   const content=document.getElementById('diagAFContent'); if(!content)return;
   document.querySelectorAll('#diagAFTabs button[data-tab]').forEach(btn=>{
     const active=btn.dataset.tab===tab;
-    btn.className=`text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${active?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}`;
+    btn.className=`text-xs font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${active?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}`;
   });
   const v1=_S._diagLevels?.v1, v2=_S._diagLevels?.v2;
   if(tab==='stock')         content.innerHTML=_diagCellRenderStock(key,v1||{});
@@ -1125,10 +1125,10 @@ function _diagCellRenderStock(key,v1) {
     {label:'Ruptures',val:nbRup>0?String(nbRup):'—',sub:caPerdu>0?formatEuro(caPerdu)+' perdu':'Pas de rupture',col:nbRup===0?'c-ok':caPerdu>=1000?'c-danger':'c-caution'},
     {label:'Mal calibrés',val:nbMM>0?String(nbMM):'—',sub:nonCal>0?`dont ${nonCal} sans MIN/MAX`:'Calibrage correct',col:nbMM===0?'c-ok':nbMM>5?'c-danger':'c-caution'},
     {label:'Rendement',val:rendStr,sub:valStock>0?`${formatEuro(Math.round(caFam))} CA · ${formatEuro(Math.round(valStock))} stock`:'Stock vide',col:rendCol},
-  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-xs t-inverse-muted">${k.sub}</p></div>`).join('');
   const k=key;
-  const linkRup=nbRup>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll()">→ Voir ruptures</button>`:'';
-  const linkMM=nbMM>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';_S.currentPage=0;switchTab('table');renderAll()">→ Voir mal calibrés</button>`:'';
+  const linkRup=nbRup>0?`<button class="text-xs text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll()">→ Voir ruptures</button>`:'';
+  const linkMM=nbMM>0?`<button class="text-xs text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';_S.currentPage=0;switchTab('table');renderAll()">→ Voir mal calibrés</button>`:'';
   return`<div class="flex gap-3 mb-4">${cards}</div>${(linkRup||linkMM)?`<div class="flex flex-wrap gap-4 mt-1">${linkRup}${linkMM}</div>`:''}`;
 }
 
@@ -1174,31 +1174,31 @@ function _diagCellRenderClientele(key,v2) {
     {label:`Acheteurs ${caseLabel}`,val:String(nbAcheteurs),sub:`sur ${clientStats.length} clients PDV`,col:nbAcheteurs>0?'c-ok':'c-danger'},
     {label:'Boudeurs Top 50',val:String(boudeurs.length),sub:boudeurs.length>0?`${formatEuro(Math.round(potentielEstime))} potentiel si 5%`:'Tous tes gros clients achètent ici',col:boudeurs.length===0?'c-ok':boudeurs.length>5?'c-danger':'c-caution'},
     {label:'Pénétration Top 50',val:pctMoyen50.toFixed(1)+'%',sub:`${formatEuro(Math.round(caCase50))} / ${formatEuro(Math.round(caTotal50))}`,col:pctMoyen50>15?'c-ok':pctMoyen50>=5?'c-caution':'c-danger'},
-  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-xs t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-xs t-inverse-muted">${k.sub}</p></div>`).join('');
 
   // Tableau boudeurs
   let tableHtml='';
   if(topBoudeurs.length){
     const rows=topBoudeurs.map(c=>{
       const pctCol=c.pctCase<1?'c-danger':c.pctCase<3?'c-caution':'t-disabled';
-      const metierBadge=c.metier?`<span class="text-[9px] px-1 py-0.5 rounded bg-slate-700/50 t-disabled ml-1">${escapeHtml(c.metier)}</span>`:'';
+      const metierBadge=c.metier?`<span class="text-xs px-1 py-0.5 rounded bg-slate-700/50 t-disabled ml-1">${escapeHtml(c.metier)}</span>`:'';
       return`<tr class="border-b b-dark hover:s-panel-inner">
-        <td class="py-1.5 px-2 text-[11px] font-semibold" style="color:var(--t-primary)">${escapeHtml(c.nom)}${metierBadge}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openClient360)openClient360('${c.cc}','diag-cell')" title="Ouvrir fiche 360°">🔍</span></td>
-        <td class="py-1.5 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(Math.round(c.caTotal))}</td>
-        <td class="py-1.5 px-2 text-right text-[11px] ${pctCol} font-bold">${c.caCase>0?formatEuro(Math.round(c.caCase)):'0 €'}</td>
-        <td class="py-1.5 px-2 text-right text-[11px] ${pctCol}">${c.pctCase.toFixed(1)}%</td>
+        <td class="py-1.5 px-2 text-xs font-semibold" style="color:var(--t-primary)">${escapeHtml(c.nom)}${metierBadge}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openClient360)openClient360('${c.cc}','diag-cell')" title="Ouvrir fiche 360°">🔍</span></td>
+        <td class="py-1.5 px-2 text-right font-bold c-ok text-xs">${formatEuro(Math.round(c.caTotal))}</td>
+        <td class="py-1.5 px-2 text-right text-xs ${pctCol} font-bold">${c.caCase>0?formatEuro(Math.round(c.caCase)):'0 €'}</td>
+        <td class="py-1.5 px-2 text-right text-xs ${pctCol}">${c.pctCase.toFixed(1)}%</td>
       </tr>`;
     }).join('');
-    tableHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">🎯 Chasse aux ${caseLabel} — Gros clients qui boudent cette case</p>
-      <p class="text-[10px] t-inverse-muted mb-2">Tes meilleurs clients par CA total, mais qui achètent moins de 5% de leur volume sur ces ${cellArts.length} articles. Clique sur 🔍 pour voir ce qu'ils achètent ailleurs.</p>
-      <div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)">
+    tableHtml=`<div class="mt-4"><p class="text-xs font-bold text-white mb-2">🎯 Chasse aux ${caseLabel} — Gros clients qui boudent cette case</p>
+      <p class="text-xs t-inverse-muted mb-2">Tes meilleurs clients par CA total, mais qui achètent moins de 5% de leur volume sur ces ${cellArts.length} articles. Clique sur 🔍 pour voir ce qu'ils achètent ailleurs.</p>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="border-b b-light text-xs" style="color:var(--t-disabled)">
         <th class="py-1.5 px-2 text-left">Client</th>
         <th class="py-1.5 px-2 text-right">CA total PDV</th>
         <th class="py-1.5 px-2 text-right">CA ${caseLabel}</th>
         <th class="py-1.5 px-2 text-right">Part</th>
       </tr></thead><tbody>${rows}</tbody></table></div></div>`;
   } else {
-    tableHtml=`<div class="mt-4 p-3 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-[11px]">✅ Tous tes Top 50 achètent déjà plus de 5% sur cette case — bonne pénétration.</p></div>`;
+    tableHtml=`<div class="mt-4 p-3 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-xs">✅ Tous tes Top 50 achètent déjà plus de 5% sur cette case — bonne pénétration.</p></div>`;
   }
 
   return`<div class="flex gap-3 mb-3">${cards}</div>${tableHtml}`;
@@ -1240,10 +1240,10 @@ function renderDiagnosticPanel(famille,source){
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
         <div>
-          <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
+          <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-xs t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
           ${agenceCtxHtml}
-          <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+          <p class="text-xs t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
         <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
@@ -1262,15 +1262,15 @@ function renderDiagnosticPanel(famille,source){
   _S._diagLevels={v1,v2,v3};
   titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span>`;
   const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'reseau',label:'📡 Opportunités Réseau'}];
-  const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagAFSwitchTab('${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+  const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagAFSwitchTab('${t.id}')" class="text-xs font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
   panel.innerHTML=`
     <div class="flex items-start justify-between mb-5">
       <div>
-        <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
+        <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-xs t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
         <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
         <div class="flex items-center gap-3 mt-1">${_seasonRibbon(famille)}${_familySparkline(famille)}</div>
         ${agenceCtxHtml}
-        <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+        <p class="text-xs t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
       </div>
       <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
     </div>
@@ -1358,21 +1358,21 @@ function _renderDiagnosticCellPanel(key,cellArts){
   const acts=[];
   if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',codes:ruptures.map(r=>r.code),label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});}
   if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});}
-  if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('commerce');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
+  if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('commerce');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-xs text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
   if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{window._diagCellSwitchTab('reseau');}});}
   _S._diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
   _S._diagCellKey=key;
   _S._diagCellArts=cellArts;
   const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="c-caution">${LABELS[key]||key}</span> <span class="t-inverse-muted font-normal text-sm">(${cellArts.length} articles)</span>`;
   const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'reseau',label:'📡 Opportunités Réseau'}];
-  const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagCellSwitchTab('${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+  const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagCellSwitchTab('${t.id}')" class="text-xs font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
   panel.innerHTML=`
     <div class="flex items-start justify-between mb-5">
       <div>
-        <button onclick="switchTab('abc');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← Retour au Radar</button>
+        <button onclick="switchTab('abc');closeDiagnostic()" class="text-xs t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← Retour au Radar</button>
         <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
         ${agenceCtxHtml}
-        <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+        <p class="text-xs t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
       </div>
       <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
     </div>
@@ -1421,8 +1421,8 @@ function _diagRenderL2(l,hasBench,refStore){
   return`<div class="diag-level">
     <div class="diag-level-hdr"><span class="font-bold text-sm c-caution">🎚️ Niveau 2 — Calibrage MIN/MAX</span>${_diagBadge(l.status)}</div>
     <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
-    ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🔧 Plus gros écarts à corriger :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="t-inverse">MIN actuel <span class="c-caution">${r.ancienMin}</span> → recommandé <span class="c-ok font-bold">${r.nouveauMin}</span></span> <span class="c-danger text-[10px]">(+${r.ecart})</span>${hasBench&&r.refFreq>0?' <span class="t-inverse-muted text-[10px]">· réf. vend '+r.refFreq+'×</span>':''}</span></div>`).join('')}${l.detail.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.detail.length-5} autre${l.detail.length-5>1?'s':''} à recalibrer</p>`:''}</div>`:''}
-    ${hasBench&&l.sousPerf.length?`<p class="text-[11px] c-caution mt-1">📊 <strong>${l.sousPerf.length}</strong> article${l.sousPerf.length>1?'s':''} où <em class="c-caution">${refStore}</em> vend 2× plus que vous → vérifier la visibilité rayon</p>`:''}
+    ${top5.length?`<div class="mb-2"><p class="text-xs t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🔧 Plus gros écarts à corriger :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-xs"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="t-inverse">MIN actuel <span class="c-caution">${r.ancienMin}</span> → recommandé <span class="c-ok font-bold">${r.nouveauMin}</span></span> <span class="c-danger text-xs">(+${r.ecart})</span>${hasBench&&r.refFreq>0?' <span class="t-inverse-muted text-xs">· réf. vend '+r.refFreq+'×</span>':''}</span></div>`).join('')}${l.detail.length>5?`<p class="text-xs t-inverse-muted mt-1 ml-4">… et ${l.detail.length-5} autre${l.detail.length-5>1?'s':''} à recalibrer</p>`:''}</div>`:''}
+    ${hasBench&&l.sousPerf.length?`<p class="text-xs c-caution mt-1">📊 <strong>${l.sousPerf.length}</strong> article${l.sousPerf.length>1?'s':''} où <em class="c-caution">${refStore}</em> vend 2× plus que vous → vérifier la visibilité rayon</p>`:''}
   </div>`;
 }
 
@@ -1468,7 +1468,7 @@ function toggleReconquestFilter(metier,btn){
   else{rows.forEach(r=>{const p=parseInt(r.dataset.prio||'0');r.classList.toggle('hidden',p!==2&&p!==3);});btn.classList.add('diag-reconquest-active');}
 }
 function _diagRenderV2(v,hasChal){
-  if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-[10px] text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
+  if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-xs text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
   if(!v.metiers?.length){const msg=v.cellMode?'Aucun client identifié dans la chalandise pour ces articles.':(v.reason||'Aucun métier identifié dans la chalandise pour cette famille');return`<div class="diag-voyant diag-v2 diag-border-warn"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${msg}</p></div>`;}
 
   // ── Helper : carte métier enrichie (Actions 1-4) ──
@@ -1479,23 +1479,23 @@ function _diagRenderV2(v,hasChal){
     const penPDV=m.total>0?Math.round(m.p5/m.total*100):0;
     const jCol=penPDV>=60?'#22c55e':penPDV>=40?'#f59e0b':'#ef4444';
     const jTxt=penPDV>=60?'c-ok':penPDV>=40?'c-caution':'c-danger';
-    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Pénétration PDV</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penPDV}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penPDV}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.p5} actifs / ${m.total} dans votre zone</p></div>`;
+    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-xs t-inverse-muted w-24 shrink-0">Pénétration PDV</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penPDV}%;background:${jCol}"></div></div><span class="text-xs font-bold ${jTxt} w-10 text-right">${penPDV}%</span></div><p class="text-xs t-inverse-muted mt-0.5">${m.p5} actifs / ${m.total} dans votre zone</p></div>`;
     // Action 3 — Badge reconquête
     const nbPerdus=m.p2+m.p3;
-    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
+    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-xs font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
     // Action 4 — Montant potentiel en tête
     const potentielHtml=m.potentiel>0
-      ?`<p class="text-base font-extrabold c-caution mb-1">💶 ${formatEuro(m.potentiel)} potentiel récupérable</p><p class="text-[10px] t-inverse-muted mb-1">${m.total} clients zone · ${m.p5} actifs PDV · ${m.p1} sans achat · ${nbPerdus} perdu${nbPerdus>1?'s':''}</p>`
-      :`<p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients · <span class="c-ok">${m.p5} actifs PDV (${penPDV}%)</span>${m.p1?` · <span class="c-caution">${m.p1} sans achat PDV</span>`:''}</p>`;
+      ?`<p class="text-base font-extrabold c-caution mb-1">💶 ${formatEuro(m.potentiel)} potentiel récupérable</p><p class="text-xs t-inverse-muted mb-1">${m.total} clients zone · ${m.p5} actifs PDV · ${m.p1} sans achat · ${nbPerdus} perdu${nbPerdus>1?'s':''}</p>`
+      :`<p class="text-xs t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients · <span class="c-ok">${m.p5} actifs PDV (${penPDV}%)</span>${m.p1?` · <span class="c-caution">${m.p1} sans achat PDV</span>`:''}</p>`;
     return`<div class="diag-metier-block${isFirst?'':' mt-3 pt-3 border-t b-dark'} s-panel-inner/50 rounded-lg p-3">
       <div class="flex flex-wrap items-center gap-2 mb-1.5">
-        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
-        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-xs">⭐</span>':''}</span>
+        <span class="text-xs font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
         ${reconBadge}
       </div>
       ${jaugeHtml}
       ${potentielHtml}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
+      <button class="mt-1 text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
     </div>`;
   };
   // Mode cellMode (m a actifs/perdus/prospects/potentiel mais pas p1-p5)
@@ -1504,24 +1504,24 @@ function _diagRenderV2(v,hasChal){
     const penActifs=m.total>0?Math.round(m.actifs/m.total*100):0;
     const jCol=penActifs>=60?'#22c55e':penActifs>=40?'#f59e0b':'#ef4444';
     const jTxt=penActifs>=60?'c-ok':penActifs>=40?'c-caution':'c-danger';
-    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Actifs / zone</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penActifs}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penActifs}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.actifs} actifs sur ces articles / ${m.total} dans votre zone (métier)</p></div>`;
+    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-xs t-inverse-muted w-24 shrink-0">Actifs / zone</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penActifs}%;background:${jCol}"></div></div><span class="text-xs font-bold ${jTxt} w-10 text-right">${penActifs}%</span></div><p class="text-xs t-inverse-muted mt-0.5">${m.actifs} actifs sur ces articles / ${m.total} dans votre zone (métier)</p></div>`;
     const nbPerdus=m.perdus||0;
-    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
+    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-xs font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
     const caHtml=m.caActifs>0?` · CA : <strong class="c-ok">${formatEuro(m.caActifs)}</strong>`:'';
     const potentielHtml=m.potentiel>0
       ?`<p class="text-base font-extrabold c-caution mb-1">💶 ${formatEuro(m.potentiel)} potentiel récupérable</p>`
-      :`<p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>`;
-    const perduLine=(nbPerdus>0||m.prospects>0)?`<p class="text-[11px] mb-1">${nbPerdus>0?`<span class="c-danger">→ <strong>${nbPerdus}</strong> perdu${nbPerdus>1?'s':''} (reconquête)</span>`:'' }${nbPerdus>0&&m.prospects>0?' · ':''}${m.prospects>0?`<span class="c-caution">${m.prospects} prospect${m.prospects>1?'s':''} (conquête)</span>`:''}</p>`:'';
+      :`<p class="text-xs t-inverse mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>`;
+    const perduLine=(nbPerdus>0||m.prospects>0)?`<p class="text-xs mb-1">${nbPerdus>0?`<span class="c-danger">→ <strong>${nbPerdus}</strong> perdu${nbPerdus>1?'s':''} (reconquête)</span>`:'' }${nbPerdus>0&&m.prospects>0?' · ':''}${m.prospects>0?`<span class="c-caution">${m.prospects} prospect${m.prospects>1?'s':''} (conquête)</span>`:''}</p>`:'';
     return`<div class="diag-metier-block${isFirst?'':' mt-3 pt-3 border-t b-dark'} s-panel-inner/50 rounded-lg p-3">
       <div class="flex flex-wrap items-center gap-2 mb-1.5">
-        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
-        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-xs">⭐</span>':''}</span>
+        <span class="text-xs font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
         ${reconBadge}
       </div>
       ${jaugeHtml}
       ${potentielHtml}
       ${perduLine}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
+      <button class="mt-1 text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
     </div>`;
   };
 
@@ -1532,13 +1532,13 @@ function _diagRenderV2(v,hasChal){
     const urgents=sorted.filter(m=>{const pen=m.total>0?m.actifs/m.total:0;return pen<0.4||(m.perdus||0)>=3;});
     const secondaires=sorted.filter(m=>!urgents.includes(m));
     const urgentsHtml=urgents.map((m,i)=>_cardCell(m,i===0)).join('');
-    const secondairesHtml=secondaires.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardCell(m,i===0)).join('')}</details>`:'';
+    const secondairesHtml=secondaires.length?`<details><summary class="text-xs t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardCell(m,i===0)).join('')}</details>`:'';
     const allUrgents=urgents.length===sorted.length;
     const totalProspects=v.metiers.reduce((s,m)=>s+(m.prospects||0),0);
     const perdusTxt=[v.perdus>0?`<span class="c-danger">${v.perdus} perdu${v.perdus>1?'s':''} avec historique (reconquête)</span>`:'',totalProspects>0?`<span class="c-caution">${totalProspects} prospect${totalProspects>1?'s':''} métier (conquête)</span>`:''].filter(Boolean).join(' · ');
     return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
       <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
-      <p class="text-[10px] t-inverse-muted mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt?' · '+perdusTxt:''} :</p>
+      <p class="text-xs t-inverse-muted mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt?' · '+perdusTxt:''} :</p>
       ${urgentsHtml||sorted.map((m,i)=>_cardCell(m,i===0)).join('')}
       ${allUrgents?'':secondairesHtml}
     </div>`;
@@ -1557,18 +1557,18 @@ function _diagRenderV2(v,hasChal){
     // Aucun urgent → afficher le premier métier + replier le reste
     urgentsHtml=_cardFamille(sorted[0],true);
     const rest=sorted.slice(1);
-    secondairesHtml=rest.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${rest.length} autre${rest.length>1?'s':''} métier${rest.length>1?'s':''} — situation saine</summary>${rest.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
+    secondairesHtml=rest.length?`<details><summary class="text-xs t-inverse-muted cursor-pointer mt-3 list-none">▸ ${rest.length} autre${rest.length>1?'s':''} métier${rest.length>1?'s':''} — situation saine</summary>${rest.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
   }else if(allUrgents){
     // Tous urgents → tout afficher
     urgentsHtml=sorted.map((m,i)=>_cardFamille(m,i===0)).join('');
     secondairesHtml='';
   }else{
     urgentsHtml=urgents.map((m,i)=>_cardFamille(m,i===0)).join('');
-    secondairesHtml=secondaires.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
+    secondairesHtml=secondaires.length?`<details><summary class="text-xs t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
   }
   return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
     <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
-    <p class="text-[10px] t-inverse-muted mb-3">Top ${v.metiers.length} métier${v.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${v.totalBuyers}</strong> identifié${v.totalBuyers>1?'s':''} dans la chalandise${v.perdus>0?' · <span class="c-danger">'+v.perdus+' perdus</span>':''}</p>
+    <p class="text-xs t-inverse-muted mb-3">Top ${v.metiers.length} métier${v.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${v.totalBuyers}</strong> identifié${v.totalBuyers>1?'s':''} dans la chalandise${v.perdus>0?' · <span class="c-danger">'+v.perdus+' perdus</span>':''}</p>
     ${urgentsHtml}
     ${allUrgents?'':secondairesHtml}
   </div>`;
@@ -1664,7 +1664,7 @@ function _diagRenderL1Metier(l){
     <div class="diag-level-hdr"><span class="font-bold text-sm c-action">📦 Niveau 1 — Articles achetés par les ${l.metier}s</span>${_diagBadge(l.status)}</div>
     <p class="text-xs t-inverse-muted mb-1"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
     <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
-    ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="t-inverse">Fréq ${r.W} (${r.freq} clients), rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
+    ${top5.length?`<div class="mb-2"><p class="text-xs t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-xs"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="t-inverse">Fréq ${r.W} (${r.freq} clients), rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-xs">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-xs t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
   </div>`;
 }
 function _diagLevel2Metier(topArts){
@@ -1704,13 +1704,13 @@ function _diagRenderL3Metier(l){
     const barColor=pctCov>=70?'bg-emerald-500':pctCov>=40?'bg-amber-500':'bg-red-500';
     const textColor=pctCov>=70?'c-ok':pctCov>=40?'c-caution':'c-danger';
     const famAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    const diagBtn=`<button class="diag-btn ml-1 s-card-alt t-secondary text-[9px]" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'commerce')">🔍</button>`;
-    return`<tr class="border-t b-dark"><td class="py-1 px-2 max-w-[160px] truncate text-[11px]">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center c-ok">${f.enStock}</td><td class="py-1 px-2 text-center c-caution">${f.rupture}</td><td class="py-1 px-2 text-center c-danger">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 s-panel-inner rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-[10px] ${textColor}">${pctCov}%</span></div></td></tr>`;
+    const diagBtn=`<button class="diag-btn ml-1 s-card-alt t-secondary text-xs" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'commerce')">🔍</button>`;
+    return`<tr class="border-t b-dark"><td class="py-1 px-2 max-w-[160px] truncate text-xs">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center c-ok">${f.enStock}</td><td class="py-1 px-2 text-center c-caution">${f.rupture}</td><td class="py-1 px-2 text-center c-danger">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 s-panel-inner rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-xs ${textColor}">${pctCov}%</span></div></td></tr>`;
   }).join('');
   return`<div class="diag-level">
     <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Familles achetées</span>${_diagBadge(l.status)}</div>
     <p class="text-xs t-inverse-muted mb-2">${l.totalArts} articles achetés · couverture rayon : <strong class="${l.pct>=70?'c-ok':l.pct>=40?'c-caution':'c-danger'}">${l.pct}%</strong></p>
-    <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-xs"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
 function _diagLevel4MetierMode(metier,hasChal){
@@ -1793,19 +1793,19 @@ function _diagRenderL4(l,hasChal){
     const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return`<div class="${mIdx>0?'mt-3 pt-3 border-t b-dark':''} s-panel-inner/50 rounded-lg p-3">
       <div class="flex flex-wrap items-center gap-2 mb-1.5">
-        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]" title="Métier stratégique Legallais">⭐</span>':''}</span>
-        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-xs" title="Métier stratégique Legallais">⭐</span>':''}</span>
+        <span class="text-xs font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
       </div>
-      <p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
-      ${m.potentiel>0?`<p class="text-[11px] c-caution font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir le détail dans l'onglet Le Terrain →</button>
+      <p class="text-xs t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
+      ${m.potentiel>0?`<p class="text-xs c-caution font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
+      <button class="mt-1 text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir le détail dans l'onglet Le Terrain →</button>
     </div>`;
   }).join('');
   return`<div class="diag-level">
     <div class="diag-level-hdr"><span class="font-bold text-sm c-danger">👥 Niveau 3 — Clients métier</span>${_diagBadge(l.status)}</div>
     <p class="text-xs t-inverse-muted mb-3">${l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> identifié${l.totalBuyers>1?'s':''} dans la chalandise`}</p>
     ${metiersHtml}
-    ${(l.crossCaptes||l.crossPot)?`<p class="text-[11px] t-inverse-muted mt-3 pt-2 border-t b-dark">🔀 Croisement zone : <span class="c-ok font-bold">🟢 ${l.crossCaptes||0} captés</span> · <span class="c-danger font-bold">🔴 ${l.crossPot||0} potentiels non captés</span></p>`:''}
+    ${(l.crossCaptes||l.crossPot)?`<p class="text-xs t-inverse-muted mt-3 pt-2 border-t b-dark">🔀 Croisement zone : <span class="c-ok font-bold">🟢 ${l.crossCaptes||0} captés</span> · <span class="c-danger font-bold">🔴 ${l.crossPot||0} potentiels non captés</span></p>`:''}
   </div>`;
 }
 
@@ -1827,11 +1827,11 @@ function _diagRenderPlan(famille,actions){
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-extrabold text-sm text-white">📋 Plan d'action — <span class="text-cyan-400">${famille}</span></h3>
       <div class="flex items-center gap-2">
-        <button id="_diagCopyBtn" onclick="window._copyDiagPlan()" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📋 Copier</button>
-        <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📥 CSV</button>
+        <button id="_diagCopyBtn" onclick="window._copyDiagPlan()" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📋 Copier</button>
+        <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📥 CSV</button>
       </div>
     </div>
-    ${actions.map((a,i)=>a.isInfo?`<div class="px-3 py-2 rounded-lg s-panel-inner/50 border b-dark flex items-center gap-2 text-xs t-inverse mt-1"><span class="flex-shrink-0">${a.src||'ℹ️'}</span><span>${a.label}</span></div>`:`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><div class="flex items-center gap-1 ml-3 flex-shrink-0">${(a.codes&&a.codes.length>0)?`<button onclick="event.stopPropagation();navigator.clipboard.writeText('${a.codes.join('\\n').replace(/'/g,"\\'")}').then(()=>{this.textContent='✅';setTimeout(()=>{this.textContent='📋'},1500)})" class="text-[10px] s-panel-inner py-0.5 px-2 rounded font-bold border b-dark" title="Copier ${a.codes.length} code${a.codes.length>1?'s':''}">📋</button>`:''}<span class="t-inverse-muted text-[10px]">→ Voir</span></div></div>`).join('')}
+    ${actions.map((a,i)=>a.isInfo?`<div class="px-3 py-2 rounded-lg s-panel-inner/50 border b-dark flex items-center gap-2 text-xs t-inverse mt-1"><span class="flex-shrink-0">${a.src||'ℹ️'}</span><span>${a.label}</span></div>`:`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><div class="flex items-center gap-1 ml-3 flex-shrink-0">${(a.codes&&a.codes.length>0)?`<button onclick="event.stopPropagation();navigator.clipboard.writeText('${a.codes.join('\\n').replace(/'/g,"\\'")}').then(()=>{this.textContent='✅';setTimeout(()=>{this.textContent='📋'},1500)})" class="text-xs s-panel-inner py-0.5 px-2 rounded font-bold border b-dark" title="Copier ${a.codes.length} code${a.codes.length>1?'s':''}">📋</button>`:''}<span class="t-inverse-muted text-xs">→ Voir</span></div></div>`).join('')}
   </div>`;
 }
 function exportDiagnosticCSV(famille){
