@@ -121,13 +121,20 @@ function _compute(r) {
     gap: computePriceGap(code), mm: explainMinMax(r), lastSale: (() => { const ev = (_S.articleDemand || {})[code] || []; let d = 0; for (let i = 0; i < ev.length; i += 2) if (ev[i] > d) d = ev[i]; return d ? d * DAY : null; })() };
 }
 
-/** Le verdict en une phrase (montrer la donnée, pas décider à la place). */
+/** Le verdict en une phrase, + l'écart PRISME / ERP s'il existe. */
 function _verdict(D) {
+  const v = _verdict0(D), r = D.r;
+  if (/^\d{6}$/.test(r.code) && !r.isParent && (r.ancienMin !== r.nouveauMin || r.ancienMax !== r.nouveauMax))
+    v.txt += ` PRISME propose ${r.nouveauMin || 0} / ${r.nouveauMax || 0} au lieu de ${r.ancienMin || 0} / ${r.ancienMax || 0} dans l’ERP.`;
+  return v;
+}
+function _verdict0(D) {
   const r = D.r, st = r.stockActuel || 0;
   const parMois = D.qte12 / 12;
   if (st < 0) return { tone: 'low', tag: 'Stock négatif', txt: `Stock ERP à ${n0(st)} : recompter le rayon.` };
   if (st <= 0 && (r.W || 0) > 0) return { tone: 'low', tag: 'Rupture', txt: `En rupture${D.rupture?.jours != null ? ` depuis ${D.rupture.jours} jour${D.rupture.jours > 1 ? 's' : ''}` : ''}. Il se vend ~${n1(parMois)} pièce${parMois >= 2 ? 's' : ''} par mois.` };
   if (isInvendu(r)) return { tone: 'mid', tag: 'Jamais vendu', txt: `${n0(st)} en stock, aucune vente en 12 mois.` };
+  if (r._mmRule === 'rayon_sans_vente') return { tone: 'mid', tag: 'Pas vendu au comptoir', txt: `${n0(st)} en stock, aucune pièce vendue au comptoir en 12 mois${(r.W || 0) > 0 ? ' (seulement en colis)' : ''}.` };
   if ((r.ancienMin || 0) > 0 && st < r.ancienMin) return { tone: 'mid', tag: 'Sous le mini', txt: `${n0(st)} en stock pour un mini ERP de ${n0(r.ancienMin)}.` };
   if (isSurStock(r)) return { tone: 'mid', tag: 'Sur-stock', txt: `${n0(st)} en stock pour un maxi PRISME de ${n0(r.nouveauMax)} : ${n0(excedentSurStock(r))} de trop${D.qte12 > 0 ? `, ~${n0(st / (D.qte12 / 365))} jours de ventes` : ''}.` };
   return { tone: 'high', tag: 'OK', txt: D.qte12 > 0 ? `Le stock suit les ventes : ${n0(st)} en stock, ~${n0(st / Math.max(D.qte12 / 365, 0.01))} jours de ventes.` : `${n0(st)} en stock.` };
@@ -174,6 +181,11 @@ function _pourquoi(D) {
   const lines = [];
   if (m.rule === 'nouveaute') lines.push('Nouveauté (moins de 35 jours) : PRISME garde le mini/maxi de l’ERP le temps qu’elle fasse ses preuves.');
   else if (m.rule === 'statut') lines.push(`Statut « ${escapeHtml(r.statut || '')} » : plus de réappro, 0 / 0.`);
+  else if (r._mmRule === 'vente_unique') lines.push('Vendu une seule fois au comptoir en 12 mois : 1 / 1.');
+  else if (r._mmRule === 'rayon_sans_vente') lines.push(`Aucune pièce vendue au comptoir en 12 mois alors qu’il est en rayon : 0 / 0, à sortir.${(r.W || 0) > 0 ? ' Les ventes en colis partent de la centrale, pas de ton rayon.' : ''}`);
+  else if (r._mmRule === 'absent_sans_demande') lines.push('Absent de ton rayon, aucune vente au comptoir, et pas de vraie demande (moins de 3 colis par an, réseau faible) : 0 / 0.');
+  else if (r._mmRule === 'implant_colis') lines.push(`Absent de ton rayon mais tes clients le prennent en colis (${r._implantColis} fois en 12 mois) : implantation au rythme du réseau, au plus la médiane des autres agences.`);
+  else if (r._mmRule === 'implant_reseau') lines.push('Absent de ton rayon, mais le réseau le vend vraiment (au moins 60 % des agences, 200 €/an chacune) : implantation au rythme du réseau, au plus la médiane des autres agences.');
   else if (m.rule === 'une_vente') lines.push(`Vendu ${m.nbVentes} fois en 12 mois : trop peu pour garder du stock, 0 / 0.`);
   else if (m.rule === 'deux_ventes') lines.push('Vendu 2 fois en 12 mois : règle 1 / 2.');
   else if (m.rule === 'calcul') {
@@ -183,8 +195,6 @@ function _pourquoi(D) {
     lines.push(`Maxi = mini + ${m.cycle} jours de ventes (${m.cycleQte}) = <b>${m.max}</b>.`);
     if (m.rabote) lines.push(`Une commande exceptionnelle de ${m.rabote} pièces a été rabotée pour ne pas gonfler le mini.`);
   } else lines.push('Pas assez d’historique de ventes jour par jour pour détailler le calcul.');
-  if (r._vitesseReseau && !r._venteUnique) lines.push('Jamais vendu chez toi : mini / maxi au rythme du réseau (proposition d’implantation).');
-  if (r._venteUnique) lines.push('Vendu une seule fois ici : gardé à 1 / 1.');
   if (m.rule === 'calcul' && (r.nouveauMin !== m.min || r.nouveauMax !== m.max)) lines.push(`Valeur finale <b>${r.nouveauMin} / ${r.nouveauMax}</b> après les règles d’assortiment (${escapeHtml(rowVerdictLabel(r) || 'ajustement')}).`);
   return `<details class="a360-why"><summary>Pourquoi ce mini / maxi ?</summary><ol>${lines.map(l => `<li>${l}</li>`).join('')}</ol></details>`;
 }
