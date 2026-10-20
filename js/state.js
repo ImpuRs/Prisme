@@ -313,7 +313,6 @@ _S.clientStore = new Map();          // Map<cc, ClientRecord> — store client u
 _S.agenceStore = new Map();          // Map<storeCode, AgenceRecord> — store agence unifié (agence-store.js)
 _S._chalandiseRev = 0;               // incrémenté quand chalandiseData est corrigée par le consommé (clé de cache Conquête)
 _S.articleStore = null;              // Map<code, ArticleRecord> — store article unifié (article-store.js)
-_S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 _S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
 
@@ -326,9 +325,6 @@ _S.catalogueFamille = null;    // Map<code, {libFam, sousFam}> — famille + sou
 _S.catalogueStatut = null;     // Map<code, statut> — statut catalogue national
 _S.catalogueEAN = null;        // Map<ean, code> — code-barre → code article
 _S._animationData = null;      // cache du dernier computeAnimation
-_S._rayonData = null;          // cache du dernier computeMonRayon
-_S._rayonSearchIndex = null;   // cache de l'index de recherche Mon Rayon
-_S._rfData = null;             // cache du dernier computeRadarFamille
 
 // ── Invalidation centralisée des caches ──────────────────────────
 // Scopes : 'all' (défaut) | 'tab' | 'terr' | 'bench'
@@ -466,7 +462,6 @@ export function resetAppState() {
   _S.clientStore = new Map();
   _S.agenceStore = new Map();
   _S._chalandiseRev = 0;
-  _S.famillesHors = [];
   _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();
 
@@ -478,8 +473,6 @@ export function resetAppState() {
   _S._squeletteFull = null;
   _S.articleZoneIndex = null;
   _S.articleStore = null;
-  _S._clienteleMetier = null;
-  _S._clienteleData = null;
 
   // Animation
   _S._animationData = null;
@@ -488,11 +481,8 @@ export function resetAppState() {
   _S._assocEditMode = false; _S._assocEditing = null; _S._assocOpenId = null;
 
   // Mon Rayon
-  _S._rayonData = null;
-  _S._rayonSearchIndex = null;
 
   // Radar Famille
-  _S._rfData = null;
 
   _S.lowMemMode = _keepLowMemMode;
 }

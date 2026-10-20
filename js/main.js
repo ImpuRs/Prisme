@@ -9,35 +9,34 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, defaultPeriodRange, isShortAutoPeriod, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
-import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu } from './engine.js';
-import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import './constants.js';
+import { extractClientCode, readExcel, _doCopyCode, _copyAllCodesDirect } from './utils.js';
+import { _S, invalidateCache } from './state.js';
+import { computeClientCrossing, _unikLink, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores } from './engine.js';
+import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker } from './parser.js';
+import { showToast, ToastManager, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, openReporting, sortBy, changePage, closeReporting, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
 import { prepareSources } from './sources.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
-import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
-import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
-import { initRouter } from './router.js';
+import { _clearCache, _showCacheBanner, _onPurgeCache, _saveSessionToIDB } from './cache.js';
+import './sales.js';
+import './helpers.js';
 import { buildClientStore } from './client-store.js';
 import { applyForcageCommercial as _applyForcageCommercial } from './chalandise-store.js';
 import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès console DevTools
-import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
-import { renderPlanRayon, renderPlanStock } from './planRayon.js';
-import { renderArbitrageTab } from './arbitrage.js';
-import { renderEssaiTab, applyMinMaxServiceLevel, localSalesCount12m } from './stock-lab.js';
-import { renderTesClients } from './clients-decisions.js';
-import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
-import { renderAssociationsTab } from './associations.js';
-import { renderPartieTab } from './partie.js';
+import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, exportDiagnosticCSV, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
+import './planRayon.js';
+import './arbitrage.js';
+import './stock-lab.js';
+import './clients-decisions.js';
+import './animation.js';
+import './associations.js';
+import './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
-import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
-import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _buildDegradedCockpit } from './commerce.js';
+import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter } from './omni.js';
+import { toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
+import { _renderHorsZone, renderTerritoireTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4 } from './commerce.js';
 // ── Modules extraits de main.js (oct. 2026) ──
 import './scan-export.js'; // exports Scan / ZZAT018 / EAN — fonctions window.* uniquement
 import { _refilterFromByMonth, applyPeriodFilter, toggleTabPeriodDropdown } from './periode.js';
@@ -178,7 +177,7 @@ window.onChalandiseSelected = async function(input) {
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
   if (DataStore.ventesLocalMagPeriode.size > 0) {
     launchClientWorker().then(() => {
-      resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors();
+      resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores();
       buildClientStore(); _applyForcageCommercial();
       renderTabBadges(); 
       
@@ -198,7 +197,6 @@ window.computeAnglesMorts = computeAnglesMorts;
 window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
 window.buildAgenceStore = buildAgenceStore;
-window.computeFamillesHors = computeFamillesHors;
 window.computeBenchmark = computeBenchmark;
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function() {
@@ -238,7 +236,6 @@ window.openDiagnosticMetier = openDiagnosticMetier;
 window.closeDiagnostic = closeDiagnostic;
 window.executeDiagAction = executeDiagAction;
 window.exportDiagnosticCSV = exportDiagnosticCSV;
-window._diagV3FilterCategory = _diagV3FilterCategory;
 window.toggleReconquestFilter = toggleReconquestFilter;
 window.openArticlePanel = openArticlePanel;
 window.closeArticlePanel = closeArticlePanel;

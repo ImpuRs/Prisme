@@ -1689,8 +1689,8 @@ function _prComputeMetierFull(metier) {
   const perClient = new Map();
   for (const cc of clientSetRaw) {
     const arts = new Map();
-    // Source 1: ventesLocalMagPeriode (MAGASIN = monCA + caZone)
-    const myArts = _S.ventesLocalMagPeriode?.get(cc);
+    // Source 1: ventesLocalMag12MG (pleine période, doctrine assortiment) (MAGASIN = monCA + caZone)
+    const myArts = _S.ventesLocalMag12MG?.get(cc);
     if (myArts) {
       for (const [code, data] of myArts) {
         if (!/^\d{6}$/.test(code)) continue;
@@ -1833,7 +1833,7 @@ function _prComputeMetierFull(metier) {
   const clientCanal = new Map(); // cc → {caMag, caLivre, pctLivre}
   for (const cc of clientSetRaw) {
     let caMag = 0, caLivre = 0;
-    const myArts = _S.ventesLocalMagPeriode?.get(cc);
+    const myArts = _S.ventesLocalMag12MG?.get(cc);
     if (myArts) for (const [, d] of myArts) caMag += +(d.sumCA || 0);
     const hmArts = getVentesHorsMagFullMap().get(cc);
     if (hmArts) for (const [, d] of hmArts) caLivre += +(d.sumCA || 0);
@@ -1931,7 +1931,7 @@ function _prApplyMetierDist() {
           if (!seen.has(code)) { a.nbCli++; seen.add(code); }
         }
       };
-      addArts(_S.ventesLocalMagPeriode?.get(cc), true);
+      addArts(_S.ventesLocalMag12MG?.get(cc), true);
       addArts(getVentesHorsMagFullMap().get(cc), false);
     }
 

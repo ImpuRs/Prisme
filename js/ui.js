@@ -9,8 +9,8 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { renderContextBar } from './contexte.js';
-import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, escapeHtml, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
+import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
+import { fmtDate, escapeHtml, famLib, famLabel, normalizeStr, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, rowVerdictLabel } from './engine.js';

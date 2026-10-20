@@ -61,7 +61,7 @@ export const FAM_LETTER_UNIVERS = {
   'M': 'Maintenance et équipements', 'O': 'Outillage', 'L': 'Plomberie'
 };
 
-// Labels des cases de la matrice ABC/FMR (utilisé dans _diagRenderV3 et ailleurs)
+// Labels des cases de la matrice ABC/FMR (fiche article et matrice)
 export const RADAR_LABELS = {
   AF: 'Pépites', AM: 'Piliers',    AR: 'Projets',
   BF: 'Moteur',   BM: 'Standard',  BR: 'Poids Faible',
@@ -198,16 +198,6 @@ export const FAMILLE_LOOKUP = {
 // Codes hors catalogue standard — affichés sans code préfixe
 export const FAMILLE_HORS_CATALOGUE = new Set(['00','12','22','30','31','32','94']);
 
-// ── Segments vocationnels (taxonomie universelle 4 segments) ──────────────
-// Utilisé par le plan de rayon stratégique pour détecter la vocation réelle
-// d'une famille (incontournables vs sortir vs métiers clients agence)
-export const SEGMENTS = {
-  chantier: { label: 'Chantier', icon: '⚒', color: 'orange' },
-  erp:      { label: 'ERP/Bâtiment', icon: '🏢', color: 'blue' },
-  deco:     { label: 'Déco/Résidentiel', icon: '💡', color: 'pink' },
-  source:   { label: 'Source/Conso', icon: '🔌', color: 'gray' },
-};
-
 // Mapping métier client → segments cibles (un métier peut viser plusieurs segments)
 // Clés en minuscules sans accent pour matching tolérant
 export const METIER_SEGMENTS = {
@@ -240,49 +230,6 @@ export const METIER_SEGMENTS = {
   'bricoleur': ['deco','source'], 'particulier': ['deco','source'],
 };
 
-// Mots-clés segment par libellé d'article (heuristique universelle)
-// Ordre = priorité : chantier > erp > source > deco
-const SEG_KEYWORDS = {
-  chantier: [
-    'chantier','rechargeable','frontale','frontal','baladeuse','projecteur',
-    'jaro','rufus','professionnel','pro mobile','batterie li','accu',
-    'antichoc','etanche ip6','étanche ip6','heavy duty','renforce','renforcé',
-    'echafaudage','échafaudage','levage','manutention','soudage','meuleuse',
-    'perceuse','visseuse','tronconneuse','tronçonneuse','disqueuse'
-  ],
-  erp: [
-    'erp','ert','dalle led','hublot','tube t8','tube t5','tube led','bloc secours',
-    'bloc autonome','baes','etanche','étanche ','encastre','encastré',
-    'collectif','collective','plenum','plénum','faux plafond','plafonnier',
-    'detecteur','détecteur','desenfumage','désenfumage','coupe-feu','coupe feu',
-    'compteur','tableau electrique','tableau électrique','sanitaire collectif'
-  ],
-  source: [
-    'gu10','e27','e14','g9','g4','b22','ampoule','tube fluo','starter','transfo',
-    'pile','batterie aaa','batterie aa','rallonge','prise','multiprise',
-    'consommable','sachet','boite de','boîte de','recharge','cartouche'
-  ],
-  deco: [
-    'deco','déco','design','salon','chambre','suspension','applique',
-    'lampadaire','lampe a poser','lampe à poser','spot encastre deco',
-    'guirlande','ruban led ','strip led','luminaire decoratif','luminaire décoratif',
-    'agenceur','meuble','tiroir','poignee meuble','poignée meuble'
-  ]
-};
-
-// Mapping univers (1ère lettre code famille) → segment par défaut
-const UNIVERS_SEGMENT = {
-  'L': 'chantier',  // Plomberie
-  'B': 'chantier',  // Bâtiment
-  'O': 'chantier',  // Outillage
-  'E': 'chantier',  // EPI
-  'G': 'erp',       // Génie climatique
-  'M': 'erp',       // Maintenance
-  'R': 'erp',       // Électricité
-  'C': 'source',    // Consommables
-  'A': 'deco',      // Agencement ameublement
-};
-
 /**
  * Détecte le segment vocationnel d'un article.
  * 1) Mots-clés libellé (priorité : chantier > erp > source > deco)
@@ -293,44 +240,11 @@ const UNIVERS_SEGMENT = {
  * @param {string} [codeFam] - Code famille (ex: 'L01') — 1ère lettre donne l'univers
  * @returns {'chantier'|'erp'|'deco'|'source'}
  */
-export function detectSegment(libelle, marque = '', codeFam = '') {
-  if (!libelle && !codeFam) return 'deco';
-  const l = (libelle + ' ' + (marque || '')).toLowerCase();
-  for (const seg of ['chantier','erp','source','deco']) {
-    for (const kw of SEG_KEYWORDS[seg]) {
-      if (l.includes(kw)) return seg;
-    }
-  }
-  // Fallback : univers famille
-  if (codeFam) {
-    const letter = codeFam.charAt(0).toUpperCase();
-    if (UNIVERS_SEGMENT[letter]) return UNIVERS_SEGMENT[letter];
-  }
-  return 'deco';
-}
-
 /**
  * Calcule le segment dominant d'une liste d'articles avec poids optionnel.
  * @param {Array<{libelle:string, marque?:string, weight?:number}>} items
  * @returns {{segment:string, share:number, distribution:Object}}
  */
-export function dominantSegment(items) {
-  const dist = { chantier: 0, erp: 0, deco: 0, source: 0 };
-  let total = 0;
-  for (const it of items || []) {
-    const seg = detectSegment(it.libelle, it.marque);
-    const w = it.weight || 1;
-    dist[seg] += w;
-    total += w;
-  }
-  if (total === 0) return { segment: 'deco', share: 0, distribution: dist };
-  let best = 'deco', bestVal = -1;
-  for (const k of Object.keys(dist)) {
-    if (dist[k] > bestVal) { bestVal = dist[k]; best = k; }
-  }
-  return { segment: best, share: bestVal / total, distribution: dist };
-}
-
 /**
  * Normalise un libellé métier pour matching (lowercase, sans accents, trim).
  */
