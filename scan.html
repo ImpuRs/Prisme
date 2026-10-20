@@ -176,7 +176,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v18 · 20/10/2026';
+const SCAN_VERSION = 'v19 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -225,13 +225,15 @@ const ALERT = {
   rupt:     { c:'#fca5a5', bg:'rgba(252,165,165,.12)', fg:'#fca5a5', l:'rupture' },
   sousmin:  { c:'#fbbf24', bg:'rgba(251,191,36,.12)',  fg:'#fbbf24', l:'sous min' },
   surstock: { c:'#a78bfa', bg:'rgba(167,139,250,.13)', fg:'#c4b5fd', l:'sur-stock' },
+  invendu:  { c:'#94a3b8', bg:'rgba(148,163,184,.14)', fg:'#cbd5e1', l:'jamais vendu' },
 };
-const ALERT_KEYS = ['neg','rupt','sousmin','surstock'];
+const ALERT_KEYS = ['neg','rupt','sousmin','surstock','invendu'];
 const VC = {
   rupture:  { bg:'#3a1518', fg:'#fca5a5', edge:'#ef4444', label:'Rupture' },
   sousmin:  { bg:'#3a2a14', fg:'#fbbf24', edge:'#f59e0b', label:'Sous min' },
   ok:       { bg:'#16301f', fg:'#86efac', edge:'#22c55e', label:'OK' },
   surstock: { bg:'#2c1f4a', fg:'#c4b5fd', edge:'#a78bfa', label:'Sur-stock' },
+  invendu:  { bg:'#232a36', fg:'#cbd5e1', edge:'#94a3b8', label:'Jamais vendu' },
 };
 
 // ── Data (engine-compat) ──────────────────────────────────────
@@ -260,9 +262,10 @@ const SQ_LABEL = { socle:'À garder', surveiller:'À surveiller', implanter:'À 
 // Verdict stock. Rupture / sous le min : MIN ERP (ce que l'ERP réapprovisionne).
 // Sur-stock : au-dessus du MAX PRISME, comme dans PRISME (pMax) ; MAX ERP seulement si PRISME n'a pas de MAX.
 const _cap = (max, pMax) => (pMax != null ? pMax : max);
-function _verdict(stock, min, max, pMax) {
+function _verdict(stock, min, max, pMax, invendu) {
   const cap = _cap(max, pMax);
   if (stock < 0) return 'rupture';
+  if (invendu && stock > 0) return 'invendu'; // en stock, aucune vente en 12 mois (même règle que PRISME : isInvendu)
   if (stock === 0 && min > 0) return 'rupture';
   if (min > 0 && stock < min) return 'sousmin';
   if (cap > 0 && stock > cap) return 'surstock';
@@ -270,6 +273,7 @@ function _verdict(stock, min, max, pMax) {
 }
 function _primary(verdict, stock, min, max, statut, pMax) {
   const cap = _cap(max, pMax);
+  if (verdict === 'invendu') return { kind:'retour', label:'Retour centrale', qty: stock, sub:'Aucune vente en 12 mois' };
   const finDeVie = /fin de (s[ée]rie|stock|catalogue)/i.test(statut||'');
   // Stock négatif → corriger le stock ERP, vider MIN/MAX
   if (stock < 0) return { kind:'corriger_stock', label:'Corriger stock', qty: 0, sub:`Stock ERP : ${stock} · vérifier le rayon` };
@@ -306,9 +310,11 @@ const HOME_FILTERS = [
   { k:'rupt',     l:'Ruptures',  c:'#fca5a5' },
   { k:'sousmin',  l:'Sous min',  c:'#fbbf24' },
   { k:'surstock', l:'Sur-stock', c:'#c4b5fd' },
+  { k:'invendu',  l:'Jamais vendus', c:'#94a3b8' },
 ];
 function _matchHomeFilter(a, f) {
-  if (!f) return true;
+  // « Tout » laisse de côté les jamais vendus (souvent > 1 000) : on les voit avec leur pastille
+  if (!f) return a.verdict !== 'invendu';
   if (f === 'neg') return a.stock < 0;
   if (a.stock < 0) return false;
   return a.verdict === (f === 'rupt' ? 'rupture' : f);
@@ -328,7 +334,8 @@ function loadEngineData(engine) {
     const eMin  = it.ancienMin    ?? 0;
     const eMax  = it.ancienMax    ?? 0;
     const pMin  = it.nouveauMin ?? null, pMax = it.nouveauMax ?? null; // MIN/MAX PRISME
-    const verdict = _verdict(stock, min, max, pMax);
+    const invendu = !!it._invendu;
+    const verdict = _verdict(stock, min, max, pMax, invendu);
     const fam = _famDisplay(it);
     return {
       code:    it.code,
@@ -342,7 +349,7 @@ function loadEngineData(engine) {
       prix:    it.prixMoyenReseau ?? null,
       marge:   it.txMargeReseau   ?? null,
       min, max, erpMin: eMin, erpMax: eMax, pMin, pMax,
-      ventes:  it.W ?? null, qteVendue: it.V ?? null, // 12 mois : nombre de ventes (BL) et pièces prélevées
+      ventes:  it.W ?? null, qteVendue: it.V ?? null, invendu, // 12 mois : nombre de ventes (BL) et pièces prélevées
       refFourn: it._refFourn || null,
       couv:    (it.couvertureJours != null && it.couvertureJours < 9999) ? it.couvertureJours : 0,
       statut:  it.statut || 'Actif',
@@ -370,6 +377,34 @@ function _indexArticles() {
 function _rebuildArtIndex() {
   _indexArticles();
   _applyZzatOverlay();
+}
+// Notes terrain par article (« casse », « mal rangé », « client X en demande »…) : gardées sur l'appareil
+const NOTES_KEY = 'prisme_notes';
+function _loadNotes() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch (e) { return {}; } }
+function _noteOf(code) { return _loadNotes()[code] || null; }
+function _setNote(code, n) {
+  const all = _loadNotes();
+  if (n && n.trim()) all[code] = { n: n.trim().slice(0, 300), t: Date.now() }; else delete all[code];
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(all)); } catch (e) { _gToast('⚠ Note non gardée (mémoire du navigateur pleine)'); }
+}
+function NoteBox({ code }) {
+  const [v, setV] = useState(() => _noteOf(code)?.n || '');
+  const [saved, setSaved] = useState(true);
+  useEffect(() => { setV(_noteOf(code)?.n || ''); setSaved(true); }, [code]);
+  const save = () => { _setNote(code, v); setSaved(true); };
+  const t = _noteOf(code)?.t;
+  return (
+    <div style={{marginTop:8,padding:'10px 12px',background:'#0a0c10',borderRadius:12}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+        <span style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:800}}>Note terrain</span>
+        {t && saved && <span style={{fontSize:12,color:T.t3}}>{new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span>}
+      </div>
+      <textarea value={v} onChange={e=>{ setV(e.target.value); setSaved(false); }} onBlur={save} rows={2} maxLength={300}
+        placeholder="Casse, mal rangé, étiquette à changer, client en demande…" aria-label="Note terrain sur cet article"
+        style={{width:'100%',marginTop:6,padding:'8px 10px',borderRadius:10,border:`1px solid ${T.border}`,background:T.card,color:T.t1,font:'inherit',fontSize:14,resize:'vertical'}} />
+      {!saved && <button onClick={save} style={{marginTop:6,minHeight:40,padding:'0 14px',borderRadius:10,border:0,background:T.accent,color:'#111',fontWeight:800,fontSize:13}}>Enregistrer la note</button>}
+    </div>
+  );
 }
 let _DATA_VER = 0; // incrémenté quand un article change sur place (stock corrigé…) : invalide les listes mémorisées
 let _BASE_ROWS = null; // lignes d'origine des données chargées (pour réappliquer un import ZZAT depuis la base complète)
@@ -401,7 +436,7 @@ function _applyZzatOverlay() {
     if (max != null) a.max = a.erpMax = max;
     if (empl) { a.empl = empl; a._hay = null; }
     if (statut) a.statut = statut;
-    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
+    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax, a.invendu);
     a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
     keep.push(a); up++;
@@ -881,9 +916,12 @@ function App() {
     try { return localStorage.getItem('prisme_inv_zone') || null; } catch(e) { return null; }
   });
   const INV_ZONE = invZone || '—';
-  const INV_CODES = useMemo(() => invZone
-    ? ARTICLES.filter(a => (a.empl||'').split('-')[0] === invZone).map(a=>a.code)
-    : [], [invZone, dataVersion]);
+  // Inventaire de zone : d'abord les stocks ERP douteux (négatifs, puis ruptures), ensuite le reste
+  const INV_CODES = useMemo(() => {
+    if (!invZone) return [];
+    const doute = (a) => a.stock < 0 ? 0 : a.verdict === 'rupture' ? 1 : 2;
+    return ARTICLES.filter(a => (a.empl||'').split('-')[0] === invZone).sort((x, y) => doute(x) - doute(y)).map(a=>a.code);
+  }, [invZone, dataVersion]);
   const [invCounts, setInvCounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('prisme_inv_counts')||'{}'); } catch(e) { return {}; }
   });
@@ -921,7 +959,7 @@ function App() {
   };
   const _refreshArticle = (a) => {
     _DATA_VER++; // l'accueil recalcule ses listes
-    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
+    a.verdict = _verdict(a.stock, a.min, a.max, a.pMax, a.invendu);
     a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
   };
@@ -1107,7 +1145,7 @@ function App() {
         onClose={()=>setSheet(null)}
         onConfirm={(newStock)=>{
           const a = _artByCode.get(sheet.code);
-          addAction(sheet.code, 'stock', `Modifier le stock (${a.stock} → ${newStock})`, 'ERP central · sync', '≤ 5 min');
+          addAction(sheet.code, 'stock', `Modifier le stock (${a.stock} → ${newStock})`, 'ERP', 'à saisir dans l’ERP');
         }}
       />}
       {sheet?.type === 'empedit' && <EmplacementSheet
@@ -1218,19 +1256,38 @@ function App() {
             });
             return next;
           });
-          showToast('✓ Toutes les actions synchronisées');
+          showToast('✓ Toutes les actions marquées faites (à saisir dans l’ERP)');
         }}
         onExport={()=>{
           const rows = [];
           Object.keys(actions).sort().forEach(c => {
             const a = _artByCode.get(c) || _catalogArticle(c);
             (actions[c]||[]).forEach(x => rows.push([
-              new Date(x.ts).toLocaleString('fr-FR'), c, a?.lib || '', a?.empl || '', x.kind, x.label, x.dest || '', x.status === 'validee' ? 'Validée' : 'En attente',
+              new Date(x.ts).toLocaleString('fr-FR'), c, a?.lib || '', a?.empl || '', x.kind, x.label, x.dest || '', x.status === 'validee' ? 'Validée' : 'En attente', _noteOf(c)?.n || '',
             ]));
           });
+          // Articles avec une note terrain mais sans action : exportés aussi
+          for (const [c, nt] of Object.entries(_loadNotes())) {
+            if (actions[c]?.length) continue;
+            const a = _artByCode.get(c) || _catalogArticle(c);
+            rows.push([new Date(nt.t).toLocaleString('fr-FR'), c, a?.lib || '', a?.empl || '', 'note', '', '', '', nt.n]);
+          }
           if (!rows.length) { showToast('Journal vide'); return; }
-          _downloadCsv(`journal-actions-${CTX.agency}-${_dateStamp()}.csv`, ['Date','Code article','Libellé','Emplacement','Type','Action','Destination','Statut'], rows);
+          _downloadCsv(`journal-actions-${CTX.agency}-${_dateStamp()}.csv`, ['Date','Code article','Libellé','Emplacement','Type','Action','Destination','Statut','Note terrain'], rows);
           showToast(`✓ ${rows.length} action${rows.length>1?'s':''} exportée${rows.length>1?'s':''}`);
+        }}
+        onOrder={()=>{
+          // Liste de commande : un article par ligne, quantités des « Commander » notés (en attente ou validés)
+          const q = new Map();
+          for (const [c, list] of Object.entries(actions)) for (const x of list || []) {
+            if (x.kind !== 'commander') continue;
+            const m = String(x.label || '').match(/\((\d+)\s*pcs\)/);
+            q.set(c, (q.get(c) || 0) + (m ? parseInt(m[1], 10) : 1));
+          }
+          if (!q.size) { showToast('Aucune commande notée'); return; }
+          const rows = [...q].map(([c, n]) => { const a = _artByCode.get(c) || _catalogArticle(c); return [c, a?.lib || '', n, a?.empl || '', a ? `${a.stock}` : '']; });
+          _downloadCsv(`commande-${CTX.agency}-${_dateStamp()}.csv`, ['Code article','Libellé','Quantité','Emplacement','Stock'], rows);
+          showToast(`✓ Liste de commande : ${rows.length} article${rows.length>1?'s':''}`);
         }}
         onPurge={()=>{
           setActions({});
@@ -1384,20 +1441,21 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
   const emplMap = {};
   shown.forEach(a => {
     const zone = _zoneOf(a);
-    if (!emplMap[zone]) emplMap[zone] = {neg:0,rupt:0,sousmin:0,surstock:0,total:0,articles:[]};
+    if (!emplMap[zone]) emplMap[zone] = {neg:0,rupt:0,sousmin:0,surstock:0,invendu:0,total:0,articles:[]};
     const e = emplMap[zone];
     e.total++;
     if (a.stock < 0) e.neg++;
     else if (a.verdict === 'rupture') e.rupt++;
     else if (a.verdict === 'sousmin') e.sousmin++;
     else if (a.verdict === 'surstock') e.surstock++;
+    else if (a.verdict === 'invendu') e.invendu++;
     e.articles.push(a);
   });
   const emplList = Object.entries(emplMap).sort((a,b) => {
     // Articles sans emplacement : toujours en dernier (pas une allée parcourable)
     if ((a[0] === '—') !== (b[0] === '—')) return a[0] === '—' ? 1 : -1;
-    const sa = a[1].neg*1000 + a[1].rupt*100 + a[1].sousmin*10 + a[1].surstock;
-    const sb = b[1].neg*1000 + b[1].rupt*100 + b[1].sousmin*10 + b[1].surstock;
+    const sa = a[1].neg*1000 + a[1].rupt*100 + a[1].sousmin*10 + a[1].surstock + a[1].invendu;
+    const sb = b[1].neg*1000 + b[1].rupt*100 + b[1].sousmin*10 + b[1].surstock + b[1].invendu;
     return sb - sa;
   });
   return (
@@ -1679,7 +1737,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const prismePrimary = erpPending && (a.primary?.kind === 'commander' || a.primary?.kind === 'retour')
     ? _primary(_verdict(a.stock, pMin, pMax, pMax), a.stock, pMin, pMax, a.statut, pMax) : undefined;
   const minMaxConflict = prismePrimary !== undefined && prismePrimary?.kind !== a.primary.kind;
-  const doErpAdjust = () => onAddAction(erpPending.kind, `${erpPending.label} (${erpPending.sub})`, 'ERP central', '≤ 5 min');
+  const doErpAdjust = () => onAddAction(erpPending.kind, `${erpPending.label} (${erpPending.sub})`, 'ERP central', 'à saisir dans l’ERP');
 
   if (a.catalogOnly) {
     return (
@@ -1816,12 +1874,12 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                   <button onClick={()=>setEditQty(null)} style={{padding:'14px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Annuler</button>
-                  <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → '+editQty:p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'Demain 9h':'48h ouvrées';const lbl=p.kind==='corriger_stock'?p.label+' · stock → '+editN:p.label+(editN?' ('+editN+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);setEditQty(null);}} disabled={editN<=0} style={{padding:'14px',borderRadius:14,border:'none',background:editN>0?v.edge:'rgba(255,255,255,.06)',color:editN>0?'#0a0c10':T.t3,fontSize:14,fontWeight:900,cursor:'pointer'}}>{editN>0?'VALIDER · '+editN+' pcs':'Saisir la quantité'}</button>
+                  <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → '+editQty:p.kind==='retour'?'Retour centrale':'Commande';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'à saisir dans l’ERP':'à saisir dans l’ERP';const lbl=p.kind==='corriger_stock'?p.label+' · stock → '+editN:p.label+(editN?' ('+editN+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);setEditQty(null);}} disabled={editN<=0} style={{padding:'14px',borderRadius:14,border:'none',background:editN>0?v.edge:'rgba(255,255,255,.06)',color:editN>0?'#0a0c10':T.t3,fontSize:14,fontWeight:900,cursor:'pointer'}}>{editN>0?'VALIDER · '+editN+' pcs':'Saisir la quantité'}</button>
                 </div>
               </div>
             ) : (
               <div style={{padding:'12px 14px 0',display:'grid',gridTemplateColumns:'2fr 1fr',gap:8}}>
-                <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → 0':p.kind==='retour'?'Centrale Lille → '+AGENCY:'Centrale Lille (commande auto)';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'Demain 9h':'48h ouvrées';const lbl=p.kind==='corriger_stock'?p.label+' · stock → 0':p.label+(p.qty?' ('+p.qty+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>{a.primary.kind==='corriger_stock'?'VALIDER':'VALIDER · '+a.primary.qty+' pcs'}</button>
+                <button onClick={()=>{const p=a.primary;const dest=p.kind==='corriger_stock'?'ERP · stock → 0':p.kind==='retour'?'Retour centrale':'Commande';const eta=p.kind==='corriger_stock'?'Immédiat':p.kind==='retour'?'à saisir dans l’ERP':'à saisir dans l’ERP';const lbl=p.kind==='corriger_stock'?p.label+' · stock → 0':p.label+(p.qty?' ('+p.qty+' pcs)':'');onAddAction(p.kind,lbl,dest,eta);}} style={{padding:'17px',borderRadius:14,border:'none',background:v.edge,color:'#0a0c10',fontSize:15,fontWeight:900,letterSpacing:.4,cursor:'pointer'}}>{a.primary.kind==='corriger_stock'?'VALIDER':'VALIDER · '+a.primary.qty+' pcs'}</button>
                 <button onClick={()=>startEdit(a.primary.qty)} style={{padding:'17px',borderRadius:14,border:`1px solid ${T.border}`,background:T.card,color:T.t1,fontSize:13,fontWeight:700,cursor:'pointer'}}>Modifier</button>
               </div>
             )}
@@ -1887,6 +1945,8 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
             )}
           </div>
 
+          <NoteBox code={a.code} />
+
           {/* Détails intégrés */}
           <button onClick={()=>setDetailsOpen(d=>!d)} style={{marginTop:8,width:'100%',padding:'8px 10px',background:'#0a0c10',borderRadius:10,color:T.t3,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5,border:'none'}}>
             <Ico d={detailsOpen ? "<path d='M18 15l-6-6-6 6'/>" : "<path d='M6 9l6 6 6-6'/>"} s={12} sw={2.5} />{detailsOpen ? 'Masquer' : 'Plus de détails'}
@@ -1946,7 +2006,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           const heroShown = a.primary && !addedActions.some(x=>x.kind===a.primary.kind);
           if (erpAction && !(minMaxConflict && heroShown)) return (
             <>
-              <button onClick={()=>onAddAction(erpAction.kind, `${erpAction.label} (${erpAction.sub})`, 'ERP central', '≤ 5 min')} style={{
+              <button onClick={()=>onAddAction(erpAction.kind, `${erpAction.label} (${erpAction.sub})`, 'ERP central', 'à saisir dans l’ERP')} style={{
                 width:'100%',marginTop:12,padding:'12px 14px',borderRadius:14,border:'1px solid rgba(234,179,8,.45)',
                 background:'rgba(234,179,8,.10)',color:'#facc15',textAlign:'left',
                 display:'flex',alignItems:'center',gap:12,
@@ -2062,14 +2122,14 @@ function ActionsSheet({ code, existing, onClose, onAdd }) {
   const doneKinds = new Set((existing||[]).filter(x=>x.status==='pending'||x.status==='validee').map(x=>x.kind));
   const all = [];
   if (a.primary && !doneKinds.has(a.primary.kind)) {
-    const pdest = a.primary.kind==='corriger_stock' ? 'ERP · stock → 0' : a.primary.kind==='retour' ? 'Centrale Lille → '+AGENCY : 'Centrale Lille (commande auto)';
-    const peta = a.primary.kind==='corriger_stock' ? 'Immédiat' : a.primary.kind==='retour' ? 'Demain 9h' : '48h ouvrées';
+    const pdest = a.primary.kind==='corriger_stock' ? 'ERP · stock → 0' : a.primary.kind==='retour' ? 'Retour centrale' : 'Commande';
+    const peta = a.primary.kind==='corriger_stock' ? 'Immédiat' : a.primary.kind==='retour' ? 'à saisir dans l’ERP' : 'à saisir dans l’ERP';
     all.push({...a.primary, primary:true, color:v.edge, dest:pdest, eta:peta});
   }
-  (a.secondary || []).filter(s=>!doneKinds.has(s.kind)).forEach(s => all.push({...s, dest:'ERP central · sync', eta:'≤ 5 min'}));
+  (a.secondary || []).filter(s=>!doneKinds.has(s.kind)).forEach(s => all.push({...s, dest:'ERP', eta:'à saisir dans l’ERP'}));
   const KIND_ICON = { commander:ICONS.cart, retour:ICONS.back, corriger_stock:ICONS.edit, erp:ICONS.sync, etiquette:ICONS.tag, stock:ICONS.box, emp:ICONS.pin };
   all.push({kind:'etiquette', label:'Étiquette manquante', sub:'Réimprimer · ajout commande Legallais', dest:'Commande rapide Legallais', eta:'À la prochaine impression'});
-  all.push({kind:'stock', label:'Modifier le stock', sub:`Stock ERP : ${a.stock} pcs`, dest:'ERP central · sync', eta:'≤ 5 min'});
+  all.push({kind:'stock', label:'Modifier le stock', sub:`Stock ERP : ${a.stock} pcs`, dest:'ERP', eta:'à saisir dans l’ERP'});
   all.push({kind:'emp', label:'Modifier emplacement', sub:`Actuel : ${a.empl}`, dest:'ERP central', eta:'Immédiat'});
 
   return (
@@ -2973,7 +3033,7 @@ function UnknownSheet({ code, onClose, onRetry, onAssoc }) {
   );
 }
 
-function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onExport, onPurge, onLabels }) {
+function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, onExport, onOrder, onPurge, onLabels }) {
   const all = [];
   Object.keys(actions).forEach(c => actions[c].forEach(x => all.push({...x, code:c})));
   // Trier par emplacement croissant
@@ -3061,6 +3121,13 @@ function JournalSheet({ onClose, actions, onPick, onUndo, onValidate, onPush, on
             }}>
               <Ico d={ICONS.download} s={15} sw={2.5} /> Exporter le journal (CSV)
             </button>
+            {onOrder && all.some(x => x.kind === 'commander') && (
+              <button onClick={onOrder} style={{
+                width:'100%',marginTop:8,padding:'12px 14px',borderRadius:12,minHeight:44,
+                background:'transparent',color:T.t1,fontSize:13,fontWeight:800,border:`1px solid ${T.border}`,
+                display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+              }}><Ico d={ICONS.download} s={15} sw={2.5} /> Liste de commande (CSV)</button>
+            )}
             <button onClick={()=>{ if (confirm('Purger le journal du jour ? Pense à l\u2019exporter avant. Cette action est définitive.')) onPurge(); }} style={{
               width:'100%',marginTop:8,padding:'12px',borderRadius:12,
               background:'transparent',color:'#fca5a5',fontSize:12,fontWeight:700,
@@ -3832,6 +3899,7 @@ function PCArticle({ a, onClose }) {
           </div>
         </div>
       )}
+      {!a.catalogOnly && <NoteBox code={a.code} />}
       {SCAN_CONFIG.prix !== false && a.prix != null && a.statut && (
         <div style={{fontSize:13,color:T.t3,marginTop:12}}>Statut : <span style={{color:T.t2,fontWeight:600}}>{a.statut}</span></div>
       )}
