@@ -1207,7 +1207,7 @@ function _prRenderReseau(fam) {
         <span class="text-xs t-disabled">🏷️</span>
         ${[..._prSelectedMarques].sort().map(m => `<span class="text-xs px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
           ${escapeHtml(m)}
-          <button onclick="window._prToggleMarque('${escJs(m)}')" class="t-disabled hover:t-primary leading-none" style="font-size:12px">✕</button>
+          <button onclick="window._prToggleMarque('${escapeHtml(String(m).replace(/\\/g, '\\\\').replace(/'/g, "\\'"))}')" class="t-disabled hover:t-primary leading-none" style="font-size:12px">✕</button>
         </span>`).join('')}
       </div>`
     : '';

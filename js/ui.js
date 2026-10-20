@@ -13,7 +13,7 @@ import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
 import { fmtDate, escapeHtml, famLib, famLabel, normalizeStr, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { calcPriorityScore, rowVerdictLabel } from './engine.js';
+import { calcPriorityScore, rowVerdictLabel, estimerCAPerdu } from './engine.js';
 
 
 // ── ToastManager — file FIFO avec priorités ───────────────────
