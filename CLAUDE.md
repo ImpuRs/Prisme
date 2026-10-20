@@ -21,7 +21,6 @@ Repo : `github.com/ImpuRs/Prisme`
 |---|---|---|
 | Consommé | ✅ | Ventes multi-canal multi-agences (MAGASIN, REPRESENTANT, INTERNET, DCS) |
 | État du Stock | ✅ | Articles avec stock, MIN/MAX ERP, statuts, emplacements |
-| Le Terrain | Optionnel | BL omnicanal réseau Qlik, ~250k lignes, multi-agences |
 | Zone de Chalandise | Optionnel | Clients zone : classification, commercial, métier, CP, CA |
 
 ### Modules JS (ESM natif, `<script type="module">`)
@@ -39,9 +38,8 @@ js/
                    computeClientCrossing, computeReconquestCohort,
                    computeOpportuniteNette, computeReseauHeatmap, computeOmniScores,
                    computeBenchMetier, computePriceGap, _clientPassesFilters
-  parser.js      — pipeline données : parseChalandise, parseTerritoireFile,
-                   launchTerritoireWorker, launchClientWorker,
-                   computeBenchmark
+  parser.js      — pipeline données : parseChalandise, launchClientWorker, computeBenchmark
+                   (Livraisons / Le Terrain Qlik retirés oct. 2026 : _S.ventesTerrain reste vide)
   cache.js       — persistance IndexedDB : _saveSessionToIDB, _restoreSessionFromIDB,
                    _saveExclusions, _restoreExclusions, _migrateIDB
   ui.js          — fonctions UI transverses : switchTab, renderAll, onFilterChange,
@@ -57,10 +55,9 @@ js/
                    « Pour creuser » = onglets Métiers/Analyse/Réseau de planRayon.js (bridge)
   planRayon.js   — computePlanStock (utilisé aussi par animation.js), vue Par métier,
                    onglets Métiers/Analyse/Réseau, Diagnostic + pack IA
-  stock-lab.js   — MIN/MAX « taux de service » (minMaxService, applyMinMaxServiceLevel — le vrai calcul PRISME
-                   depuis oct. 2026) + Pilotage Stock › Banc d'essai : rejoue 12 mois de ventes prélevées
-                   (_S.articleDemand, BL dédupliqués par jour, persisté) avec ERP / PRISME ancien / PRISME nouveau /
-                   essai de réglages, et compare service, ruptures, stock moyen, commandes. Le rendu n'écrit rien.
+  minmax.js      — MIN/MAX « taux de service » (minMaxService, applyMinMaxServiceLevel — le vrai calcul PRISME
+                   depuis oct. 2026) sur _S.articleDemand (BL dédupliqués par jour, persisté). Le Banc d'essai qui
+                   rejouait 12 mois pour valider la méthode a été retiré (oct. 2026).
   export-erp.js  — Arbitrage › « Mettre à jour l'ERP » : articles dont le MIN/MAX PRISME ≠ ERP (baisses, hausses,
                    passages à 0/0 en option), export CSV d'import ERP `ref;emplacement;min;max`
   emplacement.js — computePerfEmplacement (12MG), computeEnlevesSansRayon, rendu des 2 sections
@@ -76,13 +73,7 @@ js/
                    catalogue) : marques où une agence de ta taille fait mieux (médiane réseau ramenée à
                    ton CA, 12 mois tous canaux, _byMonthStoreArtCanal), rayon prêt (ruptures + trous réseau),
                    qui inviter (fidèles / sans la machine / à relancer / concurrence, export tournée)
-  associations.js — Animation › Associations : paires de familles DÉTECTÉES (clients du comptoir, achats
-                   tous canaux 12 mois) : P(B|A) ≥ 20 %, ≥ 4× la part de tous les clients qui prennent B (lift),
-                   ≥ 40 acheteurs de A, ≥ 12 des deux ; classées par co-acheteurs au-delà du hasard. Détail :
-                   clients A sans B (tag « son métier en prend »), articles B à proposer, export. Paires manuelles
-                   en option (éditeur en tuiles). Indice réseau / refs manquantes / Tronc Commun retirés oct. 2026
-  pepites.js     — computePepitesStore : spécialités (≥ 2× médiane réseau) et exclusifs d'une agence,
-                   affichés dans le Duel agence (« Ses spécialités »)
+                   (Associations, Duel agence, Banc d'essai retirés oct. 2026 — inutilisés)
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   sources.js     — fichiers gardés (base IDB PRISME_SOURCES, non purgée) : mise à jour par fusion,
@@ -228,7 +219,7 @@ _S.ventesReseauTousCanaux    // Map<cc, Map<code, {sumCA,countBL,...}>> — clie
                               // Source : consommé multi-agences, parse-worker
 ```
 
-### Données territoire
+### Données territoire (Qlik — retiré oct. 2026, structures vides gardées pour rapport.js / DataStore)
 ```js
 _S.ventesTerrain           // [{code, libelle, famille, direction, secteur, bl, ca,
                               //   canal, clientCode, clientNom, clientType, rayonStatus,
@@ -276,11 +267,8 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 
 ### parser.js
 - `parseChalandise(file)` — CSV CP1252 ou Excel, peuple chalandiseData + clientsByCommercial
-- `parseTerritoireFile(file)` — lecture brute territoire (retourne raw data)
-- `launchTerritoireWorker(raw, onProgress)` — Web Worker territoire → ventesTerrain
 - `launchClientWorker()` — Web Worker agrégats clients → clientFamCA, metierFamBench
 - `computeBenchmark()` — benchmark réseau multi-agences, peuple benchLists
-- `buildSecteurCheckboxes()` / `getSelectedSecteurs()` — filtre multi-select secteurs
 
 ### cache.js
 - `_saveSessionToIDB()` — sauvegarde complète session dans IndexedDB (base PRISME)
@@ -314,7 +302,7 @@ Niveaux du diagnostic :
 3. **Stock de sécurité** : `SECURITY_DAYS` par FMR (F=4, M=3, R=2) = 48h réappro + marge.
 4. **Cas spéciaux** : W≤1 → MIN/MAX=0 ; W=2 → MIN=1/MAX=2 ; Nouveauté <35j → garde ancien MIN/MAX.
    **Depuis oct. 2026 (validé au banc d'essai, option B)** : le MIN/MAX PRISME est calculé par **taux de service**
-   (`minMaxService`, stock-lab.js) sur les 12 derniers mois complets, après l'analyse et avant Vitesse Réseau / Bouclier :
+   (`minMaxService`, minmax.js) sur les 12 derniers mois complets, après l'analyse et avant Vitesse Réseau / Bouclier :
    statut 2/3/4 → 0/0 ; ventes (BL) ≤ 1 → 0/0 ; = 2 → 1/2 ; sinon MIN = max(⌈d·L + z·σ·√L⌉, taille de commande au
    quantile visé, 1) avec d = demande/jour (corrigée SBA si intermittente), σ = écart-type journalier, L = 2 j,
    z selon service visé A 98 % / B 95 % / C 90 % ; MAX = MIN + 14 j de ventes. Ancien calcul gardé dans `r._minMaxAvant`.
@@ -354,9 +342,8 @@ Niveaux du diagnostic :
 | Cockpit | finalData + bench | Matrice ABC/FMR cliquable, decision queue, briefing |
 | Radar | finalData + bench | Forces/faiblesses réseau, heatmap, pépites |
 | Conquête Terrain (« Ton territoire ») | chalandise + consommé | 4 chiffres (zone, actifs Leg., clients agence, à capter) + tableau direction → métier → secteur → clients trié par « à capter » (actifs Leg. non clients agence, aggregateACapter) ; clic = liste + CSV |
-| Animation | catalogue marques + consommé réseau | Préparer une animation (marque → rayon prêt → qui inviter) ; Associations |
+| Animation | catalogue marques + consommé réseau | Préparer une animation (marque → rayon prêt → qui inviter) |
 | Le Réseau | bench + territoire | Observatoire, heatmap réseau, nomades, orphelins |
-| Duel agence | agenceStore + consommé réseau | Ex-onglet Direction (Physigamme retirée) ; « Ses spécialités » = ex-Pépites réseau d'Animation. Écarts **à taille égale** : CA cible × (CA toi / CA cible) − CA toi ; cible par défaut = agence de taille la plus proche |
 
 ---
 
@@ -407,7 +394,7 @@ Réflexion stratégique sur claude.ai
 
 ### Contrôle avant mise en ligne
 `controle.html` (racine) : ouvre l'appli en iframe, recharge les fichiers (`_testdata/` en local ou fichiers
-choisis), passe sur les 9 écrans + fiche client, fiche article, Plan famille, Animation marque, Duel spécialités,
+choisis), passe sur les écrans + fiche client, fiche article, Plan famille, Animation marque,
 relève les erreurs console et compare le score La partie à la référence (AG22 : 84 = 84 / 87 / 82).
 À lancer après chaque modification. Même origine que l'appli : recharger les fichiers remplace la session.
 
@@ -453,7 +440,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
 `finalData`, `ventesLocalMagPeriode`, `ventesLocalMag12MG`, `ventesLocalHorsMag`, `ventesLocalHorsMagFull`,
-`caClientParStore`, `chalandiseData`, `ventesTerrain`, `clientsByCommercial`, `clientLastOrder`,
+`caClientParStore`, `chalandiseData`, `clientsByCommercial`, `clientLastOrder`,
 `clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
 `benchLists`, `coBL`/`coBLn` (co-achats fiche article : BL de 2 à 15 articles, 12 mois, agence), `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
 `_selectedMetier`, `_globalCanal`, `periodFilterStart`, `periodFilterEnd`
@@ -527,6 +514,6 @@ Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
 - Utiliser `ventesLocalMagPeriode` pour caAnnuel (period-filtered) — utiliser `ventesLocalMag12MG`
 - Utiliser `articleClients` ou `clientsMagasin` pour nbClientsPDV squelette (period-filtered) — utiliser `articleClientsFull`
 - Utiliser `ventesParAgence.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesLocalMag12MG.sumCAPrelevee`
-- Calculer l'omnicanalité sans `ventesTerrain` — le consommé local ne voit pas les ventes dans d'autres agences
+- Réintroduire une dépendance au fichier Livraisons / Terrain Qlik (retiré oct. 2026) — les achats ailleurs viennent du consommé multi-agences (`ventesClientAutresAgences`)
 - Créer de nouvelles variables `_S.xxx` sans les ajouter dans `resetAppState()`
 - Mettre du `await` sans `yieldToMain()` dans les boucles de parsing (bloque l'UI)

@@ -108,13 +108,12 @@ export function updateProgress(c, t, txt, step) {
 }
 
 export function updatePipeline(step, status) {
-  const idMap = { consomme: 'pipeConsomme', stock: 'pipeStock', territoire: 'pipeTerritoire' };
+  const idMap = { consomme: 'pipeConsomme', stock: 'pipeStock' };
   const el = document.getElementById(idMap[step]); if (!el) return;
   const cls = { pending: 't-disabled', active: 'c-action font-bold animate-pulse', done: 'c-ok font-bold' };
   el.className = cls[status] || 't-disabled';
-  if (status === 'done') el.textContent = { consomme: '✅ Consommé', stock: '✅ Stock', territoire: '✅ Territoire' }[step] || '✅';
+  if (status === 'done') el.textContent = { consomme: '✅ Consommé', stock: '✅ Stock' }[step] || '✅';
   if (status !== 'pending') { const pl = document.getElementById('loadingPipeline'); if (pl) pl.classList.remove('hidden'); }
-  if (step === 'territoire') { const sep = document.getElementById('pipeSepTerr'); if (sep) sep.classList.remove('hidden'); el.classList.remove('hidden'); }
 }
 
 export function showLoading(t, s) { document.getElementById('loadingOverlay').classList.add('active'); updateProgress(0, 100, t, s); }
@@ -125,7 +124,6 @@ const _statusBadgeMap = {
   dropConsomme: 'statusConsomme',
   dropStock: 'statusStock',
   dropChalandise: 'statusChalandise',
-  dropLivraisons: 'statusLivraisons',
   dropForcage: 'statusForcage',
 };
 
@@ -149,7 +147,7 @@ export function _updateAnalyserBtn() {
 
 export function onFileSelected(i, id) {
   // Confirm uniquement pour le fichier principal (Consommé) qui déclenche un reset complet.
-  // Les fichiers optionnels (Stock, Livraisons, Chalandise) s'ajoutent sans écraser la session.
+  // Les fichiers optionnels (Stock, Chalandise) s'ajoutent sans écraser la session.
   if (id === 'dropConsomme' && i.files.length > 0 && DataStore.finalData.length > 0) {
     if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau Consommé relancera l\'analyse complète. Continuer ?')) {
       i.value = '';
@@ -177,7 +175,6 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   if (ob) ob.classList.add('hidden');
   banner.classList.remove('hidden');
   // Banner enrichissement : seule la chalandise manque vraiment (Commerce & Clients en dépendent).
-  // Le fichier Livraisons (Qlik) reste un plus facultatif — on ne le réclame plus.
   const hasChal = _S.chalandiseReady || !!document.getElementById('fileChalandise')?.files[0];
   const enrichEl = document.getElementById('enrichBanner');
   const enrichMsg = document.getElementById('enrichBannerMsg');
@@ -235,14 +232,13 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'portefeuille', commerce: 'commerce', direction: 'duel', animation: 'animation' };
+const _SUPERTAB_DEFAULT = { partie: 'partie', base: 'table', stock: 'arbitrage', clients: 'portefeuille', commerce: 'commerce', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   partie: 'partie',
   table: 'base',
-  plan: 'stock', arbitrage: 'stock', essai: 'stock', stock: 'stock',
+  plan: 'stock', arbitrage: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce', portefeuille: 'commerce',
-  duel: 'direction',
-  animation: 'animation', associations: 'animation',
+  animation: 'animation',
 };
 
 export function switchSuperTab(supertabId) {
@@ -306,7 +302,9 @@ export function switchTab(id) {
   if (id === 'stock') id = 'arbitrage'; // ancien stock → arbitrage
   if (id === 'omni') { switchTab('commerce'); return; }
   if (id === 'clients') id = 'portefeuille'; // Fidélisation PDV retirée → Tes clients
-  if (id === 'conformite') id = 'duel'; // Physigamme (Direction) retirée → Duel agence
+  if (id === 'conformite' || id === 'duel') id = 'partie'; // Duel agence retiré (oct. 2026)
+  if (id === 'essai') id = 'arbitrage'; // Banc d'essai retiré (oct. 2026)
+  if (id === 'associations') id = 'animation'; // Associations retiré (oct. 2026)
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -347,22 +345,22 @@ export function switchTab(id) {
     }
   }
   // Barre latérale : seulement là où ses filtres agissent (Plan, Base articles, Tes clients, Conquête)
-  document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'essai', 'duel', 'animation', 'associations'].includes(id));
-  // Sélecteur de période : seulement sur le Duel. Conquête compte sur l'année en cours, le reste sur 12 mois.
-  document.body.classList.toggle('no-period', id !== 'duel');
+  document.body.classList.toggle('no-sidebar', ['partie', 'arbitrage', 'animation'].includes(id));
+  // Sélecteur de période masqué : Conquête compte sur l'année en cours, le reste sur 12 mois (Duel retiré oct. 2026).
+  document.body.classList.add('no-period');
   // Bandeau de contexte + onglets accessibles
   renderContextBar(id);
   document.querySelectorAll('.supertab-pill').forEach(p => { p.setAttribute('role', 'tab'); p.setAttribute('aria-selected', String(p.dataset.subtab === id)); });
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
-  const activeGroup = id === 'duel' ? '' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';
+  const activeGroup = id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients' || id === 'portefeuille') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action' || id === 'duel');
+  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'action');
   // Recherche client — tout en haut, visible sur Commerce/Fidélisation
   const _CANAL_TABS = new Set(['commerce', 'clients']);
   const tsb = document.getElementById('terrSearchBlock');
@@ -629,7 +627,7 @@ const _CTX = {
   fins: ['Fins de série', 'à écouler'],
   colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
 };
-const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', essai: 'Banc d’essai', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
+const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Arbitrage', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
 function _currentTabId() {
   const pill = document.querySelector('.supertab-group.active .supertab-pill.active[data-subtab]');
   return pill?.dataset.subtab || document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || '';
@@ -999,7 +997,7 @@ document.addEventListener('keydown', function(e) {
 
   // 1–9 : écrans dans l'ordre de la barre (uniquement sans modificateur, données chargées)
   if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && _S.finalData?.length) {
-    const TAB_MAP = { '1': 'partie', '2': 'arbitrage', '3': 'plan', '4': 'portefeuille', '5': 'commerce', '6': 'duel', '7': 'animation', '8': 'associations', '9': 'table' };
+    const TAB_MAP = { '1': 'partie', '2': 'arbitrage', '3': 'plan', '4': 'portefeuille', '5': 'commerce', '6': 'animation', '7': 'table' };
     const tab = TAB_MAP[e.key];
     if (tab) { e.preventDefault(); switchTab(tab); }
   }

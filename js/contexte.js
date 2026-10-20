@@ -14,12 +14,9 @@ const FENETRE = {
   partie: '12 derniers mois complets',
   arbitrage: '12 derniers mois complets',
   plan: '12 derniers mois complets',
-  essai: '12 derniers mois rejoués jour par jour',
   portefeuille: 'comptoir · semestres glissants et 12 mois',
   commerce: 'année en cours',
-  duel: 'période choisie',
   animation: '12 derniers mois',
-  associations: '12 derniers mois',
   table: '12 derniers mois complets',
 };
 const AVEC_FILTRES = new Set(['portefeuille', 'commerce', 'plan']);
@@ -55,9 +52,7 @@ export function renderContextBar(id) {
   }
   const d = _S.consommePeriodMaxFull || _S.consommePeriodMax;
   const date = d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-  const fen = id === 'duel' && _S.periodFilterStart && _S.periodFilterEnd
-    ? `${_S.periodFilterStart.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → ${_S.periodFilterEnd.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`
-    : id === 'commerce' && d ? `année ${new Date(d).getFullYear()}` : FENETRE[id];
+  const fen = id === 'commerce' && d ? `année ${new Date(d).getFullYear()}` : FENETRE[id];
   const f = AVEC_FILTRES.has(id) ? _filtres() : [];
   const chips = f.map(c => c.x
     ? `<button type="button" class="ar-chip ar-chip-on ctx-chip" onclick="${escapeHtml(c.x)}" title="Retirer ce filtre">${escapeHtml(c.l)} ✕</button>`

@@ -6,7 +6,7 @@
 'use strict';
 
 import { PAGE_SIZE, DORMANT_DAYS, AGE_BRACKETS } from './constants.js';
-import { formatEuro, pct, getAgeBracket, getAgeLabel, _median, _copyCodeBtn, _copyAllCodesDirect, escapeHtml, defaultPeriodRange, isShortAutoPeriod, famLib, famLabel, sortRowsInPlace } from './utils.js';
+import { formatEuro, pct, getAgeBracket, getAgeLabel, _median, _copyCodeBtn, escapeHtml, defaultPeriodRange, isShortAutoPeriod, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock } from './engine.js';
 import { loadCpCoords, _computeChalandiseDistances } from './parser.js';
@@ -21,13 +21,9 @@ import { DataStore } from './store.js';
 import { openDiagnostic, openArticlePanel, _renderDiagnosticCellPanel } from './diagnostic.js';
 import { renderPlanRayon } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
-import { renderEssaiTab } from './stock-lab.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
-import { renderAssociationsTab } from './associations.js';
 import { renderPartieTab } from './partie.js';
-import { renderCanalAgence, renderOmniTab } from './omni.js';
-import { _renderGhostArticles } from './territoire.js';
 import './commerce.js';
 import { renderSidebarAgenceSelector } from './main.js';
 import { applyPeriodFilter, buildPeriodFilter } from './periode.js';
@@ -187,8 +183,6 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     // ★ V23/V24.2: Ruptures sorted by CA potentiel
     lstR.sort((a,b)=>b.sv-a.sv);;
 
-    // Other lists — no condit badges (V23: removed C24/B100 badges)
-    function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const sorted=l.sort((a,b)=>b.sv-a.sv).slice(0,lim);const p=[];sorted.forEach(i=>{p.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">🎉</td></tr>';if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="3" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}}
     
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
@@ -244,13 +238,6 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       const nbUniv=new Set(Object.values(_S.articleUnivers||{})).size;
       const univLabel=nbUniv>0?` · ${nbUniv} univers`:'';
       pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)"><span style="color:#60a5fa">📦 Consommé</span> <span class="t-disabled">${fmtD(cMin)} → ${fmtD(cMax)}</span> <span class="t-disabled">· ${stores} agence${stores>1?'s':''}${univLabel} · ${totalClients} clients${clientsHM>0?' ('+clientsMAG+' comptoir)':''}</span></span>`);
-    }
-    // Territoire
-    if(_S.territoireReady&&_S.ventesTerrain?.length){
-      let tMin=null,tMax=null;
-      for(const l of _S.ventesTerrain){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
-      const nbClients=new Set(_S.ventesTerrain.map(l=>l.clientCode).filter(Boolean)).size;
-      if(tMin&&tMax)pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3)"><span style="color:#4ade80">🌍 Territoire</span> <span class="t-disabled">${fmtD(new Date(tMin))} → ${fmtD(new Date(tMax))}</span> <span class="t-disabled">· ${nbClients} clients</span></span>`);
     }
     // Chalandise
     if(_S.chalandiseReady&&_S.chalandiseData?.size){
@@ -446,7 +433,6 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     const _allFd=DataStore.finalData;const _nbClassified=_allFd.filter(r=>r.abcClass&&r.fmrClass).length;
     const _countBadge=document.getElementById('abcCountBadge');
     if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
-    _renderGhostArticles();
     // Ton = décision attendue (cf. RECOS) : à tenir / standard / à revoir / à sortir
     const TONE={AF:'high',AM:'high',BF:'high',CF:'high',BM:'base',AR:'mid',BR:'mid',CM:'mid',CR:'low'};
     const TONE_LBL={high:'À tenir',base:'Standard',mid:'À revoir',low:'À sortir'};
@@ -510,31 +496,17 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
         renderTabBadges();
         console.log('[PERF arbitrage]',(performance.now()-_ts0|0)+'ms');
         break;}
-      case 'essai':{
-        const _ts0=performance.now();
-        renderEssaiTab();
-        console.log('[PERF essai]',(performance.now()-_ts0|0)+'ms');
-        break;}
       case 'stock':{ // compat — redirige vers plan
         renderPlanRayon();
         break;}
       case 'commerce':
         window.renderCommerceTab && window.renderCommerceTab();
         break;
-      case 'omni':
-        renderOmniTab();
-        break;
       case 'portefeuille':
         renderTesClients();
         break;
       case 'animation':
         await renderAnimationTab();
-        break;
-      case 'associations':
-        renderAssociationsTab();
-        break;
-      case 'duel':
-        window.renderDuelTab?.();
         break;
     }
     if (id !== 'conformite') _S._tabRendered[id]=true;
@@ -656,7 +628,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       if (_S.chalandiseReady) _computeChalandiseDistances();
       _mc('crossing + distances');
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
-      if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
+      if (_S.clientLastOrder.size) computeReconquestCohort();
       if (_S.chalandiseReady && DataStore.ventesLocalMagPeriode.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); }
       buildClientStore();_applyForcageCommercial();_mc('buildClientStore');
       if (_S.ventesLocalHorsMag.size) _rebuildCaByArticleCanal();
@@ -691,7 +663,6 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       }
       invalidateCache('tab','terr');buildPeriodFilter();
       _mc('pré-render');
-      renderCanalAgence();
       _mc('renderCurrentTab');
 
       initColSelector();

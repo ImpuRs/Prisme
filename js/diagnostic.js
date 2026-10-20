@@ -49,31 +49,6 @@ function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn
 
 function closeArticlePanel(){const o=document.getElementById('articlePanelOverlay');if(o){o._cleanupFocusTrap?.();o.classList.remove('active');}}
 
-function _getDuelArticlePeriodStats(store,code){
-  const canalMap=_S._byMonthStoreArtCanal?.[store];
-  if(!canalMap)return null;
-  const pStart=_S.periodFilterStart;
-  const pEnd=_S.periodFilterEnd;
-  const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
-  const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
-  const out={ca:0,vmb:0,bl:0,qteP:0};
-  for(const canal in canalMap){
-    const months=canalMap?.[canal]?.[code];
-    if(!months)continue;
-    for(const midxStr in months){
-      const midx=+midxStr;
-      if(midx<startIdx||midx>endIdx)continue;
-      const d=months[midxStr];
-      if(!d)continue;
-      out.ca+=d.sumCA||0;
-      out.vmb+=d.sumVMB||0;
-      out.bl+=d.countBL||0;
-      out.qteP+=d.sumQteP||d.sumPrelevee||0;
-    }
-  }
-  return out.ca||out.vmb||out.bl||out.qteP?out:null;
-}
-
 function _getArticlePeriodStats(code){
   const pStart=_S.periodFilterStart;
   const pEnd=_S.periodFilterEnd;
@@ -184,7 +159,6 @@ function _renderClient360(clientCode,source){
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
   const horsMag=getVentesHorsMagFullMap().get(clientCode);
-  const hasTerr=_S.territoireReady&&DataStore.ventesTerrain?.length>0;
   // All-channels last order: prefer clientStore (pre-aggregated)
   const _rec=_S.clientStore?.get(clientCode);
   const lastOrder=_rec?.lastOrderAll||_rec?.lastOrderPDV||null;
@@ -361,20 +335,16 @@ function _renderClient360(clientCode,source){
 
   // Livré MAG = commandes passées via Web/DCS/Rep mais dont le BL est dans le consommé local (= passé par l'agence)
   // Source 1 : horsMag avec sumCAE > 0
-  // Source 2 : ventesTerrain dont le BL est dans blCanalMap (= consommé local) et canal ≠ MAGASIN
   const livreMagMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){if((d.sumCAE||0)<=0)continue;if(!livreMagMap.has(code))livreMagMap.set(code,{ca:0,canal:d.canal});livreMagMap.get(code).ca+=d.sumCAE;}
-  const _blLocal=_S.blCanalMap;
-  if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(!l.bl||!_blLocal.has(l.bl))continue;if(!livreMagMap.has(l.code))livreMagMap.set(l.code,{ca:0,canal:l.canal||'—'});livreMagMap.get(l.code).ca+=l.ca||0;}
   const livreMagArts=[...livreMagMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   // Ailleurs = hors agence uniquement : BL NON présent dans le consommé local
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
-  if(hasTerr&&_blLocal)for(const l of DataStore.ventesTerrain){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
-  // Sans Qlik : articles achetés dans les autres agences du consommé et jamais pris ici
-  const _autresAg=!hasTerr?getClientCAParAutreAgence(clientCode):[];
-  if(!hasTerr)for(const[code,ca]of getClientArticlesJamaisIci(clientCode)){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:'Autres agences'});ailleursMap.get(code).ca+=ca;}
+  // Articles achetés dans les autres agences du consommé et jamais pris ici
+  const _autresAg=getClientCAParAutreAgence(clientCode);
+  for(const[code,ca]of getClientArticlesJamaisIci(clientCode)){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:'Autres agences'});ailleursMap.get(code).ca+=ca;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca);
 
   const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
@@ -725,11 +695,9 @@ function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
   const r=DataStore.finalData.find(d=>d.code===code);
-  const _isDuelScope = source === 'duel' && (_S.periodFilterStart || _S.periodFilterEnd) && _S._byMonthStoreArtCanal;
   if(!r){
     const lib=_S.libelleLookup?.[code]||code;
     const fam=_S.articleFamille?.[code]||'';
-    let nbBL=0;
     const kitRows=[];
     for(const [ag,arts] of Object.entries(_S.ventesParAgence||{})){
       if(arts[code]){const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];kitRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,qteP:d.sumPrelevee||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
@@ -737,46 +705,11 @@ function openArticlePanel(code,source){
     kitRows.sort((a,b)=>b.ca-a.ca);
     const nbAgKit = kitRows.length;
 
-    // Réseau : par défaut (historique) = MAGASIN pleine période via ventesParAgence.
-    // Depuis Duel Agence, on préfère afficher la période active PRISME + tous canaux
-    // (sinon on voit des CA "qui baissent" en ouvrant la fiche).
-    let agRows = kitRows;
-    let reseauTitle = '🏪 Réseau';
-    if (_isDuelScope) {
-      const bmsac = _S._byMonthStoreArtCanal || {};
-      const pStart=_S.periodFilterStart;
-      const pEnd=_S.periodFilterEnd;
-      const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
-      const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
-      const stores = _S.storesIntersection?.size ? [..._S.storesIntersection] : Object.keys(bmsac);
-      agRows = [];
-      for (const ag of stores) {
-        const canalMap = bmsac?.[ag];
-        if (!canalMap) continue;
-        let ca = 0, bl = 0, qteP = 0;
-        for (const canal in canalMap) {
-          const months = canalMap?.[canal]?.[code];
-          if (!months) continue;
-          for (const midxStr in months) {
-            const midx = +midxStr;
-            if (midx < startIdx || midx > endIdx) continue;
-            const d = months[midxStr];
-            if (!d) continue;
-            ca += d.sumCA || 0;
-            bl += d.countBL || 0;
-            qteP += d.sumPrelevee || d.sumQteP || 0;
-          }
-        }
-        if (!ca && !bl) continue;
-        const stk=_S.stockParMagasin?.[ag]?.[code];
-        agRows.push({ ag, ca, bl, qteP, min:stk?.qteMin??'—', max:stk?.qteMax??'—', stock:stk?.stockActuel??'—' });
-      }
-      agRows.sort((a,b)=>b.ca-a.ca);
-      reseauTitle = '🏪 Réseau (période PRISME · tous canaux)';
-    }
+    // Réseau = MAGASIN pleine période via ventesParAgence.
+    const agRows = kitRows;
+    const reseauTitle = '🏪 Réseau';
 
     const nbAg = agRows.length;
-    for(const l of (_S.ventesTerrain||[])) if(l.code===code) nbBL++;
     const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">${reseauTitle}</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">QTE PRÉL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary font-bold">${a.qteP||'—'}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
     // ── Kit de démarrage — Algorithme Vitesse Réseau (centralisé engine.js) ──
     let kitHtml='';
@@ -809,39 +742,13 @@ function openArticlePanel(code,source){
         <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
       </div>`;
     }
-    // Fallback : Kit de démarrage LOCAL quand pas de réseau mais BL territoire
-    if(!kitHtml && nbBL > 0) {
-      const terrLines = (_S.ventesTerrain||[]).filter(l => l.code === code);
-      let totQteT = 0, totBLT = 0, totCAT = 0;
-      const blSeen = new Set();
-      for (const l of terrLines) {
-        const qte = Math.abs(l.qte || l.qtePrelevee || 1);
-        const ca = Math.abs(l.ca || 0);
-        const blKey = (l.bl || '') + '_' + (l.clientCode || '');
-        if (!blSeen.has(blKey)) { totBLT++; blSeen.add(blKey); }
-        totQteT += qte;
-        totCAT += ca;
-      }
-      if (totBLT > 0) {
-        const vitesseLoc = totQteT / totBLT;
-        const sugMin = Math.max(Math.ceil(vitesseLoc), 1);
-        const sugMax = Math.max(Math.ceil(vitesseLoc * 2), sugMin + 1);
-        kitHtml = `<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(251,191,36,0.3);background:rgba(251,191,36,0.08)">
-          <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:rgba(251,191,36,0.2);color:#fbbf24">📍 Local (territoire)</span></div>
-          <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#fbbf24">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Locale)</span></div>
-          <div class="text-[10px] t-disabled">Vitesse locale : ${vitesseLoc.toFixed(1)} pièces/BL (${totBLT} BL territoire, ${formatEuro(totCAT)})</div>
-          <div class="text-[10px] t-disabled mt-1" style="color:#f59e0b">⚠ Aucune agence réseau ne vend cet article — estimation basée uniquement sur les livraisons territoire</div>
-          <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Locale)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
-        </div>`;
-      }
-    }
     // Co-achats (Smart — 5 gestes Coach)
     const _sqR2=_S._prSqData||computeSquelette();const _sqM2=new Map();
     if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
     const coResult2=_computeSmartCoAchats(code,_sqM2);
     const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
     const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL de moins de 15 articles · 12 mois</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.label||_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
-    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
+    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">${escapeHtml(code)}${_copyCodeBtn(code)}${_legallaisArticleLink(code)} ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}${_S.catalogueMarques?.get(code)?' · <span class="t-primary font-semibold">'+escapeHtml(_S.catalogueMarques.get(code))+'</span>':''}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
   const _today=new Date();
@@ -912,41 +819,8 @@ function openArticlePanel(code,source){
   if(_S.storesIntersection?.size>1){
     const rows=[];
     let title='🏪 Réseau';
-    if(_isDuelScope){
-      // Duel Agence : période active + tous canaux
-      const bmsac=_S._byMonthStoreArtCanal||{};
-      const pStart=_S.periodFilterStart;
-      const pEnd=_S.periodFilterEnd;
-      const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
-      const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
-      const stores=_S.storesIntersection?.size?[..._S.storesIntersection]:Object.keys(bmsac);
-      for(const ag of stores){
-        if(ag===_S.selectedMyStore)continue;
-        const canalMap=bmsac?.[ag];
-        if(!canalMap)continue;
-        let ca=0,bl=0,qteP=0;
-        for(const canal in canalMap){
-          const months=canalMap?.[canal]?.[code];
-          if(!months)continue;
-          for(const midxStr in months){
-            const midx=+midxStr;
-            if(midx<startIdx||midx>endIdx)continue;
-            const d=months[midxStr];
-            if(!d)continue;
-            ca+=d.sumCA||0;
-            bl+=d.countBL||0;
-            qteP+=d.sumPrelevee||d.sumQteP||0;
-          }
-        }
-        if(!ca&&!bl)continue;
-        const stockAg=_S.stockParMagasin?.[ag]?.[code];
-        const minAg=stockAg?.qteMin??'—';
-        const maxAg=stockAg?.qteMax??'—';
-        rows.push({ag,ca,bl,qteP,min:minAg,max:maxAg});
-      }
-      title='🏪 Réseau (période PRISME · tous canaux)';
-    }else if(_S.ventesParAgence){
-      // Défaut : MAGASIN pleine période (historique)
+    if(_S.ventesParAgence){
+      // MAGASIN pleine période
       for(const [ag,arts] of Object.entries(_S.ventesParAgence)){
         if(ag===_S.selectedMyStore)continue;
         const d=arts?.[code];
@@ -1004,12 +878,11 @@ function openArticlePanel(code,source){
   const _seasonR = _seasonRibbon(r.famille);
   // Marge
   const vpm = _S.ventesParAgence?.[_S.selectedMyStore]?.[code];
-  const duelStats = _isDuelScope ? _getDuelArticlePeriodStats(_S.selectedMyStore,code) : null;
-  const periodStats = duelStats || _getArticlePeriodStats(code);
+  const periodStats = _getArticlePeriodStats(code);
   const artCA = periodStats ? periodStats.ca : (vpm?.sumCA || r.caAnnuel || 0);
   const artVMB = periodStats ? periodStats.vmb : (vpm?.sumVMB || 0);
   const txMarge = artCA > 0 ? (artVMB / artCA * 100).toFixed(1) : '—';
-  const perfCALabel = duelStats ? 'CA duel période' : 'CA PDV période';
+  const perfCALabel = 'CA PDV période';
   const perfV = periodStats ? periodStats.qteP : (r.V || 0);
   const perfW = periodStats ? periodStats.bl : (r.W || 0);
   // Performance HTML (colonne gauche du split)
@@ -1871,7 +1744,7 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
     const detailHtml=top5.map(r=>`<span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
     acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});
   }
-  if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(_S.territoireReady)switchTab('commerce');}});
+  if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();}});
   if(l4&&l4.perdus>0){
     const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
     acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{
@@ -1977,7 +1850,4 @@ function exportDiagnosticCSV(famille){
   const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
   showToast('📥 Plan de vol exporté','success');
 }
-
-
-
 export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio };

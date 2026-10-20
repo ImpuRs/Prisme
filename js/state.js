@@ -63,9 +63,6 @@ _S.clientsMagasin = new Set();
 _S.clientsMagasinFreq = new Map(); // Map<clientCode, nbBL> — fréquence MAGASIN par client
 _S.articleClientsFull = new Map(); // Map<code, Set<cc>> — pleine période, invariant UI (pour squelette)
 _S.ventesTerrain = [];
-_S.territoireReady = false;
-_S.terrDirectionData = {};
-_S.terrContribBySecteur = new Map();
 _S.terrContribByDirection = new Map();
 _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 _S._clientsPDVPage = 0; // 0=top5, >=1=page paginée (20/page)
@@ -76,7 +73,6 @@ _S._horsZonePage = 0; // 0=top5, >=1=page paginée (20/page) — Clients PDV hor
 _S._clientView = 'tous'; // 'tous' | 'potentiels' | 'captes' | 'horszone' | 'multicanaux'
 _S._omniSegmentFilter = ''; // '' | 'comptoir' | 'mixte' | 'sansComptoir' | 'ailleurs'
 _S._captationFilter = ''; // '' | 'captes' | 'potentiels' | 'fideles'
-_S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
 _S._hasStock = false; // true dès que le fichier Stock est chargé et parsé
 _S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS' | 'AUTRE'
@@ -217,7 +213,6 @@ _S._partieDone = {};    // actions cochées « C'est fait » pour le jeu de donn
 // cacheKey = "canal|secteurs|q|filterDir|filterRayon"
 // Invalidé uniquement au rechargement du fichier territoire.
 // 5 canaux × quelques combos de filtres ≈ ~400–500 Ko max — négligeable.
-_S._terrCanalCache = new Map();
 
 // ── Cache Benchmark (Étape 4) ──
 // { key, benchLists, benchFamEcarts } | null
@@ -247,12 +242,6 @@ _S.phantomArticles = [];
 // ── Cohorte reconquête ──
 _S.reconquestCohort = [];
 
-// ── Livraisons (5ème fichier optionnel) ──
-_S.livraisonsData = new Map();   // cc → { ca, vmb, bl:Set, articles:Map, lastDate }
-_S.livraisonsReady = false;
-_S.livraisonsClientCount = 0;
-_S.livraisonsDateMin = null;  // Date — début période Livraisons (pour alignement captation)
-_S.livraisonsDateMax = null;  // Date — fin période Livraisons
 
 // ── Client aggregation (Worker B1) ──
 _S.clientFamCA = {};       // cc → {fam → caTotal}
@@ -261,7 +250,7 @@ _S.metierFamBench = {};    // metier → {fam → {nbClients, totalCA}}
 // ── Moteur saisonnier (B3) ──
 _S.seasonalIndex = {};         // famille → [12 coefficients] — agence sélectionnée
 _S.coBL = []; _S.coBLn = {}; _S._coIndex = null; // co-achats : BL de 2 à 15 articles (12 mois, myStore) + nb BL ≤ 15 par code (persistés)
-_S.articleDemand = {};         // banc d'essai : { code: [jour, qtéPrélevée, …] } par BL, myStore (persisté)
+_S.articleDemand = {};         // MIN/MAX taux de service (minmax.js) : { code: [jour, qtéPrélevée, …] } par BL, myStore (persisté)
 _S.seasonalIndexReseau = {};   // famille → [12 coefficients] — toutes agences (plus stable)
 _S.articleMonthlySales = {};   // code → [12 mois qtés]
 
@@ -286,7 +275,6 @@ _S._activeClientWorker = null;
 
 // ── Réseau worker (Sprint 2) ──────────────────────────────────
 _S.reseauNomades = [];        // clients actifs dans ≥2 agences dont myStore
-_S.nomadesMissedArts = [];    // { code, lib, fam, clientCodes, nbClients, caReseau }
 _S.reseauOrphelins = [];      // articles ≥50% stores absents chez moi (top 50)
 _S.reseauFuitesMetier = [];   // {metier, total, actifs, indiceFuite%} — si chalandise
 _S._activeReseauWorker = null;
@@ -302,7 +290,6 @@ _S._fileC = null;                   // File consommé (premier) — conservé po
 _S._filesC = null;                  // FileList consommé (multi-fichiers) — conservé pour refilter
 _S._fileS = null;                   // File stock — conservé pour refilter période via parse-worker
 _S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
-_S._livraisonsLoading = false;      // guard anti-appels concurrents parseLivraisons
 _S._chalandiseLoading = false;      // guard anti-appels concurrents parseChalandise
 _S._parsingInProgress = false;      // guard anti-renderAll pendant parsing/restauration
 _S._reseauMissedFamFilter = '';     // filtre famille missed réseau
@@ -313,7 +300,6 @@ _S.clientStore = new Map();          // Map<cc, ClientRecord> — store client u
 _S.agenceStore = new Map();          // Map<storeCode, AgenceRecord> — store agence unifié (agence-store.js)
 _S._chalandiseRev = 0;               // incrémenté quand chalandiseData est corrigée par le consommé (clé de cache Conquête)
 _S.articleStore = null;              // Map<code, ArticleRecord> — store article unifié (article-store.js)
-_S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
 
 // ── Catalogue marques (Animation) ──
@@ -332,7 +318,7 @@ _S._animationData = null;      // cache du dernier computeAnimation
 export function invalidateCache(...scopes) {
   const all = scopes.length === 0 || scopes.includes('all');
   if (all || scopes.includes('tab'))   { _S._tabRendered = {}; _S._prDeferred = false; if (typeof window !== 'undefined') window._invalidateKpiCache?.(); }
-  if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; _S.articleZoneIndex = null; _S.articleStore = null; }
+  if (all || scopes.includes('terr'))  { _S._squeletteScan = null; _S.articleZoneIndex = null; _S.articleStore = null; }
   if (all || scopes.includes('art'))   { _S.articleStore = null; _S.articleZoneIndex = null; }
   if (all || scopes.includes('bench')) _S._benchCache = null;
 }
@@ -358,7 +344,7 @@ export function resetAppState() {
 
   // Benchmark
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
-  _S.selectedBenchBassin = new Set(); _S.benchFamEcarts = {}; _S._planCanalMagOnly = false; 
+  _S.selectedBenchBassin = new Set(); _S.benchFamEcarts = {}; _S._planCanalMagOnly = false;
   // Cockpit
   _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} }; _S.cockpitCounts = {};
   _S.blData = {}; _S.parentRefsExcluded = 0; _S.globalJoursOuvres = 250;
@@ -367,9 +353,8 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S._reseauMagasinMode = 'all'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map(); _S._clientsPDVPage = 0; _S._showHorsAgence = false; _S._showHorsZone = false; _S._horsZonePage = 0; _S._clientView = 'tous'; _S._topPDVOpen = true;
-  _S.ventesTerrain = []; _S.territoireReady = false; _S.terrDirectionData = {};
-  _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S._reseauMagasinMode = 'all'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map(); _S._clientsPDVPage = 0; _S._showHorsAgence = false; _S._showHorsZone = false; _S._horsZonePage = 0; _S._clientView = 'tous'; _S._topPDVOpen = true;
+  _S.ventesTerrain = []; _S.terrContribByDirection = new Map();
 
   // Compteurs agences
   _S.storeCountConsomme = 0; _S.storeCountStock = 0;
@@ -423,10 +408,6 @@ export function resetAppState() {
 
   // Cohorte reconquête
   _S.reconquestCohort = [];
-  _S.livraisonsSansPDV = [];
-
-  // Livraisons
-  _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0; _S.livraisonsDateMin = null; _S.livraisonsDateMax = null;
   _S._livSansPDVPage = 1;
   _S._oppNettePage = 1;
 
@@ -447,7 +428,7 @@ export function resetAppState() {
 
   // Réseau worker
   if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} _S._activeReseauWorker = null; }
-  _S.reseauNomades = []; _S.nomadesMissedArts = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
+  _S.reseauNomades = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
 
   // Ranking réseau
   _S._rankSortKey = 'pdmBassin'; _S._rankSortDir = -1;
@@ -462,7 +443,6 @@ export function resetAppState() {
   _S.clientStore = new Map();
   _S.agenceStore = new Map();
   _S._chalandiseRev = 0;
-  _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();
 
   // Labo
@@ -476,9 +456,6 @@ export function resetAppState() {
 
   // Animation
   _S._animationData = null;
-  // Associations (persistées en IDB)
-  if (!_S._associations) _S._associations = []; // ne PAS reset si déjà chargé
-  _S._assocEditMode = false; _S._assocEditing = null; _S._assocOpenId = null;
 
   // Mon Rayon
 

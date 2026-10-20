@@ -9,7 +9,7 @@ import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS } from './co
 import { cleanCode, extractClientCode, cleanPrice, parseExcelDate, daysBetween, getVal, extractStoreCode, yieldToMain, _median, _resetColCache, formatLocalYMD, defaultPeriodRange, extractFamCode, famLib, famLabel } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, isInvendu } from './engine.js';
-import { parseChalandise, parseLivraisons, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
+import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
 import { prepareSources } from './sources.js';
 import { _saveToCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
@@ -22,14 +22,11 @@ import { DataStore } from './store.js';
 import './diagnostic.js';
 import './planRayon.js';
 import './arbitrage.js';
-import { applyMinMaxServiceLevel, localSalesCount12m } from './stock-lab.js';
+import { applyMinMaxServiceLevel, localSalesCount12m } from './minmax.js';
 import './clients-decisions.js';
 import './animation.js';
-import './associations.js';
 import './partie.js';
-import { renderCanalAgence } from './omni.js';
-import './territoire.js';
-import { renderTerritoireTab } from './commerce.js';
+import './commerce.js';
 import { _ASSET_VER_Q, _detectLowMemMode, renderSidebarAgenceSelector } from './main.js';
 import { _refilterFromByMonth, buildPeriodFilter } from './periode.js';
 import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './render-stock.js';
@@ -106,8 +103,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         const _newStore = (document.getElementById('selectMyStore')?.value || '').toUpperCase();
         const _storeChanged = _newStore && _newStore !== _S.selectedMyStore;
         if (_idbOk && DataStore.finalData.length > 0 && !_storeChanged) {
-          const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
-          const _unchanged = await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
+          const _unchanged = await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, null);
           if (_unchanged) {
             // Cache "schema upgrade" : certaines features (clients actifs tous canaux par mois)
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
@@ -514,9 +510,9 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       updatePipeline('consomme','done');
       updatePipeline('stock','done');
 
-      // Chalandise + livraisons (si fichiers chargés)
+      // Chalandise (si fichier chargé)
       _mark('Avant chalandise');
-      console.log('[PERF] avant parsing optionnels — chalFiles=',document.getElementById('fileChalandise').files?.length||0,'livFile=',!!document.getElementById('fileLivraisons').files[0]);
+      console.log('[PERF] avant parsing optionnels — chalFiles=',document.getElementById('fileChalandise').files?.length||0);
       if (!lowMem) {
         {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
       } else {
@@ -524,13 +520,6 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         if (_chalFiles?.length) showToast('📱 Mode mobile: Chalandise ignorée (risque crash mémoire). Faites-le sur PC/Zebra.', 'info', 6000);
       }
       _mark('Après chalandise');
-      if (!lowMem) {
-        {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
-      } else {
-        const fL=document.getElementById('fileLivraisons').files[0];
-        if (fL) showToast('📱 Mode mobile: Livraisons/Terrain ignorés (risque crash mémoire). Faites-le sur PC.', 'info', 6000);
-      }
-      _mark('Après livraisons');
       if(!lowMem && useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
 
       // ABC/FMR + selects
@@ -570,7 +559,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
         launchClientWorker().then(async()=>{
           if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();buildClientStore();_applyForcageCommercial();renderTabBadges();}
-          if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
+          if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
         }).catch(err=>console.warn('Client worker error:',err));
       } else {
         // Mode mobile: on évite les agrégats clients (gros Map/Set) et on sauvegarde directement pour Scan.
@@ -601,7 +590,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
       _scheduleIdleSquelette();
       const _nbFC=document.getElementById('fileConsomme')?.files?.length||1;
-      const _nbF=_nbFC+1+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
+      const _nbF=_nbFC+1+(document.getElementById('fileChalandise').files[0]?1:0);
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
 
@@ -1086,10 +1075,9 @@ _S.articleMonthlySales=monthlySales;
         }
       }
 
-      // Re-parse livraisons + benchmark — skipped for isRefilter (period-independent)
+      // Benchmark — skipped for isRefilter (period-independent)
       // Chalandise : géré dans _postParseMain (point d'entrée principal)
       if(!isRefilter){
-        {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
         if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
       }
       // ABC/FMR, selects — skipped for isRefilter (finalData unchanged)
@@ -1121,20 +1109,19 @@ _S.articleMonthlySales=monthlySales;
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){launchClientWorker().then(()=>{resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();buildClientStore();_applyForcageCommercial();renderTabBadges();if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
-      if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');
+      if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCurrentTab();}else{renderAll();}_mark('renderAll');
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
-      if(!isRefilter){switchTab('partie');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
+      if(!isRefilter){switchTab('partie');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileLivraisons').files[0]||null); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,null); }
       // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
       _scheduleIdleSquelette();
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
-    if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
   }
 
 

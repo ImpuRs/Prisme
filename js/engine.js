@@ -314,15 +314,6 @@ export function computeClientCrossing() {
   _S.crossingStats = { fideles, potentiels, captes, fidelespdv };
 }
 
-export function _clientStatusBadge(cc, info) {
-  const pdvActif = isClientAgence(cc); // définition unique « client de l'agence »
-  const globalActif = isCapteLegallais(cc, info);
-  if (pdvActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>';
-  if (globalActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>';
-  if (_isProspect(info)) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-neutral-bg);color:var(--i-neutral-text)">Prospect</span>';
-  if ((info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-caution-bg);color:var(--i-caution-text)">Perdu 12-24m</span>';
-  return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-danger-bg);color:var(--i-danger-text)">Inactif</span>';
-}
 
 export function _unikLink(code) {
   if (!code || !_isSixDigitCode(code)) return '';
@@ -443,17 +434,6 @@ let _terrFBCache = null;
 function _buildTerrFB() {
   if (_terrFBCache) return _terrFBCache;
   _terrFBCache = new Map();
-  if (_S.ventesTerrain?.length) {
-    for (const ln of _S.ventesTerrain) {
-      if (!ln.clientCode) continue;
-      const cc = ln.clientCode;
-      if (!_terrFBCache.has(cc)) {
-        _terrFBCache.set(cc, { commercial: ln.commercial || '' });
-      } else if (!_terrFBCache.get(cc).commercial && ln.commercial) {
-        _terrFBCache.get(cc).commercial = ln.commercial;
-      }
-    }
-  }
   return _terrFBCache;
 }
 export function _enrichClientInfo(cc) {
@@ -486,7 +466,6 @@ function _buildCohortItem(cc, artMap, daysAgo) {
 // Clients perdus (>6 mois sans commande) avec historique CA significatif
 export function computeReconquestCohort() {
   _S.reconquestCohort = [];
-  _S.livraisonsSansPDV = [];
   _invalidateTerrFBCache(); // rebuild on data change
   const nowTs = Date.now();
 
@@ -541,27 +520,6 @@ export function computeReconquestCohort() {
   cohort.sort((a, b) => b.score - a.score);
   _S.reconquestCohort = cohort;
 
-  // ── Section 2 : livrés sans PDV (jamais dans ventesLocalMag12MG) ──
-  if (_S.livraisonsReady && _S.livraisonsData?.size) {
-    const sansPDV = [];
-    for (const [cc, livData] of _S.livraisonsData) {
-      if (livData.ca <= 0) continue;
-      const rec = _S.clientStore?.get(cc);
-      if (rec?.artMapPDV && rec.artMapPDV.size > 0) continue; // a déjà acheté au comptoir
-      if (!rec) {
-        const artMap = _vcaFull()?.get(cc);
-        if (artMap && artMap.size > 0) continue;
-      }
-      const chalInfo = _S.chalandiseData?.get(cc);
-      const nom = rec?.nom || chalInfo?.nom || _S.clientNomLookup?.[cc] || cc;
-      const metier = rec?.metier || chalInfo?.metier || '';
-      const commercial = rec?.commercial || chalInfo?.commercial || _enrichClientInfo(cc).commercial;
-      const classification = rec?.classification || chalInfo?.classification || '';
-      sansPDV.push({ cc, nom, metier, classification, commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
-    }
-    sansPDV.sort((a, b) => b.caLivraison - a.caLivraison);
-    _S.livraisonsSansPDV = sansPDV;
-  }
 }
 
 // ── C1: Opportunité nette — par FAMILLE, clients AG22 qui achètent ailleurs ──
@@ -813,20 +771,12 @@ export function computeOmniScores() {
   const agence = _S.caClientParStore?.[_S.selectedMyStore] || new Map();
   const mag = _vcaFull() || new Map();
   const byCanal = _S.clientLastOrderByCanal || new Map();
-  // Qlik (si chargé) : CA EXTÉRIEUR par client = achats hors agence
-  const terrExt = new Map();
-  if (_S.ventesTerrain?.length) {
-    for (const l of _S.ventesTerrain) {
-      if (!l.clientCode || l.canal !== 'EXTÉRIEUR') continue;
-      terrExt.set(l.clientCode, (terrExt.get(l.clientCode) || 0) + (l.ca || 0));
-    }
-  }
-  const autresOf = (cc) => terrExt.size ? (terrExt.get(cc) || 0) : (_S.ventesClientAutresAgences?.get(cc) || 0);
+  const autresOf = (cc) => _S.ventesClientAutresAgences?.get(cc) || 0;
 
   const allCc = new Set([...agence.keys(), ...mag.keys()]);
   // Clients de la zone qui n'achètent qu'ailleurs : profil « Aussi ailleurs » (cibles de conquête)
   if (_S.chalandiseData?.size) {
-    const src = terrExt.size ? terrExt : (_S.ventesClientAutresAgences || new Map());
+    const src = _S.ventesClientAutresAgences || new Map();
     for (const [cc, ca] of src) if (ca >= _OMNI_AILLEURS_MIN && _S.chalandiseData.has(cc)) allCc.add(cc);
   }
 
@@ -952,17 +902,6 @@ export function computeArticleZoneIndex() {
       _addContrib(o, cc, ca, 0);
     }
   }
-  // Source 3 : ventesTerrain (livraisons réseau → clients zone)
-  if (_S.territoireReady && _S.ventesTerrain?.length) {
-    for (const l of _S.ventesTerrain) {
-      if (l.isSpecial || !l.clientCode || !chalClients.has(l.clientCode)) continue;
-      if (!_isSixDigitCode(l.code)) continue;
-      const ca = +(l.ca || 0);
-      const o = _ens(l.code);
-      o.caZone += ca;
-      _addContrib(o, l.clientCode, ca, 0);
-    }
-  }
 
   // Finaliser contribs : convertir Map → Array pour itération rapide
   for (const [, o] of idx) {
@@ -977,7 +916,6 @@ export function computeArticleZoneIndex() {
 
 let _sqCacheKey = '';
 let _sqCacheResult = null;
-export function invalidateSqueletteCache() { _sqCacheKey = ''; _sqCacheResult = null; }
 
 export function computeSquelette(directionFilter) {
   const vpm = _S.ventesParAgence || {};
@@ -991,9 +929,8 @@ export function computeSquelette(directionFilter) {
   }
   const nbStoresExclMy = Math.max(1, storesExclMy);
   // Cache rapide — même données source = même résultat
-  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.ventesTerrain?.length||0}|${_S.chalandiseData?.size||0}|${_S.articleClientsFull?.size||0}|${directionFilter||''}`;
+  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.chalandiseData?.size||0}|${_S.articleClientsFull?.size||0}|${directionFilter||''}`;
   if (_sk === _sqCacheKey && _sqCacheResult) return _sqCacheResult;
-  const hasTerr = _S.territoireReady && _S.ventesTerrain?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
   const articleData = new Map();
@@ -1009,7 +946,6 @@ export function computeSquelette(directionFilter) {
         nbClientsZone: 0, caClientsZone: 0,
         nbClientsHorsZone: 0, caClientsHorsZone: 0,
         nbClientsPDV: 0,
-        nbBLLivraisons: 0, caLivraisons: 0,
         direction: '',
         enStock: false, stockActuel: 0, emplacement: '', statut: '',
         abcClass: '', fmrClass: '', caAgence: 0,
@@ -1059,24 +995,6 @@ export function computeSquelette(directionFilter) {
     }
   }
 
-  // ── Source 4 : Livraisons (réseau) — BL count + direction ──
-  if (hasTerr) {
-    const deliveredCodes = new Set();
-    for (const l of _S.ventesTerrain) {
-      if (l.isSpecial) continue;
-      const a = _ensure(l.code);
-      a.caLivraisons += l.ca;
-      a.direction = a.direction || l.direction;
-      a.sources.add('livraisons');
-      if (!a._blSet) a._blSet = new Set();
-      a._blSet.add(l.bl);
-      deliveredCodes.add(l.code);
-    }
-    for (const code of deliveredCodes) {
-      const a = articleData.get(code);
-      if (a?._blSet) { a.nbBLLivraisons = a._blSet.size; delete a._blSet; }
-    }
-  }
 
   // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
   // Utilise articleClientsFull (pleine période) — invariant au filtre période UI
@@ -1146,9 +1064,6 @@ export function computeSquelette(directionFilter) {
     if (a.nbClientsPDV >= 10) score += 25;
     else if (a.nbClientsPDV >= 5) score += 15;
     else if (a.nbClientsPDV >= 3) score += 8;
-    if (a.nbBLLivraisons >= 50) score += 30;
-    else if (a.nbBLLivraisons >= 10) score += 20;
-    else if (a.nbBLLivraisons >= 3) score += 10;
     const nbSources = a.sources.size;
     if (nbSources >= 4) score *= 1.5;
     else if (nbSources >= 3) score *= 1.3;
@@ -1348,16 +1263,6 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
         const z = _ensureZ(code);
         z.ca += +(data?.sumCA || 0);
         _addCli(z, cc);
-      }
-    }
-    if (_S.territoireReady && _S.ventesTerrain?.length) {
-      for (const l of _S.ventesTerrain) {
-        if (l.isSpecial || !l.clientCode || !chal.has(l.clientCode)) continue;
-        const code = l.code;
-        if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
-        const z = _ensureZ(code);
-        z.ca += +(l.ca || 0);
-        _addCli(z, l.clientCode);
       }
     }
   }

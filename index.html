@@ -1266,26 +1266,10 @@
     table tbody tr:hover { background: rgba(255,255,255,0.025) !important; }
 
     /* ═══ PÉPITES RÉSEAU ═══════════════════════════════════════ */
-    .pepites-agence-pills{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0 16px}
     .pepite-pill{background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:20px;color:var(--t-secondary);cursor:pointer;font-size:12px;font-weight:500;padding:4px 14px;transition:border-color .12s,color .12s,background .12s}
     .pepite-pill:hover{border-color:var(--b-darker);color:var(--t-primary)}
     .pepite-pill.active{background:var(--s-active);border-color:var(--c-action-border,rgba(0,229,160,0.3));color:var(--c-action)}
     .pepite-pill.mine{font-weight:600}
-    .pepites-header{align-items:baseline;border-bottom:1px solid var(--b-light);display:flex;gap:10px;margin-bottom:10px;padding-bottom:8px}
-    .pepites-ag-label{color:var(--t-primary);font-size:13px;font-weight:500}
-    .pepites-subtitle{color:var(--t-tertiary);font-size:12px}
-    .pepites-table{border-collapse:collapse;font-size:12px;width:100%}
-    .pepites-table th{color:var(--t-tertiary);font-size:12px;font-weight:500;letter-spacing:.07em;padding:0 8px 6px;text-align:left;text-transform:uppercase}
-    .pepites-table th:nth-child(n+4){text-align:right}
-    .pepites-table td{border-bottom:1px solid var(--b-light);color:var(--t-primary);padding:7px 8px}
-    .pepites-table td:nth-child(n+4){text-align:right}
-    .pepites-table td:first-child{color:var(--t-tertiary);font-size:12px;width:24px}
-    .pepites-table td.ratio-cell{color:var(--c-ok);font-weight:600}
-    .pepites-table td.fam-cell{color:var(--t-secondary);font-size:12px}
-    .pepites-table td.ca-cell,.pepites-table td.med-cell{font-variant-numeric:tabular-nums}
-    .pepites-table td.med-cell{color:var(--t-tertiary)}
-    .pepites-table tr:hover td{background:var(--s-hover)}
-    .pepites-empty{color:var(--t-tertiary);font-size:13px;padding:24px 0;text-align:center}
 
     /* ═══ LA PARTIE (partie.js) — accueil gamifié ═══ */
     :root { --pt-low:#C2531F; --pt-mid:#9A6F00; --pt-high:#13865A; --pt-line:var(--b-default); --pt-gain:#B8F26B; --pt-gain-ink:#14200A; }
@@ -1346,7 +1330,7 @@
     .pt-link { background:none; border:0; padding:6px 0; cursor:pointer; color:var(--t-link); font:inherit; font-weight:500; }
     .pt-link:disabled { opacity:.35; cursor:default; }
     /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
-    #tabArbitrage, #tabEssai, #tabPortefeuille, #tabAnimation, #tabAssociations, #tabDuel { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    #tabArbitrage, #tabPortefeuille, #tabAnimation { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     .ar-head { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
     .ar-stack { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--pt-line); gap:2px; }
     .ar-stack > span { display:block; height:100%; min-width:3px; }
@@ -1387,10 +1371,6 @@
     .ar-cell[data-tone="high"] { border-left-color:var(--pt-high); }
     .ar-cell[data-tone="mid"] { border-left-color:var(--pt-mid); }
     .ar-cell[data-tone="low"] { border-left-color:var(--pt-low); }
-    /* ── Associations : éditeur en cascade (tuiles validées) rendu lisible ── */
-    #tabAssociations .assoc-legacy .text-\[9px\], #tabAssociations .assoc-legacy .text-\[10px\] { font-size:12px !important; }
-    #tabAssociations .assoc-legacy .text-\[11px\] { font-size:13px !important; }
-    #tabAssociations .assoc-legacy label { font-size:13px !important; color:var(--t-secondary); }
     /* ── Articles (la base) ── */
     #tableContext { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:14px; border:1px solid var(--pt-line); background:var(--s-card); font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
     #tableContext.hidden { display:none; }
@@ -1407,7 +1387,7 @@
     #tabTable table thead { background:var(--s-card-alt) !important; }
     #tabTable table thead th { color:var(--t-tertiary) !important; background:var(--s-card-alt) !important; text-transform:none !important; letter-spacing:.01em !important; font-weight:500 !important; }
     #tabTable table thead th:hover { color:var(--t-primary) !important; }
-    /* ── Zones héritées (Plan › Pour creuser, audit du Duel, données fournisseur) : même langage que pt-* ── */
+    /* ── Zones héritées (Plan › Pour creuser, données fournisseur) : même langage que pt-* ── */
     .pt-legacy { font-family:'Geist',system-ui,sans-serif; font-size:14px; color:var(--t-primary); }
     .pt-legacy table { font-size:13px !important; border-collapse:collapse; }
     .pt-legacy thead, .pt-legacy thead tr, .pt-legacy thead th { background:var(--s-card-alt) !important; color:var(--t-tertiary) !important; }
@@ -1448,9 +1428,6 @@
     .ob-files { margin-top:auto; padding:10px 12px; border-radius:10px; border:1px dashed var(--pt-line); font-size:13px; color:var(--t-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ob-card.file-loaded .ob-files { border-style:solid; border-color:var(--pt-high); color:var(--t-primary); }
     .ob-input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-    .ob-legacy { padding:12px 16px; border-radius:14px; border:1px dashed var(--pt-line); font-size:14px; color:var(--t-secondary); }
-    .ob-legacy > summary { display:flex; justify-content:space-between; align-items:center; cursor:pointer; list-style:none; min-height:28px; }
-    .ob-legacy > summary::-webkit-details-marker { display:none; }
     .ob-store { padding:18px 20px; }
     .ob-go { width:100%; min-height:56px; border:0; border-radius:16px; font:inherit; font-size:17px; font-weight:600; cursor:pointer; background:var(--pt-gain); color:var(--pt-gain-ink); transition:transform .1s, opacity .15s; }
     .ob-go:hover:not(:disabled) { transform:translateY(-1px); }
@@ -1529,8 +1506,6 @@
     <span id="pipeConsomme" class="t-disabled">📊 Consommé</span>
     <span class="t-tertiary">→</span>
     <span id="pipeStock" class="t-disabled">📦 Stock</span>
-    <span id="pipeSepTerr" class="t-tertiary hidden">→</span>
-    <span id="pipeTerritoire" class="t-disabled hidden">🔗 Le Terrain</span>
   </div>
   <button id="cancelLoadBtn"
     onclick="window._cancelLoad()"
@@ -1581,7 +1556,7 @@
       <div id="tabPeriodBlock" style="display:none;width:100%">
         <div onclick="window.toggleTabPeriodDropdown()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:0 4px">
           <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase">Période</span>
-          <span id="tabPeriodLabel" title="La période agit sur le Duel et la fiche client. Conquête compte sur l’année en cours, les autres écrans sur 12 mois." style="font-size:13px;font-weight:700;color:var(--t-secondary)">— ▼</span>
+          <span id="tabPeriodLabel" style="font-size:13px;font-weight:700;color:var(--t-secondary)">— ▼</span>
         </div>
         <div id="tabPeriodDropdown" class="hidden" style="position:absolute;left:0;top:100%;width:100%;min-width:380px;z-index:210;padding:10px;background:var(--s-card);border:1px solid var(--b-default);border-top:none;border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(0,0,0,.3)" onclick="event.stopPropagation()">
         </div>
@@ -1600,7 +1575,6 @@
         <div class="supertab-pills" id="stpills-stock" role="tablist">
           <button class="supertab-pill active" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
           <button class="supertab-pill" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
-          <button class="supertab-pill" data-subtab="essai" onclick="switchTab('essai')">Banc d'essai</button>
         </div>
       </div>
 
@@ -1613,19 +1587,9 @@
         </div>
       </div>
 
-      <!-- SUPER-TAB 3 : Direction Réseau -->
-      <div class="supertab-group" id="stg-direction">
-        <button data-tab="duel" onclick="switchSuperTab('direction')" class="tab-btn supertab-btn" id="stbtn-direction" style="--tab-color:#8B5CF6;--tab-bg:#8B5CF61F;--tab-text:#4C1D95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Duel agence</span></button>
-        
-      </div>
-
       <!-- SUPER-TAB 4 : Labo -->
       <div class="supertab-group" id="stg-animation">
         <button data-tab="animation" onclick="switchSuperTab('animation')" class="tab-btn supertab-btn" id="stbtn-animation" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span>Animation</span></button>
-        <div class="supertab-pills" id="stpills-animation">
-          <button class="supertab-pill active" data-subtab="animation" onclick="switchTab('animation')">Action Commerciale</button>
-          <button class="supertab-pill" data-subtab="associations" onclick="switchTab('associations')">Associations</button>
-        </div>
       </div>
 
       <!-- SUPER-TAB : Base articles (la base — consultation, filtres, export ; pas un écran de décision) -->
@@ -1726,7 +1690,6 @@
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
-            <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><option value="">Toutes familles</option></select>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
@@ -1963,12 +1926,6 @@
               <input type="file" id="fileForcage" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)"/>
             </label>
           </div>
-          <!-- Livraisons (Qlik) : plus extractible depuis oct. 2026 — replié, gardé si l'export revient -->
-          <details id="dropLivraisons" class="ob-legacy">
-            <summary><span>📋 Livraisons Qlik <span class="pt-muted">· plus nécessaire</span></span><span id="statusLivraisons" class="ob-status">⭕</span></summary>
-            <p class="pt-small pt-muted" style="margin:8px 0">PRISME lit les achats de tes clients dans les autres agences directement dans le consommé multi-agences. À charger seulement si tu as encore un export Qlik des BL livrés.</p>
-            <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="pt-small"/>
-          </details>
         </section>
 
         <!-- Fichiers gardés : mise à jour par fusion (sources.js) -->
@@ -2069,7 +2026,6 @@
     </div>
 
     <!-- TAB : ARBITRAGE -->
-    <div id="tabEssai" class="tab-content hidden"></div>
     <div id="tabArbitrage" class="tab-content hidden">
       <!-- Compat JS: anciens IDs chip + healthScoreBadge (mis à jour par JS, masqués) -->
       <div class="hidden" aria-hidden="true">
@@ -2122,12 +2078,6 @@
       </div>
     </div>
 
-    <div id="tabAssociations" class="tab-content hidden">
-      <div id="assocContent"></div>
-    </div>
-
-    <!-- Direction Réseau -->
-    <div id="tabDuel" class="tab-content hidden"><div id="duelContent" class="pt-wrap" style="padding-top:8px"></div></div>
 
   </div><!-- /container -->
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
@@ -2143,8 +2093,8 @@
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
   (function () {
-    var ASSET_V = '20261020a';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'associations', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'duel-agence', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'omni', 'parser', 'partie', 'pepites', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'stock-lab', 'store', 'suivi', 'territoire', 'ui', 'utils'];
+    var ASSET_V = '20261020b';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');
@@ -2154,7 +2104,6 @@
   })();
   </script>
   <script type="module">
-    import './js/duel-agence.js';
     import './js/main.js';
   </script>
 </body>

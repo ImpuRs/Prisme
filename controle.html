@@ -101,7 +101,7 @@ async function runChecks() {
   $('verdict').className = 'mid'; $('verdict').textContent = 'Contrôle en cours…';
   if (document.visibilityState === 'hidden') line('Fenêtre', null, 'page en arrière-plan : Chrome suspend l’affichage animé, Conquête peut paraître vide — relance avec la fenêtre visible');
   line('Session', true, `${S.finalData.length.toLocaleString('fr-FR')} articles · ${S.selectedMyStore} · ${S.ventesLocalMag12MG?.size || 0} clients comptoir`);
-  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['essai', 'Banc d’essai'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['duel', 'Duel agence'], ['animation', 'Animation'], ['associations', 'Associations'], ['table', 'Base articles']];
+  const screens = [['partie', 'La partie'], ['arbitrage', 'Arbitrage'], ['plan', 'Plan'], ['portefeuille', 'Tes clients'], ['commerce', 'Conquête Terrain'], ['animation', 'Animation'], ['table', 'Base articles']];
   for (const [id, label] of screens) {
     await check(`Écran · ${label}`, async () => { W.switchTab(id); await sleep(900); return (activeTab()?.innerText || '').trim().length; }, 300);
   }
@@ -110,7 +110,6 @@ async function runChecks() {
   await check('Fiche article', async () => { W.openArticlePanel(S.finalData[0].code, 'controle'); await sleep(600); W.closeArticlePanel?.(); return 'ouverte'; });
   await check('Plan · une famille', async () => { W.switchTab('plan'); await sleep(500); const f = S.finalData.find(r => r.famille)?.famille; W._pfOpen?.(f); await sleep(900); return (activeTab()?.innerText || '').length; }, 300);
   await check('Animation · une marque', async () => { W.switchTab('animation'); await sleep(900); const m = S.marquesList?.[0]; if (!m) return 'catalogue absent'; W._selectAnimMarque('ROBERT BOSCH FRANCE'); await sleep(900); return (W.document.getElementById('animContent')?.innerText || '').length; }, 300);
-  await check('Duel · spécialités', async () => { W.switchTab('duel'); await sleep(600); W._duelPepMode?.('absent'); await sleep(600); return (activeTab()?.innerText || '').length; }, 300);
   W.switchTab('partie'); await sleep(600);
 
   const p = S._partie;

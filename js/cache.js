@@ -309,58 +309,6 @@ export function _openDB() {
   });
 }
 
-// Sérialise ventesTerrain en format columnar (tableaux de colonnes)
-// → réduit le coût du structured clone IDB de ~60% vs tableau d'objets
-function _serializeTerritoire(lines) {
-  if (!lines?.length) return null;
-  const n = lines.length;
-  const cols = {
-    code: new Array(n), libelle: new Array(n), famille: new Array(n),
-    direction: new Array(n), secteur: new Array(n), bl: new Array(n),
-    ca: new Float64Array(n), canal: new Array(n),
-    clientCode: new Array(n), clientNom: new Array(n), clientType: new Array(n),
-    rayonStatus: new Array(n), isSpecial: new Uint8Array(n),
-    commercial: new Array(n), dateExp: new Array(n),
-  };
-  for (let i = 0; i < n; i++) {
-    const l = lines[i];
-    cols.code[i]        = l.code;
-    cols.libelle[i]     = l.libelle;
-    cols.famille[i]     = l.famille;
-    cols.direction[i]   = l.direction;
-    cols.secteur[i]     = l.secteur;
-    cols.bl[i]          = l.bl;
-    cols.ca[i]          = l.ca || 0;
-    cols.canal[i]       = l.canal;
-    cols.clientCode[i]  = l.clientCode;
-    cols.clientNom[i]   = l.clientNom;
-    cols.clientType[i]  = l.clientType || '';
-    cols.rayonStatus[i] = l.rayonStatus || '';
-    cols.isSpecial[i]   = l.isSpecial ? 1 : 0;
-    cols.commercial[i]  = l.commercial || '';
-    cols.dateExp[i]     = l.dateExp instanceof Date ? l.dateExp.getTime() : (l.dateExp || null);
-  }
-  return cols;
-}
-
-function _deserializeTerritoire(cols) {
-  if (!cols?.code?.length) return [];
-  const n = cols.code.length;
-  const lines = new Array(n);
-  for (let i = 0; i < n; i++) {
-    lines[i] = {
-      code: cols.code[i], libelle: cols.libelle[i], famille: cols.famille[i],
-      direction: cols.direction[i], secteur: cols.secteur[i], bl: cols.bl[i],
-      ca: cols.ca[i], canal: cols.canal[i],
-      clientCode: cols.clientCode[i], clientNom: cols.clientNom[i],
-      clientType: cols.clientType[i], rayonStatus: cols.rayonStatus[i],
-      isSpecial: !!cols.isSpecial[i], commercial: cols.commercial[i],
-      dateExp: cols.dateExp[i] ? new Date(cols.dateExp[i]) : null,
-    };
-  }
-  return lines;
-}
-
 // Sauvegarde complète — déférée via requestIdleCallback pour ne pas perturber l'UI
 let _idbSaveScheduled = false;
 export function _saveSessionToIDB() {
@@ -467,8 +415,6 @@ async function _saveSessionToIDBNow() {
       // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
       articleCanalCA:        _serializeNestedMap(_S.articleCanalCA),
       // ── Territoire (lines dans store séparé IDB_TERR) ──
-      territoireReady:       _S.territoireReady,
-      terrDirectionData:     _S.terrDirectionData,
       // ── Chalandise ──
       chalandiseData:        [..._S.chalandiseData],
       chalandiseReady:       _S.chalandiseReady,
@@ -512,31 +458,19 @@ async function _saveSessionToIDBNow() {
       // ── Opportunité nette & reconquête (C1) ──
       opportuniteNette:      _S.opportuniteNette,
       reconquestCohort:      _S.reconquestCohort,
-      // ── Livraisons (5ème fichier) ──
-      livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
-      livraisonsReady:       _S.livraisonsReady || false,
-      livraisonsClientCount: _S.livraisonsClientCount || 0,
-      livraisonsDateMin:     _S.livraisonsDateMin?.getTime() || null,
-      livraisonsDateMax:     _S.livraisonsDateMax?.getTime() || null,
       // ── Catalogue animation (Plan de rayon) ──
       catalogueFamille:      _S.catalogueFamille     ? [..._S.catalogueFamille]     : null,
       catalogueDesignation:  _S.catalogueDesignation ? [..._S.catalogueDesignation] : null,
-      // ── Associations de ventes ──
-      _associations:         _S._associations || [],
     };
     st.put(payload, 'current');
-    // Territoire en store séparé (columnar → structured clone allégé)
-    const terrStore = tx.objectStore(IDB_TERR);
-    const terrPayload = _serializeTerritoire(_S.ventesTerrain);
-    terrStore.put(terrPayload, 'lines');
+    // Store 'territoire' (lignes Qlik, retirées oct. 2026) : vidé ; gardé pour ne pas monter la version (Scan)
+    tx.objectStore(IDB_TERR).delete('lines');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     try { db.close(); } catch (_) {}
     localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
     console.log('[PRISME] session sauvegardée dans IndexedDB', {
       finalData: _S.finalData?.length || 0,
-      ventesTerrain: _S.ventesTerrain?.length || 0,
       chalandise: _S.chalandiseData?.size || 0,
-      livraisons: _S.livraisonsData?.size || 0,
     });
   } catch (e) {
     console.error('[PRISME] IDB save error:', e);
@@ -550,13 +484,9 @@ async function _saveSessionToIDBNow() {
 export async function _restoreSessionFromIDB() {
   try {
     const db  = await _openDB();
-    const tx  = db.transaction([IDB_STORE, IDB_TERR], 'readonly');
+    const tx  = db.transaction(IDB_STORE, 'readonly');
     const req = tx.objectStore(IDB_STORE).get('current');
-    const reqT = tx.objectStore(IDB_TERR).get('lines');
-    const [data, terrCols] = await Promise.all([
-      new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); }),
-      new Promise((res, rej) => { reqT.onsuccess = () => res(reqT.result); reqT.onerror = () => res(null); }),
-    ]);
+    const data = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
     db.close();
     if (!data) return false;
     if (data.version !== CACHE_VERSION) {
@@ -634,16 +564,6 @@ export async function _restoreSessionFromIDB() {
     _S.articleClientsFull    = new Map((data.articleClientsFull || []).map(([k, v]) => [k, new Set(v)]));
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
-    _S.territoireReady   = data.territoireReady   || false;
-    _S.ventesTerrain   = terrCols ? _deserializeTerritoire(terrCols) : (data.ventesTerrain || []);
-    _S.terrDirectionData = data.terrDirectionData || {};
-    // Enrichir libelleLookup depuis les livraisons restaurées (articles réseau sans consommé local)
-    if (_S.ventesTerrain?.length && _S.libelleLookup) {
-      for (const l of _S.ventesTerrain) {
-        if (l.code && l.libelle && !_S.libelleLookup[l.code]) _S.libelleLookup[l.code] = l.libelle;
-      }
-    }
-
     _S.chalandiseData    = new Map(data.chalandiseData || []);
     _S.chalandiseReady   = data.chalandiseReady   || false;
     _S.chalandiseMetiers = data.chalandiseMetiers || [];
@@ -694,19 +614,10 @@ export async function _restoreSessionFromIDB() {
     _S.opportuniteNette  = data.opportuniteNette  || [];
     _S.reconquestCohort  = data.reconquestCohort  || [];
 
-    // ── Livraisons (5ème fichier) ──
-    _S.livraisonsData = new Map((data.livraisonsData||[]).map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:new Set(v.bl),articles:new Map(v.articles),lastDate:v.lastDate?new Date(v.lastDate):null}]));
-    _S.livraisonsReady = data.livraisonsReady || false;
-    _S.livraisonsClientCount = data.livraisonsClientCount || 0;
-    _S.livraisonsDateMin = data.livraisonsDateMin ? new Date(data.livraisonsDateMin) : null;
-    _S.livraisonsDateMax = data.livraisonsDateMax ? new Date(data.livraisonsDateMax) : null;
 
     // ── Catalogue animation (Plan de rayon) ──
     _S.catalogueFamille     = data.catalogueFamille     ? new Map(data.catalogueFamille)     : null;
     _S.catalogueDesignation = data.catalogueDesignation ? new Map(data.catalogueDesignation) : null;
-
-    // ── Associations de ventes ──
-    _S._associations = data._associations || [];
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
