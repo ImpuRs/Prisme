@@ -21,13 +21,10 @@ import './store.js';
 import './diagnostic.js';
 import './planRayon.js';
 import './arbitrage.js';
-import './stock-lab.js';
+import './minmax.js';
 import './clients-decisions.js';
 import './animation.js';
-import './associations.js';
 import './partie.js';
-import { renderCanalAgence } from './omni.js';
-import './territoire.js';
 import './commerce.js';
 import { _computeClientDominantUnivers, _enrichFinalDataWithCA, _hydrateStateFromParseResult, launchParseWorkerFromFiles, processDataFromRaw } from './pipeline.js';
 import { renderCurrentTab } from './render-stock.js';
@@ -62,7 +59,7 @@ import { renderCurrentTab } from './render-stock.js';
       }
       buildPeriodFilter();
       computeClientCrossing();_computeClientDominantUnivers();
-      renderCanalAgence();renderCurrentTab();
+      renderCurrentTab();
       if(_S.selectedMyStore)_saveSessionToIDB().catch(err=>console.warn('[applyPeriodFilter] IDB save error:',err));
       return;
     }
@@ -102,15 +99,15 @@ import { renderCurrentTab } from './render-stock.js';
           enrichPrixUnitaire();_enrichFinalDataWithCA();
           if(!_S.lowMemMode&&_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');computeBenchmark();}
           if(!_S.lowMemMode){computeClientCrossing();_computeClientDominantUnivers();}
-          renderCanalAgence();renderCurrentTab();
+          renderCurrentTab();
 
-        }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();}
+        }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCurrentTab();}
         finally{hideLoading();}
       })();
     }else{
       // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
       showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
-      renderCanalAgence();renderCurrentTab();
+      renderCurrentTab();
     }
   }
 

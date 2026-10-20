@@ -1626,7 +1626,7 @@ async function _handleParseMessage(data) {
       consommeMoisCouverts: consommeMoisCouverts,
     };
     if (!lowMem) {
-      // Banc d'essai stock : demande prélevée par BL (dédupliquée) → { code: [jour, qté, jour, qté, …] }
+      // MIN/MAX taux de service : demande prélevée par BL (dédupliquée) → { code: [jour, qté, jour, qté, …] }
       // jour = nb de jours depuis 1970 (date locale). Seulement les codes stockables (6 chiffres).
       var articleDemand = {};
       for (var _adC in articleRaw) {

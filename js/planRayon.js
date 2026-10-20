@@ -5,7 +5,7 @@ import { computeSquelette, verdictLabel, VERDICT_PLAIN_ICON } from './engine.js'
 import { articleLib } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
-import { getVentesClientMagFull, hasVentesClientMagFull, getClientArticleCAFullInMonthRange, getVentesHorsMagFullMap } from './sales.js';
+import { getVentesClientMagFull, hasVentesClientMagFull, getVentesHorsMagFullMap } from './sales.js';
 import { renderPlanFamille } from './plan-famille.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -57,25 +57,6 @@ window._onPlanCanalMagToggle = function() {
   renderPlanRayon();
 };
 
-// Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
-const _prLivMonthRange = () => {
-  const dMin = _S.livraisonsDateMin, dMax = _S.livraisonsDateMax;
-  if (!dMin || !dMax) return null;
-  return { min: dMin.getFullYear() * 12 + dMin.getMonth(), max: dMax.getFullYear() * 12 + dMax.getMonth() };
-};
-// CA agence par client×article filtré sur la période Livraisons (via byMonthFull)
-// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesLocalMag12MG.sumCA
-const _prClientArtCA = (cc, code, range) => {
-  if (range) {
-    const caR = getClientArticleCAFullInMonthRange(cc, code, range);
-    if (typeof caR === 'number') return caR;
-  }
-  // Fallback: données agrégées pleine période
-  const full = getVentesClientMagFull();
-  const e = full?.get(cc)?.get(code);
-  if (!e) return 0;
-  return (typeof e.sumCAAll === 'number') ? e.sumCAAll : (e.sumCA || 0);
-};
 let _prConqueteMode  = false; // true when viewing an inactive family in conquest mode
 let _prTopView       = 'famille'; // 'famille' | 'metier'
 let _prSelectedMetier2 = '';      // selected metier in Pilotage Métier
@@ -869,11 +850,9 @@ function _prRenderMetiers(fam) {
 
   const _distOk = _prDistOk;
 
-  // CA famille par métier — 2 sources : Mon agence (consommé) + Livré zone (livraisonsData × chalandise)
+  // CA famille par métier — mon agence (consommé)
   const metierPDV        = new Map(); // metier → CA famille mon agence
-  const metierLivr       = new Map(); // metier → CA famille livré par d'autres agences
   const metierClientsPDV = new Map(); // metier → Set<cc> mon agence
-  const metierClientsLiv = new Map(); // metier → Set<cc> livrés zone
   const metierClientsAll = new Map(); // metier → Set<cc> union
 
   const _matchFam = (code) => {
@@ -891,8 +870,6 @@ function _prRenderMetiers(fam) {
     mapClients.get(metier).add(cc);
   };
 
-  // 1) Mon agence — CA aligné sur la période Livraisons si disponible
-  const _livRange = _prLivMonthRange();
   const hasFull = hasVentesClientMagFull();
   const vcaFull = getVentesClientMagFull();
   if (vcaFull) {
@@ -903,7 +880,7 @@ function _prRenderMetiers(fam) {
       let caFam = 0;
       for (const [code, v] of artMap) {
         if (!_matchFam(code)) continue;
-        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCAAll || v.sumCA || 0);
+        caFam += v.sumCAAll || v.sumCA || 0;
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
@@ -923,7 +900,7 @@ function _prRenderMetiers(fam) {
       let caFam = 0;
       for (const [code, v] of artMap) {
         if (!_matchFam(code)) continue;
-        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCA || 0);
+        caFam += v.sumCA || 0;
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
@@ -933,73 +910,30 @@ function _prRenderMetiers(fam) {
     }
   }
 
-  // 2) Livraisons × chalandise — total réseau pour les clients de la zone
-  if (_S.livraisonsReady && _S.livraisonsData?.size) {
-    for (const [cc, livData] of _S.livraisonsData) {
-      if (!_distOk(cc)) continue;
-      const info   = _S.chalandiseData.get(cc);
-      if (!info) continue; // pas dans la chalandise → pas de métier, on skip
-      const metier = info.metier || 'Non renseigné';
-      let caFam = 0;
-      for (const [code, artData] of livData.articles) {
-        if (!_matchFam(code)) continue;
-        caFam += artData.ca || 0;
-      }
-      if (caFam > 0) {
-        _addToMetier(metier, cc, caFam, metierLivr, metierClientsLiv);
-        // Union clients (sans toucher au CA agence)
-        if (!metierClientsAll.has(metier)) metierClientsAll.set(metier, new Set());
-        metierClientsAll.get(metier).add(cc);
-      }
-    }
-  }
+  if (!metierPDV.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
 
-  const hasLivr = metierLivr.size > 0;
-  if (!metierPDV.size && !metierLivr.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
-
-  // Trier par CA Livraisons (total) décroissant, sinon par CA agence
-  const allMetiers = new Set([...metierPDV.keys(), ...metierLivr.keys()]);
-  const sorted = [...allMetiers].sort((a, b) => {
-    const refA = hasLivr ? (metierLivr.get(a) || 0) : (metierPDV.get(a) || 0);
-    const refB = hasLivr ? (metierLivr.get(b) || 0) : (metierPDV.get(b) || 0);
-    return refB - refA;
-  });
+  const sorted = [...metierPDV.keys()].sort((a, b) => (metierPDV.get(b) || 0) - (metierPDV.get(a) || 0));
   const rows = sorted.map(m => {
     const caMon   = metierPDV.get(m) || 0;
-    const caLiv   = metierLivr.get(m) || 0;
     const nbMon   = metierClientsPDV.get(m)?.size || 0;
-    const nbLiv   = metierClientsLiv.get(m)?.size || 0;
-    // Taux de captation : CA agence / CA livraisons (si livraisons > 0)
-    const captPct = caLiv > 0 ? Math.round(caMon / caLiv * 100) : null;
-    const captColor = captPct === null ? '' : captPct >= 70 ? '#10b981' : captPct >= 40 ? '#f59e0b' : '#ef4444';
     return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbMon || '—'}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${caMon > 0 ? formatEuro(caMon) : '—'}</td>
-      ${hasLivr ? `<td class="py-1.5 px-2 text-right t-secondary">${nbLiv || '—'}</td>
-      <td class="py-1.5 px-2 text-right font-bold t-primary">${caLiv > 0 ? formatEuro(caLiv) : '—'}</td>
-      <td class="py-1.5 px-2 text-right font-bold" style="color:${captColor}">${captPct !== null ? captPct + '%' : '—'}</td>` : ''}
     </tr>`;
   }).join('');
 
   const totMon  = [...metierPDV.values()].reduce((s, v) => s + v, 0);
-  const totLiv  = [...metierLivr.values()].reduce((s, v) => s + v, 0);
-  const totClientsMon = new Set(); const totClientsLivSet = new Set();
+  const totClientsMon = new Set();
   for (const s of metierClientsPDV.values()) for (const cc of s) totClientsMon.add(cc);
-  for (const s of metierClientsLiv.values()) for (const cc of s) totClientsLivSet.add(cc);
-  const totCaptPct = totLiv > 0 ? Math.round(totMon / totLiv * 100) : null;
 
-  const livrLabel = hasLivr ? ' · Livraisons = total réseau (fichier Livraisons × Chalandise)' : '';
-  return `${sliderHtml}${_prSFPills()}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux${livrLabel} · Historique complet</div><div class="overflow-x-auto">
+  return `${sliderHtml}${_prSFPills()}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux · Historique complet</div><div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
           <th class="py-1.5 px-2 text-right">Cl. agence</th>
           <th class="py-1.5 px-2 text-right">CA agence</th>
-          ${hasLivr ? `<th class="py-1.5 px-2 text-right">Cl. livraisons</th>
-          <th class="py-1.5 px-2 text-right">CA livraisons</th>
-          <th class="py-1.5 px-2 text-right" title="Taux de captation : CA agence ÷ CA livraisons">Captation</th>` : ''}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -1008,9 +942,6 @@ function _prRenderMetiers(fam) {
           <td class="py-1.5 px-2 t-primary">TOTAL</td>
           <td class="py-1.5 px-2 text-right t-secondary">${totClientsMon.size}</td>
           <td class="py-1.5 px-2 text-right" style="color:var(--c-action)">${formatEuro(totMon)}</td>
-          ${hasLivr ? `<td class="py-1.5 px-2 text-right t-secondary">${totClientsLivSet.size}</td>
-          <td class="py-1.5 px-2 text-right t-primary">${formatEuro(totLiv)}</td>
-          <td class="py-1.5 px-2 text-right font-bold" style="color:${totCaptPct >= 70 ? '#10b981' : totCaptPct >= 40 ? '#f59e0b' : '#ef4444'}">${totCaptPct !== null ? totCaptPct + '%' : '—'}</td>` : ''}
         </tr>
       </tfoot>
     </table>
@@ -1726,19 +1657,6 @@ function _prComputeMetierFull(metier) {
     if (arts.size) perClient.set(cc, arts);
   }
 
-  // Source 4: ventesTerrain — index by client once (avoid O(clients × lines))
-  if (_S.ventesTerrain?.length) {
-    for (const l of _S.ventesTerrain) {
-      if (!l.clientCode || !clientSetRaw.has(l.clientCode)) continue;
-      if (!/^\d{6}$/.test(l.code)) continue;
-      let arts = perClient.get(l.clientCode);
-      if (!arts) { arts = new Map(); perClient.set(l.clientCode, arts); }
-      if (!arts.has(l.code)) {
-        arts.set(l.code, { ca: +(l.ca || 0), mon: 0 });
-      }
-      // If already counted from ventes sources, skip (dedup)
-    }
-  }
 
   // Pre-compute touristes for ALL clients (no distance filter)
   // Per-client réseau CA = sum of all sources

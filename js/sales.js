@@ -26,11 +26,6 @@ export function hasVentesClientMagFull() {
  * CA full période, tous canaux, par store×client.
  * @returns {Map<string, number>|null}
  */
-export function getCaClientParStoreMap(storeCode) {
-  if (!storeCode) return null;
-  const m = _S.caClientParStore?.[storeCode];
-  return m && m instanceof Map ? m : null;
-}
 
 // ── Mensuel / ranges ────────────────────────────────────────────────────
 
@@ -51,18 +46,6 @@ export function monthRangeFromDates(dMin, dMax) {
  * CA mensuel client×article — "full all canaux" (myStore), depuis _byMonthFull.
  * Retourne null si la source mensuelle n'est pas disponible.
  */
-export function getClientArticleCAFullInMonthRange(cc, code, range) {
-  if (!cc || !code || !range) return null;
-  const months = _S._byMonthFull?.[cc]?.[code];
-  if (!months) return null;
-  let ca = 0;
-  for (const midxStr in months) {
-    const midx = +midxStr;
-    if (midx < range.min || midx > range.max) continue;
-    ca += months[midxStr]?.sumCA || 0;
-  }
-  return ca;
-}
 
 /**
  * CA client (MAGASIN/myStore) dans une plage de mois, depuis _byMonth.

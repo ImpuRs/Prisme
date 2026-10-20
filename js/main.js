@@ -13,7 +13,7 @@ import './constants.js';
 import { extractClientCode, readExcel, _doCopyCode, _copyAllCodesDirect } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { computeClientCrossing, _unikLink, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores } from './engine.js';
-import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker } from './parser.js';
+import { parseChalandise, computeBenchmark, launchClientWorker } from './parser.js';
 import { showToast, ToastManager, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, openReporting, sortBy, changePage, closeReporting, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
 import { prepareSources } from './sources.js';
 import { _clearCache, _showCacheBanner, _onPurgeCache, _saveSessionToIDB } from './cache.js';
@@ -27,16 +27,13 @@ window._S = _S; // debug + accès console DevTools
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, exportDiagnosticCSV, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
 import './planRayon.js';
 import './arbitrage.js';
-import './stock-lab.js';
+import './minmax.js';
 import './clients-decisions.js';
 import './animation.js';
-import './associations.js';
 import './partie.js';
 // ── P3 Modules — extracted from main.js ──
 // bench.js démantelé — fonctions réseau supprimées
-import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter } from './omni.js';
-import { toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
-import { _renderHorsZone, renderTerritoireTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4 } from './commerce.js';
+import { renderTerritoireTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4 } from './commerce.js';
 // ── Modules extraits de main.js (oct. 2026) ──
 import './scan-export.js'; // exports Scan / ZZAT018 / EAN — fonctions window.* uniquement
 import { _refilterFromByMonth, applyPeriodFilter, toggleTabPeriodDropdown } from './periode.js';
@@ -87,17 +84,6 @@ window.changePage = changePage;
 window.openFilterDrawer = openFilterDrawer;
 window.closeFilterDrawer = closeFilterDrawer;
 window.expandImportZone = expandImportZone;
-window.onSecteurChange = onSecteurChange;
-window.onLivraisonsSelected = async function(input) {
-  onFileSelected(input, 'dropLivraisons');
-  if (!input.files?.[0]) return;
-  // Parser immédiatement seulement si les données sont déjà chargées (recalcul à chaud).
-  // Sinon, _postParseMain appellera parseLivraisons après Analyser — évite le double parse.
-  if (DataStore.finalData.length === 0) return;
-  if (_S._livraisonsLoading || _S.livraisonsReady) return;
-  _S._livraisonsLoading = true;
-  try { await parseLivraisons(input.files[0]); } finally { _S._livraisonsLoading = false; }
-};
 window.onForcageSelected = async function(input) {
   onFileSelected(input, 'dropForcage');
   if (!input.files?.[0]) return;
@@ -188,9 +174,6 @@ window.onChalandiseSelected = async function(input) {
   _saveSessionToIDB();
 };
 window.renderTerritoireTab = renderTerritoireTab;
-window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
-window.getKPIsByCanal = getKPIsByCanal;
-window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window.computeAnglesMorts = computeAnglesMorts;
@@ -198,7 +181,7 @@ window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
 window.buildAgenceStore = buildAgenceStore;
 window.computeBenchmark = computeBenchmark;
-// (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
+// (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage)
 window._toggleHorsAgence = function() {
   _S._filterHorsAgence = !_S._filterHorsAgence;
   const btn = document.getElementById('btnHorsAgence');
@@ -209,7 +192,6 @@ window._toggleHorsAgence = function() {
   }
   onFilterChange();
 };
-// (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 
 
@@ -223,11 +205,6 @@ window._toggleDataScope = function(){
   el.style.display=visible?'none':'';
 };
 window.renderABCTab = renderABCTab;
-window.renderCanalAgence = renderCanalAgence;
-window.openCanalDrill = openCanalDrill;
-window.openCanalDrillArticles = openCanalDrillArticles;
-window.closeCanalDrill = closeCanalDrill;
-window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.renderCurrentTab = renderCurrentTab;
 window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
@@ -264,8 +241,6 @@ window._cancelLoad = function() {
   }))).then(() => location.reload());
 };
 window._showCacheBanner = _showCacheBanner;
-window.toggleContribSecteur = toggleContribSecteur;
-window.toggleContribClient = toggleContribClient;
 window._toggleDeptDropdown = _toggleDeptDropdown;
 window._toggleClassifDropdown = _toggleClassifDropdown;
 window._toggleDirectionDropdown = _toggleDirectionDropdown;
@@ -284,10 +259,6 @@ window._resetChalandiseFilters = _resetChalandiseFilters;
 window.onFileSelected = onFileSelected;
 window._updateAnalyserBtn = _updateAnalyserBtn;
 window._saveSessionToIDB = _saveSessionToIDB;
-window.buildTerrContrib = buildTerrContrib;
-window.renderTerrContrib = renderTerrContrib;
-window.renderContribClients = renderContribClients;
-window.renderContribArticles = renderContribArticles;
 window.openClient360 = openClient360;
 window._c360SwitchTab = _c360SwitchTab;
 window._c360CopyResume = _c360CopyResume;
@@ -316,10 +287,6 @@ window._toggleOverviewL4        = _toggleOverviewL4;
 window._toggleOverviewClassif   = _toggleOverviewClassif;
 window._toggleOverviewDirection = _toggleOverviewDirection;
 window._toggleDept              = _toggleDept;
-window.toggleTerrDir            = toggleTerrDir;
-window.toggleTerrDirStatus      = toggleTerrDirStatus;
-window.toggleTerrFam            = toggleTerrFam;
-window.toggleContribDirection   = toggleContribDirection;
 // Cockpit Client — exclusions & liste masquée
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)
@@ -343,13 +310,8 @@ initBenchListeners();
 // Les handlers reçoivent (el, event) et lisent data-* pour les arguments.
 const ACTION_REGISTRY = {
   // Pagination — Hors zone
-  _horsZoneExpand:   ()=>{_S._horsZonePage=1;_renderHorsZone();},
-  _horsZoneCollapse: ()=>{_S._horsZonePage=0;_renderHorsZone();},
-  _horsZonePage:     (el)=>{_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+parseInt(el.dataset.dir));_renderHorsZone();},
   // Pagination — Opportunités nettes
-  _oppNettePage: (el)=>{_S._oppNettePage=Math.max(1,(_S._oppNettePage||1)+parseInt(el.dataset.dir));renderTerritoireTab();},
   // Pagination — Angles Morts
-  _anglesMortsPage: (el)=>{_S._anglesMortsPage=Math.max(1,(_S._anglesMortsPage||1)+parseInt(el.dataset.dir));renderTerritoireTab();},
 };
 
 document.addEventListener('click', (e)=>{

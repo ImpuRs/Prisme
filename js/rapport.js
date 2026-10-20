@@ -21,13 +21,10 @@ import { DataStore } from './store.js';
 import './diagnostic.js';
 import './planRayon.js';
 import './arbitrage.js';
-import './stock-lab.js';
+import './minmax.js';
 import './clients-decisions.js';
 import './animation.js';
-import './associations.js';
 import './partie.js';
-import './omni.js';
-import './territoire.js';
 import './commerce.js';
 
 

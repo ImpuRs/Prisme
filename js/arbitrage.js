@@ -81,7 +81,7 @@ function _head(d) {
           <div class="pt-num pt-big" style="color:${_col(sp.score)}">${sp.score}<span class="pt-muted" style="font-size:20px">/100</span></div>
         </div>
         <div class="pt-col" style="gap:6px">
-          <div class="pt-row pt-between pt-small"><span title="Part des articles fréquents (F/M) en stock — à ne pas confondre avec le taux de service simulé du banc d’essai (quantités servies)">Disponibilité des articles fréquents <span class="pt-muted">· compte pour ${wS} %</span></span><span class="pt-num pt-strong">${sp.service} %</span></div>
+          <div class="pt-row pt-between pt-small"><span title="Part des articles fréquents (F/M) en stock">Disponibilité des articles fréquents <span class="pt-muted">· compte pour ${wS} %</span></span><span class="pt-num pt-strong">${sp.service} %</span></div>
           ${_bar(sp.service, _col(sp.service))}
           <span class="pt-small pt-muted">Articles fréquents (F, M) en stock</span>
         </div>

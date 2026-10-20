@@ -4,49 +4,18 @@
 import { _S } from './state.js';
 import { refreshContextBar } from './contexte.js';
 import { DataStore } from './store.js';
-import { formatEuro, escapeHtml, _copyCodeBtn, matchQuery, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection } from './utils.js';
-import { _clientPassesFilters, _unikLink } from './engine.js';
-import { getSelectedSecteurs } from './parser.js';
-import { renderInsightsBanner } from './ui.js';
-import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
+import { formatEuro, escapeHtml, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection } from './utils.js';
+import './engine.js';
+import './parser.js';
+import './ui.js';
+import './helpers.js';
 import { openClient360, closeDiagnostic } from './diagnostic.js';
 import { getClientsActiveSetInPeriod, currentYearMonthRange } from './sales.js';
 import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
 import { renderOverviewHead, renderOverviewL1Rows, renderOverviewL2Table, renderOverviewL3Table, renderOverviewL4Table } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 
-// ── Cross-module calls via window.xxx (avoid circular deps) ─────────────
-// territoire.js (ex-terrain.js): buildTerrContrib, renderTerrContrib, renderTerrCroisementSummary
-
-const buildTerrContrib = (...a) => window.buildTerrContrib?.(...a);
-const renderTerrContrib = (...a) => window.renderTerrContrib?.(...a);
-const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary?.(...a);
-const getKPIsByCanal = (...a) => window.getKPIsByCanal?.(...a);
-
-// ── Indices finalData (hot path) ─────────────────────────────────────────
-// Beaucoup de renders construisaient `new Map(finalData.map(...))` à répétition.
-// On garde un cache par référence d'array (finalData ne change qu'au parsing).
-let _finalDataIndexSrc = null;
-let _finalDataIndex = null;
-function _getFinalDataIndex() {
-  const src = DataStore.finalData || [];
-  if (_finalDataIndex && _finalDataIndexSrc === src) return _finalDataIndex;
-  const m = new Map();
-  for (const r of src) { if (r && r.code) m.set(r.code, r); }
-  _finalDataIndexSrc = src;
-  _finalDataIndex = m;
-  return m;
-}
-
-// ── Nav 4 sous-vues Commerce ─────────────────────────────────────────────
-let _cmShowSurveiller = false; // toggle "À surveiller" (30-60j) dans onglet En danger
 let _commerceRafId = 0; // rAF ID pour annuler les rAF en attente au re-render
-
-// ── Secteur dropdown outside click handler (migré depuis omni.js) ─────────
-document.addEventListener('click',function(e){
-  const dd=document.getElementById('terrSecteurDropdown');
-  if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
-});
 
 // ── Datalist UX guards ───────────────────────────────────────────────────
 // <datalist> natif : la dropdown peut prendre toute la hauteur si on injecte
@@ -78,623 +47,16 @@ document.addEventListener('change', function(e) {
 // ── Drill chalandise — Vue par Direction (mode sans territoire) ──────────
 const _DIR_LABELS = { '-': 'Second Œuvre', 'DVM': 'Maintenance', 'DVI': 'DVI Industrie', 'DVP': 'DVP Plomberie' };
 
-// ── Vue territoire en cascade (Direction → Métier → Clients, tout en DOM) ──
-let _chalDirHtml = '';
-let _chalDirKey = '';
-let _chalDirMode = 'direction'; // 'direction' | 'secteur'
-window._chalToggleMode = function(mode) {
-  _chalDirMode = mode;
-  _chalDirKey = ''; _chalDirHtml = ''; // invalider cache
-  const blkEl = document.getElementById('terrDirectionContainer');
-  if (blkEl) _buildChalDirBlock(blkEl);
-};
-function _buildChalDirBlock(blkEl) {
-  if (!blkEl || !_S.chalandiseReady) return;
-  // Cache : dépend des filtres sidebar chalandise + mode + canal
-  const _key = `${_chalDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${_S._reseauMagasinMode||'all'}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}|${_S._globalCanal||''}`;
-  if (_chalDirKey === _key && _chalDirHtml) {
-    if (blkEl.dataset.cdk === _key) return;
-    blkEl.innerHTML = _chalDirHtml;
-    blkEl.dataset.cdk = _key;
-    return;
-  }
-  // Single-pass: filter + group by primary axis (direction or secteur) → métier → clients
-  // Canal-aware captation set (same logic as overview)
-  const _cdCanal=_S._globalCanal||'';
-  let cmSet = getClientsActiveSetInPeriod(_cdCanal, { magasinMode: _S._reseauMagasinMode || 'all' });
-  if (!cmSet) {
-    // Fallback legacy : structures period-filtered (ne se recalculent pas sans reparse)
-    if(!_cdCanal){
-      cmSet=new Set(_S.clientsMagasin||[]);
-      if(_S.ventesLocalHorsMag)for(const cc of _S.ventesLocalHorsMag.keys())cmSet.add(cc);
-    }else if(_cdCanal==='MAGASIN'){
-      cmSet=_S.clientsMagasin||new Set();
-    }else{
-      cmSet=new Set();
-      if(_S.ventesLocalHorsMag)for(const[cc,artMap] of _S.ventesLocalHorsMag){for(const[,v] of artMap){if((v.canal||'')===_cdCanal){cmSet.add(cc);break;}}}
-    }
-  }
-  const _cdLabel=_cdCanal?(_CANAL_LABELS_OV[_cdCanal]||_cdCanal):'PDV';
-  const chalData = _S.chalandiseData || new Map();
-  const byDir = new Map();
-  let allLen = 0, allActifs = 0, allPDV = 0;
-  for (const [cc, info] of chalData) {
-    if (!_passesAllFilters(cc)) continue;
-    const c = { cc, ...info };
-    const d = _chalDirMode === 'secteur' ? (c.secteur || 'Autre') : (c.direction || 'Autre');
-    let bm = byDir.get(d);
-    if (!bm) { bm = new Map(); byDir.set(d, bm); }
-    const m = c.metier || '—';
-    let arr = bm.get(m);
-    if (!arr) { arr = []; bm.set(m, arr); }
-    arr.push(c);
-    allLen++;
-    if (c.statut === 'Actif') allActifs++;
-    if (cmSet?.has(cc)) allPDV++;
-  }
-  const _lbl = d => _DIR_LABELS[d] || d || 'Autre';
-
-  // Count statuses over a client array without allocating intermediates.
-  const _grp = clients => {
-    const g = {total:0,aL:0,aP:0,pro:0,per:0,ina:0};
-    for (const c of clients) {
-      g.total++;
-      const st = c.statut;
-      if (st === 'Actif') g.aL++;
-      else if (st === 'Prospect') g.pro++;
-      else if (st === 'Inactif') g.ina++;
-      if (cmSet?.has(c.cc)) g.aP++;
-      if (c.statutDetaille === 'Perdu 12-24 mois') g.per++;
-    }
-    return g;
-  };
-
-  // Pre-aggregate: for each direction, compute total client count and the per-métier _grp once.
-  // Direction-level _grp is summed from métier-level _grp (avoids re-iterating clients).
-  // This replaces 2× flatten+spread per direction in the sort comparator and the subsequent _grp call.
-  const dirRows = [];
-  for (const [d, bm] of byDir) {
-    let dirTotal = 0;
-    const metierRows = [];
-    const dirG = {total:0,aL:0,aP:0,pro:0,per:0,ina:0};
-    for (const [m, mc] of bm) {
-      const gm = _grp(mc);
-      dirTotal += mc.length;
-      dirG.total += gm.total;
-      dirG.aL += gm.aL;
-      dirG.aP += gm.aP;
-      dirG.pro += gm.pro;
-      dirG.per += gm.per;
-      dirG.ina += gm.ina;
-      metierRows.push({ m, mc, gm });
-    }
-    metierRows.sort((a, b) => b.mc.length - a.mc.length);
-    dirRows.push({ d, dirTotal, g: dirG, metierRows });
-  }
-  dirRows.sort((a, b) => b.dirTotal - a.dirTotal);
-
-  const pctCap = allLen > 0 ? Math.round(allActifs / allLen * 100) : 0;
-  const totalPDV = allPDV;
-  let html='';
-  let di=0;
-
-  for (const { d, metierRows, g } of dirRows) {
-    const pL=g.total>0?Math.round(g.aL/g.total*100):0, pP=g.total>0?Math.round(g.aP/g.total*100):0;
-    html+=`<tr onclick="window._ccd(${di})" style="cursor:pointer" class="border-b hover:s-card-alt font-semibold">
-      <td class="py-1.5 px-2">${escapeHtml(_lbl(d))} <span id="cda${di}" class="t-disabled text-[8px]">▶</span></td>
-      <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
-      <td class="py-1.5 px-2 text-right c-ok">${g.aL}</td>
-      <td class="py-1.5 px-2 text-right c-ok">${g.aP}</td>
-      <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${g.pro}</td>
-      <td class="py-1.5 px-2 text-right c-caution">${g.per}</td>
-      <td class="py-1.5 px-2 text-right t-disabled">${g.ina}</td>
-      <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pL}%</td>
-      <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pP}%</td>
-    </tr>`;
-    let mi=0;
-    for (const { m, mc, gm } of metierRows) {
-      const star=_isMetierStrategique(m)?' ⭐':'';
-      const pLm=gm.total>0?Math.round(gm.aL/gm.total*100):0, pPm=gm.total>0?Math.round(gm.aP/gm.total*100):0;
-      html+=`<tr id="ccm${di}_${mi}" onclick="window._ccm(${di},${mi})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.05)" class="border-b hover:s-card-alt" data-d="${di}">
-        <td class="py-1.5 px-2 pl-6 text-[11px]">${escapeHtml(m)}${star} <span id="cma${di}_${mi}" class="t-disabled text-[8px]">▶</span></td>
-        <td class="py-1.5 px-2 text-right">${gm.total}</td>
-        <td class="py-1.5 px-2 text-right c-ok">${gm.aL}</td>
-        <td class="py-1.5 px-2 text-right c-ok">${gm.aP}</td>
-        <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${gm.pro}</td>
-        <td class="py-1.5 px-2 text-right c-caution">${gm.per}</td>
-        <td class="py-1.5 px-2 text-right t-disabled">${gm.ina}</td>
-        <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pLm}%</td>
-        <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pPm}%</td>
-      </tr>`;
-      // Niveau Commercial
-      const byComm=new Map();
-      for(const c of mc){const com=c.commercial||'—';let a=byComm.get(com);if(!a){a=[];byComm.set(com,a);}a.push(c);}
-      const commRows=[];
-      for(const[com,cc_list] of byComm) commRows.push([com,cc_list]);
-      commRows.sort((a,b)=>b[1].length-a[1].length);
-      let ci=0;
-      for(const[com,cc_list] of commRows){
-        const gc=_grp(cc_list);
-        const pLc=gc.total>0?Math.round(gc.aL/gc.total*100):0,pPc=gc.total>0?Math.round(gc.aP/gc.total*100):0;
-        html+=`<tr id="ccc${di}_${mi}_${ci}" onclick="window._ccc(${di},${mi},${ci})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.08)" class="border-b hover:s-card-alt" data-m="${di}_${mi}">
-          <td class="py-1.5 px-2 pl-9 text-[10px] font-medium">${escapeHtml(com)} <span id="ccca${di}_${mi}_${ci}" class="t-disabled text-[8px]">▶</span></td>
-          <td class="py-1.5 px-2 text-right text-[10px]">${gc.total}</td>
-          <td class="py-1.5 px-2 text-right c-ok text-[10px]">${gc.aL}</td>
-          <td class="py-1.5 px-2 text-right c-ok text-[10px]">${gc.aP}</td>
-          <td class="py-1.5 px-2 text-right text-[10px]" style="color:var(--c-info)">${gc.pro}</td>
-          <td class="py-1.5 px-2 text-right c-caution text-[10px]">${gc.per}</td>
-          <td class="py-1.5 px-2 text-right t-disabled text-[10px]">${gc.ina}</td>
-          <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pLc}%</td>
-          <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pPc}%</td>
-        </tr>`;
-        for(const c of [...cc_list].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,20)){
-          const ca=(c.ca2025||0)+(c.ca2026||0),star2=c.classification?.includes('Pot+')?'⭐ ':'';
-          html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-c="${di}_${mi}_${ci}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
-            <td class="py-1 px-2 pl-12">${cmSet?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button> <span class="t-disabled">${c.cc}</span></td>
-            <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
-            <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
-            <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
-          </tr>`;
-        }
-        ci++;
-      }
-      mi++;
-    }
-    di++;
-  }
-
-  const _isDir = _chalDirMode === 'direction';
-  const _isSec = _chalDirMode === 'secteur';
-  const _tabStyle = (active) => `cursor:pointer;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;${active?'background:rgba(139,92,246,0.3);color:#c4b5fd':'color:rgba(167,139,250,0.5)'}`;
-  const _axisLabel = _isDir ? 'Direction' : 'Secteur';
-  blkEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-weight:800;font-size:12px;color:#a78bfa">🎯 Votre territoire</span>
-      <span onclick="window._chalToggleMode('direction')" style="${_tabStyle(_isDir)}">Direction</span>
-      <span onclick="window._chalToggleMode('secteur')" style="${_tabStyle(_isSec)}">Secteur</span>
-    </div>
-    <span class="text-[10px] t-disabled">${byDir.size} ${_axisLabel.toLowerCase()}s · ${allLen} clients · ${totalPDV} actifs PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' (via '+_cdLabel+')':''} · ${pctCap}% captés</span>
-  </div>
-  <div class="overflow-x-auto"><table class="min-w-full text-xs">
-    <thead class="s-panel-inner t-inverse"><tr class="text-[10px]">
-      <th class="py-1.5 px-2 text-left">${_axisLabel}</th>
-      <th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Actifs Leg.</th>
-      <th class="py-1.5 px-2 text-right">Actifs PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' <span class="t-disabled font-normal">(via '+_cdLabel+')</span>':''}</th><th class="py-1.5 px-2 text-right">Prospects</th>
-      <th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th>
-      <th class="py-1.5 px-2 text-right">% Capté Leg.</th><th class="py-1.5 px-2 text-right">% Capté PDV${_cdCanal&&_cdCanal!=='MAGASIN'?' <span class="t-disabled font-normal">(via '+_cdLabel+')</span>':''}</th>
-    </tr></thead>
-    <tbody>${html||`<tr><td colspan="9" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
-  </table></div>`;
-  _chalDirHtml = blkEl.innerHTML;
-  _chalDirKey = _key;
-  blkEl.dataset.cdk = _key;
+// ── Conquête › Ton territoire : visibilité des filtres + vue d'ensemble chalandise ──
+// (ex-renderTerritoireTab : la partie lignes BL Qlik a été retirée en oct. 2026)
+function renderTerritoireTab(){
+  const hasChal=DataStore.chalandiseReady;
+  const hasData=DataStore.finalData.length>0||_S.ventesLocalMagPeriode.size>0;
+  const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasData);
+  _buildChalandiseOverviewInner();
+  const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
+  const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
 }
-
-// ── Toggles cascade ────────────────────────────────────────────────────────
-window._ccd = di => {
-  const arr=document.getElementById(`cda${di}`);
-  const opening=arr&&arr.textContent==='▶';
-  document.querySelectorAll(`[data-d="${di}"]`).forEach(r=>{
-    r.style.display=opening?'table-row':'none';
-    if(!opening){
-      // fermer niveaux métier/commercial/clients enfants
-      const parts=r.id.replace('ccm','').split('_'),mi=parts[1];
-      document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(cr=>{
-        cr.style.display='none';
-        const parts2=cr.id?.replace('ccc','').split('_'),ci2=parts2?.[2];
-        if(ci2!==undefined)document.querySelectorAll(`[data-c="${di}_${mi}_${ci2}"]`).forEach(cl=>cl.style.display='none');
-        const ca=document.getElementById(`ccca${di}_${mi}_${ci2}`);if(ca)ca.textContent='▶';
-      });
-      const ma=document.getElementById(`cma${di}_${mi}`);if(ma)ma.textContent='▶';
-    }
-  });
-  if(arr)arr.textContent=opening?'▼':'▶';
-};
-window._ccm = (di,mi) => {
-  const arr=document.getElementById(`cma${di}_${mi}`);
-  const opening=arr&&arr.textContent==='▶';
-  document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(r=>{
-    r.style.display=opening?'table-row':'none';
-    if(!opening){
-      // fermer niveaux commercial/clients enfants
-      const parts=r.id?.replace('ccc','').split('_'),ci=parts?.[2];
-      if(ci!==undefined){document.querySelectorAll(`[data-c="${di}_${mi}_${ci}"]`).forEach(cl=>cl.style.display='none');const ca=document.getElementById(`ccca${di}_${mi}_${ci}`);if(ca)ca.textContent='▶';}
-    }
-  });
-  if(arr)arr.textContent=opening?'▼':'▶';
-};
-window._ccc = (di,mi,ci) => {
-  const arr=document.getElementById(`ccca${di}_${mi}_${ci}`);
-  const opening=arr&&arr.textContent==='▶';
-  document.querySelectorAll(`[data-c="${di}_${mi}_${ci}"]`).forEach(r=>r.style.display=opening?'table-row':'none');
-  if(arr)arr.textContent=opening?'▼':'▶';
-};
-
-// ── Extracted code (unchanged) ──────────────────────────────────────────
-
-  function _renderHorsZone(){
-    const el=document.getElementById('terrHorsZone');if(!el)return;
-    if(!_S.chalandiseReady||!_S.clientStore?.size){el.innerHTML='';return;}
-    const page=_S._horsZonePage||0;
-    const HZ_PAGE=20;
-    const _tcsHz=(_S._terrClientSearch||'').toLowerCase();const _mHz=rec=>!_tcsHz||rec.cc.includes(_tcsHz)||rec.nom.toLowerCase().includes(_tcsHz);
-    const hors=[];
-    for(const rec of _S.clientStore.values()){
-      if(rec.inChalandise)continue;
-      if((rec.caPDV||0)<200)continue;
-      if(!_passesAllFilters(rec.cc))continue;
-      if(!_mHz(rec))continue;
-      hors.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
-    }
-    hors.sort((a,b)=>b.caPDV-a.caPDV);
-    if(!hors.length){el.innerHTML='';return;}
-    let displayRows,pagerHtml='';
-    if(page===0){
-      displayRows=hors.slice(0,5);
-      if(hors.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_horsZoneExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hors.length} clients →</button></div>`;
-    }else{
-      const maxPage=Math.ceil(hors.length/HZ_PAGE);
-      const cur=Math.max(1,Math.min(page,maxPage));
-      if(_S._horsZonePage!==cur)_S._horsZonePage=cur;
-      displayRows=hors.slice((cur-1)*HZ_PAGE,cur*HZ_PAGE);
-      const prev=cur>1?`<button data-action="_horsZonePage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-      const next=cur<maxPage?`<button data-action="_horsZonePage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_horsZoneCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hors.length} clients</span></div>`;
-    }
-    const rows=displayRows.map(r=>{
-      const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
-      const silence=daysSince!==null?`${daysSince}j`:'—';
-      const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-      const _dc=deltaColor(r.caHors,r.caPDV);
-      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-    }).join('');
-    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients livrés au PDV mais absents de la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
-  }
-
-  function _passesAllFilters(cc){
-    // Filtre recherche client (terrSearch)
-    const _qCli=(_S._terrClientSearch||'').toLowerCase();
-    if(_qCli){
-      const info0=_S.chalandiseData?.get(cc);
-      const nom0=(info0?.nom||_S.clientNomLookup?.[cc]||'').toLowerCase();
-      if(!cc.includes(_qCli)&&!nom0.includes(_qCli))return false;
-    }
-    // Delegate all chalandise filters to _clientPassesFilters (engine.js)
-    // which handles: dept, classif, statut, statutDetaillé, activitéPDV,
-    // direction, commercial, métier, stratégique, univers, distance
-    const info=_S.chalandiseData?.get(cc);
-    if(info){
-      if(!_clientPassesFilters(info,cc))return false;
-    }else{
-      // Client not in chalandise — exclude if any chalandise filter is active
-      const _hasChalFilter=_S._selectedDepts?.size>0||_S._selectedClassifs?.size>0||_S._selectedStatuts?.size>0||_S._selectedActivitesPDV?.size>0||_S._selectedDirections?.size>0||_S._selectedUnivers?.size>0||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille||(_S._distanceMaxKm>0&&_S._agenceCoords);
-      if(_hasChalFilter)return false;
-    }
-    // Vue clients (specific to _passesAllFilters, not in _clientPassesFilters)
-    const view=_S._clientView||'tous';
-    if(view==='potentiels'&&_S.chalandiseData?.has(cc))return false;
-    if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
-    if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
-    if(view==='multicanaux'){const _r=_S.clientStore?.get(cc);if(!_r||(_r.caHors||0)<=(_r.caPDV||0))return false;}
-    if(view==='dormants'){const _r=_S.clientStore?.get(cc);const silence=_r?.silenceDaysPDV??999;if(silence<=180)return false;}
-    // Segment omnicanal (specific to _passesAllFilters)
-    if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
-    return true;
-  }
-
-  function _syncPDVToggles(){
-    const view=_S._clientView||'tous';
-    document.querySelectorAll('.client-view-btn').forEach(b=>{
-      const active=b.dataset.view===view;
-      b.classList.toggle('s-panel-inner',active);b.classList.toggle('t-inverse',active);b.classList.toggle('b-dark',active);
-      b.classList.toggle('s-card',!active);b.classList.toggle('t-primary',!active);b.classList.toggle('b-default',!active);
-    });
-  }
-
-  // ── Helper hasTerr — vérifie les vraies données territoire disponibles ──
-  // territoireReady peut rester false après restauration cache (bug connu),
-  // mais terrDirectionData et terrContribByDirection sont toujours peuplés.
-  const _hasTerritoire = () =>
-    _S.territoireReady
-    || Object.keys(_S.terrDirectionData||{}).length > 0
-    || (_S.terrContribByDirection?.size > 0);
-
-  // ── computeTerritoireKPIs — pure data for renderTerritoireTab ────────
-  function computeTerritoireKPIs(){
-    const livSansPDV=_S.livraisonsSansPDV||[];
-    const hasTerr=_hasTerritoire();
-    const hasChal=DataStore.chalandiseReady;
-    const hasData=DataStore.finalData.length>0;
-    const hasConsomme=_S.ventesLocalMagPeriode.size>0;
-    const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
-    let crossCaptes=0,crossFideles=0,crossPotentiels=0;
-    const hasCross=!!_S.crossingStats;
-    if(hasCross){
-      const _hasF=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille;
-      if(_hasF){
-        for(const cc of _S.crossingStats.captes){const info=_S.chalandiseData.get(cc);if(info&&_clientPassesFilters(info,cc))crossCaptes++;}
-        for(const cc of _S.crossingStats.fideles){const info=_S.chalandiseData.get(cc);if(!info||_clientPassesFilters(info,cc))crossFideles++;}
-      }else{crossCaptes=_S.crossingStats.captes.size;crossFideles=_S.crossingStats.fideles.size;}
-      crossPotentiels=_S.crossingStats.potentiels.size;
-    }
-    return{livSansPDV,hasTerr,hasChal,hasData,hasConsomme,degraded,hasCross,crossCaptes,crossFideles,crossPotentiels};
-  }
-
-  // ── computeClientsKPIs — pure data for renderMesClients ──────────────
-
-  function renderTerritoireTab(){
-    const k=computeTerritoireKPIs();
-    // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
-    {
-      const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-
-      // Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
-      _setEl('terrOpportunites', renderOppNetteTable());
-
-      // Angles Morts — familles tronc commun métier absentes chez le client
-      _setEl('terrAnglesMorts', renderAnglesMortsTable());
-
-    }
-
-    // Commerce tab always shows clients view (canal moved to Omnicanalité tab)
-
-    // [Adapter Étape 5] — DataStore.ventesTerrain / .finalData : canal-invariants
-    const{hasTerr,hasChal,hasData,hasConsomme,degraded}=k;
-    // terrNoChalandise: only when truly nothing loaded
-    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
-    // terrDegradedBlock: degraded mode only
-    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
-    // terrFiltersBlock (search/direction/secteur/rayon) — visible si fichier territoire chargé
-    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasData&&!hasConsomme);
-    const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
-
-    // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
-    {const _cg=_S._globalCanal||'';const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
-    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}
-
-    // Show chalandise overview + left panel filters if chalandise loaded
-    // NB: _buildChalandiseOverview() n'est PAS appelé ici — c'est le caller qui l'orchestre
-    _buildChalandiseOverviewInner();
-    const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
-    if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
-    const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
-
-
-    if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
-    if(degraded){_buildDegradedCockpit();return;}
-    if(!hasTerr){
-      _buildDegradedCockpit();
-      // terrDirectionContainer already handled above (hasChal path)
-      return;
-    }
-    const q=(document.getElementById('terrSearch')||{}).value||'';
-    const stockMap=_getFinalDataIndex();
-    // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
-    const _ctx=DataStore.byContext();
-    const _canalGlobal=_ctx.activeFilters.canal;
-    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRÉSENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-    const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
-
-    // ── Garde de cache territoire ─────────────────────────────────────────────
-    // Clé inclut commercial (V3.2) : terrLines differ si commercial actif
-    const _secteurKey=[...(getSelectedSecteurs()||[])].sort().join(',');
-    const _periodeKey=`${_S.periodFilterStart?.getTime()||0}-${_S.periodFilterEnd?.getTime()||0}`;
-    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}|${_periodeKey}`;
-    if(_S._terrCanalCache.has(_terrCacheKey)){
-      const _cached=_S._terrCanalCache.get(_terrCacheKey);
-      const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-      const _si=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
-      _si('terrDirectionTable',_cached.dirHtml);
-      _si('terrTop100Table',_cached.top100Html);
-      _si('terrClientsTable',_cached.cliHtml);
-      if(_cached.contribHtml)_si('terrContribTable',_cached.contribHtml);
-      _cached.kpi.forEach(([id,v])=>_sg(id,v));
-      // Éléments non-texte
-      const _ccEl=document.getElementById('terrKpiCouvertureInfo');if(_ccEl)_ccEl.classList.toggle('hidden',!_canalGlobal);
-      const _ctEl=document.getElementById('terrContribTitle');if(_ctEl){if(_canalGlobal)_ctEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _ctEl.textContent='🔗 Contributeurs agence';}
-      renderInsightsBanner();
-      return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
-    }
-
-    // Cache local : évite 3× _filterByPeriode sur ~250k lignes
-    const _allFilteredLines = DataStore.filteredTerritoireLines;
-
-    // Global KPI stats — always from ALL lines (for croisement summary, lignes KPI)
-    let caTotal=0,specialCA=0;
-    const blSetAll=new Set();
-    const clientsMap={};
-    const dirSet=new Set();
-    for(const l of _allFilteredLines){
-      caTotal+=l.ca;blSetAll.add(l.bl);
-      if(l.isSpecial)specialCA+=l.ca;
-      else dirSet.add(l.direction);
-      if(l.clientCode){if(!clientsMap[l.clientCode])clientsMap[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};clientsMap[l.clientCode].ca+=l.ca;clientsMap[l.clientCode].refs.add(l.code);}
-    }
-    const pctSpecial=caTotal>0?((specialCA/caTotal)*100).toFixed(1):'0';
-
-    // Canal-filtered stats for CA KPI + couverture rayon KPI
-    // [V3.2] terrLines déjà filtré canal + commercial par DataStore.byContext()
-    const _linesForKPI=_ctx.terrLines;
-    let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
-    const artMapAll={};
-    for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
-    const top100All=Object.values(artMapAll).sort((a,b)=>b.ca-a.ca).slice(0,100);
-    const top100InStock=top100All.filter(a=>a.rayonStatus==='green').length;
-    const pctCouverture=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
-
-    // Canal-filtered: special CA + clients — via getKPIsByCanal(_S._globalCanal)
-    // _linesForKPI already holds DataStore.byCanal(_canalGlobal).terrLines
-    let specialCAFiltered=0;const _clientsKPI={};
-    for(const l of _linesForKPI){if(l.isSpecial)specialCAFiltered+=l.ca;if(l.clientCode&&!_clientsKPI[l.clientCode])_clientsKPI[l.clientCode]={type:l.clientType};}
-    const pctSpecialFiltered=caTotalFiltered>0?((specialCAFiltered/caTotalFiltered)*100).toFixed(1):'0';
-    const mixteCountKPI=Object.values(_clientsKPI).filter(c=>c.type==='mixte').length;
-    const extCountKPI=Object.values(_clientsKPI).filter(c=>c.type==='exterieur').length;
-
-    // VOLET 3: Résumé croisement (always from ALL lines)
-    renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock);
-
-    // VOLET 2bis: Build secteur aggregates + contributeurs (always ALL lines — no canal filter)
-    buildTerrContrib();
-    renderTerrContrib();
-
-    // Update contrib title with "tous canaux" badge when canal filter active
-    const _contribTitleEl=document.getElementById('terrContribTitle');
-    if(_contribTitleEl){if(_canalGlobal)_contribTitleEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _contribTitleEl.textContent='🔗 Contributeurs agence';}
-
-    const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-    setSafe('terrKpiLignes',_allFilteredLines.length.toLocaleString('fr')); // filtrées par période
-    setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
-    // CA Total KPI: show canal-filtered value + note when filter active
-    setSafe('terrKpiCATotal',formatEuro(caTotalFiltered));
-    const _caTotalSubEl=document.getElementById('terrKpiCATotalSub');
-    if(_caTotalSubEl)_caTotalSubEl.textContent=_canalGlobal?`canal ${_canalGlobalLabel} uniquement`:'';
-    setSafe('terrKpiCouverture',pctCouverture+'%');
-    const t100Rupture=top100All.filter(a=>a.rayonStatus==='yellow').length;
-    setSafe('terrKpiCouvertureSub',`${top100InStock} en rayon · ${t100Rupture} rupture · ${top100All.length-top100InStock-t100Rupture} absents`);
-    // Couverture rayon badge: remind that stock is physical (independent of canal)
-    const _couvertureInfoEl=document.getElementById('terrKpiCouvertureInfo');
-    if(_couvertureInfoEl)_couvertureInfoEl.classList.toggle('hidden',!_canalGlobal);
-    setSafe('terrKpiSpecialPct',pctSpecialFiltered+'%');
-    setSafe('terrKpiSpecialSub',formatEuro(specialCAFiltered)+' non stockable');
-    setSafe('terrKpiClients',Object.keys(_clientsKPI).length.toLocaleString('fr'));
-    setSafe('terrKpiClientsSub',`✅ ${mixteCountKPI} mixtes · ❌ ${extCountKPI} ext. purs`);
-
-    // Special KPI banner
-    const spEl=document.getElementById('terrSpecialKPIText');
-    if(spEl)spEl.textContent=`${pctSpecialFiltered}% du CA Legallais est du spécial non stockable — ${formatEuro(specialCAFiltered)} (hors de la vue Direction, Top 100 et croisement rayon)`;
-
-    // Local filter — specials always excluded from direction/top100/rayon views
-    const selectedSecteurs=getSelectedSecteurs();
-    const linesFiltered=_allFilteredLines.filter(l=>{
-      if(_canalGlobal&&l.canal!==_canalGlobal)return false;
-      if(l.isSpecial)return false;
-      if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
-      if(q&&!matchQuery(q,l.code,l.libelle,l.direction,l.clientCode,l.clientNom))return false;
-      return true;
-    });
-
-    // Clients filtered by the same direction/rayon/secteur/search filters (for clients table)
-    const clientsMapFiltered={};
-    for(const l of linesFiltered){
-      if(l.clientCode){
-        if(!clientsMapFiltered[l.clientCode])clientsMapFiltered[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};
-        clientsMapFiltered[l.clientCode].ca+=l.ca;clientsMapFiltered[l.clientCode].refs.add(l.code);
-      }
-    }
-
-    // Direction table — new columns: CA Le Terrain | Nb articles | ✅ | ⚠️ | ❌ | % couverture
-    const dirs={};
-    for(const l of linesFiltered){
-      if(!dirs[l.direction])dirs[l.direction]={dir:l.direction,caTotal:0,refSet:new Set(),greenSet:new Set(),yellowSet:new Set(),redSet:new Set(),familles:{}};
-      const d=dirs[l.direction];d.caTotal+=l.ca;d.refSet.add(l.code);
-      if(l.rayonStatus==='green')d.greenSet.add(l.code);
-      else if(l.rayonStatus==='yellow')d.yellowSet.add(l.code);
-      else d.redSet.add(l.code);
-      const famKey=l.famille||'';
-      if(!d.familles[famKey])d.familles[famKey]={caTotal:0,nb:new Set()};
-      d.familles[famKey].caTotal+=l.ca;d.familles[famKey].nb.add(l.code);
-    }
-    const dirsSorted=Object.values(dirs).sort((a,b)=>b.caTotal-a.caTotal);
-    let tbody='';
-    for(const d of dirsSorted){
-      const nbTotal=d.refSet.size,nbGreen=d.greenSet.size,nbYellow=d.yellowSet.size,nbRed=d.redSet.size;
-      const pctCouv=nbTotal>0?Math.round(nbGreen/nbTotal*100):0;
-      const barColor=pctCouv>=70?'bg-emerald-500':pctCouv>=40?'bg-amber-500':'bg-red-500';
-      const rowId='terr-dir-'+d.dir.replace(/\W/g,'_');
-      const dirEnc=encodeURIComponent(d.dir);
-      tbody+=`<tr class="terr-row border-b font-semibold text-xs" onclick="toggleTerrDir('${rowId}','${dirEnc}')">
-        <td class="py-2 px-3 font-bold">${d.dir} <span class="t-disabled font-normal text-[9px]">▼</span></td>
-        <td class="py-2 px-3 text-right">${formatEuro(d.caTotal)}</td>
-        <td class="py-2 px-3 text-center">${nbTotal}</td>
-        <td class="py-2 px-3 text-center"><span class="terr-status-badge c-ok" title="Voir les ${nbGreen} articles en rayon" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','green')">✅ ${nbGreen}</span></td>
-        <td class="py-2 px-3 text-center"><span class="terr-status-badge c-caution" title="Voir les ${nbYellow} articles en rupture" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','yellow')">⚠️ ${nbYellow}</span></td>
-        <td class="py-2 px-3 text-center"><span class="terr-status-badge c-danger" title="Voir les ${nbRed} articles absents" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','red')">❌ ${nbRed}</span></td>
-        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctCouv}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCouv}%</span></div></td>
-      </tr><tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 i-info-bg"><div id="${rowId}-inner" class="text-xs"></div></td></tr>`;
-    }
-    const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 t-disabled">Aucune donnée</td></tr>';
-
-    // Top 100 standard articles only — columns: Code | Libellé | Direction | BL | CA Le Terrain | Rayon | Stock actuel
-    const artMap={};
-    for(const l of linesFiltered){
-      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,direction:l.direction,bl:new Set(),caTotal:0,rayonStatus:l.rayonStatus};
-      artMap[l.code].caTotal+=l.ca;artMap[l.code].bl.add(l.bl);
-    }
-    const top100=Object.values(artMap).sort((a,b)=>b.caTotal-a.caTotal).slice(0,100);
-    let p100='';
-    for(const a of top100){
-      const stockItem=stockMap.get(a.code);
-      const stockQty=stockItem?stockItem.stockActuel:'—';
-      const rayonIcon=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-      const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
-      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}${_copyCodeBtn(a.code)}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
-    }
-    const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 t-disabled">Aucun article</td></tr>';
-
-    // Clients top 50 — filtered by same filters as direction/top100 views + client search
-    const qCli=_S._terrClientSearch||'';
-    const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
-    let pCli='';
-    for(const c of clientsList){
-      const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
-      const rowBg=c.type==='exterieur'?'i-danger-bg':'';
-      pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}${_unikLink(c.code)}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
-    }
-    const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 t-disabled">Aucun client</td></tr>';
-
-    // Update insights banner — territory data (standard articles absents + clients ext purs)
-    const absentsTerr=Object.values(artMapAll).filter(a=>a.rayonStatus==='red').length;
-    const extClients=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
-    _S._insights.absentsTerr=absentsTerr;_S._insights.extClients=extClients;_S._insights.hasTerr=true;
-    renderInsightsBanner();
-
-    // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path) — différé (6.7MB HTML)
-    if(_S.chalandiseReady) setTimeout(()=>{const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);},0);
-
-    // ── Stockage cache territoire ─────────────────────────────────────────
-    // Captures les innerHTML APRÈS le rendu complet
-    // Guard : ne pas stocker si les éléments DOM n'existent pas encore (appel depuis _initFromCache)
-    if(!document.getElementById('terrTop100Table'))return;
-    const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
-    const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
-    _S._terrCanalCache.set(_terrCacheKey,{
-      dirHtml: _gi('terrDirectionTable'),
-      top100Html: _gi('terrTop100Table'),
-      cliHtml: _gi('terrClientsTable'),
-      contribHtml: _gi('terrContribTable'),
-      kpi: ['terrKpiLignes','terrKpiLignesSub','terrKpiCATotal','terrKpiCATotalSub',
-            'terrKpiCouverture','terrKpiCouvertureSub','terrKpiSpecialPct','terrKpiSpecialSub',
-            'terrKpiClients','terrKpiClientsSub','terrSpecialKPIText'].map(id=>[id,_gt(id)]),
-    });
-
-  }
-
-  function renderCockpitRupClients(){
-    const el=document.getElementById('cockpitRupClients');if(!el)return;
-    const ruptureArts=DataStore.finalData.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
-    const rupClients=[];
-    if(ruptureArts.length){
-      const clientRupMap=new Map();
-      for(const art of ruptureArts){
-        const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
-        for(const cc of buyers){
-          const nom=_S.clientStore?.get(cc)?.nom||cc;
-          const caArt=(DataStore.ventesLocalMagPeriode.get(cc)||new Map()).get(art.code);
-          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
-          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
-        }
-      }
-      rupClients.push(...clientRupMap.values());
-      rupClients.sort((a,b)=>b.caRup-a.caRup);
-    }
-    if(!rupClients.length){el.innerHTML='';return;}
-    const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
-    el.innerHTML=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacte</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
-  }
-
-  // ★ BADGES FILTRES ACTIFS
-
-
 
 // ── Chalandise — état filtre client (fusionné depuis territoire.js) ──────
 let _terrClientSearchTimer = null;
@@ -1281,7 +643,6 @@ function _buildChalandiseOverviewInner(force){
     bar.classList.remove('hidden');
   }}
   // Vue direction cascade — différé (6.7MB HTML ne doit pas bloquer le rendu)
-  setTimeout(()=>{const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);},0);
   // terrChalandiseOverview — table seulement si dans le DOM
   const blk=document.getElementById('terrChalandiseOverview');
   if(!blk)return;
@@ -1316,8 +677,6 @@ function _buildChalandiseOverviewInner(force){
   let html=renderOverviewL1Rows(dirsArr,{isSecteur:_isSec,colSpan});
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
-  // Mettre à jour la vue Canal avec les filtres actifs
-  window.renderCanalAgence();
 }
 function _renderOverviewL2(el,direction){
   let metiersArr=aggregateOverviewMetiers(direction,_overviewCaptePDVSet);
@@ -1363,67 +722,6 @@ const _toggleOverviewL2=_conqueteOverviewController.toggleOverviewL2;
 const _toggleOverviewL3=_conqueteOverviewController.toggleOverviewL3;
 const _toggleOverviewL4=_conqueteOverviewController.toggleOverviewL4;
 installConqueteOverviewController(_conqueteOverviewController);
-function _populateTerrFamilleFilter(){
-  const sel=document.getElementById('terrFamilleFilter');if(!sel||!DataStore.finalData.length)return;
-  const fams=[...new Set(DataStore.finalData.map(r=>r.famille).filter(Boolean))].sort((a,b)=>famLib(a).localeCompare(famLib(b)));
-  const cur=sel.value;
-  sel.innerHTML='<option value="">Toutes familles</option>';
-  fams.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=famLabel(f);sel.appendChild(o);});
-  if(cur)sel.value=cur;
-}
-
-
-function _buildDegradedCockpit(){
-  const el=document.getElementById('terrDegradedBlock');if(!el)return;
-  if(!DataStore.finalData.length && !_S.ventesLocalMagPeriode.size)return;
-  _populateTerrFamilleFilter();
-  const qClient=_S._terrClientSearch||'';
-  const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
-  const _today=new Date();
-  const fdIndex=_getFinalDataIndex();
-  // [V3.2] Canal + commercial depuis DataStore.byContext() — API unifiée
-  const {activeFilters:{canal:_terrCanalFilter,commercial:_terrComFilter}}=DataStore.byContext();
-  const _terrComSet=_terrComFilter?(_S.clientsByCommercial.get(_terrComFilter)||new Set()):null;
-  const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
-  let _clientArtMap;
-  if(_isNonMagasin){
-    // Canaux hors MAGASIN : utiliser ventesLocalHorsMag directement (v.sumCA = total non-MAGASIN)
-    // Ne pas filtrer par articleCanalCA — ce filtre pouvait vider _clientArtMap si articleCanalCA
-    // n'était pas peuplé (ex. lignes sans N° commande), ce qui faisait disparaître tout le bloc.
-    _clientArtMap=new Map();
-    for(const[cc,artMap] of _S.ventesLocalHorsMag.entries()){
-      const filtered=new Map();
-      for(const[artCode,v] of artMap.entries()){
-        if(v.sumCA>0)filtered.set(artCode,{sumCA:v.sumCA,sumCAPrelevee:v.sumCAPrelevee||0,sumCAAll:v.sumCA,sumPrelevee:v.sumPrelevee||0,countBL:v.countBL||0});
-      }
-      if(filtered.size>0)_clientArtMap.set(cc,filtered);
-    }
-  }else{
-    _clientArtMap=DataStore.ventesLocalMagPeriode;
-  }
-  // Silencieux >30j — MAGASIN uniquement (via clientStore.silenceDaysPDV)
-  const silencieux=[];
-  if(!_isNonMagasin&&_S.clientStore?.size){
-    for(const rec of _S.clientStore.values()){
-      const d=rec.silenceDaysPDV;if(d===null||d<=30||d>90)continue;
-      const artMap=_clientArtMap.get(rec.cc);if(!artMap)continue;
-      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||(fdIndex.get(artCode)?.famille||'')===selFam)ca+=(v.sumCAAll||v.sumCA||0);
-      if(ca<=0)continue;
-      if(qClient&&!matchQuery(qClient,rec.cc,rec.nom))continue;
-      silencieux.push({cc:rec.cc,nom:rec.nom,ca,d});
-    }
-    silencieux.sort((a,b)=>a.d-b.d);
-  }
-  const hasChal=_S.chalandiseReady;
-  const banner=`<div class="mb-3 p-3 i-caution-bg border b-light rounded-lg text-xs c-caution">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
-  let html=hasChal?'':banner;
-  if(!hasChal&&silencieux.length){
-    const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>45?'c-danger':'c-caution';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
-    html+=`<div class="i-danger-bg rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
-  }
-  if(!hasChal&&!silencieux.length)html+=`<p class="text-center t-disabled text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
-  el.innerHTML=html;
-}
 
 // ── Rendu pur (séparé du calcul) — rapide, utilisé aussi par pagination ──
 
@@ -1432,15 +730,33 @@ function _buildDegradedCockpit(){
 // ── Cockpit Client CSV Export ──
 
 // ── Export CSV Hors Zone → Table de Forçage prête à remplir ──
-
-export { _renderHorsZone, _passesAllFilters, _syncPDVToggles, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _getAllDepts, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _closeAllDropPanels, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _toggleExcludeActifsConsomme, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _renderOverviewL2, _toggleOverviewL3, _renderOverviewL3, _toggleOverviewL4, _overviewClientSort, _renderOverviewL4, _populateTerrFamilleFilter, _buildDegradedCockpit, renderCommerceTab };
+export { renderTerritoireTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _getAllDepts, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _closeAllDropPanels, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _toggleExcludeActifsConsomme, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _renderOverviewL2, _toggleOverviewL3, _renderOverviewL3, _toggleOverviewL4, _overviewClientSort, _renderOverviewL4, renderCommerceTab };
 
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
+// ── Squelette de la vue d'ensemble chalandise (ex-omni.js) ──
+function renderOmniContent() {
+  const s = window._S || {};
+  const hasChal     = !!s.chalandiseData?.size;
+  const hasConsomme = !!s.finalData?.length;
+  const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
+  if (!el) return;
+  el.innerHTML = `<div>
+  <section id="terrChalandiseOverview" class="hidden"><div class="pt-card pt-col" style="gap:14px;padding:20px">
+    <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+      <h3 class="pt-h2">Ton territoire en un coup d’œil</h3>
+      <div class="pt-row" style="gap:12px;flex-wrap:wrap"><span id="terrOverviewToggle" class="pt-row" style="gap:6px"></span><span id="terrOverviewSummaryLine" class="pt-small pt-muted"></span></div>
+    </div>
+    <div class="pt-list"><div class="tt-scroll"><table class="pt-table tt-table"><thead id="terrOverviewL1Head"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></div>
+  </div></section>
+</div>`;
+  const terrOverview=document.getElementById('terrChalandiseOverview');
+  if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
+}
+
 function renderCommerceTab() {
   // Tabs cockpit maintenant dans Fidélisation PDV — garder l'état actif
-  // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
+  // Sidebar : chips canal toujours visibles sur Commerce
   document.getElementById('globalCanalFilter')?.classList.remove('hidden');
-  document.getElementById('terrFamilleFilter')?.classList.add('hidden');
   const el = document.getElementById('tabCommerce');
   if (!el) return;
   // 1. Layout squelette — rapide
@@ -1461,10 +777,8 @@ function renderCommerceTab() {
   _commerceRafId = requestAnimationFrame(() => {
     _commerceRafId = 0;
     _buildOverviewFilterChips();
-    window.renderOmniContent?.();
+    renderOmniContent();
     _buildChalandiseOverviewData();
-    // renderTerritoireTab seulement si les blocs territoire sont visibles (fichier BL chargé)
-    if(_S.ventesTerrain?.length) renderTerritoireTab();
   });
 }
 
@@ -1501,8 +815,6 @@ window._ttCapterCsv=function(){
 // ── Window expositions ──────────────────────────────────────────────────
 window.renderTerritoireTab        = renderTerritoireTab;
 window.renderCommerceTab          = renderCommerceTab;
-window._renderHorsZone            = _renderHorsZone;
-window.computeTerritoireKPIs      = computeTerritoireKPIs;
 window._toggleOverviewClassif     = _toggleOverviewClassif;
 window._toggleOverviewDirection   = _toggleOverviewDirection;
 window._onActPDVSelect            = _onActPDVSelect;
@@ -1529,7 +841,5 @@ window._resetChalandiseFilters    = _resetChalandiseFilters;
 window._toggleOverviewL2          = _toggleOverviewL2;
 window._toggleOverviewL3          = _toggleOverviewL3;
 window._toggleOverviewL4          = _toggleOverviewL4;
-window._buildChalDirBlock         = _buildChalDirBlock;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
-window._buildDegradedCockpit      = _buildDegradedCockpit;
 window._renderOverviewL4          = _renderOverviewL4;

@@ -45,15 +45,6 @@ export function normalizeStr(str) {
   return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-// Vérifie que tous les mots de `query` sont présents dans au moins
-// un des champs fournis (recherche partielle, multi-mots, sans accents).
-// Retourne true si query est vide.
-export function matchQuery(query, ...fields) {
-  const terms = normalizeStr(query).split(/\s+/).filter(Boolean);
-  if (!terms.length) return true;
-  const haystack = fields.map(f => normalizeStr(f)).join(' ');
-  return terms.every(t => haystack.includes(t));
-}
 
 /** Pre-compile query terms once — call per filter change, not per row.
  *  Détecte le mode "recherche multiple" : si l'input contient plusieurs codes
@@ -125,40 +116,12 @@ export function cleanPrice(v) {
   return isNaN(n) ? 0 : n;
 }
 
-export function cleanOmniPrice(v) {
-  if (!v) return 0;
-  const s = v.toString().replace(/\s/g, '').replace(/€/g, '').replace(/,/g, '.');
-  return parseFloat(s) || 0;
-}
 
 const _FMT_EUR = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 export function formatEuro(n) {
   return _FMT_EUR.format(n);
 }
 
-export function buildPctBar(pct, {
-  color    = 'var(--c-action)',
-  bgColor  = 'var(--s-card-alt)',
-  height   = 6,
-  showLabel = false,
-  animated  = true,
-  max       = 100,
-  radius    = 'var(--r-sm)',
-  gradient  = false,
-  glow      = false,
-} = {}) {
-  const clamped = Math.min(100, Math.max(0, max > 0 ? (pct / max) * 100 : 0));
-  const fill = gradient
-    ? `linear-gradient(90deg, ${color}, var(--c-info, #38bdf8))`
-    : color;
-  const glowStyle = (glow && clamped > 80)
-    ? `;box-shadow:0 0 8px 1px ${color}40`
-    : '';
-  const label = showLabel
-    ? `<span style="font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:${color};margin-left:var(--sp-1);white-space:nowrap;font-variant-numeric:tabular-nums">${Math.round(clamped)}%</span>`
-    : '';
-  return `<div style="display:flex;align-items:center;gap:4px;width:100%"><div style="flex:1;height:${height}px;background:${bgColor};border-radius:${radius};overflow:hidden"><div style="width:${clamped}%;height:100%;background:${fill};border-radius:${radius}${animated ? ';transition:width .5s ease' : ''}${glowStyle}"></div></div>${label}</div>`;
-}
 
 export function buildSkeletonTable(rows = 8, cols = 5) {
   const widths = ['sk-short', 'sk-long', 'sk-medium', 'sk-full', 'sk-short'];
