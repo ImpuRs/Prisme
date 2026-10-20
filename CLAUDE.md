@@ -74,6 +74,11 @@ js/
                    ton CA, 12 mois tous canaux, _byMonthStoreArtCanal), rayon prêt (ruptures + trous réseau),
                    qui inviter (fidèles / sans la machine / à relancer / concurrence, export tournée)
                    (Associations, Duel agence, Banc d'essai retirés oct. 2026 — inutilisés)
+  article-360.js — fiche article 360 (article de l'agence ; openArticlePanel y délègue, hors agence = kit d'implantation
+                   de diagnostic.js) : verdict en une phrase, ventes 24 mois vs N-1, jauge stock ERP/PRISME + « Pourquoi ce
+                   mini/maxi » (explainMinMax, minmax.js), ventes perdues (rupture seulement : ventes/jour en stock × jours depuis
+                   la dernière sortie × saison, au prix de vente puis à la marge ; dateSortie/dateEntree gardées sur finalData),
+                   clients, autres agences, co-achats
   diagnostic.js  — overlay diagnostic cascade adaptatif : openDiagnostic,
                    openClient360, renderDiagnosticPanel
   sources.js     — fichiers gardés (base IDB PRISME_SOURCES, non purgée) : mise à jour par fusion,

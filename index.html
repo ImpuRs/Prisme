@@ -1349,6 +1349,56 @@
     .pt-link:disabled { opacity:.35; cursor:default; }
     /* ── Arbitrage (Pilotage Stock) — même langage que La partie ── */
     #tabArbitrage, #tabPortefeuille, #tabAnimation { font-family:'Geist',system-ui,sans-serif; color:var(--t-primary); }
+    /* ── Fiche article 360 (article-360.js) ── */
+    #articlePanel.a360-panel { max-width:1120px !important; width:min(1120px, calc(100vw - 32px)); padding:0; }
+    .a360 { display:flex; flex-direction:column; gap:18px; padding:22px 26px 26px; color:var(--t-primary); animation:a360in .22s ease-out; }
+    @keyframes a360in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .a360-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; position:sticky; top:-22px; padding-top:4px; background:var(--s-card); z-index:2; }
+    .a360-title { margin:0; font-size:22px; font-weight:650; line-height:1.25; }
+    .a360-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .a360-b { min-height:38px; padding:0 12px; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; }
+    .a360-verdict { display:flex; gap:12px; align-items:center; padding:14px 16px; border-radius:14px; font-size:16px; font-weight:600; background:var(--s-card-alt); border:1px solid var(--pt-line); }
+    .a360-verdict[data-tone="low"] { box-shadow:0 0 0 1px color-mix(in srgb, var(--pt-low) 45%, transparent), 0 0 28px color-mix(in srgb, var(--pt-low) 14%, transparent); }
+    .a360-verdict[data-tone="mid"] { box-shadow:0 0 0 1px color-mix(in srgb, var(--pt-mid) 45%, transparent), 0 0 28px color-mix(in srgb, var(--pt-mid) 12%, transparent); }
+    .a360-verdict[data-tone="high"] { box-shadow:0 0 0 1px color-mix(in srgb, var(--pt-high) 40%, transparent); }
+    .a360-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .a360-tile { display:flex; flex-direction:column; gap:4px; padding:14px 16px; border-radius:14px; background:var(--s-card-alt); border:1px solid var(--pt-line); min-width:0; }
+    .a360-tile[data-tone="low"] .a360-tv { color:var(--pt-low); } .a360-tile[data-tone="mid"] .a360-tv { color:var(--pt-mid); }
+    .a360-tv { font-size:26px; font-weight:650; line-height:1.1; }
+    .a360-nav { display:flex; gap:6px; flex-wrap:wrap; }
+    .a360-nav a { padding:6px 12px; border-radius:999px; border:1px solid var(--pt-line); color:var(--t-secondary); font-size:13px; text-decoration:none; }
+    .a360-nav a:hover { color:var(--t-primary); border-color:var(--t-tertiary); }
+    .a360-2c { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px; align-items:start; }
+    .a360-sec { display:flex; flex-direction:column; gap:12px; padding:16px 18px; border-radius:16px; background:var(--s-card-alt); border:1px solid var(--pt-line); scroll-margin-top:90px; min-width:0; }
+    .a360-h { display:flex; flex-direction:column; gap:2px; } .a360-h h3 { margin:0; font-size:16px; font-weight:650; }
+    .a360-chart { width:100%; height:auto; display:block; }
+    .a360-bar { fill:var(--c-action, #60a5fa); } .a360-prev { fill:var(--t-tertiary); opacity:.35; } .a360-rup { fill:var(--pt-low); opacity:.12; }
+    .a360-ax { fill:var(--t-tertiary); font-size:12px; }
+    .a360-legend, .a360-gl { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--t-secondary); }
+    .a360-k { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+    .a360-k-cur { background:var(--c-action, #60a5fa); } .a360-k-prev { background:var(--t-tertiary); opacity:.5; } .a360-k-rup { background:var(--pt-low); opacity:.4; }
+    .a360-k-erp { background:#60a5fa; } .a360-k-pr { background:var(--pt-mid); }
+    .a360-gauge { position:relative; height:22px; border-radius:999px; background:rgba(255,255,255,.05); overflow:visible; }
+    .a360-band { position:absolute; top:0; bottom:0; background:color-mix(in srgb, var(--pt-high) 18%, transparent); border-radius:999px; }
+    .a360-fill { position:absolute; left:0; top:6px; height:10px; border-radius:999px; background:var(--pt-high); transition:width .5s ease; }
+    .a360-fill[data-tone="mid"] { background:var(--pt-mid); } .a360-fill[data-tone="low"] { background:var(--pt-low); }
+    .a360-mk { position:absolute; top:-3px; width:3px; height:28px; border-radius:2px; transform:translateX(-1px); }
+    .a360-mk-erp { background:#60a5fa; } .a360-mk-pr { background:var(--pt-mid); }
+    .a360-why summary, .a360-tech summary { cursor:pointer; color:var(--t-link, #60a5fa); font-weight:600; font-size:14px; }
+    .a360-why ol, .a360-calc { margin:8px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:6px; font-size:14px; line-height:1.5; color:var(--t-secondary); }
+    .a360-why b, .a360-calc b { color:var(--t-primary); }
+    .a360-big { font-size:26px; font-weight:650; } .a360-big span { font-size:15px; font-weight:500; color:var(--t-secondary); }
+    .a360-hb { display:grid; grid-template-columns:120px minmax(0,1fr) auto; gap:10px; align-items:center; font-size:13px; }
+    .a360-hb-l { color:var(--t-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .a360-hb-t { position:relative; height:10px; border-radius:999px; background:rgba(255,255,255,.05); }
+    .a360-hb-t i { position:absolute; left:0; top:0; bottom:0; border-radius:999px; background:var(--t-tertiary); opacity:.7; }
+    .a360-hb-t em { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--t-primary); opacity:.6; }
+    .a360-me .a360-hb-l, .a360-me .a360-hb-v { color:var(--pt-mid); font-weight:700; } .a360-me .a360-hb-t i { background:var(--pt-mid); opacity:1; }
+    .a360-chips { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+    .a360-chip { display:flex; flex-direction:column; gap:2px; text-align:left; padding:10px 12px; border-radius:12px; border:1px solid var(--pt-line); background:transparent; color:var(--t-primary); font:inherit; font-size:13px; cursor:pointer; }
+    .a360-chip:hover { border-color:var(--t-tertiary); }
+    @media (max-width:1000px) { .a360-2c { grid-template-columns:1fr; } .a360-tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (prefers-reduced-motion: reduce) { .a360, .a360-fill { animation:none; transition:none; } }
     /* Reporting (rapport.js) */
     #reportingPanel { max-width:1040px; }
     .rp { display:flex; flex-direction:column; gap:22px; color:var(--t-primary); }
@@ -2158,8 +2208,8 @@
   </script>
   <script>
   (function () {
-    var ASSET_V = '20261020q';
-    var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
+    var ASSET_V = '20261020s';
+    var F = ['agence-store', 'animation', 'arbitrage', 'article-360', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
     var s = document.createElement('script');

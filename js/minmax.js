@@ -95,6 +95,42 @@ function _seriesCalc(code, w) {
   return { daily, events, pairs: raw.pairs };
 }
 
+/** Détail du calcul « taux de service » d'un article, pour la fiche article (« Pourquoi ce mini / maxi ? »).
+ *  Mêmes étapes que minMaxService ; ne modifie rien. Retourne { rule, … } où rule ∈
+ *  'nouveaute' | 'statut' | 'une_vente' | 'deux_ventes' | 'calcul' | 'sans_donnees'. */
+export function explainMinMax(r, prm = MINMAX_DEFAULTS) {
+  const w = _window();
+  if (!w || !r) return { rule: 'sans_donnees' };
+  const { daily, events } = _seriesCalc(r.code, w);
+  const raw = _series(r.code, w);
+  const base = { nbVentes: events.length, lead: prm.lead, cycle: prm.cycle, fenetre: w };
+  if (r.isNouveaute) return { ...base, rule: 'nouveaute', min: r.ancienMin || 0, max: r.ancienMax || 0 };
+  if (['2', '3', '4'].includes(String(r.statut || '').charAt(0))) return { ...base, rule: 'statut', min: 0, max: 0 };
+  if (events.length <= 1) return { ...base, rule: 'une_vente', min: 0, max: 0 };
+  if (events.length === 2) return { ...base, rule: 'deux_ventes', min: 1, max: 2 };
+  const days = w.d1 - w.d0 + 1;
+  const tot = events.reduce((t, q) => t + q, 0);
+  const mu = tot / days;
+  let s2 = 0;
+  for (let i = 0; i < days; i++) { const x = (daily.get(w.d0 + i) || 0) - mu; s2 += x * x; }
+  const sigma = Math.sqrt(s2 / Math.max(1, days - 1));
+  const sl = prm.service[r.abcClass] || prm.service.C;
+  const z = Z(sl);
+  const adi = days / Math.max(1, daily.size);
+  const intermittent = adi > 1.32;
+  const rate = intermittent ? mu * 0.95 : mu;
+  const sorted = [...events].sort((a, b) => a - b);
+  const qOrder = sorted[Math.min(sorted.length - 1, Math.floor(sl * sorted.length))];
+  const besoinDelai = rate * prm.lead, securite = z * sigma * Math.sqrt(prm.lead);
+  const parRythme = Math.ceil(besoinDelai + securite);
+  const min = Math.max(parRythme, qOrder, 1);
+  const cycleQte = Math.max(1, Math.round(rate * prm.cycle));
+  const rawMax = raw.events.length ? Math.max(...raw.events) : 0;
+  return { ...base, rule: 'calcul', days, tot, rate, intermittent, sigma, service: sl, z, besoinDelai, securite,
+    parRythme, qOrder, min, cycleQte, max: min + cycleQte,
+    rabote: rawMax > (events.length ? Math.max(...events) : 0) ? rawMax : 0 };
+}
+
 /** Nombre de ventes (BL) de l'article chez toi sur les 12 derniers mois complets. */
 export function localSalesCount12m(code) {
   const w = _window();
