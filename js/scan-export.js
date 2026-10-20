@@ -94,11 +94,17 @@ window.importEanCSV = function(fileInput) {
       const rows = text.split('\n');
       if (!_S.catalogueEAN) _S.catalogueEAN = new Map();
       let added = 0;
+      // Ordre des colonnes d'après l'en-tête : l'export du Scan écrit « EAN;Code Article;Libelle »
+      const hdr = (rows[0] || '').split(';').map(c => c.trim().replace(/^"|"$/g, '').toLowerCase());
+      let iEan = hdr.findIndex(h => h.includes('ean'));
+      let iCode = hdr.findIndex(h => h.includes('code') || h.includes('article'));
+      if (iEan < 0 || iCode < 0 || iEan === iCode) { iEan = 0; iCode = 1; }
       for (let i = 1; i < rows.length; i++) {
         const cols = rows[i].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
         if (cols.length < 2) continue;
-        const code = cols[0].replace(/\D/g, '');
-        const ean = cols[1].replace(/\D/g, '');
+        let code = (cols[iCode] || '').replace(/\D/g, '');
+        if (code.length > 0 && code.length < 6) code = code.padStart(6, '0'); // zéros retirés par Excel
+        const ean = (cols[iEan] || '').replace(/\D/g, '');
         if (code.length !== 6 || ean.length < 8) continue;
         if (!_S.catalogueEAN.has(ean)) {
           _S.catalogueEAN.set(ean, code);

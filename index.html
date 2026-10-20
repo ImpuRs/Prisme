@@ -2148,8 +2148,17 @@
        Chaque fichier js/*.js est servi avec ?v=ASSET_V via l'import map → jamais de mélange
        ancien/nouveau après un déploiement. Nouveau module = l'ajouter à la liste. -->
   <script>
+  // Anciennes versions du Scan : service worker enregistré sur tout le site (il servait parfois de vieux fichiers
+  // à PRISME). L'appli n'a pas de service worker à elle : on retire tout ce qui n'est pas limité au Scan.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      rs.forEach(function (r) { if (!/\/scan\/?$/.test(new URL(r.scope).pathname)) r.unregister(); });
+    }).catch(function () {});
+  }
+  </script>
+  <script>
   (function () {
-    var ASSET_V = '20261020j';
+    var ASSET_V = '20261020k';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });
