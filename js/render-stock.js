@@ -5,31 +5,30 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, defaultPeriodRange, isShortAutoPeriod, extractFamCode, famLib, famLabel, sortRowsInPlace } from './utils.js';
-import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, isParentRef, computeABCFMR, calcCouverture, formatCouv, computeClientCrossing, _clientStatusBadge, _unikLink, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette, computeVitesseReseau, isInvendu, isSurStock, excedentSurStock } from './engine.js';
-import { parseChalandise, parseLivraisons, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, closeReporting, renderTableContext, copyReportText, downloadCSV, wrapGlossaryTerms, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onPurgeCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
-import { getVentesClientMagFull, hasVentesClientMagFull, getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
-import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
-import { initRouter } from './router.js';
+import { PAGE_SIZE, DORMANT_DAYS, AGE_BRACKETS } from './constants.js';
+import { formatEuro, pct, getAgeBracket, getAgeLabel, _median, _copyCodeBtn, _copyAllCodesDirect, escapeHtml, defaultPeriodRange, isShortAutoPeriod, famLib, famLabel, sortRowsInPlace } from './utils.js';
+import { _S, invalidateCache } from './state.js';
+import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock } from './engine.js';
+import { loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { showToast, collapseImportZone, switchTab, populateSelect, getFilteredData, onFilterChange, resetFilters, filterByAge, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, updatePeriodAlert, renderInsightsBanner, renderTableContext, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
+import { _restoreFromCache, _showCacheBanner, _restoreExclusions, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
+import { getArticleLastSaleMonthIdx, monthIdxFromDate } from './sales.js';
+import './helpers.js';
 import { buildClientStore } from './client-store.js';
 import { applyForcageCommercial as _applyForcageCommercial } from './chalandise-store.js';
 import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
-import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio } from './diagnostic.js';
-import { renderPlanRayon, renderPlanStock } from './planRayon.js';
+import { openDiagnostic, openArticlePanel, _renderDiagnosticCellPanel } from './diagnostic.js';
+import { renderPlanRayon } from './planRayon.js';
 import { renderArbitrageTab } from './arbitrage.js';
-import { renderEssaiTab, applyMinMaxServiceLevel, localSalesCount12m } from './stock-lab.js';
+import { renderEssaiTab } from './stock-lab.js';
 import { renderTesClients } from './clients-decisions.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js';
 import { renderPartieTab } from './partie.js';
-import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
-import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles } from './territoire.js';
-import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, renderTerritoireTab, renderCockpitRupClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _buildDegradedCockpit } from './commerce.js';
+import { renderCanalAgence, renderOmniTab } from './omni.js';
+import { _renderGhostArticles } from './territoire.js';
+import './commerce.js';
 import { renderSidebarAgenceSelector } from './main.js';
 import { applyPeriodFilter, buildPeriodFilter } from './periode.js';
 import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCanal, _syncTabAccess } from './pipeline.js';
@@ -658,7 +657,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       _mc('crossing + distances');
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
-      if (_S.chalandiseReady && DataStore.ventesLocalMagPeriode.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); computeFamillesHors(); }
+      if (_S.chalandiseReady && DataStore.ventesLocalMagPeriode.size) { resetBenchMetierCache(); computeOpportuniteNette(); computeAnglesMorts(); computeOmniScores(); }
       buildClientStore();_applyForcageCommercial();_mc('buildClientStore');
       if (_S.ventesLocalHorsMag.size) _rebuildCaByArticleCanal();
       if(_S.ventesLocalMagPeriode.size) _computeClientDominantUnivers();

@@ -89,7 +89,6 @@ js/
                    prepareSources() en tête de processData — consommé fusionné par (mois × agence),
                    24 mois glissants ; chalandise fusionnée client par client (absents gardés,
                    colonne « Dans le dernier export » = non → info._absentExport) ; stock remplacé
-  router.js      — initRouter (hash routing minimal)
   main.js        — point d'entrée (~360 lignes depuis oct. 2026) : imports, mode mobile, exposition window.*
                    pour les onclick HTML, sélecteur agence, écouteurs, ACTION_REGISTRY
   periode.js     — filtre période global : sélecteur, applyPeriodFilter, _refilterFromByMonth

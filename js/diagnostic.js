@@ -7,14 +7,14 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { RADAR_LABELS } from './constants.js';
-import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
+import './constants.js';
+import { formatEuro, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
 import { computeSquelette, OMNI_PROFILS, isClientAgence } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { buildArticleAggFromByMonth, getClientCAMagasinInMonthRange, getClientCAParAutreAgence, getClientArticlesJamaisIci, getVentesHorsMagFullMap } from './sales.js';
-import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, _isPDVActif, isCapteLegallais, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeBenchMetier, computePriceGap, computeVitesseReseau, isCapteLegallais, _diagClientPrio, _diagClassifPrio, _unikLink, _legallaisArticleLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -1761,81 +1761,6 @@ function _diagVoyant3(famille,hasMulti){
   const strongMissing=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
   return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:isFamilyAbsent?missing:missing.slice(0,25),inStockNotSold:inStockNotSold.slice(0,15),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size,isFamilyAbsent};
 }
-function _diagV3FilterCategory(containerId,cat){
-  const container=document.getElementById(containerId);if(!container)return;
-  const kpisBar=container.previousElementSibling;
-  if(kpisBar)kpisBar.querySelectorAll('.diag-kpi-pill[data-cat]').forEach(btn=>{btn.classList.toggle('active',btn.dataset.cat===cat);});
-  container.querySelectorAll('[data-v3cat]').forEach(sec=>{sec.style.display=sec.dataset.v3cat===cat?'':'none';});
-}
-function _diagRenderV3(v,hasMulti){
-  if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] c-ok mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
-  // ── Catégorisation des articles pour KPI bar
-  const isCellMode=v.isCellMode;
-  const commander=[];const verifier=[];const exclusivites=v.exclusives||[];
-  for(const a of(v.missing||[])){
-    const isStrong=isCellMode?(a.networkFmr==='F'||a.networkFmr==='M'):(a.abcClass==='A'||a.abcClass==='B');
-    if(isStrong)commander.push(a);else verifier.push({...a,_vtype:'missing'});
-  }
-  for(const a of(v.inStockNotSold||[]))verifier.push({...a,_vtype:'instock'});
-  const nbCmd=commander.length,nbVerif=verifier.length,nbExcl=exclusivites.length;
-  const defaultCat=nbCmd>0?'commander':nbVerif>0?'verifier':'exclusivites';
-  // ── Pill helper
-  const _pill=(a,type)=>{
-    const agStr=v.nbOtherStores?`${a.nbStores}/${v.nbOtherStores} ag.`:'';
-    const freqVal=a.medFreq??a.myFreq??0;
-    const precoStr=(isCellMode&&a.precoMin)?`<span class="text-[10px] text-cyan-300 flex-shrink-0">MIN:${a.precoMin}/MAX:${a.precoMax}</span>`:'';
-    const stockStr=type==='instock'?`<span class="text-[10px] c-caution flex-shrink-0">Stock:${a.stockActuel}</span>`:'';
-    const medCAStr=v.isFamilyAbsent&&a.medCA?`<span class="text-[10px] c-ok flex-shrink-0">${formatEuro(a.medCA)}</span>`:'';
-    return`<div class="flex items-center gap-2 py-1.5 px-3 mb-1 rounded-lg s-panel-inner border b-dark"><span class="font-mono text-[10px] t-inverse-muted flex-shrink-0">${a.code}</span><span class="text-[11px] text-white font-semibold flex-1 truncate">${a.lib}</span>${precoStr}${stockStr}${medCAStr}<span class="text-[10px] c-ok font-bold flex-shrink-0">${agStr}</span><span class="text-[10px] t-inverse-muted flex-shrink-0">Fréq.${freqVal}</span></div>`;
-  };
-  const _exclPill=a=>`<div class="flex items-center gap-2 py-1.5 px-3 mb-1 rounded-lg s-panel-inner border b-dark"><span class="font-mono text-[10px] t-inverse-muted flex-shrink-0">${a.code}</span><span class="text-[11px] text-white font-semibold flex-1 truncate">${a.lib}</span><span class="text-[10px] c-action font-bold flex-shrink-0">Excl.</span><span class="text-[10px] t-inverse-muted flex-shrink-0">Fréq.${a.myFreq||0}</span></div>`;
-  const _pillsSection=(items,pillFn,emptyMsg)=>{
-    if(!items.length)return`<p class="text-[10px] t-inverse-muted">${emptyMsg}</p>`;
-    const first5=items.slice(0,5).map(a=>pillFn(a)).join('');
-    const rest=items.slice(5);
-    if(!rest.length)return first5;
-    return`${first5}<details><summary class="text-[10px] t-inverse-muted hover:text-white mt-1">▶ Voir ${rest.length} autre${rest.length>1?'s':''}</summary><div class="mt-1">${rest.map(a=>pillFn(a)).join('')}</div></details>`;
-  };
-  // ── Ligne CA (mode famille) ou référence (mode cellule)
-  let introLine='';
-  if(!isCellMode){
-    const caIcon=v.caEcart>=0?'🟢':v.caEcart>=-50?'🟠':'🔴';
-    const ecartStr=(v.caEcart>=0?'+':'')+v.caEcart+'%';
-    const ecartColor=v.caEcart>=0?'c-ok':v.caEcart>=-50?'c-caution':'c-danger';
-    introLine=v.medCA>0
-      ?`<p class="text-xs mb-3">${caIcon} Votre CA : <strong class="text-white">${formatEuro(v.myCA)}</strong> vs médiane réseau <strong class="text-white">${formatEuro(v.medCA)}</strong> <span class="${ecartColor}">(${ecartStr})</span></p>`
-      :`<p class="text-xs mb-3">Votre CA : <strong class="text-white">${formatEuro(v.myCA)}</strong> <span class="t-inverse-muted">(médiane non calculable)</span></p>`;
-  }else{
-    const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;
-    introLine=`<p class="text-xs mb-3">${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${(v.missing||[]).length>0?`<span class="c-caution">${v.missing.length} absent${v.missing.length>1?'s':''} chez vous</span>`:'<span class="c-ok">gamme complète</span>'}${nbVerif>0?` · <span class="c-caution">${nbVerif} à vérifier</span>`:''}</p>`;
-  }
-  // ── Badge status
-  const badgeStatus=isCellMode?v.status:(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error');
-  const borderStatus=badgeStatus==='error'?'error':badgeStatus==='warn'?'warn':'ok';
-  // ── Container ID unique
-  const v3cId='diagV3Container';
-  return`<div class="diag-voyant diag-v3 diag-border-${borderStatus}">
-    <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-ok">🔭 Le Réseau</span>${_diagBadge(badgeStatus)}</div>
-    ${introLine}
-    <div class="flex gap-2 mb-3 flex-wrap" id="diagV3Kpis">
-      <button class="diag-kpi-pill${defaultCat==='commander'?' active':''}" data-cat="commander" onclick="_diagV3FilterCategory('${v3cId}','commander')"${nbCmd===0?' disabled':''}>🔴 <strong>${nbCmd}</strong> à commander</button>
-      <button class="diag-kpi-pill${defaultCat==='verifier'?' active':''}" data-cat="verifier" onclick="_diagV3FilterCategory('${v3cId}','verifier')"${nbVerif===0?' disabled':''}>🟠 <strong>${nbVerif}</strong> à vérifier</button>
-      <button class="diag-kpi-pill${defaultCat==='exclusivites'?' active':''}" data-cat="exclusivites" onclick="_diagV3FilterCategory('${v3cId}','exclusivites')"${nbExcl===0?' disabled':''}>⭐ <strong>${nbExcl}</strong> exclusivité${nbExcl>1?'s':''}</button>
-    </div>
-    <div id="${v3cId}">
-      <div data-v3cat="commander"${defaultCat!=='commander'?' style="display:none"':''}>
-        ${nbCmd>0?`<p class="text-[10px] c-danger font-bold mb-1.5">Articles absents en forte rotation réseau — à commander :</p>${_pillsSection(commander,a=>_pill(a,'missing'),'')}`:`<p class="text-[10px] c-ok">✅ Tous les articles forte rotation réseau sont dans votre rayon.</p>`}
-      </div>
-      <div data-v3cat="verifier"${defaultCat!=='verifier'?' style="display:none"':''}>
-        ${nbVerif>0?`<p class="text-[10px] c-caution font-bold mb-1.5">${verifier.some(a=>a._vtype==='instock')?'En stock sans vente · ':''}Articles à vérifier (gamme, visibilité rayon) :</p>${_pillsSection(verifier,a=>_pill(a,a._vtype||'missing'),'')}`:`<p class="text-[10px] c-ok">✅ Aucun article à vérifier.</p>`}
-      </div>
-      <div data-v3cat="exclusivites"${defaultCat!=='exclusivites'?' style="display:none"':''}>
-        ${nbExcl>0?`<p class="text-[10px] c-action font-bold mb-1.5">Articles que vous vendez et &lt;2 autres agences vendent :</p>${_pillsSection(exclusivites,_exclPill,'')}`:`<p class="text-[10px] t-inverse-muted">Aucune exclusivité dans cette famille.</p>`}
-      </div>
-    </div>
-  </div>`;
-}
-
 // ── Métier-mode level functions (diagnostic opened from a métier, not a famille) ──
 function _diagLevel1Metier(metier){
   const metierClients=new Set();
@@ -2011,6 +1936,7 @@ function _diagRenderL4(l,hasChal){
   </div>`;
 }
 
+window._copyDiagPlan = _copyDiagPlan;
 function _copyDiagPlan(){
   if(!_S._diagPlanCopyText)return;
   navigator.clipboard.writeText(_S._diagPlanCopyText).then(()=>{
@@ -2028,7 +1954,7 @@ function _diagRenderPlan(famille,actions){
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-extrabold text-sm text-white">📋 Plan d'action — <span class="text-cyan-400">${famille}</span></h3>
       <div class="flex items-center gap-2">
-        <button id="_diagCopyBtn" onclick="_copyDiagPlan()" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📋 Copier</button>
+        <button id="_diagCopyBtn" onclick="window._copyDiagPlan()" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📋 Copier</button>
         <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📥 CSV</button>
       </div>
     </div>
@@ -2054,4 +1980,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio };
+export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume, _c360ExportRadio };

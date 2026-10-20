@@ -4,14 +4,14 @@
 import { _S } from './state.js';
 import { refreshContextBar } from './contexte.js';
 import { DataStore } from './store.js';
-import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, daysBetween, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection, formatLocalYMD } from './utils.js';
-import { _clientPassesFilters, _unikLink, _passesClientCrossFilter, _isPerdu, _isPerdu24plus, getUniversFilteredCA } from './engine.js';
+import { formatEuro, escapeHtml, _copyCodeBtn, matchQuery, famLib, famLabel, _normalizeClassif, _normalizeStatut, _isMetierStrategique, getSecteurDirection } from './utils.js';
+import { _clientPassesFilters, _unikLink } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
-import { renderInsightsBanner, showToast } from './ui.js';
+import { renderInsightsBanner } from './ui.js';
 import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
-import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
+import { openClient360, closeDiagnostic } from './diagnostic.js';
 import { getClientsActiveSetInPeriod, currentYearMonthRange } from './sales.js';
-import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getFilteredChalandiseEntries as _getFilteredChalandiseEntriesRaw, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
+import { aggregateOverviewGroups, aggregateOverviewClients, aggregateOverviewMetiers, aggregateOverviewSecteurs, aggregateACapter, buildOverviewCacheKey as _buildOverviewCacheKey, getOverviewMode, invalidateFilteredChalandise, passesOverviewClient as _passesOverviewClientRaw, setOverviewMode } from './commerce-conquete.js';
 import { renderOverviewHead, renderOverviewL1Rows, renderOverviewL2Table, renderOverviewL3Table, renderOverviewL4Table } from './commerce-conquete-view.js';
 import { createConqueteOverviewController, installConqueteOverviewController } from './commerce-conquete-controller.js';
 

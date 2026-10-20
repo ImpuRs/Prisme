@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { METIERS_STRATEGIQUES, METIERS_STRATEGIQUES_EXACT, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, FAMILLE_HORS_CATALOGUE } from './constants.js';
+import { METIERS_STRATEGIQUES_EXACT, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, FAMILLE_HORS_CATALOGUE } from './constants.js';
 
 export function escapeHtml(s) {
   return String(s === null || s === undefined ? '' : s)

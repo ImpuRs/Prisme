@@ -4,7 +4,7 @@ import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, famLib, escapeHtml, fmtDate, matchQuery, getSecteurDirection, buildPctBar } from './utils.js';
 import { _clientStatusBadge, _unikLink } from './engine.js';
-import { showToast } from './ui.js';
+import './ui.js';
 import { getSelectedSecteurs } from './parser.js';
 
 function _renderGhostArticles() {
