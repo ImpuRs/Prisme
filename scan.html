@@ -568,7 +568,7 @@ function _useRows(rows, meta, source) {
   DATA_SOURCE = source;
   const st = meta?.store || meta?.selectedMyStore;
   if (st) { CTX.agency = st; CTX.greeting = st; }
-  window._dataInfo = { t: meta?.dataDate || meta?.timestamp || 0, source };
+  window._dataInfo = { t: meta?.dataDate || meta?.timestamp || 0, saved: meta?.timestamp || 0, source };
   console.log('[Prisme] ' + source + ' · ' + ARTICLES.length + ' articles');
   window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source } }));
 }
@@ -627,6 +627,33 @@ function _fetchScanJson() {
 }
 
 hydrateFromIDB();
+
+// ── Mise à jour à chaud : PRISME vient d'enregistrer de nouvelles données (autre onglet), ou retour sur l'onglet du Scan ──
+function _refreshFromIDB(force) {
+  if (typeof indexedDB === 'undefined' || !_hydrated) return;
+  let req;
+  try { req = indexedDB.open('PRISME'); } catch (e) { return; }
+  req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (e) {} };
+  req.onsuccess = () => {
+    const db = req.result;
+    if (!db.objectStoreNames.contains('session')) { db.close(); return; }
+    let r;
+    try { r = db.transaction('session', 'readonly').objectStore('session').get('scan'); } catch (e) { db.close(); return; }
+    r.onsuccess = () => {
+      db.close();
+      const scan = r.result;
+      if (!scan?.articles?.length) return;
+      const prev = window._dataInfo?.saved || 0;
+      if (!force && scan.timestamp && scan.timestamp <= prev) return; // rien de neuf
+      if (scan.ean && typeof scan.ean === 'object') { window._eanMap = new Map(Object.entries(scan.ean)); _rebuildEanByCode(); }
+      _useRows(scan.articles, scan, 'idb');
+      if (prev) _gToast(`Données PRISME mises à jour : ${scan.articles.length.toLocaleString('fr-FR')} articles`);
+    };
+    r.onerror = () => db.close();
+  };
+}
+try { new BroadcastChannel('prisme').onmessage = (e) => { if (e.data?.type === 'scan-saved') _refreshFromIDB(); }; } catch (e) {}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') _refreshFromIDB(); });
 const findArt = (q) => {
   const raw = String(q || '').trim();
   // Recherche par code uniquement si la saisie est numérique — sinon "vis 5x60" → "560" → 000560

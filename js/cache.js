@@ -345,6 +345,8 @@ async function _saveSessionToIDBNow() {
       const scanPayload = _buildScanPayload();
       stScan.put(scanPayload, 'scan');
       await new Promise((res, rej) => { txScan.oncomplete = res; txScan.onerror = () => rej(txScan.error); });
+      // Prévenir un Scan ouvert dans un autre onglet : il recharge ses données tout seul
+      try { const bc = new BroadcastChannel('prisme'); bc.postMessage({ type: 'scan-saved', t: scanPayload.timestamp, n: scanPayload.count }); bc.close(); } catch (_) {}
     } catch (eScan) {
       console.warn('[PRISME] IDB save scan payload failed:', eScan);
     }
