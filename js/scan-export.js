@@ -8,7 +8,7 @@
 import './constants.js';
 import { _median } from './utils.js';
 import { _S } from './state.js';
-import { computeSquelette, computeVitesseReseau } from './engine.js';
+import { computeSquelette, computeVitesseReseau, rowVerdictLabel } from './engine.js';
 import './parser.js';
 import { showToast, renderAll } from './ui.js';
 import { _saveSessionToIDB } from './cache.js';
@@ -148,7 +148,7 @@ window.exportScanData = function() {
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
       matriceVerdict: _mLabels[mKey] || '',
-      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '',
+      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r),
       medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
       _reseauAgences: reseauAgences, isParent: r.isParent, _refFourn: r._refFourn || ''
@@ -191,7 +191,7 @@ window.exportScanData = function() {
           nouveauMin: sugMin, nouveauMax: sugMax,
           couvertureJours: 0, abcClass: '', fmrClass: '',
           matriceVerdict: '',
-          _sqClassif: 'implanter', _sqRole: '', _sqVerdict: a.classification || 'implanter',
+          _sqClassif: 'implanter', _sqRole: '', _sqVerdict: a.classification || 'implanter', _sqLabel: 'À implanter',
           medMinReseau: medMin||null, medMaxReseau: medMax||null,
           _vitesseReseau: sugMin > 0, _fallbackERP: !!(!_vrScan&&sugMin>0),
           _reseauAgences: reseauAgences, isParent: false
@@ -229,7 +229,7 @@ window.exportScanDataAG = function() {
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
       matriceVerdict: _mLabels[mKey] || '',
-      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '',
+      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r),
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
       isParent: r.isParent, _refFourn: r._refFourn || ''
     };
