@@ -72,7 +72,6 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.3/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js" onerror="window._ortFailed=true"></script>
 </head>
 <body>
 <div id="stage">
@@ -156,9 +155,9 @@ function _ensureCatalogue() {
     for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
   }
   if (data.E && typeof data.E === 'object') {
-    if (!window._eanMap) window._eanMap = new Map();
-    for (const [ean, code] of Object.entries(data.E)) {
-      if (!window._eanMap.has(ean)) window._eanMap.set(ean, _normCode(code));
+    const em = _eanEnsure();
+    for (const ean in data.E) {
+      if (!em.has(ean)) em.set(ean, _normCode(data.E[ean]));
     }
     console.log('[Prisme] Catalogue · ' + Object.keys(data.A || {}).length + ' articles · EAN ' + window._eanMap.size);
     _rebuildEanByCode();
@@ -171,7 +170,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v16 · 20/10/2026';
+const SCAN_VERSION = 'v17 · 20/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -366,6 +365,7 @@ function _rebuildArtIndex() {
   _indexArticles();
   _applyZzatOverlay();
 }
+let _DATA_VER = 0; // incrémenté quand un article change sur place (stock corrigé…) : invalide les listes mémorisées
 let _BASE_ROWS = null; // lignes d'origine des données chargées (pour réappliquer un import ZZAT depuis la base complète)
 
 // ── Stock ZZAT importé : gardé (localStorage) et réappliqué à chaque chargement des données ──
@@ -393,7 +393,7 @@ function _applyZzatOverlay() {
     a.stock = stock;
     if (min != null) a.min = a.erpMin = min;
     if (max != null) a.max = a.erpMax = max;
-    if (empl) a.empl = empl;
+    if (empl) { a.empl = empl; a._hay = null; }
     if (statut) a.statut = statut;
     a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
     a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
@@ -493,14 +493,71 @@ function _pickZzatFile() {
   };
   inp.click();
 }
-let _eanByCode = new Map(); // code → EAN (reverse lookup O(1))
-function _rebuildEanByCode() {
-  _eanByCode = new Map();
-  if (!window._eanMap) return;
-  for (const [ean, code] of window._eanMap) {
-    if (!_eanByCode.has(code)) _eanByCode.set(code, ean);
-  }
+// Table EAN → code (≈ 250 000 entrées) : gardée brute au chargement et construite au premier besoin
+// (premier scan, fiche) ou pendant un temps mort — plus au démarrage.
+let _eanRaw = null, _eanByCode = null;
+function _setEanSource(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  _eanRaw = obj; window._eanMap = null; _eanByCode = null;
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => _eanEnsure(), { timeout: 4000 });
 }
+function _eanEnsure() {
+  if (!window._eanMap && _eanRaw) {
+    const m = new Map();
+    for (const k in _eanRaw) m.set(k, _eanRaw[k]);
+    window._eanMap = m; _eanRaw = null;
+  }
+  if (!window._eanMap) window._eanMap = new Map();
+  return window._eanMap;
+}
+function _eanLookup(ean) { return (_eanRaw || window._eanMap) ? _eanEnsure().get(ean) : undefined; }
+/** EAN d'un code article (table inverse construite au premier appel). */
+function _eanOf(code) {
+  if (!_eanByCode) {
+    _eanByCode = new Map();
+    for (const [ean, c] of _eanEnsure()) if (!_eanByCode.has(c)) _eanByCode.set(c, ean);
+  }
+  return _eanByCode.get(code);
+}
+function _rebuildEanByCode() { _eanByCode = null; }
+// ── Recherche (mobile et PC) : texte de recherche préparé une fois par article / par catalogue ──
+const _hayOf = (a) => a._hay || (a._hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque || ''} ${a.refFourn || ''}`.toLowerCase());
+let _catIdx = null, _catIdxSrc = null;
+function _catalogueIndex() {
+  if (!CATALOGUE?.A) return [];
+  if (_catIdxSrc === CATALOGUE) return _catIdx;
+  _catIdx = [];
+  for (const code in CATALOGUE.A) {
+    const e = CATALOGUE.A[code];
+    _catIdx.push([code, `${code} ${(e[2] || '').toLowerCase()} ${(CATALOGUE.M?.[e[0]] || '').toLowerCase()} ${(CATALOGUE.R?.[code] || '').toLowerCase()}`]);
+  }
+  _catIdxSrc = CATALOGUE;
+  return _catIdx;
+}
+function _searchArticles(q, catalogMode, nLocal) {
+  const s = String(q || '').trim();
+  if (!s) return [];
+  const words = s.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+  if (!words.length) return [];
+  const local = [];
+  for (const a of ARTICLES) { if (words.every(w => _hayOf(a).includes(w))) { local.push(a); if (local.length >= nLocal) break; } }
+  // Code exact 5-6 chiffres absent de l'agence : catalogue direct
+  const qClean = s.replace(/\D/g, '');
+  if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
+    const catArt = _catalogArticle(qClean);
+    if (catArt) return [catArt];
+  }
+  if (!catalogMode || !CATALOGUE?.A) return local;
+  const localCodes = new Set(local.map(a => a.code));
+  const cat = [];
+  for (const [code, hay] of _catalogueIndex()) {
+    if (localCodes.has(code) || !words.every(w => hay.includes(w))) continue;
+    cat.push(_catalogArticle(code));
+    if (cat.length >= 8) break;
+  }
+  return [...local, ...cat];
+}
+
 // Cache _catalogArticle results to avoid recreating objects
 const _catalogCache = new Map();
 
@@ -629,10 +686,7 @@ function hydrateFromIDB() {
       db.close();
       if (_hydrated) return;
       const eanData = scan?.ean || current?.ean;
-      if (eanData && typeof eanData === 'object') {
-        window._eanMap = new Map(Object.entries(eanData));
-        _rebuildEanByCode();
-      }
+      if (eanData && typeof eanData === 'object') _setEanSource(eanData);
       if (scan?.articles?.length) return _useRows(scan.articles, scan, 'idb');
       if (current?.finalData?.length) return _useRows(current.finalData, { ...current, stockTs: current._stockFileTs, dataDate: current.consommePeriodMaxFull || current.consommePeriodMax }, 'idb');
       _fallbackJson();
@@ -648,11 +702,7 @@ function _fetchScanJson() {
     return fetch('data/' + f, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
       const rows = data?.articles || data?.finalData;
       if (!rows?.length) return false;
-      if (data?.ean && typeof data.ean === 'object') {
-        window._eanMap = new Map(Object.entries(data.ean));
-        console.log('[Prisme] EAN map JSON · ' + window._eanMap.size + ' entrées');
-        _rebuildEanByCode();
-      }
+      if (data?.ean && typeof data.ean === 'object') _setEanSource(data.ean);
       const m = f.match(/prisme-scan-(.+)\.json/);
       _useRows(rows, { timestamp: data?.timestamp || (data?.date ? Date.parse(data.date) || 0 : 0), dataDate: data?.dataDate, stockTs: data?.stockTs, store: data?.store || (m && m[1]) }, 'json');
       return true;
@@ -679,7 +729,7 @@ function _refreshFromIDB(force) {
       if (!scan?.articles?.length) return;
       const prev = window._dataInfo?.saved || 0;
       if (!force && scan.timestamp && scan.timestamp <= prev) return; // rien de neuf
-      if (scan.ean && typeof scan.ean === 'object') { window._eanMap = new Map(Object.entries(scan.ean)); _rebuildEanByCode(); }
+      if (scan.ean && typeof scan.ean === 'object') _setEanSource(scan.ean);
       _useRows(scan.articles, scan, 'idb');
       if (prev) _gToast(`Données PRISME mises à jour : ${scan.articles.length.toLocaleString('fr-FR')} articles`);
     };
@@ -709,8 +759,8 @@ const findArt = (q) => {
     if (_artByCode.get(m) || _catalogHas(m)) return m;
   }
   // IDB EAN map
-  if (window._eanMap) {
-    const m = _normCode(window._eanMap.get(c));
+  if (_eanRaw || window._eanMap) {
+    const m = _normCode(_eanLookup(c));
     if (_artByCode.get(m) || _catalogHas(m)) return m;
   }
   return null;
@@ -865,6 +915,7 @@ function App() {
     openArticle(zoneArts[0].code, tourZone);
   };
   const _refreshArticle = (a) => {
+    _DATA_VER++; // l'accueil recalcule ses listes
     a.verdict = _verdict(a.stock, a.min, a.max, a.pMax);
     a.primary = _primary(a.verdict, a.stock, a.min, a.max, a.statut, a.pMax);
     a.secondary = _secondary(a._raw || {});
@@ -1312,13 +1363,16 @@ function InvBanner({ doneCount, total=14, zone='B12', onTap, onExit }) {
 // ── HOME ──────────────────────────────────────────────────────
 function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDouchette, invMode, invDoneCount, invTotal, invZone, onInvOpen, onInvExit, recents, treatedCodes, actionsCount, validatedCount, onActions, onMenu, filter, onFilter }) {
   const [showAllZones, setShowAllZones] = useState(false);
-  const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
-  const todos = ARTICLES.filter(a => a.primary && !(treatedCodes[a.code]?.length > 0)).sort((a,b)=>{
-    const pa = a.stock < 0 ? -1 : (verdictPrio[a.verdict]??9);
-    const pb = b.stock < 0 ? -1 : (verdictPrio[b.verdict]??9);
-    return pa - pb;
-  });
-  const filterCounts = Object.fromEntries(HOME_FILTERS.map(f => [f.k, todos.filter(a => _matchHomeFilter(a, f.k)).length]));
+  // Liste des actions : recalculée seulement quand les données, les actions traitées ou un article changent
+  const todos = useMemo(() => {
+    const verdictPrio = {rupture:0, sousmin:1, surstock:2, ok:3};
+    return ARTICLES.filter(a => a.primary && !(treatedCodes[a.code]?.length > 0)).sort((a,b)=>{
+      const pa = a.stock < 0 ? -1 : (verdictPrio[a.verdict]??9);
+      const pb = b.stock < 0 ? -1 : (verdictPrio[b.verdict]??9);
+      return pa - pb;
+    });
+  }, [ARTICLES, treatedCodes, _DATA_VER]);
+  const filterCounts = useMemo(() => Object.fromEntries(HOME_FILTERS.map(f => [f.k, todos.filter(a => _matchHomeFilter(a, f.k)).length])), [todos]);
   const shown = todos.filter(a => _matchHomeFilter(a, filter));
   const treatedCount = Object.keys(treatedCodes).length;
 
@@ -1497,38 +1551,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
   const catV = useCatalogueVersion();
   useEffect(() => { setTimeout(()=>inputRef.current?.focus(), 50); }, []);
 
-  const results = useMemo(() => {
-    if (!q.trim()) return [];
-    const words = q.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
-    if (!words.length) return [];
-    // Recherche locale
-    const local = ARTICLES.filter(a => {
-      const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque} ${a.refFourn||''}`.toLowerCase();
-      return words.every(w => hay.includes(w));
-    }).slice(0, catalogMode ? 4 : 8);
-    // Si query = code exact 5-6 chiffres non trouvé en local, essayer catalogue direct
-    const qClean = q.trim().replace(/\D/g,'');
-    if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
-      const catArt = _catalogArticle(qClean);
-      if (catArt) return [catArt];
-    }
-    if (!catalogMode || !CATALOGUE?.A) return local;
-    // Recherche catalogue
-    const localCodes = new Set(local.map(a => a.code));
-    const catResults = [];
-    for (const [code, entry] of Object.entries(CATALOGUE.A)) {
-      if (localCodes.has(code)) continue;
-      const lib = (entry[2] || '').toLowerCase();
-      const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
-      const ref = (CATALOGUE.R?.[code] || '').toLowerCase();
-      const hay = `${code} ${lib} ${marque} ${ref}`;
-      if (words.every(w => hay.includes(w))) {
-        catResults.push(_catalogArticle(code));
-        if (catResults.length >= 8) break;
-      }
-    }
-    return [...local, ...catResults];
-  }, [q, catalogMode, catV]);
+  const results = useMemo(() => _searchArticles(q, catalogMode, catalogMode ? 4 : 8), [q, catalogMode, catV]);
   // Catalogue chargé à la demande : mode Catalogue, ou code 5-6 chiffres absent de l'agence
   useEffect(() => {
     if (catalogMode || (results.length === 0 && /^\d{5,6}$/.test(q.trim().replace(/\D/g,'')))) _ensureCatalogue();
@@ -1867,7 +1890,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
           </button>
           {detailsOpen && (
             <div style={{padding:'8px 10px',color:T.t2,fontSize:12,lineHeight:1.8,background:'#0a0c10',borderRadius:'0 0 10px 10px',marginTop:-2}}>
-              <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}} className="mono">{_eanByCode.get(a.code) || '—'}</strong></div>
+              <div><span style={{color:T.t3}}>Code-barre</span> <strong style={{color:T.t1}} className="mono">{_eanOf(a.code) || '—'}</strong></div>
               {getCustomEansForCode(a.code).length > 0 && (
                 <div style={{marginTop:2,marginBottom:2}}>
                   <span style={{color:T.t3}}>Associations</span>
@@ -2231,8 +2254,8 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     const custom = _customEanMap.get(clean);
     if (custom && (_artByCode.get(custom) || _catalogHas(custom))) return _normCode(custom);
     // 4) EAN via IDB eanMap (chargé globalement)
-    if (window._eanMap) {
-      const c = _normCode(window._eanMap.get(clean));
+    if (_eanRaw || window._eanMap) {
+      const c = _normCode(_eanLookup(clean));
       if (c && (_artByCode.get(c) || _catalogHas(c))) return c;
     }
     // 5) Code 5-6 chiffres dans le catalogue national (pas en stock local)
@@ -2281,7 +2304,12 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
 
   const initOCR = async () => {
     if (ocrReadyRef.current || ocrLoadingRef.current) return;
-    if (window._ortFailed || typeof ort === 'undefined') { console.warn('[OCR] ONNX Runtime unavailable'); ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true); return; }
+    ocrLoadingRef.current = true; // pendant le chargement du script : pas de second appel depuis la boucle de scan
+    if (typeof ort === 'undefined' && !window._ortFailed) {
+      // onnxruntime (≈ 550 Ko) n'est plus chargé au démarrage : seulement quand on demande « Lire l'étiquette »
+      await new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js'; sc.onload = res; sc.onerror = () => { window._ortFailed = true; res(); }; document.head.appendChild(sc); });
+    }
+    if (window._ortFailed || typeof ort === 'undefined') { console.warn('[OCR] ONNX Runtime unavailable'); ocrLoadingRef.current = false; ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true); return; }
     ocrLoadingRef.current = true;
     try {
       // Config iOS-compatible (onnxruntime issue #22086)
@@ -2406,14 +2434,13 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           .catch(() => [])
         : Promise.resolve([]);
 
-      // ZBar toujours (20ms, lit Code128/Code39 mieux que ZXing seul)
-      const zbarP = hasZbar
-        ? zbarWasm.scanImageData(imageData).then(symbols =>
+      // ZBar en secours seulement (≈ 20 ms par image, lit mieux certains Code128/Code39) : si ZXing n'a rien lu
+      const zxingRes = await zxingP;
+      const zbarRes = (!zxingRes.length && hasZbar)
+        ? await zbarWasm.scanImageData(imageData).then(symbols =>
             symbols.map(s => ({ text: s.decode(), format: 'ZBar-' + s.typeName }))
           ).catch(() => [])
-        : Promise.resolve([]);
-
-      const [zxingRes, zbarRes] = await Promise.all([zxingP, zbarP]);
+        : [];
       const seen = new Set();
       const merged = [];
       for (const r of [...zxingRes, ...zbarRes]) {
@@ -2728,7 +2755,7 @@ function DouchetteScreen({ onBack, onArticle }) {
     let a = numeric ? (_artByCode.get(clean) || _artByCode.get(_normCode(clean))) : null;
     if (!a) a = _artByRef.get(raw) || _artByRef.get(raw.toUpperCase());
     if (!a && _customEanMap.has(clean)) { const m = _normCode(_customEanMap.get(clean)); a = _artByCode.get(m) || _catalogArticle(m); }
-    if (!a && window._eanMap) { const c = _normCode(window._eanMap.get(clean)); a = _artByCode.get(c) || _catalogArticle(c); }
+    if (!a && (_eanRaw || window._eanMap)) { const c = _normCode(_eanLookup(clean)); a = _artByCode.get(c) || _catalogArticle(c); }
     if (!a && numeric) a = _catalogArticle(clean);
     return a;
   };
@@ -3718,7 +3745,7 @@ function PCEmpty({ agency }) {
 function PCArticle({ a, onClose }) {
   const d = _dispo(a);
   const [priceShown, setPriceShown] = useState(false);
-  const ean = _eanByCode.get(a.code);
+  const ean = _eanOf(a.code);
   const cell = {padding:'14px 16px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12};
   return (
     <div style={{maxWidth:820,margin:'0 auto'}}>
@@ -3897,36 +3924,7 @@ function PCApp() {
 
   const onSubmit = (e) => { e?.preventDefault(); if (q.trim()) lookup(q); };
 
-  const results = useMemo(() => {
-    const s = q.trim();
-    if (!s) return [];
-    const words = s.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
-    if (!words.length) return [];
-    const local = ARTICLES.filter(a => {
-      const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque||''} ${a.refFourn||''}`.toLowerCase();
-      return words.every(w => hay.includes(w));
-    }).slice(0, catalogMode ? 6 : 12);
-    const qClean = s.replace(/\D/g,'');
-    if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
-      const catArt = _catalogArticle(qClean);
-      if (catArt) return [catArt];
-    }
-    if (!catalogMode || !CATALOGUE?.A) return local;
-    const localCodes = new Set(local.map(a => a.code));
-    const catResults = [];
-    for (const [code, entry] of Object.entries(CATALOGUE.A)) {
-      if (localCodes.has(code)) continue;
-      const lib = (entry[2] || '').toLowerCase();
-      const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
-      const ref = (CATALOGUE.R?.[code] || '').toLowerCase();
-      const hay = `${code} ${lib} ${marque} ${ref}`;
-      if (words.every(w => hay.includes(w))) {
-        catResults.push(_catalogArticle(code));
-        if (catResults.length >= 8) break;
-      }
-    }
-    return [...local, ...catResults];
-  }, [q, catalogMode, catV]);
+  const results = useMemo(() => _searchArticles(q, catalogMode, catalogMode ? 6 : 12), [q, catalogMode, catV]);
   useEffect(() => {
     if (catalogMode || (results.length === 0 && /^\d{5,6}$/.test(q.trim().replace(/\D/g,'')))) _ensureCatalogue();
   }, [q, catalogMode, results.length]);

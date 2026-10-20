@@ -10,7 +10,7 @@
 //    la dernière connue sinon. Requête en `cache: 'no-cache'` : le navigateur revalide auprès
 //    du serveur (ETag) au lieu de resservir sa copie HTTP (GitHub Pages : max-age 10 min).
 'use strict';
-const CACHE_NAME = 'prisme-scan-v16';
+const CACHE_NAME = 'prisme-scan-v17';
 const PRECACHE = ['./scan.html', './manifest.json', './js/constants.js', './data/index.json'];
 const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -52,8 +52,12 @@ function networkFirst(req) {
   const fromCache = () => caches.match(req, { ignoreSearch: true });
   const net = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
     if (res.ok) {
+      // Réécrire la copie seulement si le fichier a changé (le JSON du Scan fait ~10 Mo)
       const copy = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(req, copy));
+      caches.open(CACHE_NAME).then(c => c.match(req, { ignoreSearch: true }).then(old => {
+        const e1 = old?.headers.get('etag'), e2 = copy.headers.get('etag');
+        if (!(e1 && e2 && e1 === e2)) return c.put(req, copy);
+      }));
       return res;
     }
     // 404 / 5xx : la dernière copie connue plutôt qu'une page d'erreur
