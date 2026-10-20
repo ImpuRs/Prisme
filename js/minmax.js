@@ -131,6 +131,21 @@ export function explainMinMax(r, prm = MINMAX_DEFAULTS) {
     rabote: rawMax > (events.length ? Math.max(...events) : 0) ? rawMax : 0 };
 }
 
+/** Nombre de BL de l'article chez toi (tous canaux, comptoir ET colis) sur les 12 derniers mois complets. */
+export function blCount12m(code) {
+  const w = _window();
+  const me = _S._byMonthStoreArtCanal?.[_S.selectedMyStore];
+  if (!w || !me) return 0;
+  const m0 = w.start.getFullYear() * 12 + w.start.getMonth(), m1 = w.end.getFullYear() * 12 + w.end.getMonth();
+  let n = 0;
+  for (const canal in me) {
+    const months = me[canal]?.[code];
+    if (!months) continue;
+    for (const m in months) if (+m >= m0 && +m <= m1) n += months[m].countBL || 0;
+  }
+  return n;
+}
+
 /** Nombre de ventes (BL) de l'article chez toi sur les 12 derniers mois complets. */
 export function localSalesCount12m(code) {
   const w = _window();

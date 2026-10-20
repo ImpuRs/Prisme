@@ -5,10 +5,10 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS } from './constants.js';
+import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, parseExcelDate, daysBetween, getVal, extractStoreCode, yieldToMain, _median, _resetColCache, formatLocalYMD, defaultPeriodRange, extractFamCode, famLib, famLabel } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, isInvendu } from './engine.js';
+import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
 import { prepareSources } from './sources.js';
@@ -22,7 +22,7 @@ import { DataStore } from './store.js';
 import './diagnostic.js';
 import './planRayon.js';
 import './arbitrage.js';
-import { applyMinMaxServiceLevel, localSalesCount12m } from './minmax.js';
+import { applyMinMaxServiceLevel, localSalesCount12m, blCount12m } from './minmax.js';
 import './clients-decisions.js';
 import './animation.js';
 import './partie.js';
@@ -110,7 +110,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
             // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
             // Idem pour le contenu des BL (co-achats de la fiche article, oct. 2026) : absent des sessions plus anciennes.
-            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && !('dateSortie' in _S.finalData[0])));
+            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule))));
             if (!_needsUpgrade) {
               showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
               btn.disabled = false;
@@ -416,47 +416,47 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
   //           Ventes locales = 0, réseau > 0 → Vitesse Réseau (Top 3)
   //           Ventes locales = 0, réseau = 0, stocké réseau → médiane ERP
   export function _applyVitesseReseau(){
+    // Règles MIN/MAX quand le calcul local donne 0/0 (oct. 2026). Mesure unique : n = ventes au COMPTOIR (BL prélevés)
+    // sur les 12 derniers mois complets — les colis (enlevé) partent de la centrale, pas du rayon.
+    //   n = 1                        → 1/1 (vendu une fois ici)
+    //   n = 0 et EN RAYON (stock > 0) → 0/0 « à sortir », même s'il part en colis (pas de rythme réseau)
+    //   n = 0 et ABSENT du rayon     → implantation au rythme du réseau SEULEMENT s'il y a une vraie demande :
+    //                                   ≥ 3 colis/an chez toi, ou réseau fort (≥ 60 % des autres agences, ≥ 200 €/an chacune) ;
+    //                                   plafonnée à la médiane ERP des autres agences ; sinon 0/0.
     if(!DataStore.finalData.length)return;
-    const _allStoresFull=Object.keys(_S.ventesParAgence||{}).filter(s=>s!==_S.selectedMyStore);
-    if(_allStoresFull.length<2)return;
-    let _applied=0,_unique=0;
-    // Article déjà vendu chez toi (1 fois sur 12 mois, sinon le calcul local l'aurait dimensionné) :
-    // 1/1 plutôt que le rythme du réseau — option B validée au banc d'essai (oct. 2026).
-    // La Vitesse Réseau reste pour les articles JAMAIS vendus chez toi (implantation).
+    const stores=Object.keys(_S.ventesParAgence||{}).filter(s=>s!==_S.selectedMyStore);
+    if(stores.length<2)return;
     const _hasArtDemand=!!Object.keys(_S.articleDemand||{}).length;
-    const _venteLocale=(r)=>{ if(!_hasArtDemand) return false; if(localSalesCount12m(r.code)>=1){ r.nouveauMin=1; r.nouveauMax=1; r._venteUnique=true; _unique++; return true; } return false; };
-    // Un article en rayon sans aucune vente locale sur 12 mois n'hérite pas du rythme réseau :
-    // l'historique local (nul) prime — sinon PRISME pousse à réapprovisionner un invendu.
+    const IMPLANT_COLIS_MIN=3;
+    let _applied=0,_unique=0,_rayon=0,_sansDemande=0;
+    const reseauFort=(code)=>{ let n=0,ca=0; for(const s of stores){ const d=_S.ventesParAgence[s]?.[code]; if(d&&d.countBL>0){ n++; ca+=d.sumCA||0; } } return n/stores.length>=SQ_RESEAU_FORT_DETENTION && n>0 && ca/n>=SQ_RESEAU_FORT_CA_AGENCE; };
     for(const r of DataStore.finalData){
       if(r.nouveauMin>0||r.nouveauMax>0)continue;
-      if(r.isParent||isInvendu(r))continue;
+      if(r.isParent||!/^\d{6}$/.test(r.code))continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
+      if(['2','3','4'].includes(String(r.statut||'').charAt(0)))continue;
+      if(r.isNouveaute)continue;
+      const n=_hasArtDemand?localSalesCount12m(r.code):(r.V>0?r.W:0);
+      if(n>=1){ r.nouveauMin=1; r.nouveauMax=1; r._venteUnique=true; r._mmRule='vente_unique'; _unique++; continue; }
+      if((r.stockActuel||0)>0){ r._mmRule='rayon_sans_vente'; _rayon++; continue; } // reste 0/0 : à sortir
+      const colis=blCount12m(r.code);
+      const fort=reseauFort(r.code);
+      if(colis<IMPLANT_COLIS_MIN&&!fort){ r._mmRule='absent_sans_demande'; _sansDemande++; continue; }
+      // Implantation : rythme du réseau (Top 3), sinon médiane ERP ; plafonné à la médiane ERP des autres agences
       const vr=computeVitesseReseau(r.code,r.prixUnitaire||0,r.medMinReseau||0);
-      if(!vr)continue;
-      if(_venteLocale(r))continue;
-      r.nouveauMin=vr.min;
-      r.nouveauMax=vr.max;
-      r._vitesseReseau=true;
+      let mi=vr?vr.min:Math.max(Math.round(r.medMinReseau||0),1), ma=vr?vr.max:Math.max(Math.round(r.medMaxReseau||0),mi+1);
+      if(!vr&&!(r.medMinReseau>0||r.medMaxReseau>0)){ mi=1; ma=1; } // demande locale en colis sans repère réseau : 1/1
+      if(r.medMinReseau>0) mi=Math.min(mi,Math.max(1,Math.round(r.medMinReseau)));
+      if(r.medMaxReseau>0) ma=Math.min(ma,Math.max(mi,Math.round(r.medMaxReseau)));
+      ma=Math.max(ma,mi);
+      r.nouveauMin=mi; r.nouveauMax=ma;
+      r._vitesseReseau=true; r._fallbackERP=!vr; r._mmRule=colis>=IMPLANT_COLIS_MIN?'implant_colis':'implant_reseau'; r._implantColis=colis;
       _applied++;
     }
-    // Fallback 3 : pas de ventes réseau, mais stocké réseau → médiane ERP
-    for(const r of DataStore.finalData){
-      if(r.nouveauMin>0||r.nouveauMax>0)continue;
-      if(r.isParent||isInvendu(r))continue;
-      const _sl=(r.statut||'').toLowerCase();
-      if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock')||_sl.includes('fin de catalogue'))continue;
-      if(r.medMinReseau>0||r.medMaxReseau>0){
-        if(_venteLocale(r))continue;
-        r.nouveauMin=Math.max(Math.round(r.medMinReseau),1);
-        r.nouveauMax=Math.max(Math.round(r.medMaxReseau),r.nouveauMin+1);
-        r._vitesseReseau=true;
-        r._fallbackERP=true;
-        _applied++;
-      }
-    }
-    console.log('[VR] Juge de Paix — applied:', _applied, '· vendus 1 fois → 1/1 :', _unique, 'stores:', _allStoresFull.length);
+    console.log('[VR] implantations:', _applied, '· vendus 1 fois → 1/1 :', _unique, '· en rayon sans vente comptoir → 0/0 :', _rayon, '· absents sans demande → 0/0 :', _sansDemande);
   }
+
 
   // ── _postParseMain — étapes post-hydratation côté main thread ────────────
   // Equivalent à la fin de processDataFromRaw() mais sans re-parser les fichiers.
