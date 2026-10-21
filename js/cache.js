@@ -754,6 +754,10 @@ export async function _loadArticleSnapshot(store, key) {
   try { return (await _partieGet(`snap|${store}|${key}`)) || null; } catch (_) { return null; }
 }
 
+/** Suivi des passages en fin de vie (suivi.js) : 'fin|<agence>' = { known: {code: ts 1re détection}, batch: {t, codes} }. */
+export async function _loadFinTrack(store) { try { return (await _partieGet('fin|' + store)) || null; } catch (_) { return null; } }
+export async function _saveFinTrack(store, v) { try { await _partiePut('fin|' + store, v); } catch (e) { console.warn('[PRISME] Suivi fins de vie non enregistré :', e); } }
+
 /** Sauvegarde complète de PRISME_PARTIE (score, actions cochées, photos de suivi) → objet JSON. */
 export async function _exportPartieBackup() {
   const db = await _openPartieDB();
@@ -772,7 +776,7 @@ export async function _importPartieBackup(obj) {
   if (!obj || typeof obj !== 'object') throw new Error('Fichier de sauvegarde invalide');
   let n = 0;
   for (const [k, v] of Object.entries(obj)) {
-    if (!/^(hist|done|snap|snaps|rel)\|/.test(k)) continue;
+    if (!/^(hist|done|snap|snaps|rel|fin)\|/.test(k)) continue;
     await _partiePut(k, v); n++;
   }
   return n;

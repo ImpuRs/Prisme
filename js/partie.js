@@ -21,7 +21,7 @@ import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
 import { computeClientsPartie } from './clients-decisions.js';
-import { recordSuiviAndBilan, renderSuiviCard, renderSuiviHead } from './suivi.js';
+import { recordSuiviAndBilan, renderSuiviCard, renderSuiviHead, trackFinDeVie, renderFinNewBlock } from './suivi.js';
 
 export const CRIT_LABELS = ['Incontournables en stock', 'Prioritaires implantés', 'Sans invendus', 'MIN/MAX à jour dans l’ERP'];
 const LIST_LIMIT = 100;
@@ -382,6 +382,7 @@ function _render() {
       </div>
     </section>
 
+    ${renderFinNewBlock()}
     ${renderSuiviHead(prev ? delta : null)}
 
     <section class="pt-col" style="gap:12px">
@@ -410,6 +411,11 @@ let _persistedKey = '';
 async function _persist(p) {
   const store = _S.selectedMyStore;
   if (!store || p.global == null) return;
+  // Passages en fin de vie : une fois par jeu d'articles (analyse, ZZAT, restauration), même consommé
+  if (_S._finTracked !== _S.finalData) {
+    _S._finTracked = _S.finalData;
+    try { await trackFinDeVie(); if (_S._finNew && _S._partie === p) _render(); } catch (e) { console.warn('[PRISME] Suivi fins de vie :', e); }
+  }
   const key = `${store}|${p.dataKey}`;
   if (key === _persistedKey) return;
   _persistedKey = key;

@@ -63,7 +63,7 @@ function _compute() {
         euro: invVal, euroLabel: 'immobilisés — retour centrale ou déstockage',
         cta: 'Voir la liste', go: "showCockpitInTable('invendus')" },
       { key: 'liquider', verb: 'Liquider ou renvoyer', n: finN, unit: _plural(finN, 'article en fin de série / fin de stock encore en stock', 'articles en fin de série / fin de stock encore en stock'),
-        euro: finVal, euroLabel: `immobilisés — ${_n(finLiq)} encore ${_plural(finLiq, 'vendu', 'vendus')} : à écouler au comptoir (mise en avant, prix) ; ${_n(finRenv)} sans vente en 12 mois : à renvoyer. Plus de réappro (MIN/MAX 0/0).`,
+        euro: finVal, euroLabel: `immobilisés — ${_n(finLiq)} encore ${_plural(finLiq, 'vendu', 'vendus')} : à écouler au comptoir (mise en avant, prix) ; ${_n(finRenv)} sans vente en 12 mois : à renvoyer. Plus de réappro (MIN/MAX 0/0).${_S._finNew?.codes?.length ? ` Dont ${_n(_S._finNew.codes.length)} passés en fin de vie depuis le dernier chargement.` : ''}`,
         cta: 'Voir la liste', go: "showCockpitInTable('fins')" },
       { key: 'liberer', verb: 'Libérer', n: pm.length, unit: _plural(pm.length, 'emplacement quasi mort (moins de 3 clients en 12 mois)', 'emplacements quasi morts (moins de 3 clients en 12 mois)'),
         euro: pm.reduce((s, r) => s + r.valStock, 0), euroLabel: 'de stock sur ces emplacements',
