@@ -294,7 +294,7 @@ function _renderBrandInsights(cross) {
           <thead class="s-panel-inner t-inverse text-xs">
             <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">CA fourn.</th><th class="py-1.5 px-2 text-right">Qté</th><th class="py-1.5 px-2 text-right">Clients fourn.</th></tr>
           </thead>
-          <tbody id="brandTbody_absents">${absents.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-xs">
+          <tbody id="brandTbody_absents">${absents.slice(0, 30).map(a => `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" title="Ouvrir la fiche article" onclick="window.openArticlePanel?.('${escapeHtml(a.code)}','animation')">
             <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
             <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
             <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>
@@ -476,7 +476,7 @@ window._brandShowMore = function(panelId, step) {
     };
   } else if (panelId === 'absents') {
     items = cross.articles.filter(a => a.statut === 'absent');
-    renderFn = a => `<tr class="border-b b-light hover:s-hover text-xs">
+    renderFn = a => `<tr class="border-b b-light hover:s-hover text-xs cursor-pointer" title="Ouvrir la fiche article" onclick="window.openArticlePanel?.('${escapeHtml(a.code)}','animation')">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
       <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
       <td class="py-1.5 px-2 text-xs t-secondary">${escapeHtml(a.famLabel)}</td>

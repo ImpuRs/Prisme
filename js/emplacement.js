@@ -257,7 +257,7 @@ function _renderEnlevesSansRayon(rows) {
   const totalPages = Math.ceil(displayed.length / _ENL_PAGE_SIZE) || 1;
   if (_enlPage >= totalPages) _enlPage = totalPages - 1;
   const start = _enlPage * _ENL_PAGE_SIZE;
-  const rowsHtml = displayed.slice(start, start + _ENL_PAGE_SIZE).map(r => `<tr>
+  const rowsHtml = displayed.slice(start, start + _ENL_PAGE_SIZE).map(r => `<tr class="ar-click" title="Ouvrir la fiche article" onclick="window.openArticlePanel?.('${escapeHtml(r.code)}','arbitrage')">
       <td class="pt-num pt-muted">${_copyCodeBtn(r.code)}</td>
       <td>${escapeHtml(r.libelle)}</td>
       <td class="pt-muted">${escapeHtml(r.famille)}</td>

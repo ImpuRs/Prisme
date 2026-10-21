@@ -193,7 +193,7 @@ function _group(g) {
   const n = arts.length;
   const open = _open.has(g.key) || (_hl && arts.some(a => a.code === _hl));
   const shown = _more.has(g.key) ? arts : arts.slice(0, ROW_LIMIT);
-  const rows = shown.map(a => `<tr${a.code === _hl ? ' class="pt-next" id="pfHl"' : ''}>
+  const rows = shown.map(a => `<tr class="ar-click${a.code === _hl ? ' pt-next' : ''}"${a.code === _hl ? ' id="pfHl"' : ''} title="Ouvrir la fiche article" onclick="window.openArticlePanel?.('${escapeHtml(a.code)}','plan')">
       <td class="pf-lib" title="${escapeHtml(a.libelle || '')}"><span class="pt-strong">${escapeHtml(a.libelle || '')}</span><br><span class="pt-small pt-muted pt-num">${escapeHtml(a.code)}</span>${g.note ? ((x) => x ? `<div style="margin-top:4px">${x}</div>` : '')(g.note(a)) : ''}</td>
       ${g.row(a).map(v => `<td class="pt-num ar-r">${v}</td>`).join('')}</tr>`).join('');
   return `<details class="ar-sec pf-g" data-g="${g.key}" ${open ? 'open' : ''} ontoggle="_pfToggle('${g.key}', this.open)">
