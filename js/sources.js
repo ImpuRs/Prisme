@@ -31,6 +31,7 @@ function _open() {
 }
 async function _get(k) { const db = await _open(); try { return await new Promise((res, rej) => { const q = db.transaction(ST).objectStore(ST).get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); } finally { db.close(); } }
 async function _put(k, v) { const db = await _open(); try { const tx = db.transaction(ST, 'readwrite'); tx.objectStore(ST).put(v, k); await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } finally { db.close(); } }
+async function _del(k) { const db = await _open(); try { const tx = db.transaction(ST, 'readwrite'); tx.objectStore(ST).delete(k); await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } finally { db.close(); } }
 async function _clear() { const db = await _open(); try { const tx = db.transaction(ST, 'readwrite'); tx.objectStore(ST).clear(); await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } finally { db.close(); } }
 
 // ── Compression ──
@@ -196,6 +197,7 @@ async function _prepStock(now) {
   if (inS) {
     if (rec && inS.name === rec.name && inS.lastModified === rec.lastModified) return; // déjà le fichier gardé
     await _put('stock', { blob: inS, gz: false, name: inS.name, lastModified: inS.lastModified, updated: now });
+    await _del('zzat'); // nouvel état du stock : l'ancien ZZAT018 ne fait plus foi
   } else if (rec) {
     _setInput('fileStock', [new File([rec.blob], rec.name || 'PRISME_stock_garde.csv', { lastModified: rec.lastModified || rec.updated })]);
   }
@@ -219,12 +221,25 @@ export async function prepareSources(only) {
   await refreshSourcesPanel();
 }
 
+// ── ZZAT018 (Base articles › Rafraîchir stock) : gardé à côté de l'état du stock et réappliqué à chaque
+// analyse (pipeline._postParseMain), jusqu'au prochain état du stock déposé.
+export async function saveZzat(text, name, lastModified) {
+  if (_S.lowMemMode) return false;
+  await _put('zzat', { ...(await _pack(text)), name, lastModified: lastModified || Date.now(), updated: Date.now() });
+  return true;
+}
+export async function getZzat() {
+  if (_S.lowMemMode) return null;
+  try { const rec = await _get('zzat'); return rec ? { text: await _unpack(rec), name: rec.name, updated: rec.updated } : null; }
+  catch (_) { return null; }
+}
+
 // ── Panneau « Fichiers gardés » (écran de chargement) ──
 const _ymLabel = (ym) => ym ? new Date(Math.floor(ym / 12), ym % 12, 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 const _d = (t) => t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
 export async function refreshSourcesPanel() {
-  let c = null, h = null, s = null;
-  try { [c, h, s] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock')]); } catch (_) {}
+  let c = null, h = null, s = null, z = null;
+  try { [c, h, s, z] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock'), _get('zzat')]); } catch (_) {}
   _info = { consomme: c ? { meta: c.meta, updated: c.updated } : null, chalandise: h ? { meta: h.meta, updated: h.updated } : null, stock: s ? { name: s.name, updated: s.updated } : null };
   window.__prismeSources = { consomme: !!c, stock: !!s, chalandise: !!h };
   const el = document.getElementById('sourcesPanel');
@@ -239,6 +254,7 @@ export async function refreshSourcesPanel() {
     ${c ? row('Consommé', `${_ymLabel(c.meta?.mois?.[0])} → ${_ymLabel(c.meta?.mois?.[1])} · ${c.meta?.agences || '?'} agences · ${(c.meta?.lignes || 0).toLocaleString('fr-FR')} lignes · mis à jour le ${_d(c.updated)}`) : ''}
     ${h ? row('Chalandise', `${(h.meta?.clients || 0).toLocaleString('fr-FR')} clients${h.meta?.absents ? ` (dont ${h.meta.absents.toLocaleString('fr-FR')} absents du dernier export, gardés)` : ''} · mis à jour le ${_d(h.updated)}`) : ''}
     ${s ? row('État du stock', `${s.name || ''} · du ${_d(s.updated)}`) : ''}
+    ${z ? row('ZZAT018', `${z.name || ''} · du ${_d(z.updated)} — stock, MIN/MAX ERP et liste des articles de l'agence`) : ''}
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;padding-top:6px">
       <label class="pt-row pt-small" style="gap:8px;cursor:pointer"><input type="checkbox" ${_merge ? 'checked' : ''} onchange="window._sourcesMerge(this.checked)"> Fusionner les nouveaux fichiers avec ceux gardés <span class="pt-muted">(sinon : ils remplacent)</span></label>
       <button type="button" class="pt-link pt-small" style="color:var(--pt-low)" onclick="window._sourcesForget()">Oublier les fichiers gardés</button>

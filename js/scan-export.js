@@ -11,69 +11,111 @@ import { showToast, renderAll } from './ui.js';
 import { _saveSessionToIDB } from './cache.js';
 import { DataStore } from './store.js';
 import { renderTable } from './render-stock.js';
+import { saveZzat } from './sources.js';
 
 // ── Rafraichir stock depuis ZZAT018 CSV ──────────────────────────────
 // Le ZZAT fait foi sur la LISTE des articles de l'agence : après rafraîchissement, finalData = exactement les
 // articles du ZZAT (absents du ZZAT retirés, présents seulement dans le ZZAT ajoutés), avec son stock,
 // MIN/MAX ERP, emplacement et statut. Colonnes lues d'après l'en-tête (positions ZZAT018 en secours).
+// Sur PC, le ZZAT est gardé (sources.js) puis l'analyse est relancée : il est appliqué AVANT le calcul des
+// MIN/MAX, verdicts, scores… (_postParseMain), et réappliqué à chaque analyse jusqu'au prochain état du stock.
+/** Applique un ZZAT018 (texte CSV) à _S.finalData. Retourne {total, updated, added, removed} ou null si illisible. */
+export function applyZzatText(text) {
+  const lines = String(text).split(/\r?\n/).filter(l => l.trim());
+  const split = (l) => l.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+  const hdr = split(lines[0] || '').map(h => h.toLowerCase());
+  const col = (re, def) => { const i = hdr.findIndex(h => re.test(h)); return i >= 0 ? i : def; };
+  const iArt = col(/^article$/, 3), iLib = col(/^libell?[eé]/, 4), iFam = col(/^famille$/, 1), iSous = col(/^sous.?famille$/, 2);
+  const iMin = col(/qte\s*min/, 7), iMax = col(/qte\s*max/, 8), iStk = col(/^stock$/, 9), iEmpl = col(/^emplacement$/, 10), iStat = col(/^statut$/, 11);
+  const num = (v) => { const n = parseInt(String(v || '').replace(/[\s  ]/g, ''), 10); return isNaN(n) ? 0 : n; };
+  const zz = new Map();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = split(lines[i]);
+    let code = (cols[iArt] || '').replace(/\D/g, '');
+    if (!code) continue;
+    if (code.length < 6) code = code.padStart(6, '0'); // zéros retirés par Excel
+    if (!/^\d{6}$/.test(code)) continue;
+    zz.set(code, cols);
+  }
+  if (!zz.size) return null;
+  const myStore = _S.selectedMyStore || '';
+  const spm = myStore ? ((_S.stockParMagasin ||= {})[myStore] ||= {}) : null;
+  const before = _S.finalData.length;
+  const kept = [];
+  let updated = 0;
+  for (const r of _S.finalData) {
+    const cols = zz.get(r.code);
+    if (!cols) continue; // absent du ZZAT : retiré
+    const old = r.stockActuel || 0;
+    r.stockActuel = num(cols[iStk]);
+    if (r.valeurStock != null) r.valeurStock = old > 0 ? r.valeurStock / old * r.stockActuel : r.stockActuel * (r.prixUnitaire || 0);
+    r.emplacement = cols[iEmpl] || r.emplacement;
+    r.ancienMin = num(cols[iMin]);
+    r.ancienMax = num(cols[iMax]);
+    if (cols[iStat]) r.statut = cols[iStat];
+    kept.push(r); updated++;
+  }
+  const known = new Set(kept.map(r => r.code));
+  const vMine = _S.ventesParAgence?.[myStore] || {};
+  let added = 0;
+  for (const [code, cols] of zz) {
+    if (known.has(code)) continue;
+    const v = vMine[code];
+    kept.push({
+      code, libelle: cols[iLib] || _S.libelleLookup?.[code] || '', famille: cols[iFam] || '', sousFamille: cols[iSous] || '',
+      emplacement: cols[iEmpl] || '', statut: cols[iStat] || '',
+      stockActuel: num(cols[iStk]), ancienMin: num(cols[iMin]), ancienMax: num(cols[iMax]),
+      nouveauMin: 0, nouveauMax: 0, W: v?.countBL || 0, V: v?.sumPrelevee || 0, enleveTotal: v?.sumEnleve || 0,
+      couvertureJours: 9999, ageJours: 9999, isNouveaute: false, isParent: false,
+      abcClass: '', fmrClass: '', prixUnitaire: 0, valeurStock: 0, caAnnuel: 0,
+    });
+    if (_S.libelleLookup && !_S.libelleLookup[code] && cols[iLib]) _S.libelleLookup[code] = cols[iLib];
+    added++;
+  }
+  // Médiane MIN/MAX des autres agences pour les articles ajoutés ; stock de l'agence aligné sur le ZZAT
+  const others = [...(_S.storesIntersection || [])].filter(s => s !== myStore);
+  const med = (a) => { const t = [...a].sort((x, y) => x - y); return t.length ? t[Math.floor(t.length / 2)] : null; };
+  for (const r of kept) {
+    if (spm) spm[r.code] = { ...(spm[r.code] || {}), stockActuel: r.stockActuel, qteMin: r.ancienMin, qteMax: r.ancienMax };
+    if (!known.has(r.code) && others.length) {
+      r.medMinReseau = med(others.map(s => _S.stockParMagasin?.[s]?.[r.code]?.qteMin).filter(v => v > 0));
+      r.medMaxReseau = med(others.map(s => _S.stockParMagasin?.[s]?.[r.code]?.qteMax).filter(v => v > 0));
+    }
+  }
+  if (spm) for (const c of Object.keys(spm)) if (!zz.has(c)) delete spm[c];
+  _S.finalData = kept;
+  return { total: kept.length, updated, added, removed: before - updated };
+}
+
+const _zzMsg = (st) => `Base = ZZAT018 : ${st.total.toLocaleString('fr-FR')} articles (${st.updated.toLocaleString('fr-FR')} mis à jour` + (st.added ? `, ${st.added} ajoutés` : '') + (st.removed ? `, ${st.removed} retirés` : '') + ')';
+
 window.refreshFromZZAT018 = function(fileInput) {
   const file = fileInput.files[0];
   if (!file) return;
   fileInput.value = ''; // reset pour pouvoir reimporter
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
-      const lines = String(reader.result).split(/\r?\n/).filter(l => l.trim());
-      const split = (l) => l.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
-      const hdr = split(lines[0] || '').map(h => h.toLowerCase());
-      const col = (re, def) => { const i = hdr.findIndex(h => re.test(h)); return i >= 0 ? i : def; };
-      const iArt = col(/^article$/, 3), iLib = col(/^libell?[eé]/, 4), iFam = col(/^famille$/, 1), iSous = col(/^sous.?famille$/, 2);
-      const iMin = col(/qte\s*min/, 7), iMax = col(/qte\s*max/, 8), iStk = col(/^stock$/, 9), iEmpl = col(/^emplacement$/, 10), iStat = col(/^statut$/, 11);
-      const num = (v) => { const n = parseInt(String(v || '').replace(/[\s  ]/g, ''), 10); return isNaN(n) ? 0 : n; };
-      const zz = new Map();
-      for (let i = 1; i < lines.length; i++) {
-        const cols = split(lines[i]);
-        let code = (cols[iArt] || '').replace(/\D/g, '');
-        if (!code) continue;
-        if (code.length < 6) code = code.padStart(6, '0'); // zéros retirés par Excel
-        if (!/^\d{6}$/.test(code)) continue;
-        zz.set(code, cols);
+      const text = String(reader.result);
+      if (!_S.lowMemMode && window.processData) {
+        // Vérifier qu'il est lisible avant de le garder
+        const probe = text.split(/\r?\n/, 2)[0] || '';
+        if (!/article/i.test(probe)) { showToast('ZZAT018 : colonne Article introuvable', 'error'); return; }
+        await saveZzat(text, file.name, file.lastModified);
+        showToast('ZZAT018 gardé — recalcul de toute l\'analyse (MIN/MAX, verdicts, scores)…', 'info', 5000);
+        await window.processData(_S.selectedMyStore || '', { force: true });
+        window.switchTab?.('table');
+        if (_S._zzatStats) showToast(_zzMsg(_S._zzatStats), 'success', 7000);
+        return;
       }
-      if (!zz.size) { showToast('ZZAT018 : aucun article lu (colonne Article introuvable ?)', 'error'); return; }
-      const before = _S.finalData.length;
-      const kept = [];
-      let updated = 0;
-      for (const r of _S.finalData) {
-        const cols = zz.get(r.code);
-        if (!cols) continue; // absent du ZZAT : retiré
-        r.stockActuel = num(cols[iStk]);
-        r.emplacement = cols[iEmpl] || r.emplacement;
-        r.ancienMin = num(cols[iMin]);
-        r.ancienMax = num(cols[iMax]);
-        if (cols[iStat]) r.statut = cols[iStat];
-        kept.push(r); updated++;
-      }
-      const known = new Set(kept.map(r => r.code));
-      let added = 0;
-      for (const [code, cols] of zz) {
-        if (known.has(code)) continue;
-        kept.push({
-          code, libelle: cols[iLib] || '', famille: cols[iFam] || '', sousFamille: cols[iSous] || '',
-          emplacement: cols[iEmpl] || '', statut: cols[iStat] || '',
-          stockActuel: num(cols[iStk]), ancienMin: num(cols[iMin]), ancienMax: num(cols[iMax]),
-          nouveauMin: 0, nouveauMax: 0, W: 0, V: 0, enleveTotal: 0,
-          couvertureJours: 9999, ageJours: 9999,
-          abcClass: '', fmrClass: '', prixUnitaire: 0, caAnnuel: 0,
-        });
-        added++;
-      }
-      const removed = before - updated;
-      _S.finalData = kept;
+      // Mobile (pas de fichiers gardés) : mise à jour en mémoire seulement
+      const st = applyZzatText(text);
+      if (!st) { showToast('ZZAT018 : aucun article lu (colonne Article introuvable ?)', 'error'); return; }
       invalidateCache();
       renderTable();
       renderAll();
       _saveSessionToIDB();
-      showToast(`Base = ZZAT018 : ${kept.length.toLocaleString('fr-FR')} articles (${updated.toLocaleString('fr-FR')} mis à jour` + (added ? `, ${added} ajoutés` : '') + (removed ? `, ${removed} retirés` : '') + ')', 'success', 6000);
+      showToast(_zzMsg(st), 'success', 6000);
     } catch (e) {
       showToast('Erreur lecture ZZAT018 : ' + e.message, 'error');
     }
