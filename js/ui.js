@@ -624,7 +624,8 @@ const _CTX = {
   fantomes: ['En stock sans emplacement', 'à ranger'],
   sansemplacement: ['En stock sans emplacement', 'à ranger'],
   stockneg: ['Stock négatif', 'à régulariser'],
-  fins: ['Fins de série', 'à écouler'],
+  finsNew: ['Passés en fin de série / fin de stock depuis le dernier chargement', 'MIN/MAX ERP à 0/0 · à liquider ou renvoyer'],
+  fins: ['Fins de série / fins de stock en stock', 'encore vendus : à liquider au comptoir · plus vendus : à renvoyer'],
   colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
 };
 const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Décisions stock', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };
@@ -663,7 +664,7 @@ export function showCockpitInTable(type) {
   const ctx = _CTX[type];
   setTableContext(ctx ? ctx[0] : type, ctx ? ctx[1] : '');
   document.getElementById('filterCockpit').value = type;
-  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', sansemplacement: '📍 Sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client', phantom: '👻 Fantômes de rayon', invendus: '🧊 Jamais vendus en 12 mois' }[type] || type;
+  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', sansemplacement: '📍 Sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', finsNew: '🆕 Nouvelles fins de vie', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client', phantom: '👻 Fantômes de rayon', invendus: '🧊 Jamais vendus en 12 mois' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
   if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('s-hover', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');

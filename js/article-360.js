@@ -12,7 +12,7 @@
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
-import { computePriceGap, isInvendu, isSurStock, excedentSurStock, rowVerdictLabel, isClientAgence, computeSquelette } from './engine.js';
+import { computePriceGap, isInvendu, isSurStock, excedentSurStock, rowVerdictLabel, isClientAgence, computeSquelette, isFinDeVie } from './engine.js';
 import { explainMinMax } from './minmax.js';
 import { _computeSmartCoAchats } from './diagnostic.js';
 import { downloadErpFile } from './export-erp.js';
@@ -131,6 +131,13 @@ function _verdict(D) {
 function _verdict0(D) {
   const r = D.r, st = r.stockActuel || 0;
   const parMois = D.qte12 / 12;
+  if (isFinDeVie(r)) {
+    const lib = escapeHtml(r.statut || _S.catalogueStatut?.get?.(r.code) || 'Fin de série');
+    if (st <= 0) return { tone: 'mid', tag: 'Fin de vie', txt: `${lib} : ne se commande plus, pas de réappro.` };
+    return (r.W || 0) > 0
+      ? { tone: 'mid', tag: 'À liquider', txt: `${lib} : ${n0(st)} en stock, encore ${n0(r.W)} vente${r.W > 1 ? 's' : ''} en 12 mois. Écoule le reste au comptoir, sans réappro.` }
+      : { tone: 'low', tag: 'À renvoyer', txt: `${lib} : ${n0(st)} en stock, aucune vente en 12 mois. Renvoie-le à la centrale.` };
+  }
   if (st < 0) return { tone: 'low', tag: 'Stock négatif', txt: `Stock ERP à ${n0(st)} : recompter le rayon.` };
   if (st <= 0 && (r.W || 0) > 0) return { tone: 'low', tag: 'Rupture', txt: `En rupture${D.rupture?.jours != null ? ` depuis ${D.rupture.jours} jour${D.rupture.jours > 1 ? 's' : ''}` : ''}. Il se vend ~${n1(parMois)} pièce${parMois >= 2 ? 's' : ''} par mois.` };
   if (isInvendu(r)) return { tone: 'mid', tag: 'Jamais vendu', txt: `${n0(st)} en stock, aucune vente en 12 mois.` };
@@ -180,6 +187,7 @@ function _pourquoi(D) {
   const r = D.r, m = D.mm;
   const lines = [];
   if (m.rule === 'nouveaute') lines.push('Nouveauté (moins de 35 jours) : PRISME garde le mini/maxi de l’ERP le temps qu’elle fasse ses preuves.');
+  else if (r._mmRule === 'fin_de_vie' || (isFinDeVie(r) && m.rule !== 'statut')) lines.push(`Fin de série / fin de stock (« ${escapeHtml(r.statut || _S.catalogueStatut?.get?.(r.code) || '')} ») : on ne le recommande plus, 0 / 0 — à liquider ou renvoyer.`);
   else if (m.rule === 'statut') lines.push(`Statut « ${escapeHtml(r.statut || '')} » : plus de réappro, 0 / 0.`);
   else if (r._mmRule === 'vente_unique') lines.push('Vendu une seule fois au comptoir en 12 mois : 1 / 1.');
   else if (r._mmRule === 'rayon_sans_vente') lines.push(`Aucune pièce vendue au comptoir en 12 mois alors qu’il est en rayon : 0 / 0, à sortir.${(r.W || 0) > 0 ? ' Les ventes en colis partent de la centrale, pas de ton rayon.' : ''}`);
