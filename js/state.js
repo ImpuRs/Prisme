@@ -335,7 +335,7 @@ export function resetAppState() {
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
   // Core data
-  _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set(); _S._zzatStats = null;
+  _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set(); _S._zzatStats = null; _S._finNew = null; _S._finTracked = null;
   _S._webColEmpty = false; _S._tableContext = null; _S._partie = null; _S._partieSel = ''; _S._partieCrit = -1; _S._partieHist = []; _S._partieDone = {}; _S._suiviBilan = null;
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 

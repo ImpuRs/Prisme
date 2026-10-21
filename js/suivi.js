@@ -12,7 +12,9 @@
 import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
 import { clientsARelancer } from './clients-decisions.js';
-import { _saveArticleSnapshot, _loadArticleSnapshot, _exportPartieBackup, _importPartieBackup } from './cache.js';
+import { _saveArticleSnapshot, _loadArticleSnapshot, _exportPartieBackup, _importPartieBackup, _loadFinTrack, _saveFinTrack } from './cache.js';
+import { isFinDeVie } from './engine.js';
+import { downloadErpFile } from './export-erp.js';
 
 // Photo : code → [stock, MIN ERP, MAX ERP, MIN PRISME, MAX PRISME, PU, fréquent (F/M = 1)]
 function _photo() {
@@ -35,6 +37,55 @@ function _kpis(a) {
   }
   return { valeur, rupt, ecarts };
 }
+
+// ── Passages en fin de vie (fin de série / fin de stock) ──
+// Indépendant de la date du consommé : un ZZAT ou un état du stock du jour suffit à détecter un changement de statut.
+// 1er passage : tout l'existant est noté « connu » (pas de fausse alerte) ; ensuite, les articles qui deviennent
+// fin de vie forment un lot daté, affiché jusqu'au lot suivant.
+export async function trackFinDeVie() {
+  const store = _S.selectedMyStore;
+  if (!store || !(_S.finalData || []).length) return null;
+  const now = Date.now();
+  const cur = new Set();
+  for (const r of _S.finalData) if (/^\d{6}$/.test(r.code) && !r.isParent && isFinDeVie(r)) cur.add(r.code);
+  const rec = await _loadFinTrack(store);
+  let v;
+  if (!rec?.known) v = { known: Object.fromEntries([...cur].map(c => [c, now])), since: now, batch: null };
+  else {
+    const known = {};
+    const fresh = [];
+    for (const c of cur) { if (rec.known[c]) known[c] = rec.known[c]; else { known[c] = now; fresh.push(c); } }
+    v = { known, since: rec.since || now, prevT: rec.lastT || rec.since, batch: fresh.length ? { t: now, from: rec.lastT || rec.since, codes: fresh } : rec.batch };
+  }
+  v.lastT = now;
+  await _saveFinTrack(store, v);
+  // Lot affiché : seulement les articles toujours en fin de vie et dans la base
+  const codes = (v.batch?.codes || []).filter(c => cur.has(c));
+  _S._finNew = codes.length ? { t: v.batch.t, from: v.batch.from, codes } : null;
+  if (_S.cockpitLists) _S.cockpitLists.finsNew = new Set(codes);
+  return _S._finNew;
+}
+
+/** Détail du lot : à passer à 0/0 dans l'ERP, stock à liquider / renvoyer. */
+export function finNewDetail() {
+  const f = _S._finNew;
+  if (!f) return null;
+  const by = new Map((_S.finalData || []).map(r => [r.code, r]));
+  const arts = f.codes.map(c => by.get(c)).filter(Boolean);
+  const val = (r) => r.valeurStock != null ? r.valeurStock : Math.max(0, r.stockActuel || 0) * (r.prixUnitaire || 0);
+  const erp = arts.filter(r => (r.ancienMin || 0) > 0 || (r.ancienMax || 0) > 0);
+  const enStock = arts.filter(r => (r.stockActuel || 0) > 0);
+  return {
+    ...f, arts, erp, enStock,
+    liquider: enStock.filter(r => (r.W || 0) > 0), renvoyer: enStock.filter(r => !(r.W || 0)),
+    valeur: enStock.reduce((s, r) => s + val(r), 0),
+  };
+}
+window._finNewErp = () => {
+  const d = finNewDetail();
+  if (d?.erp.length) downloadErpFile(d.erp.map(r => ({ code: r.code, empl: r.emplacement || '', nMin: 0, nMax: 0 })), 'fins_de_vie');
+};
+window._finNewList = () => window.showCockpitInTable?.('finsNew');
 
 /** Enregistre la photo du jeu courant et calcule le bilan vs la photo précédente. */
 export async function recordSuiviAndBilan(dataKey) {
@@ -93,6 +144,34 @@ const _backup = `<div class="pt-row" style="gap:16px;flex-wrap:wrap">
     </div>`;
 
 /** « Depuis le dernier chargement » : en tête de La partie (rien au premier chargement). */
+/** Bloc « Passés en fin de série / fin de stock » (La partie, en tête) : visible tant qu'un lot est en cours. */
+export function renderFinNewBlock() {
+  const d = finNewDetail();
+  if (!d || !d.arts.length) return '';
+  const dt = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const items = d.arts.slice().sort((a, b) => (b.stockActuel || 0) * (b.prixUnitaire || 0) - (a.stockActuel || 0) * (a.prixUnitaire || 0)).slice(0, 6)
+    .map(r => ({ c: r.code, html: `${escapeHtml(r.libelle || r.code)} <span class="pt-muted pt-num">${r.code} · ${escapeHtml(r.statut || '')}${(r.stockActuel || 0) > 0 ? ` · ${r.stockActuel} en stock` : ''}</span>` }));
+  const step = (n, txt) => n ? `<li><span class="pt-num pt-strong">${n.toLocaleString('fr-FR')}</span> ${txt}</li>` : '';
+  return `<section class="pt-card pt-col" style="gap:14px">
+    <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;align-items:baseline">
+      <div class="pt-col" style="gap:2px"><span class="pt-eyebrow">Statuts ERP</span>
+        <h2 class="pt-h3"><span class="pt-num">${d.arts.length.toLocaleString('fr-FR')}</span> article${d.arts.length > 1 ? 's' : ''} passé${d.arts.length > 1 ? 's' : ''} en fin de série / fin de stock</h2></div>
+      <span class="pt-small pt-muted">détecté${d.arts.length > 1 ? 's' : ''} le ${dt(d.t)}${d.from ? ` (depuis le chargement du ${dt(d.from)})` : ''}</span>
+    </div>
+    <ol class="pt-small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+      ${step(d.erp.length, `ont encore un MIN/MAX dans l’ERP : <b>passe-les à 0/0</b> pour arrêter la réappro.`)}
+      ${step(d.liquider.length, `en stock et encore vendus : <b>à liquider</b> au comptoir (mise en avant, prix).`)}
+      ${step(d.renvoyer.length, `en stock sans vente en 12 mois : <b>à renvoyer</b> à la centrale.`)}
+      ${d.enStock.length ? `<li class="pt-muted">${formatEuro(d.valeur)} de stock concerné.</li>` : ''}
+    </ol>
+    ${_list(items, x => `window.openArticlePanel?.('${x.c}','suivi')`)}
+    <div class="pt-row" style="gap:16px;flex-wrap:wrap">
+      <button type="button" class="pt-link pt-small" onclick="window._finNewList()">Voir les ${d.arts.length.toLocaleString('fr-FR')} articles →</button>
+      ${d.erp.length ? `<button type="button" class="pt-link pt-small" onclick="window._finNewErp()">Fichier ERP : ${d.erp.length.toLocaleString('fr-FR')} à 0/0</button>` : ''}
+    </div>
+  </section>`;
+}
+
 export function renderSuiviHead(scoreDelta) {
   const b = _S._suiviBilan;
   if (!b || b.first) return '';

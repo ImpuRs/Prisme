@@ -8,7 +8,7 @@
 import { PAGE_SIZE, DORMANT_DAYS, AGE_BRACKETS } from './constants.js';
 import { formatEuro, pct, getAgeBracket, getAgeLabel, _median, _copyCodeBtn, escapeHtml, defaultPeriodRange, isShortAutoPeriod, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, invalidateCache } from './state.js';
-import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock } from './engine.js';
+import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock, isFinDeVie } from './engine.js';
 import { loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, collapseImportZone, switchTab, populateSelect, getFilteredData, onFilterChange, resetFilters, filterByAge, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, updatePeriodAlert, renderInsightsBanner, renderTableContext, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _restoreFromCache, _showCacheBanner, _restoreExclusions, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -92,7 +92,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     if(_noStockSlot){_noStockSlot.style.display='none';[..._noStockSlot.parentElement.children].forEach(c=>c.style.display='');}
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
-    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};
+    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set(),invendus:new Set()};_S.cockpitLists.finsNew=new Set(_S._finNew?.codes||[]);
     _S.parentRefsExcluded=0;
     // [Adapter Étape 5] — DataStore.finalData / .filteredData : canaux-invariants
     const dataSource=(DataStore.filteredData.length>0&&DataStore.filteredData.length<DataStore.finalData.length)?DataStore.filteredData:DataStore.finalData;
@@ -102,10 +102,11 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     if(hasMulti&&_S.selectedMyStore){const cs=[..._S.storesIntersection];const myV=_S.ventesParAgence[_S.selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>_S.ventesParAgence[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
 
     for(const r of dataSource){const lv=r.valeurStock!=null?r.valeurStock:r.stockActuel*(r.prixUnitaire||0);totalValue+=lv;
-    if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
+    const _fdv=isFinDeVie(r); // fin de série / fin de stock : hors disponibilité et ruptures (ne se commande plus)
+    if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!_fdv&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
 
     // ★ V23: Ruptures — exclude parent refs (no dates) + colis-only (enlevé sans prélevé) + sort by CA potentiel
-    if(r.W>=3&&r.stockActuel<=0){
+    if(r.W>=3&&r.stockActuel<=0&&!_fdv){
       if(!r.isParent&&!(r.V===0&&r.enleveTotal>0)){ // skip parent refs & colis-only
         const caPotentiel=Math.round(r.W*r.prixUnitaire);
         const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours,r.code);
@@ -125,7 +126,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     if(r.W>0)lstB.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:r.W,condit:null});
     if(r.isNouveaute&&r.stockActuel>0)lstN.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});
     if(r.enleveTotal>=5&&r.V===0)lstColis.push({code:r.code,lib:r.libelle,i1:r.enleveTotal,i2:r.stockActuel,sv:r.enleveTotal,condit:null});
-    if(isInvendu(r))_S.cockpitLists.invendus.add(r.code);
+    if(isInvendu(r)&&!_fdv)_S.cockpitLists.invendus.add(r.code); // fins de vie : liste « fins » (liquider / renvoyer)
     if(r.stockActuel<0){lstStockNeg.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.stockneg.add(r.code);}
     if(r.stockActuel>0&&r.prixUnitaire>0){totalArt++;byStatus[r.statut]=(byStatus[r.statut]||0)+lv;const _fLib=famLib(r.famille);byFamily[_fLib]=(byFamily[_fLib]||0)+lv;const isDormant=!r.isNouveaute&&r.ageJours>DORMANT_DAYS;const sl=r.statut.toLowerCase();const isFS=sl.includes('fin de série')||sl.includes('fin de serie')||sl.includes('fin de catalogue');const iFSt=sl.includes('fin de stock');const isFin=isFS||iFSt;
     if(!r.isNouveaute&&r.ageJours>DORMANT_DAYS){dormantStock+=lv;if(lv>50){lstD.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.dormants.add(r.code);}}
@@ -134,7 +135,7 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
     const br=(r.isNouveaute&&r.ageJours>DORMANT_DAYS)?'fresh':getAgeBracket(r.ageJours);ageBuckets[br].val+=lv;ageBuckets[br].count++;
     if(isFin&&!finCodes.has(r.code)){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.fins.add(r.code);}}
     // Fins de stock avec min=0/max=0 (déréférencés sans prix) — hors du garde prixUnitaire>0
-    if(r.stockActuel>0&&!finCodes.has(r.code)){const _sl=r.statut.toLowerCase();if(_sl.includes('fin de stock')||_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de catalogue')){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.fins.add(r.code);}}}
+    if(r.stockActuel>0&&!finCodes.has(r.code)){if(_fdv){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.fins.add(r.code);}}}
 
     {const _dtv=document.getElementById('dashTotalValue');if(_dtv)_dtv.textContent=formatEuro(totalValue);const _dtc=document.getElementById('dashTotalCount');if(_dtc)_dtc.textContent=dataSource.length.toLocaleString('fr')+' réf.';}
     document.getElementById('dashDeadStock').textContent=formatEuro(dormantStock);document.getElementById('dashDeadPct').textContent=pct(dormantStock,totalValue);

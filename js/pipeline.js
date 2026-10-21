@@ -8,7 +8,7 @@
 import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, parseExcelDate, daysBetween, getVal, extractStoreCode, yieldToMain, _median, _resetColCache, formatLocalYMD, defaultPeriodRange, extractFamCode, famLib, famLabel } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau } from './engine.js';
+import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, applyFinDeVie } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
 import { prepareSources, getZzat } from './sources.js';
@@ -111,7 +111,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
             // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
             // Idem pour le contenu des BL (co-achats de la fiche article, oct. 2026) : absent des sessions plus anciennes.
-            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule))));
+            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule) || (_S.finalData.some(r => /^[23]\b/.test(String(r.statut || '').trim())) && !_S.finalData.some(r => r._finDeVie)))));
             if (!_needsUpgrade) {
               showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
               btn.disabled = false;
@@ -479,6 +479,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       // MIN/MAX « taux de service » (oct. 2026, validé au banc d'essai) — avant Vitesse Réseau et Bouclier
       { const _nMM = applyMinMaxServiceLevel(); if (_nMM) console.log('[MINMAX] taux de service appliqué :', _nMM, 'articles'); }
       if(useMulti) _applyVitesseReseau();
+      applyFinDeVie(); // fin de série / fin de stock → 0/0 (le Bouclier le réapplique)
       _mark('Enrichissement prix/CA');
 
       // Période par défaut : 12 mois glissants complets (INIT ONLY — pas de render ici)
@@ -1058,6 +1059,7 @@ _S.articleMonthlySales=monthlySales;
 
       // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
       if(useMulti) _applyVitesseReseau();
+      applyFinDeVie();
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }

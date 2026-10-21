@@ -9,11 +9,13 @@
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, ptTile } from './utils.js';
+import { isFinDeVie } from './engine.js';
 
 const OPT = { sens: 'tout', zeros: false, implant: false, chers: false, sep: ';' };
 const PRIX_CHER = 150; // €/pièce : mettre en stock une pièce chère jusque-là à 0/0 se décide au cas par cas
 
-/** Articles à modifier dans l'ERP. type : hausse (MAX monte), baisse (MAX baisse), zero (passe à 0/0). */
+/** Articles à modifier dans l'ERP. type : hausse (MAX monte), baisse (MAX baisse), zero (passe à 0/0),
+ *  fin (fin de série / fin de stock : 0/0, toujours exporté — on ne réapprovisionne plus). */
 export function computeErpChanges() {
   const out = [];
   for (const r of _S.finalData || []) {
@@ -21,7 +23,7 @@ export function computeErpChanges() {
     const eMin = r.ancienMin || 0, eMax = r.ancienMax || 0, nMin = r.nouveauMin || 0, nMax = r.nouveauMax || 0;
     if (eMin === nMin && eMax === nMax) continue;
     const pu = r.prixUnitaire || 0;
-    const type = (nMin === 0 && nMax === 0) ? 'zero' : nMax > eMax ? 'hausse' : nMax < eMax ? 'baisse' : (nMin > eMin ? 'hausse' : 'baisse');
+    const type = isFinDeVie(r) ? 'fin' : (nMin === 0 && nMax === 0) ? 'zero' : nMax > eMax ? 'hausse' : nMax < eMax ? 'baisse' : (nMin > eMin ? 'hausse' : 'baisse');
     const implant = !!r._vitesseReseau && !r._venteUnique;           // jamais vendu ici : pari réseau (Plan › Implanter)
     const cher = eMax === 0 && nMax > 0 && pu > PRIX_CHER;             // pièce chère mise en stock
     out.push({ code: r.code, lib: r.libelle || '', empl: r.emplacement || '', type, implant, cher, eMin, eMax, nMin, nMax, pu,
@@ -33,7 +35,7 @@ export function computeErpChanges() {
 }
 
 function _filtered(all) {
-  return all.filter(x => (OPT.zeros || x.type !== 'zero') && (OPT.implant || !x.implant) && (OPT.chers || !x.cher)
+  return all.filter(x => x.type === 'fin' ? (OPT.sens === 'tout' || OPT.sens === 'baisse' || OPT.sens === 'fin') : OPT.sens !== 'fin' && (OPT.zeros || x.type !== 'zero') && (OPT.implant || !x.implant) && (OPT.chers || !x.cher)
     && (OPT.sens === 'tout' || x.type === OPT.sens || (OPT.sens === 'baisse' && x.type === 'zero')));
 }
 
@@ -43,11 +45,11 @@ export function renderErpExport() {
   const all = computeErpChanges();
   if (!all.length) { el.innerHTML = ''; return; }
   const n = (t) => all.filter(x => x.type === t);
-  const hausses = n('hausse'), baisses = n('baisse'), zeros = n('zero');
+  const hausses = n('hausse'), baisses = n('baisse'), zeros = n('zero'), fins = n('fin');
   const sum = (l) => l.reduce((s, x) => s + x.deltaEur, 0);
   const list = _filtered(all);
   const chip = (k, label, cnt) => `<button type="button" class="ar-chip${OPT.sens === k ? ' ar-chip-on' : ''}" aria-pressed="${!!(OPT.sens === k)}" onclick="window._erpSens('${k}')">${label} <span class="pt-num">${cnt.toLocaleString('fr-FR')}</span></button>`;
-  const tag = { hausse: '<span class="ar-tag" data-tone="mid">MAX ↑</span>', baisse: '<span class="ar-tag" data-tone="high">MAX ↓</span>', zero: '<span class="ar-tag" data-tone="low">0/0</span>' };
+  const tag = { hausse: '<span class="ar-tag" data-tone="mid">MAX ↑</span>', baisse: '<span class="ar-tag" data-tone="high">MAX ↓</span>', zero: '<span class="ar-tag" data-tone="low">0/0</span>', fin: '<span class="ar-tag" data-tone="low">Fin de vie · 0/0</span>' };
   const rows = list.slice(0, 40).map(x => `<tr class="ar-click" onclick="window.openArticlePanel?.('${x.code}','arbitrage')">
       <td><div class="pt-col" style="gap:2px"><span class="pt-strong">${escapeHtml(x.lib)}</span><span class="pt-small pt-muted pt-num">${x.code}${x.empl ? ' · ' + escapeHtml(x.empl) : ''}</span></div></td>
       <td>${tag[x.type]}</td>
@@ -69,10 +71,11 @@ export function renderErpExport() {
     <div class="pt-tiles">
       ${tile('MAX à baisser', baisses.length.toLocaleString('fr-FR'), `${formatEuro(Math.abs(sum(baisses)))} de MAX libérés`)}
       ${tile('MAX à monter', hausses.length.toLocaleString('fr-FR'), `${formatEuro(sum(hausses))} de MAX en plus (ruptures évitées)`)}
-      ${tile('Passent à 0/0', zeros.length.toLocaleString('fr-FR'), 'plus de réappro (invendus, fins de série…)')}
+      ${tile('Passent à 0/0', zeros.length.toLocaleString('fr-FR'), 'plus de réappro (invendus, sans demande…)')}
+      ${fins.length ? tile('Fins de série / de stock', fins.length.toLocaleString('fr-FR'), 'toujours exportées à 0/0 : on ne les recommande plus') : ''}
     </div>
     <div class="pt-row" style="gap:8px;flex-wrap:wrap;align-items:center">
-      ${chip('tout', 'Tout', all.filter(x => (OPT.zeros || x.type !== 'zero') && (OPT.implant || !x.implant) && (OPT.chers || !x.cher)).length)}${chip('baisse', 'Baisses', baisses.length + (OPT.zeros ? zeros.length : 0))}${chip('hausse', 'Hausses', hausses.filter(x => (OPT.implant || !x.implant) && (OPT.chers || !x.cher)).length)}
+      ${chip('tout', 'Tout', all.filter(x => x.type === 'fin' || ((OPT.zeros || x.type !== 'zero') && (OPT.implant || !x.implant) && (OPT.chers || !x.cher))).length)}${chip('baisse', 'Baisses', baisses.length + fins.length + (OPT.zeros ? zeros.length : 0))}${fins.length ? chip('fin', 'Fins de vie', fins.length) : ''}${chip('hausse', 'Hausses', hausses.filter(x => (OPT.implant || !x.implant) && (OPT.chers || !x.cher)).length)}
       <label class="pt-row pt-small" style="gap:6px;margin-left:8px;cursor:pointer"><input type="checkbox" ${OPT.zeros ? 'checked' : ''} onchange="window._erpZeros(this.checked)"> passages à 0/0 (${zeros.length})</label>
       <label class="pt-row pt-small" style="gap:6px;cursor:pointer" title="Articles jamais vendus ici, dimensionnés sur le rythme du réseau : un pari d'implantation, à décider dans Plan › Implanter"><input type="checkbox" ${OPT.implant ? 'checked' : ''} onchange="window._erpOpt('implant', this.checked)"> implantations jamais vendues ici (${all.filter(x => x.implant).length})</label>
       <label class="pt-row pt-small" style="gap:6px;cursor:pointer" title="Pièces à plus de ${PRIX_CHER} € jusqu'ici à 0/0 dans l'ERP : à garder en commande client ou à stocker, au cas par cas"><input type="checkbox" ${OPT.chers ? 'checked' : ''} onchange="window._erpOpt('chers', this.checked)"> nouvelles pièces &gt; ${PRIX_CHER} € (${all.filter(x => x.cher).length})</label>

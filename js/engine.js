@@ -1095,8 +1095,7 @@ export function computeSquelette(directionFilter) {
     } else {
       // ── Filtre Fin de Vie : exclure les articles morts du catalogue ──
       // 1. Statut local ERP = fin de série / fin de stock / fin de catalogue → bruit
-      const _sl = (fd?.statut || '').toLowerCase();
-      const _isFinLocal = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
+      const _isFinLocal = isFinDeVieCode(a.code, fd?.statut); // statut agence ou catalogue national
       if (_isFinLocal) { a.classification = 'bruit'; continue; }
       // 1b. Pas en stock local → vérifier statut réseau : si TOUTES les agences = fin de... → bruit
       if (!fd && _S.stockParMagasin) {
@@ -1199,6 +1198,31 @@ export function rowVerdictLabel(r) {
 /** Invendu 12 mois : en stock, aucune vente locale sur la période, hors nouveautés et références père. */
 export function isInvendu(r) {
   return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;
+}
+
+// ── Fin de vie : fin de série / fin de stock / fin de catalogue (oct. 2026) ──
+// Statut ERP de l'agence (« 2 - Fin de stock », « 3 - Fin de série ») ou statut du catalogue national.
+// Ces articles ne se commandent plus et ne s'implantent pas : MIN/MAX 0/0, hors ruptures, à liquider ou renvoyer.
+const _FIN_RE = /fin de s[ée]rie|fin de stock|fin de catalogue/i;
+export function isFinDeVieStatut(statut) {
+  const s = String(statut || '').trim();
+  return /^[23]\b/.test(s) || _FIN_RE.test(s);
+}
+export function isFinDeVieCode(code, statut) {
+  return isFinDeVieStatut(statut) || _FIN_RE.test(_S.catalogueStatut?.get?.(code) || '');
+}
+export function isFinDeVie(r) { return !!r && isFinDeVieCode(r.code, r.statut); }
+/** Fin de vie → MIN/MAX PRISME 0/0 (après Vitesse Réseau et Bouclier : rien ne les remonte). */
+export function applyFinDeVie() {
+  let n = 0;
+  for (const r of (_S.finalData || [])) {
+    if (!isFinDeVie(r)) continue;
+    r._finDeVie = true;
+    if (r.isNouveaute) continue;
+    if (r.nouveauMin || r.nouveauMax) n++;
+    r.nouveauMin = 0; r.nouveauMax = 0; r._vitesseReseau = false; r._venteUnique = false; r._mmRule = 'fin_de_vie';
+  }
+  return n;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1312,8 +1336,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
       else if (W >= 3 && _getNbClientsPDV(code) >= 3) classif = 'socle';
       else classif = 'surveiller';
     } else {
-      const _sl = (r.statut || '').toLowerCase();
-      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock') || _sl.includes('fin de catalogue');
+      const _isFin = isFinDeVieCode(code, r.statut); // statut agence ou catalogue national
       if (_isFin) { classif = 'bruit'; }
       else if (!r.statut && _S.stockParMagasin) {
         // Pas de statut local → vérifier réseau : si TOUTES les agences = fin de... → bruit
@@ -1449,6 +1472,7 @@ export function applyVerdictOverrides() {
 
   for (const r of (_S.finalData || [])) {
     if (r._sqClassif !== 'challenger') continue;
+    if (isFinDeVie(r)) continue; // fin de vie : 0/0 posé par applyFinDeVie, ne prend pas de place d'Ancre Métier
 
     if (r._sqRole !== 'specialiste') {
       // Poids Mort / Erreur de Casting / Réf Schizo → couper les vivres.
@@ -1489,7 +1513,7 @@ export function applyVerdictOverrides() {
     }
   }
 
-  return { overrides: overrideCount };
+  return { overrides: overrideCount, finDeVie: applyFinDeVie() };
 }
 
 // ═══════════════════════════════════════════════════════════════

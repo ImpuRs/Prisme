@@ -3,7 +3,7 @@
 // Pilotage Stock › Arbitrage : le détail du domaine Stock de « La partie ».
 //   1. Score Stock — le MÊME que La partie (computeStockPartie), avec sa décomposition
 //   2. Valeur du stock ventilée : se vend / rare / jamais vendu en 12 mois
-//   3. Décisions : commander, implanter, dégonfler, retourner, libérer — chacune
+//   3. Décisions : commander, implanter, dégonfler, retourner, liquider/renvoyer (fins de vie), libérer — chacune
 //      chiffrée (articles, €, points gagnés quand elle fait monter le score)
 //   4. Pour creuser : emplacements, vendus en livraison, matrice ABC × FMR
 // Assortiment → 12MG pleine période (finalData, ventesLocalMag12MG), insensible au filtre période.
@@ -15,7 +15,7 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
 import { PARTIE_STOCK_W_SERVICE } from './constants.js';
 import { computeStockPartie } from './partie.js';
-import { isInvendu, excedentSurStock } from './engine.js';
+import { isInvendu, excedentSurStock, isFinDeVie } from './engine.js';
 import { renderErpExport } from './export-erp.js';
 import { computePerfEmplacement, computeEnlevesSansRayon, renderArbitrageRayonBlock, openArbitrageSection } from './emplacement.js';
 
@@ -29,7 +29,7 @@ function _compute() {
   const fd = _S.finalData || [];
   const sp = computeStockPartie(fd);
   const split = { vend: 0, rare: 0, jamais: 0, nouv: 0 };
-  let total = 0, nbEnStock = 0, caRup = 0, excedent = 0, invVal = 0, invN = 0;
+  let total = 0, nbEnStock = 0, caRup = 0, excedent = 0, invVal = 0, invN = 0, finN = 0, finVal = 0, finLiq = 0, finRenv = 0;
   for (const r of fd) {
     const v = _val(r);
     if (r.stockActuel > 0 && v > 0) {
@@ -39,7 +39,9 @@ function _compute() {
       else if (r.fmrClass === 'R') split.rare += v;
       else split.vend += v;
     }
-    if (isInvendu(r)) { invN++; invVal += v; }
+    const fdv = isFinDeVie(r);
+    if (fdv && r.stockActuel > 0) { finN++; finVal += v; if (r.W > 0) finLiq++; else finRenv++; }
+    else if (isInvendu(r)) { invN++; invVal += v; }
   }
   for (const r of sp.rupArts) caRup += r.caAnnuel || 0;
   for (const r of sp.sasoArts) excedent += excedentSurStock(r) * (r.prixUnitaire || 0);
@@ -57,9 +59,12 @@ function _compute() {
       { key: 'degonfler', verb: 'Dégonfler', n: sp.sasoArts.length, unit: _plural(sp.sasoArts.length, 'article au-dessus de son MAX PRISME', 'articles au-dessus de leur MAX PRISME'),
         euro: excedent, euroLabel: 'de stock en trop au-delà du MAX PRISME', gain: sp.gainSaso,
         cta: 'Voir la liste', go: "showCockpitInTable('saso')" },
-      { key: 'retourner', verb: 'Retourner', n: invN, unit: _plural(invN, 'article jamais vendu en 12 mois', 'articles jamais vendus en 12 mois'),
+      { key: 'retourner', verb: 'Retourner', n: invN, unit: _plural(invN, 'article jamais vendu en 12 mois', 'articles jamais vendus en 12 mois (hors fins de série)'),
         euro: invVal, euroLabel: 'immobilisés — retour centrale ou déstockage',
         cta: 'Voir la liste', go: "showCockpitInTable('invendus')" },
+      { key: 'liquider', verb: 'Liquider ou renvoyer', n: finN, unit: _plural(finN, 'article en fin de série / fin de stock encore en stock', 'articles en fin de série / fin de stock encore en stock'),
+        euro: finVal, euroLabel: `immobilisés — ${_n(finLiq)} encore ${_plural(finLiq, 'vendu', 'vendus')} : à écouler au comptoir (mise en avant, prix) ; ${_n(finRenv)} sans vente en 12 mois : à renvoyer. Plus de réappro (MIN/MAX 0/0).${_S._finNew?.codes?.length ? ` Dont ${_n(_S._finNew.codes.length)} passés en fin de vie depuis le dernier chargement.` : ''}`,
+        cta: 'Voir la liste', go: "showCockpitInTable('fins')" },
       { key: 'liberer', verb: 'Libérer', n: pm.length, unit: _plural(pm.length, 'emplacement quasi mort (moins de 3 clients en 12 mois)', 'emplacements quasi morts (moins de 3 clients en 12 mois)'),
         euro: pm.reduce((s, r) => s + r.valStock, 0), euroLabel: 'de stock sur ces emplacements',
         cta: 'Voir la liste', go: "_arbOpen('emp','poids_mort')" },
