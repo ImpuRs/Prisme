@@ -11,7 +11,8 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
-import { prepareSources } from './sources.js';
+import { prepareSources, getZzat } from './sources.js';
+import { applyZzatText } from './scan-export.js';
 import { _saveToCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import './sales.js';
 import './helpers.js';
@@ -64,7 +65,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
     });
   }
 
-  export async function processData(_storeOverride){
+  export async function processData(_storeOverride,_opts={}){
     await prepareSources(); // fichiers gardés : fusion des nouveaux extraits / restitution (sources.js)
     const filesC=document.getElementById('fileConsomme').files,f2=document.getElementById('fileStock').files[0];
     if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
@@ -104,7 +105,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         const _newStore = (document.getElementById('selectMyStore')?.value || '').toUpperCase();
         const _storeChanged = _newStore && _newStore !== _S.selectedMyStore;
         if (_idbOk && DataStore.finalData.length > 0 && !_storeChanged) {
-          const _unchanged = await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, null);
+          const _unchanged = !_opts.force && await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, null);
           if (_unchanged) {
             // Cache "schema upgrade" : certaines features (clients actifs tous canaux par mois)
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
@@ -469,6 +470,9 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       const useMulti = _S.storesIntersection.size > 1 && _S.selectedMyStore;
       const lowMem = !!_S.lowMemMode;
 
+      // ZZAT018 gardé (Base articles › Rafraîchir stock) : il fait foi sur la liste, le stock et le MIN/MAX ERP
+      _S._zzatStats = null;
+      { const _zz = await getZzat(); if (_zz?.text && DataStore.finalData.length) { _S._zzatStats = applyZzatText(_zz.text); if (_S._zzatStats) console.log('[PRISME] ZZAT018 appliqué :', _S._zzatStats); } }
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
