@@ -1216,6 +1216,12 @@ export function isFinDeVie(r) { return !!r && isFinDeVieCode(r.code, r.statut); 
 export function applyFinDeVie() {
   let n = 0;
   for (const r of (_S.finalData || [])) {
+    // Statut « 4 - Promo » : 0/0 aussi (décision chef d'agence, oct. 2026) — mais pas une fin de vie (pas à liquider)
+    if (/^4\b/.test(String(r.statut || '').trim()) && !r.isNouveaute) {
+      if (r.nouveauMin || r.nouveauMax) n++;
+      r.nouveauMin = 0; r.nouveauMax = 0; r._vitesseReseau = false; r._venteUnique = false; r._mmRule = 'statut';
+      continue;
+    }
     if (!isFinDeVie(r)) continue;
     r._finDeVie = true;
     if (r.isNouveaute) continue;
