@@ -624,7 +624,7 @@ const _CTX = {
   fantomes: ['En stock sans emplacement', 'à ranger'],
   sansemplacement: ['En stock sans emplacement', 'à ranger'],
   stockneg: ['Stock négatif', 'à régulariser'],
-  fins: ['Fins de série', 'à écouler'],
+  fins: ['Fins de série / fins de stock en stock', 'encore vendus : à liquider au comptoir · plus vendus : à renvoyer'],
   colisrayon: ['Vendus en colis, absents du rayon', 'à stocker ?'],
 };
 const _TAB_NAMES = { partie: 'La partie', arbitrage: 'Décisions stock', plan: 'Plan', clients: 'Fidélisation PDV', commerce: 'Conquête Terrain' };

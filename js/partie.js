@@ -16,7 +16,7 @@
 'use strict';
 
 import { _S } from './state.js';
-import { computeSquelette, verdictLabel, isSurStock } from './engine.js';
+import { computeSquelette, verdictLabel, isSurStock, isFinDeVie } from './engine.js';
 import { famLib, escapeHtml, formatLocalYMD } from './utils.js';
 import { PARTIE_WEIGHTS, PARTIE_OBJECTIF, PARTIE_FAM_MIN_REFS, PARTIE_TROU_DETENTION, PARTIE_TROU_CA_AGENCE, PARTIE_TROU_CLIENTS, PARTIE_TROUS_PAR_ACTION, PARTIE_CAL_TOL_MIN, PARTIE_CAL_TOL_MAX, PARTIE_STOCK_W_SERVICE, PARTIE_NB_ACTIONS } from './constants.js';
 import { _savePartieSnapshot, _loadPartieDone, _savePartieDone } from './cache.js';
@@ -63,7 +63,7 @@ export function computeStockPartie(fd = _S.finalData || []) {
   const rupArts = [], sasoArts = [];
   for (const r of fd) {
     if (r.isParent) continue;
-    const colisOnly = r.V === 0 && r.enleveTotal > 0;
+    const colisOnly = (r.V === 0 && r.enleveTotal > 0) || isFinDeVie(r); // fin de vie : ne se commande plus, hors disponibilité/ruptures
     const inService = (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !colisOnly;
     if (inService) { st.serviceTotal++; if (r.stockActuel > 0) st.serviceOk++; }
     if (r.W >= 3 && r.stockActuel <= 0 && !colisOnly) { rupArts.push(r); if (inService) st.rupInService++; }
