@@ -284,7 +284,7 @@ function _critBlock(f, i, open) {
     const rows = spec.arts.slice(0, LIST_LIMIT).map((a, j) => {
       const cells = spec.row(a);
       const sep = kNext && j === kNext ? `<tr class="pt-sep"><td colspan="${2 + cells.length}">Ensuite</td></tr>` : '';
-      return `${sep}<tr${j < kNext ? ' class="pt-next"' : ''}><td class="pt-num pt-muted">${escapeHtml(a.code)}</td><td>${escapeHtml(a.libelle || '')}</td>${cells.map(v => `<td class="pt-num">${escapeHtml(String(v))}</td>`).join('')}</tr>`;
+      return `${sep}<tr class="ar-click${j < kNext ? ' pt-next' : ''}" title="Ouvrir la fiche article" onclick="window.openArticlePanel?.('${escapeHtml(a.code)}','partie')"><td class="pt-num pt-muted">${escapeHtml(a.code)}</td><td>${escapeHtml(a.libelle || '')}</td>${cells.map(v => `<td class="pt-num">${escapeHtml(String(v))}</td>`).join('')}</tr>`;
     }).join('');
     const head = kNext ? `<div class="pt-small pt-muted" style="padding:10px 12px 0">Les ${kNext} premiers = l’action « Implanter » (meilleur score d’abord)</div>` : '';
     list = `<div class="pt-list">${head}
