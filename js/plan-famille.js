@@ -17,6 +17,7 @@ import { PARTIE_WEIGHTS, PARTIE_FAM_MIN_REFS, SQ_RESEAU_FORT_CA_AGENCE } from '.
 import { computeSquelette, verdictLabel } from './engine.js';
 import { computePartie, CRIT_LABELS } from './partie.js';
 import { downloadErpFile } from './export-erp.js';
+import { loadCatalogueMarques } from './animation.js';
 import { getArticleLastSaleMonthIdx, monthIdxFromDate, getVentesHorsMagFullMap } from './sales.js';
 
 const ROW_LIMIT = 60;
@@ -27,11 +28,15 @@ let _p = null;          // computePartie({ minRefs: 1 })
 let _ctx = null;        // index partagés (réseau, clients, implanter par famille…)
 let _sel = '';          // famille ouverte
 let _sf = '';           // sous-famille filtrée ('' = toutes)
+let _mq = '';           // marque filtrée ('' = toutes) — filtre transversal : familles et articles
 let _q = '';            // recherche famille
 let _hl = '';           // article mis en évidence (recherche par code)
 let _open = new Set(['sortir', 'implanter']); // groupes dépliés
 let _more = new Set();  // groupes affichés en entier
 
+const _marque = (code) => _S.catalogueMarques?.get(code) || '';
+/** Filtres actifs sur un article : sous-famille (dans la famille ouverte) + marque. */
+const _inFilter = (code) => (!_sf || _S.catalogueFamille?.get(code)?.codeSousFam === _sf) && (!_mq || _marque(code) === _mq);
 const _col = (s) => s == null ? 'var(--t-disabled)' : s < 70 ? 'var(--pt-low)' : s < 80 ? 'var(--pt-mid)' : 'var(--pt-high)';
 const _bar = (v, h = 6) => `<span class="pt-track" style="height:${h}px"><span class="pt-fill" style="width:${Math.max(0, Math.min(100, v))}%;background:${_col(v)}"></span></span>`;
 const _n = (v) => Number(v || 0).toLocaleString('fr-FR');
@@ -73,7 +78,15 @@ function _buildCtx() {
     let a = horsBuyers.get(code); if (!a) horsBuyers.set(code, a = []);
     a.push({ cc, ca: v.sumCA });
   }
-  return { nbStores, reseau, implByFam, survByFam, famOfCode, horsBuyers, cliFull: _S.articleClientsFull || new Map() };
+  // Marques : nb d'articles par marque, et par famille (articles de la base + à implanter)
+  const marqueN = new Map(), famMarque = new Map();
+  for (const [code, fam] of famOfCode) {
+    const m = _marque(code); if (!m) continue;
+    marqueN.set(m, (marqueN.get(m) || 0) + 1);
+    let fm = famMarque.get(fam); if (!fm) famMarque.set(fam, fm = new Map());
+    fm.set(m, (fm.get(m) || 0) + 1);
+  }
+  return { nbStores, reseau, implByFam, survByFam, famOfCode, horsBuyers, marqueN, famMarque, cliFull: _S.articleClientsFull || new Map() };
 }
 
 // ── Gestes ───────────────────────────────────────────────────
@@ -157,11 +170,12 @@ function _groups(f) {
 // ── Rendu ────────────────────────────────────────────────────
 function _famList() {
   const q = _q.trim().toLowerCase();
-  const match = (f) => !q || f.k.toLowerCase().includes(q) || f.lib.toLowerCase().includes(q);
+  const nMq = (f) => _mq ? (_ctx.famMarque.get(f.k)?.get(_mq) || 0) : 0;
+  const match = (f) => (!q || f.k.toLowerCase().includes(q) || f.lib.toLowerCase().includes(q)) && (!_mq || nMq(f) > 0);
   const big = _p.famList.filter(f => f.n >= PARTIE_FAM_MIN_REFS && match(f));
   const small = _p.famList.filter(f => f.n < PARTIE_FAM_MIN_REFS && match(f));
   const row = (f) => `<button type="button" class="pt-fam${f.k === _sel ? ' pt-sel' : ''}" onclick="_pfPick('${escapeHtml(f.k)}')">
-      <span class="pt-grow pt-col" style="gap:2px;text-align:left"><span class="pt-ellipsis">${escapeHtml(f.lib)}</span><span class="pt-small pt-muted pt-num">${escapeHtml(f.k)} · ${f.n} réf.</span></span>
+      <span class="pt-grow pt-col" style="gap:2px;text-align:left"><span class="pt-ellipsis">${escapeHtml(f.lib)}</span><span class="pt-small pt-muted pt-num">${escapeHtml(f.k)} · ${f.n} réf.${_mq ? ` · ${nMq(f)} ${escapeHtml(_mq)}` : ''}</span></span>
       <span style="width:64px">${_bar(f.score, 6)}</span>
       <span class="pt-num pt-strong" style="width:28px;text-align:right;color:${_col(f.score)}">${f.score}</span>
     </button>`;
@@ -170,11 +184,24 @@ function _famList() {
     ${!big.length && !small.length ? '<p class="pt-small pt-muted" style="padding:10px">Aucune famille ne correspond.</p>' : ''}`;
 }
 
+/** Filtre marque (colonne de gauche) : saisie avec suggestions, marques triées par nombre d'articles. */
+function _marqueFilter() {
+  const list = [..._ctx.marqueN].sort((a, b) => b[1] - a[1]);
+  if (!list.length) return _S.catalogueMarques?.size ? '' : '<p class="pt-small pt-muted" style="margin:0 0 10px">Marques : chargement du catalogue…</p>';
+  return `<div class="pt-row" style="gap:6px;margin-bottom:10px;align-items:center">
+      <input id="pfMarque" type="search" class="pf-search" style="margin:0" list="pfMarques" placeholder="Toutes les marques" value="${escapeHtml(_mq)}"
+        onchange="_pfMq(this.value)" onkeydown="if(event.key==='Enter')_pfMq(this.value)" autocomplete="off" aria-label="Filtrer par marque">
+      ${_mq ? `<button type="button" class="pt-link pt-small" onclick="_pfMq('')" title="Retirer le filtre marque">✕</button>` : ''}
+    </div>
+    <datalist id="pfMarques">${list.map(([m, n]) => `<option value="${escapeHtml(m)}">${n} art.</option>`).join('')}</datalist>`;
+}
+
 function _sfChips(f, arts) {
   const cat = _S.catalogueFamille;
   if (!cat) return '';
   const counts = new Map();
   for (const a of arts) {
+    if (_mq && _marque(a.code) !== _mq) continue;
     const c = cat.get(a.code);
     if (!c?.codeSousFam) continue;
     const e = counts.get(c.codeSousFam) || { lib: c.sousFam || c.codeSousFam, n: 0 };
@@ -184,12 +211,11 @@ function _sfChips(f, arts) {
   const sorted = [...counts].sort((a, b) => b[1].n - a[1].n);
   const opt = (k, lib, n) => `<option value="${escapeHtml(k)}"${_sf === k ? ' selected' : ''}>${escapeHtml(lib)} (${n})</option>`;
   return `<label class="pt-row pt-small" style="gap:10px;flex-wrap:wrap"><span class="pt-muted">Sous-famille</span>
-    <select class="pf-select" onchange="_pfSf(this.value)">${opt('', 'Toutes', arts.length)}${sorted.map(([k, e]) => opt(k, e.lib, e.n)).join('')}</select></label>`;
+    <select class="pf-select" onchange="_pfSf(this.value)">${opt('', 'Toutes', _mq ? arts.filter(a => _marque(a.code) === _mq).length : arts.length)}${sorted.map(([k, e]) => opt(k, e.lib, e.n)).join('')}</select></label>`;
 }
 
 function _group(g) {
-  const cat = _S.catalogueFamille;
-  const arts = _sf ? g.arts.filter(a => cat?.get(a.code)?.codeSousFam === _sf) : g.arts;
+  const arts = g.arts.filter(a => _inFilter(a.code));
   const n = arts.length;
   const open = _open.has(g.key) || (_hl && arts.some(a => a.code === _hl));
   const shown = _more.has(g.key) ? arts : arts.slice(0, ROW_LIMIT);
@@ -238,6 +264,7 @@ function _detail() {
       </div>
       <div class="pf-crit">${crit}</div>
     </div>
+    ${_mq ? `<div class="pt-row pt-small" style="gap:10px;align-items:center"><span class="ar-tag" data-tone="mid">Marque : ${escapeHtml(_mq)}</span><span class="pt-muted">articles de cette marque seulement · la note reste celle de toute la famille</span><button type="button" class="pt-link pt-small" onclick="_pfMq('')">Toutes les marques</button></div>` : ''}
     ${_sfChips(f, allCodes)}
     ${groups.map(_group).join('')}
     ${deep ? `<details class="ar-sec" id="pfDeep"><summary><span class="pt-col" style="gap:2px"><span class="pt-h3">Pour creuser</span>
@@ -257,6 +284,7 @@ function _render() {
     </header>
     <section class="pf-layout">
       <div class="pt-card pt-famlist pt-col pf-famcol">
+        ${_marqueFilter()}
         <input id="pfSearch" type="search" class="pf-search" placeholder="Famille ou code article (6 chiffres)" value="${escapeHtml(_q)}"
           oninput="_pfSearch(this.value)" onkeydown="if(event.key==='Enter')_pfSearch(this.value,true)" autocomplete="off">
         <div id="pfList" class="pt-col pf-famscroll">${_famList()}</div>
@@ -282,6 +310,8 @@ export function renderPlanFamille(host, bridge) {
     return;
   }
   _ctx = _buildCtx();
+  if (!_S.catalogueMarques?.size) loadCatalogueMarques().then(() => { if (_S.catalogueMarques?.size && _host === host) { _ctx = _buildCtx(); _render(); } }).catch(() => {});
+  if (_mq && !_ctx.marqueN.has(_mq)) _mq = '';
   if (!_p.famList.some(f => f.k === _sel)) {
     _sel = (_p.famList.find(f => f.n >= PARTIE_FAM_MIN_REFS) || _p.famList[0]).k; _sf = ''; _hl = '';
   }
@@ -295,6 +325,20 @@ window._pfPick = (k) => {
   document.querySelector('#tabPlan .pt-wrap')?.scrollIntoView({ block: 'start' });
 };
 window._pfSf = (k) => { _sf = k; _render(); };
+window._pfMq = (v) => {
+  v = String(v || '').trim();
+  // Saisie libre : on retient la marque connue qui correspond (casse ignorée), sinon on ne filtre pas
+  const m = !v ? '' : _ctx.marqueN.has(v) ? v : ([..._ctx.marqueN.keys()].find(k => k.toLowerCase() === v.toLowerCase())
+    || [..._ctx.marqueN.keys()].filter(k => k.toLowerCase().includes(v.toLowerCase())).sort((a, b) => _ctx.marqueN.get(b) - _ctx.marqueN.get(a))[0] || '');
+  if (v && !m) { window.showToast?.(`Aucune marque « ${v} » dans tes articles`, 'warning'); return; }
+  _mq = m; _sf = ''; _more.clear();
+  // Famille ouverte sans article de la marque : on ouvre celle qui en a le plus
+  if (_mq && !(_ctx.famMarque.get(_sel)?.get(_mq) > 0)) {
+    const best = _p.famList.filter(f => _ctx.famMarque.get(f.k)?.get(_mq) > 0).sort((a, b) => _ctx.famMarque.get(b.k).get(_mq) - _ctx.famMarque.get(a.k).get(_mq))[0];
+    if (best) _sel = best.k;
+  }
+  _render();
+};
 window._pfMore = (k) => { _more.add(k); _render(); };
 window._pfToggle = (k, open) => { if (open) _open.add(k); else _open.delete(k); };
 window._pfSearch = (v, enter) => {
@@ -319,8 +363,7 @@ window._pfErp = (key) => {
   const f = _p?.famList.find(x => x.k === _sel);
   const g = f && _groups(f).find(x => x.key === key);
   if (!g) return;
-  const arts = _sf ? g.arts.filter(a => _S.catalogueFamille?.get(a.code)?.codeSousFam === _sf) : g.arts;
-  downloadErpFile(arts, f.k);
+  downloadErpFile(g.arts.filter(a => _inFilter(a.code)), f.k + (_mq ? '_' + _mq.replace(/[^\p{L}\p{N}]+/gu, '-') : ''));
 };
 window._pfCsv = (key) => {
   const f = _p?.famList.find(x => x.k === _sel);
@@ -329,7 +372,7 @@ window._pfCsv = (key) => {
   if (!g) return;
   const strip = (v) => String(v ?? '').replace(/<[^>]+>/g, '').trim();
   const q = (v) => `"${strip(v).replace(/"/g, '""')}"`;
-  const arts = _sf ? g.arts.filter(a => _S.catalogueFamille?.get(a.code)?.codeSousFam === _sf) : g.arts;
+  const arts = g.arts.filter(a => _inFilter(a.code));
   const lines = [['Code', 'Libellé', ...g.head].map(q).join(';'), ...arts.map(a => [a.code, a.libelle || '', ...g.row(a)].map(q).join(';'))];
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -364,7 +407,7 @@ DONNÉES
 
 function _aiPack(f) {
   const cat = _S.catalogueFamille;
-  const inSf = (code) => !_sf || cat?.get(code)?.codeSousFam === _sf;
+  const inSf = _inFilter;
   const sfLib = _sf ? (cat ? [...cat.values()].find(c => c.codeSousFam === _sf)?.sousFam : '') || _sf : '';
   const { reseau, nbStores, cliFull } = _ctx;
   const last = getArticleLastSaleMonthIdx();
