@@ -128,6 +128,7 @@ window.refreshFromZZAT018 = function(fileInput) {
 // Appliqué à chaque analyse AVANT le MIN/MAX (pipeline._postParseMain) : un article passé ce jour en fin de série
 // part à 0/0, et une fin de vie encore disponible à SASO est à renvoyer en priorité (la centrale la vend encore).
 export const DEPOT_SASO = 'S00';
+export const DEPOTS_CENTRAUX = ['S00', 'M00']; // dispo centrale = S00 + M00 (r._dispoSaso), détail dans r._dispoDepots
 const _STATUT_ERP = { 'normal': '0 - Normal', 'fin de stock': '2 - Fin de stock', 'fin de serie': '3 - Fin de série', 'fin de série': '3 - Fin de série', 'promo': '4 - Promo' };
 /** Lit le texte d'un ZZSS022B → extrait { name, date, store, saso: {code: qté}, statuts: {code: statut ERP} } ou null. */
 export function parseDepotZZSS(text, name, store) {
@@ -136,18 +137,18 @@ export function parseDepotZZSS(text, name, store) {
   const iDep = hdr.indexOf('depot'), iArt = hdr.indexOf('code article'), iQte = hdr.indexOf('qte dispo vente'), iStat = hdr.indexOf('statut article');
   if (iDep < 0 || iArt < 0 || iQte < 0) return null;
   const myDep = String(store || '').replace(/\D/g, '').padStart(2, '0');
-  const saso = {}, statuts = {};
+  const saso = {}, m00 = {}, statuts = {};
   let pos = nl + 1, nAg = 0;
   while (pos < text.length) {
     let end = text.indexOf('\n', pos); if (end < 0) end = text.length;
     const sc = text.indexOf(';', pos);
     const dep = sc > 0 && sc < end ? text.slice(pos, sc).trim() : '';
-    if (dep === DEPOT_SASO || dep === myDep) {
+    if (dep === DEPOT_SASO || dep === 'M00' || dep === myDep) {
       const c = text.slice(pos, end).replace(/\r$/, '').split(';');
       let code = (c[iArt] || '').replace(/\D/g, '');
       if (code && code.length < 6) code = code.padStart(6, '0');
       if (/^\d{6}$/.test(code)) {
-        if (dep === DEPOT_SASO) { const q = parseFloat(String(c[iQte] || '').replace(',', '.')) || 0; if (q > 0) saso[code] = q; }
+        if (dep === DEPOT_SASO || dep === 'M00') { const q = parseFloat(String(c[iQte] || '').replace(',', '.')) || 0; if (q > 0) (dep === 'M00' ? m00 : saso)[code] = q; }
         else if (iStat >= 0) { const st = (c[iStat] || '').trim(); if (st) { statuts[code] = _STATUT_ERP[st.toLowerCase()] || st; nAg++; } }
       }
     }
@@ -155,8 +156,8 @@ export function parseDepotZZSS(text, name, store) {
   }
   const m = String(name || '').match(/(20\d{2})(\d{2})(\d{2})/);
   const date = m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : Date.now();
-  if (!Object.keys(saso).length && !nAg) return null;
-  return { name, date, store: store || '', saso, statuts, nAg };
+  if (!Object.keys(saso).length && !Object.keys(m00).length && !nAg) return null;
+  return { name, date, store: store || '', saso, m00, statuts, nAg };
 }
 const _cat = (s) => { const t = String(s || '').trim(); return /^[23]\b|fin de s[ée]rie|fin de stock|fin de catalogue/i.test(t) ? 'fin' : /^4\b|promo/i.test(t) ? 'promo' : 'normal'; };
 /** Applique l'extrait à _S.finalData : dispo SASO (r._dispoSaso) et statut du jour quand il change de catégorie. */
@@ -167,7 +168,9 @@ export function applyDepotExtract(x) {
   const statutsOk = sameStore && (!_S._stockFileTs || x.date + 86400000 > _S._stockFileTs);
   let statutsChanges = 0, avecDispo = 0;
   for (const r of _S.finalData || []) {
-    r._dispoSaso = x.saso?.[r.code] || 0;
+    const s0 = x.saso?.[r.code] || 0, m0 = x.m00?.[r.code] || 0;
+    r._dispoSaso = s0 + m0; // dispo centrale (S00 + M00)
+    r._dispoDepots = r._dispoSaso > 0 ? { S00: s0, M00: m0 } : null;
     if (r._dispoSaso > 0) avecDispo++;
     const st = statutsOk ? x.statuts?.[r.code] : null;
     if (st && _cat(st) !== _cat(r.statut)) { r._statutAvantZZSS = r.statut; r.statut = st; statutsChanges++; }
@@ -188,7 +191,7 @@ window.importDepotZZSS = async function(fileInput) {
     if (!x) { showToast('ZZSS022B : colonnes depot / Code article / Qte dispo vente introuvables', 'error'); return; }
     if (!_S.lowMemMode && window.processData) {
       await saveDepot(x);
-      showToast(`ZZSS022B gardé — ${Object.keys(x.saso).length.toLocaleString('fr-FR')} articles dispo à SASO · recalcul de l'analyse…`, 'info', 5000);
+      showToast(`ZZSS022B gardé — ${new Set([...Object.keys(x.saso), ...Object.keys(x.m00 || {})]).size.toLocaleString('fr-FR')} articles dispo à SASO (S00 + M00) · recalcul de l'analyse…`, 'info', 5000);
       await window.processData(_S.selectedMyStore || '', { force: true });
     } else {
       applyDepotExtract(x); invalidateCache(); renderAll(); _saveSessionToIDB();
