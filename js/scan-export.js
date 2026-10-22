@@ -7,11 +7,11 @@
 
 import { _S, invalidateCache } from './state.js';
 import { computeSquelette, computeVitesseReseau, rowVerdictLabel, isInvendu } from './engine.js';
-import { showToast, renderAll } from './ui.js';
+import { showToast, renderAll, showLoading, hideLoading } from './ui.js';
 import { _saveSessionToIDB } from './cache.js';
 import { DataStore } from './store.js';
 import { renderTable } from './render-stock.js';
-import { saveZzat } from './sources.js';
+import { saveZzat, saveDepot } from './sources.js';
 
 // ── Rafraichir stock depuis ZZAT018 CSV ──────────────────────────────
 // Le ZZAT fait foi sur la LISTE des articles de l'agence : après rafraîchissement, finalData = exactement les
@@ -121,6 +121,84 @@ window.refreshFromZZAT018 = function(fileInput) {
     }
   };
   reader.readAsText(file, 'ISO-8859-1');
+};
+
+// ── ZZSS022B (dossier ZZSS022B_NEW, un fichier par jour) : stock de tous les dépôts ──────────
+// On n'en garde qu'un extrait : la dispo vente du dépôt central SASO (S00) et le statut des articles de l'agence.
+// Appliqué à chaque analyse AVANT le MIN/MAX (pipeline._postParseMain) : un article passé ce jour en fin de série
+// part à 0/0, et une fin de vie encore disponible à SASO est à renvoyer en priorité (la centrale la vend encore).
+export const DEPOT_SASO = 'S00';
+const _STATUT_ERP = { 'normal': '0 - Normal', 'fin de stock': '2 - Fin de stock', 'fin de serie': '3 - Fin de série', 'fin de série': '3 - Fin de série', 'promo': '4 - Promo' };
+/** Lit le texte d'un ZZSS022B → extrait { name, date, store, saso: {code: qté}, statuts: {code: statut ERP} } ou null. */
+export function parseDepotZZSS(text, name, store) {
+  const nl = text.indexOf('\n');
+  const hdr = text.slice(0, nl).replace(/\r$/, '').split(';').map(h => h.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const iDep = hdr.indexOf('depot'), iArt = hdr.indexOf('code article'), iQte = hdr.indexOf('qte dispo vente'), iStat = hdr.indexOf('statut article');
+  if (iDep < 0 || iArt < 0 || iQte < 0) return null;
+  const myDep = String(store || '').replace(/\D/g, '').padStart(2, '0');
+  const saso = {}, statuts = {};
+  let pos = nl + 1, nAg = 0;
+  while (pos < text.length) {
+    let end = text.indexOf('\n', pos); if (end < 0) end = text.length;
+    const sc = text.indexOf(';', pos);
+    const dep = sc > 0 && sc < end ? text.slice(pos, sc).trim() : '';
+    if (dep === DEPOT_SASO || dep === myDep) {
+      const c = text.slice(pos, end).replace(/\r$/, '').split(';');
+      let code = (c[iArt] || '').replace(/\D/g, '');
+      if (code && code.length < 6) code = code.padStart(6, '0');
+      if (/^\d{6}$/.test(code)) {
+        if (dep === DEPOT_SASO) { const q = parseFloat(String(c[iQte] || '').replace(',', '.')) || 0; if (q > 0) saso[code] = q; }
+        else if (iStat >= 0) { const st = (c[iStat] || '').trim(); if (st) { statuts[code] = _STATUT_ERP[st.toLowerCase()] || st; nAg++; } }
+      }
+    }
+    pos = end + 1;
+  }
+  const m = String(name || '').match(/(20\d{2})(\d{2})(\d{2})/);
+  const date = m ? new Date(+m[1], +m[2] - 1, +m[3]).getTime() : Date.now();
+  if (!Object.keys(saso).length && !nAg) return null;
+  return { name, date, store: store || '', saso, statuts, nAg };
+}
+const _cat = (s) => { const t = String(s || '').trim(); return /^[23]\b|fin de s[ée]rie|fin de stock|fin de catalogue/i.test(t) ? 'fin' : /^4\b|promo/i.test(t) ? 'promo' : 'normal'; };
+/** Applique l'extrait à _S.finalData : dispo SASO (r._dispoSaso) et statut du jour quand il change de catégorie. */
+export function applyDepotExtract(x) {
+  if (!x) return null;
+  const sameStore = !x.store || !_S.selectedMyStore || x.store === _S.selectedMyStore;
+  // Statuts : seulement si le ZZSS n'est pas plus ancien que l'état du stock chargé (sinon le stock fait foi)
+  const statutsOk = sameStore && (!_S._stockFileTs || x.date + 86400000 > _S._stockFileTs);
+  let statutsChanges = 0, avecDispo = 0;
+  for (const r of _S.finalData || []) {
+    r._dispoSaso = x.saso?.[r.code] || 0;
+    if (r._dispoSaso > 0) avecDispo++;
+    const st = statutsOk ? x.statuts?.[r.code] : null;
+    if (st && _cat(st) !== _cat(r.statut)) { r._statutAvantZZSS = r.statut; r.statut = st; statutsChanges++; }
+  }
+  _S._depotInfo = { name: x.name, date: x.date, avecDispo, statutsChanges };
+  return _S._depotInfo;
+}
+
+window.importDepotZZSS = async function(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  fileInput.value = '';
+  try {
+    showLoading('Lecture du ZZSS022B…', file.name);
+    const text = new TextDecoder('utf-8').decode(await file.arrayBuffer());
+    const x = parseDepotZZSS(text, file.name, _S.selectedMyStore);
+    hideLoading();
+    if (!x) { showToast('ZZSS022B : colonnes depot / Code article / Qte dispo vente introuvables', 'error'); return; }
+    if (!_S.lowMemMode && window.processData) {
+      await saveDepot(x);
+      showToast(`ZZSS022B gardé — ${Object.keys(x.saso).length.toLocaleString('fr-FR')} articles dispo à SASO · recalcul de l'analyse…`, 'info', 5000);
+      await window.processData(_S.selectedMyStore || '', { force: true });
+    } else {
+      applyDepotExtract(x); invalidateCache(); renderAll(); _saveSessionToIDB();
+    }
+    const d = _S._depotInfo;
+    if (d) showToast(`ZZSS022B du ${new Date(d.date).toLocaleDateString('fr-FR')} : ${d.avecDispo.toLocaleString('fr-FR')} de tes articles dispo à SASO` + (d.statutsChanges ? ` · ${d.statutsChanges} statut${d.statutsChanges > 1 ? 's' : ''} mis à jour` : ''), 'success', 7000);
+  } catch (e) {
+    hideLoading();
+    showToast('Erreur lecture ZZSS022B : ' + e.message, 'error');
+  }
 };
 
 // ── Importer associations EAN depuis CSV scan ───────────────────────
