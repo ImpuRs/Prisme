@@ -29,7 +29,7 @@ function _compute() {
   const fd = _S.finalData || [];
   const sp = computeStockPartie(fd);
   const split = { vend: 0, rare: 0, jamais: 0, nouv: 0 };
-  let total = 0, nbEnStock = 0, caRup = 0, excedent = 0, invVal = 0, invN = 0, finN = 0, finVal = 0, finLiq = 0, finRenv = 0;
+  let total = 0, nbEnStock = 0, caRup = 0, excedent = 0, invVal = 0, invN = 0, finN = 0, finVal = 0, finLiq = 0, finRenv = 0, finSaso = 0, finSasoVal = 0;
   for (const r of fd) {
     const v = _val(r);
     if (r.stockActuel > 0 && v > 0) {
@@ -40,7 +40,8 @@ function _compute() {
       else split.vend += v;
     }
     const fdv = isFinDeVie(r);
-    if (fdv && r.stockActuel > 0) { finN++; finVal += v; if (r.W > 0) finLiq++; else finRenv++; }
+    // Encore dispo à SASO (ZZSS022B) : la centrale le vend encore → renvoi en priorité, quel que soit le rythme ici
+    if (fdv && r.stockActuel > 0) { finN++; finVal += v; if (r._dispoSaso > 0) { finSaso++; finSasoVal += v; } else if (r.W > 0) finLiq++; else finRenv++; }
     else if (isInvendu(r)) { invN++; invVal += v; }
   }
   for (const r of sp.rupArts) caRup += r.caAnnuel || 0;
@@ -63,8 +64,8 @@ function _compute() {
         euro: invVal, euroLabel: 'immobilisés — retour centrale ou déstockage',
         cta: 'Voir la liste', go: "showCockpitInTable('invendus')" },
       { key: 'liquider', verb: 'Liquider ou renvoyer', n: finN, unit: _plural(finN, 'article en fin de série / fin de stock encore en stock', 'articles en fin de série / fin de stock encore en stock'),
-        euro: finVal, euroLabel: `immobilisés — ${_n(finLiq)} encore ${_plural(finLiq, 'vendu', 'vendus')} : à écouler au comptoir (mise en avant, prix) ; ${_n(finRenv)} sans vente en 12 mois : à renvoyer. Plus de réappro (MIN/MAX 0/0).${_S._finNew?.codes?.length ? ` Dont ${_n(_S._finNew.codes.length)} passés en fin de vie depuis le dernier chargement.` : ''}`,
-        cta: 'Voir la liste', go: "showCockpitInTable('fins')" },
+        euro: finVal, euroLabel: `immobilisés — ${finSaso ? `${_n(finSaso)} encore ${_plural(finSaso, 'disponible', 'disponibles')} à SASO : <b>à renvoyer en priorité</b> (${formatEuro(finSasoVal)}) ; ` : ''}${_n(finLiq)} encore ${_plural(finLiq, 'vendu', 'vendus')} : à écouler au comptoir (mise en avant, prix) ; ${_n(finRenv)} sans vente en 12 mois : à renvoyer.${_S._depotInfo ? '' : ' Charge le ZZSS022B (Base articles) pour voir ce que SASO a encore.'} Plus de réappro (MIN/MAX 0/0).${_S._finNew?.codes?.length ? ` Dont ${_n(_S._finNew.codes.length)} passés en fin de vie depuis le dernier chargement.` : ''}`,
+        cta: finSaso ? `Renvoi prioritaire (${_n(finSaso)})` : 'Voir la liste', go: finSaso ? "showCockpitInTable('finsSaso')" : "showCockpitInTable('fins')", cta2: finSaso ? ['Toutes les fins de vie', "showCockpitInTable('fins')"] : null, html: true },
       { key: 'liberer', verb: 'Libérer', n: pm.length, unit: _plural(pm.length, 'emplacement quasi mort (moins de 3 clients en 12 mois)', 'emplacements quasi morts (moins de 3 clients en 12 mois)'),
         euro: pm.reduce((s, r) => s + r.valStock, 0), euroLabel: 'de stock sur ces emplacements',
         cta: 'Voir la liste', go: "_arbOpen('emp','poids_mort')" },
@@ -121,8 +122,8 @@ function _decisionCard(x) {
       <span class="pt-num" style="font-size:36px;font-weight:600;line-height:1.05">${_n(x.n)}</span>
       <span class="ar-dec-unit">${escapeHtml(x.unit)}</span>
     </div>
-    <p class="pt-small pt-muted" style="margin:0"><span class="pt-num pt-strong" style="color:var(--t-primary)">${formatEuro(x.euro)}</span> ${escapeHtml(x.euroLabel)}</p>
-    <button type="button" class="pt-btn ar-dec-cta" onclick="${x.go}">${x.cta} →</button>`}
+    <p class="pt-small pt-muted" style="margin:0"><span class="pt-num pt-strong" style="color:var(--t-primary)">${formatEuro(x.euro)}</span> ${x.html ? x.euroLabel : escapeHtml(x.euroLabel)}</p>
+    <button type="button" class="pt-btn ar-dec-cta" onclick="${x.go}">${x.cta} →</button>${x.cta2 ? `<button type="button" class="pt-link pt-small" onclick="${x.cta2[1]}">${x.cta2[0]} →</button>` : ''}`}
   </article>`;
 }
 

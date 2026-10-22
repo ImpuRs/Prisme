@@ -228,6 +228,16 @@ export async function saveZzat(text, name, lastModified) {
   await _put('zzat', { ...(await _pack(text)), name, lastModified: lastModified || Date.now(), updated: Date.now() });
   return true;
 }
+// ── ZZSS022B (dispo des dépôts, fichier quotidien) : extrait compact gardé — dispo SASO + statuts de l'agence ──
+export async function saveDepot(extract) {
+  if (_S.lowMemMode) return false;
+  await _put('zzss', { ...(await _pack(JSON.stringify(extract))), name: extract.name, updated: Date.now() });
+  return true;
+}
+export async function getDepot() {
+  if (_S.lowMemMode) return null;
+  try { const rec = await _get('zzss'); return rec ? JSON.parse(await _unpack(rec)) : null; } catch (_) { return null; }
+}
 export async function getZzat() {
   if (_S.lowMemMode) return null;
   try { const rec = await _get('zzat'); return rec ? { text: await _unpack(rec), name: rec.name, updated: rec.updated } : null; }
@@ -238,8 +248,8 @@ export async function getZzat() {
 const _ymLabel = (ym) => ym ? new Date(Math.floor(ym / 12), ym % 12, 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 const _d = (t) => t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
 export async function refreshSourcesPanel() {
-  let c = null, h = null, s = null, z = null;
-  try { [c, h, s, z] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock'), _get('zzat')]); } catch (_) {}
+  let c = null, h = null, s = null, z = null, d = null;
+  try { [c, h, s, z, d] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock'), _get('zzat'), _get('zzss')]); } catch (_) {}
   _info = { consomme: c ? { meta: c.meta, updated: c.updated } : null, chalandise: h ? { meta: h.meta, updated: h.updated } : null, stock: s ? { name: s.name, updated: s.updated } : null };
   window.__prismeSources = { consomme: !!c, stock: !!s, chalandise: !!h };
   const el = document.getElementById('sourcesPanel');
@@ -254,6 +264,7 @@ export async function refreshSourcesPanel() {
     ${c ? row('Consommé', `${_ymLabel(c.meta?.mois?.[0])} → ${_ymLabel(c.meta?.mois?.[1])} · ${c.meta?.agences || '?'} agences · ${(c.meta?.lignes || 0).toLocaleString('fr-FR')} lignes · mis à jour le ${_d(c.updated)}`) : ''}
     ${h ? row('Chalandise', `${(h.meta?.clients || 0).toLocaleString('fr-FR')} clients${h.meta?.absents ? ` (dont ${h.meta.absents.toLocaleString('fr-FR')} absents du dernier export, gardés)` : ''} · mis à jour le ${_d(h.updated)}`) : ''}
     ${s ? row('État du stock', `${s.name || ''} · du ${_d(s.updated)}`) : ''}
+    ${d ? row('ZZSS022B', `${d.name || ''} · du ${_d(d.updated)} — dispo SASO et statuts du jour`) : ''}
     ${z ? row('ZZAT018', `${z.name || ''} · du ${_d(z.updated)} — stock, MIN/MAX ERP et liste des articles de l'agence`) : ''}
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;padding-top:6px">
       <label class="pt-row pt-small" style="gap:8px;cursor:pointer"><input type="checkbox" ${_merge ? 'checked' : ''} onchange="window._sourcesMerge(this.checked)"> Fusionner les nouveaux fichiers avec ceux gardés <span class="pt-muted">(sinon : ils remplacent)</span></label>

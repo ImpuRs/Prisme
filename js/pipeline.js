@@ -11,8 +11,8 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, applyFinDeVie } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
-import { prepareSources, getZzat } from './sources.js';
-import { applyZzatText } from './scan-export.js';
+import { prepareSources, getZzat, getDepot } from './sources.js';
+import { applyZzatText, applyDepotExtract } from './scan-export.js';
 import { _saveToCache, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import './sales.js';
 import './helpers.js';
@@ -473,6 +473,9 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       // ZZAT018 gardé (Base articles › Rafraîchir stock) : il fait foi sur la liste, le stock et le MIN/MAX ERP
       _S._zzatStats = null;
       { const _zz = await getZzat(); if (_zz?.text && DataStore.finalData.length) { _S._zzatStats = applyZzatText(_zz.text); if (_S._zzatStats) console.log('[PRISME] ZZAT018 appliqué :', _S._zzatStats); } }
+      // ZZSS022B gardé : dispo SASO + statuts du jour (avant MIN/MAX : une fin de série du jour part à 0/0)
+      _S._depotInfo = null;
+      { const _dp = await getDepot(); if (_dp && DataStore.finalData.length) { const _di = applyDepotExtract(_dp); console.log('[PRISME] ZZSS022B appliqué :', _di); } }
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();

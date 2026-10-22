@@ -77,7 +77,8 @@ export function finNewDetail() {
   const enStock = arts.filter(r => (r.stockActuel || 0) > 0);
   return {
     ...f, arts, erp, enStock,
-    liquider: enStock.filter(r => (r.W || 0) > 0), renvoyer: enStock.filter(r => !(r.W || 0)),
+    saso: enStock.filter(r => r._dispoSaso > 0),
+    liquider: enStock.filter(r => !(r._dispoSaso > 0) && (r.W || 0) > 0), renvoyer: enStock.filter(r => !(r._dispoSaso > 0) && !(r.W || 0)),
     valeur: enStock.reduce((s, r) => s + val(r), 0),
   };
 }
@@ -160,6 +161,7 @@ export function renderFinNewBlock() {
     </div>
     <ol class="pt-small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
       ${step(d.erp.length, `ont encore un MIN/MAX dans l’ERP : <b>passe-les à 0/0</b> pour arrêter la réappro.`)}
+      ${step(d.saso.length, `encore disponibles à SASO : <b>à renvoyer en priorité</b>.`)}
       ${step(d.liquider.length, `en stock et encore vendus : <b>à liquider</b> au comptoir (mise en avant, prix).`)}
       ${step(d.renvoyer.length, `en stock sans vente en 12 mois : <b>à renvoyer</b> à la centrale.`)}
       ${d.enStock.length ? `<li class="pt-muted">${formatEuro(d.valeur)} de stock concerné.</li>` : ''}

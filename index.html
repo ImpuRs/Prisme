@@ -1767,6 +1767,7 @@
                 <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-xs s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
                 <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
                 <label class="w-full text-left text-xs s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">🔄 Rafraichir stock (ZZAT018)<input type="file" accept=".csv" onchange="refreshFromZZAT018(this)" style="display:none"></label>
+                <label class="w-full text-left text-xs s-hover t-secondary hover:bg-amber-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer" title="Fichier quotidien du dossier ZZSS022B_NEW : statuts du jour et stock disponible à SASO (fins de série à renvoyer en priorité)">🏭 Dispo SASO + statuts (ZZSS022B)<input type="file" accept=".csv" onchange="importDepotZZSS(this)" style="display:none"></label>
                 <label class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors cursor-pointer">📎 Importer codes-barres (CSV)<input type="file" accept=".csv" onchange="importEanCSV(this)" style="display:none"></label>
                 <button onclick="exportScanData()" class="w-full text-left text-xs s-hover t-secondary hover:bg-blue-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter pour Scan</button>
                 <button onclick="exportScanDataAG()" class="w-full text-left text-xs s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">📱 Exporter Scan AG (sans prix)</button>
@@ -2208,7 +2209,7 @@
   </script>
   <script>
   (function () {
-    var ASSET_V = '20261021g';
+    var ASSET_V = '20261022a';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-360', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

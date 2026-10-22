@@ -134,6 +134,7 @@ function _verdict0(D) {
   if (isFinDeVie(r)) {
     const lib = escapeHtml(r.statut || _S.catalogueStatut?.get?.(r.code) || 'Fin de série');
     if (st <= 0) return { tone: 'mid', tag: 'Fin de vie', txt: `${lib} : ne se commande plus, pas de réappro.` };
+    if (r._dispoSaso > 0) return { tone: 'low', tag: 'À renvoyer en priorité', txt: `${lib} : ${n0(st)} en stock ici, SASO en a encore ${n0(r._dispoSaso)} et le vend. Renvoie-le pendant qu’il sert encore.` };
     return (r.W || 0) > 0
       ? { tone: 'mid', tag: 'À liquider', txt: `${lib} : ${n0(st)} en stock, encore ${n0(r.W)} vente${r.W > 1 ? 's' : ''} en 12 mois. Écoule le reste au comptoir, sans réappro.` }
       : { tone: 'low', tag: 'À renvoyer', txt: `${lib} : ${n0(st)} en stock, aucune vente en 12 mois. Renvoie-le à la centrale.` };
