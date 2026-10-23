@@ -8,7 +8,7 @@
 import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SQ_RESEAU_FORT_DETENTION, SQ_RESEAU_FORT_CA_AGENCE } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, parseExcelDate, daysBetween, getVal, extractStoreCode, yieldToMain, _median, _resetColCache, formatLocalYMD, defaultPeriodRange, extractFamCode, famLib, famLabel } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, applyFinDeVie } from './engine.js';
+import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, applyFinDeVie, isImplantable } from './engine.js';
 import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
 import { prepareSources, getZzat, getDepot } from './sources.js';
@@ -111,7 +111,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
             // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
             // Idem pour le contenu des BL (co-achats de la fiche article, oct. 2026) : absent des sessions plus anciennes.
-            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule) || (_S.finalData.some(r => /^[23]\b/.test(String(r.statut || '').trim())) && !_S.finalData.some(r => r._finDeVie)))));
+            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule) || (_S.finalData.some(r => /^[23]\b/.test(String(r.statut || '').trim())) && !_S.finalData.some(r => r._finDeVie)) || _S.finalData.some(r => (r._mmRule === 'implant_colis' || r._mmRule === 'implant_reseau') && !isImplantable(r.code, r.statut)))));
             if (!_needsUpgrade) {
               showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
               btn.disabled = false;
@@ -441,6 +441,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       const n=_hasArtDemand?localSalesCount12m(r.code):(r.V>0?r.W:0);
       if(n>=1){ r.nouveauMin=1; r.nouveauMax=1; r._venteUnique=true; r._mmRule='vente_unique'; _unique++; continue; }
       if((r.stockActuel||0)>0){ r._mmRule='rayon_sans_vente'; _rayon++; continue; } // reste 0/0 : à sortir
+      if(!isImplantable(r.code,r.statut)){ r._mmRule='absent_sans_demande'; continue; } // implantation : statut Normal seulement (pas Promo, pas fin de vie)
       const colis=blCount12m(r.code);
       const fort=reseauFort(r.code);
       if(colis<IMPLANT_COLIS_MIN&&!fort){ r._mmRule='absent_sans_demande'; _sansDemande++; continue; }

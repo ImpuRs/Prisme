@@ -1095,7 +1095,7 @@ export function computeSquelette(directionFilter) {
     } else {
       // ── Filtre Fin de Vie : exclure les articles morts du catalogue ──
       // 1. Statut local ERP = fin de série / fin de stock / fin de catalogue → bruit
-      const _isFinLocal = isFinDeVieCode(a.code, fd?.statut); // statut agence ou catalogue national
+      const _isFinLocal = !isImplantable(a.code, fd?.statut); // statut Normal seulement (agence et catalogue national)
       if (_isFinLocal) { a.classification = 'bruit'; continue; }
       // 1b. Pas en stock local → vérifier statut réseau : si TOUTES les agences = fin de... → bruit
       if (!fd && _S.stockParMagasin) {
@@ -1212,6 +1212,13 @@ export function isFinDeVieCode(code, statut) {
   return isFinDeVieStatut(statut) || _FIN_RE.test(_S.catalogueStatut?.get?.(code) || '');
 }
 export function isFinDeVie(r) { return !!r && isFinDeVieCode(r.code, r.statut); }
+/** Implantable = statut Normal seulement (agence ET catalogue national) : ni fin de série / stock / catalogue, ni Promo.
+ *  Sert à toutes les propositions d'implantation (squelette, Vitesse Réseau, trous réseau, colis à mettre en rayon). */
+const _PROMO_RE = /^4\b|promo/i;
+export function isImplantable(code, statut) {
+  if (isFinDeVieCode(code, statut) || _PROMO_RE.test(String(statut || '').trim())) return false;
+  return !_PROMO_RE.test(_S.catalogueStatut?.get?.(code) || '');
+}
 /** Fin de vie → MIN/MAX PRISME 0/0 (après Vitesse Réseau et Bouclier : rien ne les remonte). */
 export function applyFinDeVie() {
   let n = 0;
@@ -1342,7 +1349,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
       else if (W >= 3 && _getNbClientsPDV(code) >= 3) classif = 'socle';
       else classif = 'surveiller';
     } else {
-      const _isFin = isFinDeVieCode(code, r.statut); // statut agence ou catalogue national
+      const _isFin = !isImplantable(code, r.statut); // statut Normal seulement (agence et catalogue national)
       if (_isFin) { classif = 'bruit'; }
       else if (!r.statut && _S.stockParMagasin) {
         // Pas de statut local → vérifier réseau : si TOUTES les agences = fin de... → bruit
@@ -1785,7 +1792,7 @@ export function computeAnimation(marque) {
   // ═══ Trous critiques : articles vendus par le réseau et NON RÉFÉRENCÉS (absent) chez moi ═══
   // Les ruptures (référencés mais stock=0) restent dans le bloc ruptures, pas ici
   const trousCritiques = articles
-    .filter(a => a.stockStatus === 'absent' && a.nbAgencesReseau >= 2)
+    .filter(a => a.stockStatus === 'absent' && a.nbAgencesReseau >= 2 && isImplantable(a.code, ''))
     .sort((a, b) => b.caReseau - a.caReseau);
 
   // Clients reconquête : acheteurs avec lastOrder > 60j
