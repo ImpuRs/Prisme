@@ -8,6 +8,7 @@
 import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
+import { isImplantable } from './engine.js';
 import { setTableContext } from './ui.js';
 // ── Arbitrage Rayon — Performance par emplacement ──────────────
 let _empSort = { col: 'valStock', asc: false };
@@ -213,9 +214,7 @@ export function computeEnlevesSansRayon() {
     const ratioEnl = Math.round(s.caEnl / totalCA * 100);
     if (ratioEnl < 50) continue; // au moins 50% enlevé
 
-    // Exclure fin de série
-    const sl = (r.statut || '').toLowerCase();
-    if (sl.includes('fin de série') || sl.includes('fin de serie') || sl.includes('fin de stock') || sl.includes('fin de catalogue')) continue;
+    if (!isImplantable(r.code, r.statut)) continue; // statut Normal seulement
 
     const blMono = _S.enleveSingleBL?.[r.code] || 0;
 
