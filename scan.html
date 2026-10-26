@@ -181,7 +181,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v20 · 22/10/2026';
+const SCAN_VERSION = 'v21 · 26/10/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -921,11 +921,10 @@ function App() {
     try { return localStorage.getItem('prisme_inv_zone') || null; } catch(e) { return null; }
   });
   const INV_ZONE = invZone || '—';
-  // Inventaire de zone : d'abord les stocks ERP douteux (négatifs, puis ruptures), ensuite le reste
+  // Inventaire de zone : articles dans l'ordre croissant des références
   const INV_CODES = useMemo(() => {
     if (!invZone) return [];
-    const doute = (a) => a.stock < 0 ? 0 : a.verdict === 'rupture' ? 1 : 2;
-    return ARTICLES.filter(a => (a.empl||'').split('-')[0] === invZone).sort((x, y) => doute(x) - doute(y)).map(a=>a.code);
+    return ARTICLES.filter(a => (a.empl||'').split('-')[0] === invZone).map(a=>a.code).sort((x, y) => x.localeCompare(y));
   }, [invZone, dataVersion]);
   const [invCounts, setInvCounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('prisme_inv_counts')||'{}'); } catch(e) { return {}; }
@@ -3364,7 +3363,8 @@ function ConfirmSheet({ info, onClose, onUndo, onHome, onNext, tourZone }) {
 
 // ── Inventaire — liste de zone ────────────────────────────────
 function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary }) {
-  const items = codes.map(c => {
+  // Ordre croissant des références (articles ajoutés en cours de route compris)
+  const items = [...codes].sort((x, y) => x.localeCompare(y)).map(c => {
     const a = _artByCode.get(c); if (!a) return null;
     const n = counts[c];
     const counted = n != null;
