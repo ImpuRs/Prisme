@@ -8,7 +8,7 @@
 import { PAGE_SIZE, DORMANT_DAYS, AGE_BRACKETS } from './constants.js';
 import { formatEuro, pct, getAgeBracket, getAgeLabel, _median, _copyCodeBtn, escapeHtml, defaultPeriodRange, isShortAutoPeriod, famLib, famLabel, sortRowsInPlace } from './utils.js';
 import { _S, invalidateCache } from './state.js';
-import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock, isFinDeVie } from './engine.js';
+import { calcPriorityScore, formatCouv, computeClientCrossing, _radarComputeMatrix, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, computeSquelette, isInvendu, isSurStock, excedentSurStock, isFinDeVie, applyFinDeVie } from './engine.js';
 import { loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, collapseImportZone, switchTab, populateSelect, getFilteredData, onFilterChange, resetFilters, filterByAge, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, updatePeriodAlert, renderInsightsBanner, renderTableContext, renderHealthScore, renderTabBadges, _renderNoStockPlaceholder, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _restoreFromCache, _showCacheBanner, _restoreExclusions, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -592,6 +592,10 @@ import { _computeClientDominantUnivers, _enrichPullIndex, _rebuildCaByArticleCan
       }
 
       // ── Reproduit exactement la séquence de fin de processData() L2462-2488 ──
+
+      // 0. Fin de série / fin de stock / Promo → 0/0, même sur une session enregistrée avant la règle
+      //    ou dont un statut a changé depuis le calcul (sinon la fiche montre un ancien 1 / 1).
+      { const _nf = applyFinDeVie(); if (_nf) console.log('[PRISME] Fins de vie remises à 0/0 à la reprise :', _nf); }
 
       // 1. Peupler les filtres depuis DataStore.finalData (équivalent populateSelect L2470)
       const _rFam=new Set(),_rSFam=new Set(),_rEmp=new Set(),_rStat=new Set();

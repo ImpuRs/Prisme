@@ -42,8 +42,8 @@ function _window() {
  *  demande corrigée SBA (Croston) si intermittente ; MAX = MIN + ventes de `cycle` jours. */
 export function minMaxService(r, daily, events, w, prm = MINMAX_DEFAULTS) {
   const days = w.d1 - w.d0 + 1;
+  if (['2', '3', '4'].includes(String(r.statut || '').charAt(0))) return [0, 0]; // statut avant nouveauté : une fin de stock récente ne se réappro pas
   if (r.isNouveaute) return [r.ancienMin || 0, r.ancienMax || 0];
-  if (['2', '3', '4'].includes(String(r.statut || '').charAt(0))) return [0, 0];
   if (events.length <= 1) return [0, 0];
   if (events.length === 2) return [1, 2];
   const tot = events.reduce((s, q) => s + q, 0);
@@ -104,8 +104,8 @@ export function explainMinMax(r, prm = MINMAX_DEFAULTS) {
   const { daily, events } = _seriesCalc(r.code, w);
   const raw = _series(r.code, w);
   const base = { nbVentes: events.length, lead: prm.lead, cycle: prm.cycle, fenetre: w };
-  if (r.isNouveaute) return { ...base, rule: 'nouveaute', min: r.ancienMin || 0, max: r.ancienMax || 0 };
   if (['2', '3', '4'].includes(String(r.statut || '').charAt(0))) return { ...base, rule: 'statut', min: 0, max: 0 };
+  if (r.isNouveaute) return { ...base, rule: 'nouveaute', min: r.ancienMin || 0, max: r.ancienMax || 0 };
   if (events.length <= 1) return { ...base, rule: 'une_vente', min: 0, max: 0 };
   if (events.length === 2) return { ...base, rule: 'deux_ventes', min: 1, max: 2 };
   const days = w.d1 - w.d0 + 1;
