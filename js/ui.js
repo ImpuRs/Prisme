@@ -124,6 +124,7 @@ const _statusBadgeMap = {
   dropConsomme: 'statusConsomme',
   dropStock: 'statusStock',
   dropChalandise: 'statusChalandise',
+  dropClients: 'statusClients',
   dropForcage: 'statusForcage',
 };
 

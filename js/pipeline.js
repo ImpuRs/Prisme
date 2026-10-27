@@ -9,7 +9,7 @@ import { CHUNK_SIZE, NOUVEAUTE_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SQ_RESEAU_F
 import { cleanCode, extractClientCode, cleanPrice, parseExcelDate, daysBetween, getVal, extractStoreCode, yieldToMain, _median, _resetColCache, formatLocalYMD, defaultPeriodRange, extractFamCode, famLib, famLabel } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, isParentRef, computeABCFMR, calcCouverture, computeClientCrossing, computeReconquestCohort, computeOpportuniteNette, computeAnglesMorts, resetBenchMetierCache, computeOmniScores, applyVerdictOverrides, computeVitesseReseau, applyFinDeVie, isImplantable } from './engine.js';
-import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances } from './parser.js';
+import { parseChalandise, computeBenchmark, launchClientWorker, _computeChalandiseDistances, parseClientProfil } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, collapseImportZone, switchTab, populateSelect, renderAll, updatePeriodAlert, renderTabBadges, initDetailsAnimations, buildSqLookup, initColSelector } from './ui.js';
 import { prepareSources, getZzat, getDepot } from './sources.js';
 import { applyZzatText, applyDepotExtract } from './scan-export.js';
@@ -105,7 +105,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         const _newStore = (document.getElementById('selectMyStore')?.value || '').toUpperCase();
         const _storeChanged = _newStore && _newStore !== _S.selectedMyStore;
         if (_idbOk && DataStore.finalData.length > 0 && !_storeChanged) {
-          const _unchanged = !_opts.force && await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, null);
+          const _unchanged = !_opts.force && await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, document.getElementById('fileClients')?.files?.[0]||null);
           if (_unchanged) {
             // Cache "schema upgrade" : certaines features (clients actifs tous canaux par mois)
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
@@ -524,6 +524,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       _mark('Avant chalandise');
       console.log('[PERF] avant parsing optionnels — chalFiles=',document.getElementById('fileChalandise').files?.length||0);
       if (!lowMem) {
+        {const _cf=document.getElementById('fileClients')?.files?.[0];if(_cf&&!_S.lowMemMode){try{const _n=await parseClientProfil(_cf);console.log('[PRISME] Indicateurs clients :',_n,'clients');}catch(e){console.warn('[PRISME] Indicateurs clients illisibles :',e);}}}
         {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
       } else {
         const _chalFiles=document.getElementById('fileChalandise').files;
@@ -569,7 +570,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
         // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
         launchClientWorker().then(async()=>{
           if(_S.chalandiseReady&&DataStore.ventesLocalMagPeriode.size>0){resetBenchMetierCache();computeOpportuniteNette();computeAnglesMorts();computeOmniScores();buildClientStore();_applyForcageCommercial();renderTabBadges();}
-          if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
+          if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileClients')?.files?.[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
         }).catch(err=>console.warn('Client worker error:',err));
       } else {
         // Mode mobile: on évite les agrégats clients (gros Map/Set) et on sauvegarde directement pour Scan.
@@ -1128,7 +1129,7 @@ _S.articleMonthlySales=monthlySales;
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('partie');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,null); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileClients')?.files?.[0]||null); }
       // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
       _scheduleIdleSquelette();
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}

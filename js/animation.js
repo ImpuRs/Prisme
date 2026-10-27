@@ -150,7 +150,7 @@ function _crossBrandData(lines, marque) {
       cc, nom: cAgg.nom || chal?.nom || cc,
       caFournisseur: cAgg.ca,
       nbArtsFournisseur: cAgg.nbArts,
-      metier: chal?.metier || '',
+      metier: chal?.metier || _S.clientProfil?.get(cc)?.metier || '',
       commercial: chal?.commercial || '',
       cp: chal?.cp || '',
       inZone: !!chal,

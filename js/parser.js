@@ -17,6 +17,55 @@ import { buildAgenceStore } from './agence-store.js';
 import { getVentesClientMagFull } from './sales.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
+// ── Indicateurs clients (Qlik « Principaux indicateurs par client », toutes agences) ──
+// Profil par client : métier, classification, indicateur stratégique — y compris les clients HORS chalandise.
+// _S.clientProfil = Map<cc, {nom, metier, classification, strategique: true|false|null}>
+export async function parseClientProfil(file) {
+  _S.clientProfil = null;
+  if (!file) return 0;
+  let hr;
+  if (/\.csv$/i.test(file.name)) {
+    const buf = await file.arrayBuffer();
+    let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (_) { text = new TextDecoder('windows-1252').decode(buf); }
+    const first = text.slice(0, text.search(/\r?\n/));
+    hr = parseCSVTextToHR(text, first.includes(';') ? ';' : ',');
+  } else hr = await readExcel(file);
+  const norm = s => String(s || '').replace(/^\uFEFF/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const H = (hr?.headers || []).map(norm);
+  const iCode = H.indexOf('code client'), iNom = H.indexOf('nom client'), iMet = H.indexOf('metier'), iCla = H.indexOf('classification'), iStr = H.indexOf('indicateur strategique');
+  if (iCode < 0 || (iMet < 0 && iCla < 0 && iStr < 0)) { showToast('Indicateurs clients : colonnes « Code client » / « Métier » introuvables', 'error'); return 0; }
+  const clean = v => { const t = String(v ?? '').trim(); return t === '-' ? '' : t; };
+  const map = new Map();
+  for (const row of hr.rows) {
+    const cc = extractClientCode(String(row?.[iCode] ?? ''));
+    if (!cc || cc === '000000') continue;
+    const st = iStr >= 0 ? norm(row?.[iStr]) : '';
+    map.set(cc, {
+      nom: iNom >= 0 ? clean(row?.[iNom]) : '',
+      metier: iMet >= 0 ? clean(row?.[iMet]) : '',
+      classification: iCla >= 0 ? clean(row?.[iCla]) : '',
+      strategique: st === 'strategique' ? true : st === 'non strategique' ? false : null,
+    });
+  }
+  _S.clientProfil = map;
+  return map.size;
+}
+
+/** Applique le profil aux clients de la chalandise : classification plus récente, métier vide complété.
+ *  Originaux gardés (info._classifChal, info._metierProfil). Zone, adresse, commercial inchangés. */
+function _applyClientProfilToChalandise() {
+  const P = _S.clientProfil;
+  if (!P?.size || !_S.chalandiseData?.size) return;
+  let nC = 0, nM = 0;
+  for (const [cc, info] of _S.chalandiseData) {
+    const p = P.get(cc); if (!p) continue;
+    if (p.classification && p.classification !== info.classification) { info._classifChal = info.classification; info.classification = p.classification; nC++; }
+    const m = info.metier;
+    if (p.metier && (!m || m.trim().length <= 2 || /^[-.\s]+$/.test(m))) { info.metier = p.metier; info._metierProfil = true; nM++; }
+  }
+  console.log(`[PRISME] Indicateurs clients → chalandise : ${nC} classifications mises à jour, ${nM} métiers complétés`);
+}
+
 export async function parseChalandise(file) {
   if (_S.lowMemMode) {
     showToast('📱 Mode mobile: Chalandise désactivée (mémoire). Chargez-la sur PC/Zebra.', 'info', 6000);
@@ -170,6 +219,8 @@ export async function parseChalandise(file) {
     }
   }
 
+  _applyClientProfilToChalandise();
+  for (const info of _S.chalandiseData.values()) if (info._metierProfil) metiersSet.add(info.metier);
   _S.chalandiseMetiers = [...metiersSet].sort();
   // ── Distance km — calcul Haversine CP client vs CP agence ──
   _computeChalandiseDistances();
@@ -315,6 +366,10 @@ export function launchClientWorker(progressCb) {
       const chalandise = [];
       for (const [cc, info] of _S.chalandiseData.entries()) {
         chalandise.push([cc, { metier: info.metier, statut: info.statut, classification: info.classification, ca2025: info.ca2025 }]);
+      }
+      // Clients hors chalandise connus par les indicateurs clients : ils comptent dans le benchmark métier
+      if (_S.clientProfil?.size) for (const [cc, p] of _S.clientProfil) {
+        if (p.metier && !_S.chalandiseData.has(cc)) chalandise.push([cc, { metier: p.metier, statut: '', classification: p.classification, ca2025: 0 }]);
       }
       worker.onmessage = (e) => {
         _S._activeClientWorker = null;
