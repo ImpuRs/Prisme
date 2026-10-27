@@ -395,6 +395,7 @@ async function _saveSessionToIDBNow() {
             [sk, Object.fromEntries(Object.entries(months).map(([mi, s]) => [mi, [...s]]))]))
         : null,
       byMonthStoreClientCA:     _S._byMonthStoreClientCA || null,
+      caNet:                    !!_S._caNet,
       byMonthClients:           _S._byMonthClients
         ? Object.fromEntries(Object.entries(_S._byMonthClients).map(([k, v]) => [k, [...v]]))
         : null,
@@ -543,6 +544,7 @@ export async function _restoreSessionFromIDB() {
       for (const sk in data.byMonthStoreClients) { _S._byMonthStoreClients[sk] = {}; for (const mi in data.byMonthStoreClients[sk]) _S._byMonthStoreClients[sk][mi] = new Set(data.byMonthStoreClients[sk][mi]); }
     }
     if (data.byMonthStoreClientCA) _S._byMonthStoreClientCA = data.byMonthStoreClientCA;
+    _S._caNet = !!data.caNet;
     if (data.byMonthClients) {
       _S._byMonthClients = Object.fromEntries(
         Object.entries(data.byMonthClients).map(([k, arr]) => [k, new Set(arr)])
