@@ -3,93 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f172a">
-  <title>PRISME — Convertisseur XLSX → CSV</title>
+  <meta name="theme-color" content="#0f1117">
+  <title>PRISME — Convertir des Excel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* Mêmes couleurs que PRISME (thème sombre de index.html) */
     *{margin:0;padding:0;box-sizing:border-box}
     :root{
-      --bg:#0b1220;
-      --card:#111b2f;
-      --card2:#0f172a;
-      --border:#2b3b5a;
-      --t1:#f8fafc;
-      --t2:#cbd5e1;
-      --t3:#94a3b8;
-      --act:#60a5fa;
-      --ok:#4ade80;
-      --warn:#fbbf24;
-      --err:#f87171;
+      --bg:#0f1117; --card:#161b27; --card2:#1e2435; --border:#2a3248; --border2:#3d4d6a;
+      --t1:#e2e8f4; --t2:#a0b1c5; --t3:#8a9ab2;
+      --act:#60a5fa; --ok:#57D6A4; --warn:#F2C14E; --err:#FF8F5A;
     }
-    body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(180deg,#0b1220 0%,#0f172a 44%,#0b1220 100%);color:var(--t1);min-height:100dvh}
+    body{font-family:'Inter',system-ui,sans-serif;font-size:14px;background:var(--bg);color:var(--t1);min-height:100dvh;-webkit-font-smoothing:antialiased}
     a{color:var(--act);text-decoration:none}
     a:hover{text-decoration:underline}
-    .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 44px}
-    .hdr{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;margin-bottom:14px}
-    .title{font-size:22px;font-weight:950;letter-spacing:.2px}
-    .sub{font-size:12px;color:var(--t2);line-height:1.45;margin-top:4px;max-width:720px}
-    .pill{font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(96,165,250,0.12);color:var(--act);font-weight:800;white-space:nowrap}
-    .card{background:rgba(17,27,47,0.86);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.16)}
-    .card-h{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:space-between}
-    .card-h h2{font-size:13px;font-weight:900}
-    .card-b{padding:16px}
+    .wrap{max-width:960px;margin:0 auto;padding:28px 16px 48px}
+    .hdr{display:flex;align-items:flex-start;gap:16px;justify-content:space-between;margin-bottom:20px}
+    .eyebrow{font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+    .title{font-family:'DM Sans','Inter',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:4px}
+    .sub{font-size:14px;color:var(--t2);line-height:1.5;margin-top:6px;max-width:640px}
+    .pill{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);color:var(--t2);font-weight:600;white-space:nowrap}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    .card-h{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .card-h h2{font-family:'DM Sans','Inter',sans-serif;font-size:16px;font-weight:700}
+    .card-b{padding:18px}
     .stack{display:grid;gap:12px}
     .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.48fr);gap:12px;align-items:start}
     @media(max-width:880px){.split{grid-template-columns:1fr}.hdr{flex-direction:column}}
-    label{display:block;font-size:11px;color:var(--t2);font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
-    input[type="file"]{width:100%;border:2px dashed rgba(148,163,184,0.35);background:rgba(15,23,42,0.45);padding:14px;border-radius:8px;color:var(--t2)}
-    input[type="file"]:hover{border-color:rgba(96,165,250,0.6)}
-    select,input[type="number"],input[type="text"]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(15,23,42,0.6);color:var(--t1);outline:none}
-    select:focus,input:focus{border-color:rgba(96,165,250,.9);box-shadow:0 0 0 3px rgba(96,165,250,.14)}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    label{display:block;font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px}
+    input[type="file"]{width:100%;border:1px dashed var(--border2);background:var(--card2);padding:14px;border-radius:10px;color:var(--t2)}
+    select,input[type="number"],input[type="text"]{width:100%;min-height:40px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--t1);font:inherit;outline:none}
+    select:focus,input:focus{border-color:var(--act)}
+    :focus-visible{outline:2px solid var(--act);outline-offset:2px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     @media(max-width:700px){.grid{grid-template-columns:1fr}}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .btn{cursor:pointer;border:none;border-radius:8px;padding:11px 14px;font-weight:900;font-size:12px;letter-spacing:.2px}
-    .btn-primary{background:var(--act);color:#081426}
-    .btn-secondary{background:rgba(148,163,184,0.16);color:var(--t1);border:1px solid var(--border)}
-    .btn-danger{background:rgba(248,113,113,0.15);color:var(--err);border:1px solid rgba(248,113,113,0.35)}
+    .btn{cursor:pointer;border:none;border-radius:10px;min-height:40px;padding:0 16px;font:inherit;font-weight:600;font-size:14px}
+    .btn-primary{background:var(--act);color:#0b1220}
+    .btn-secondary{background:transparent;color:var(--t1);border:1px solid var(--border)}
+    .btn-danger{background:transparent;color:var(--err);border:1px solid var(--border)}
     .btn:disabled{opacity:.45;cursor:not-allowed}
-    .muted{color:var(--t3);font-size:12px}
-    .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+    .muted{color:var(--t3);font-size:13px;line-height:1.45}
+    .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
     @media(max-width:760px){.status-grid{grid-template-columns:1fr 1fr}}
-    .stat{border:1px solid rgba(96,165,250,.18);background:rgba(15,23,42,.54);border-radius:8px;padding:10px}
-    .stat .k{font-size:10px;text-transform:uppercase;color:var(--t3);font-weight:900;letter-spacing:.5px}
-    .stat .v{font-size:14px;font-weight:950;margin-top:3px;color:var(--t1);font-variant-numeric:tabular-nums}
-    .dropzone{display:block;cursor:pointer;border:1px dashed rgba(96,165,250,.56);background:linear-gradient(180deg,rgba(96,165,250,.10),rgba(15,23,42,.42));border-radius:10px;padding:16px;transition:border-color .16s,background .16s,transform .16s}
-    .dropzone:hover,.dropzone.drag{border-color:rgba(74,222,128,.95);background:rgba(74,222,128,.08);transform:translateY(-1px)}
+    .stat{border:1px solid var(--border);background:var(--card);border-radius:10px;padding:12px}
+    .stat .k{font-size:12px;color:var(--t3);font-weight:600}
+    .stat .v{font-size:16px;font-weight:600;margin-top:4px;color:var(--t1);font-variant-numeric:tabular-nums}
+    .dropzone{display:block;cursor:pointer;border:1px dashed var(--border2);background:var(--card2);border-radius:12px;padding:20px;transition:border-color .15s,background .15s}
+    .dropzone:hover,.dropzone.drag{border-color:var(--act);background:rgba(96,165,250,.06)}
     .dropzone input{display:none}
-    .drop-title{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:950;color:var(--t1)}
-    .drop-sub{font-size:11px;color:var(--t3);margin-top:5px}
-    .tag{font-size:10px;font-weight:900;color:var(--ok);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1);padding:3px 7px;border-radius:999px;white-space:nowrap}
-    .filelist{margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-    .filelist .it{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid rgba(43,59,90,0.6);background:rgba(15,23,42,0.35)}
+    .drop-title{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;font-weight:600;color:var(--t1)}
+    .drop-sub{display:block;font-size:13px;color:var(--t3);margin-top:6px}
+    .tag{font-size:12px;font-weight:600;color:var(--t2);border:1px solid var(--border);padding:3px 8px;border-radius:999px;white-space:nowrap}
+    .filelist{margin-top:12px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+    .filelist .it{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);background:var(--card)}
     .filelist .it:first-child{border-top:none}
-    .filelist .name{font-size:12px;font-weight:800;color:var(--t1);max-width:65%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .filelist .meta{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
-    .prog{margin-top:12px;border:1px solid var(--border);border-radius:999px;overflow:hidden;height:12px;background:rgba(15,23,42,0.55)}
-    .prog>div{height:100%;width:0;background:linear-gradient(90deg, rgba(96,165,250,0.95), rgba(74,222,128,0.8));transition:width .15s ease}
-    .log{margin-top:12px;background:rgba(15,23,42,0.45);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--t2);white-space:pre-wrap;max-height:220px;overflow:auto}
-    .hint{padding:10px 12px;border-radius:8px;border:1px solid rgba(96,165,250,0.25);background:rgba(96,165,250,0.10);color:var(--t2);font-size:12px;line-height:1.45}
-    .hint strong{color:var(--t1)}
-    .merge-box{border:1px solid rgba(96,165,250,.25);background:rgba(96,165,250,.08);border-radius:10px;padding:12px}
+    .filelist .name{font-size:13px;font-weight:600;color:var(--t1);max-width:65%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .filelist .meta{font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
+    .prog{margin-top:14px;border-radius:999px;overflow:hidden;height:8px;background:var(--card2)}
+    .prog>div{height:100%;width:0;background:var(--ok);transition:width .15s ease}
+    .log{margin-top:12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;color:var(--t2);white-space:pre-wrap;max-height:220px;overflow:auto;font-variant-numeric:tabular-nums}
+    .log:empty{display:none}
+    .hint{padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--t2);font-size:13px;line-height:1.5}
+    .hint strong{color:var(--t1);font-weight:600}
+    .merge-box{border:1px solid var(--border);background:var(--card2);border-radius:12px;padding:14px}
     .switchline{display:flex;align-items:center;gap:10px}
     .switchline input{width:18px;height:18px;accent-color:var(--act)}
-    .foot{position:sticky;bottom:0;margin-top:14px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;background:rgba(11,18,32,.86);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:10px;padding:10px}
+    .foot{margin-top:16px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="hdr">
       <div>
-        <div class="title">Convertisseur XLSX → CSV</div>
-        <div class="sub">
-          Objectif : convertir tes exports Excel en CSV “propre” (délimiteur configurable, UTF‑8, BOM optionnel) pour faciliter le chargement dans PRISME,
-          notamment sur des machines/mobiles moins puissants.
-        </div>
+        <div class="eyebrow">PRISME · outil</div>
+        <div class="title">Convertir et fusionner des Excel</div>
+        <div class="sub">Un gros export Excel se charge beaucoup plus vite dans PRISME une fois en CSV. Plusieurs exports (par exemple les chalandises de plusieurs agences) peuvent aussi être réunis en un seul fichier. Tout reste sur ton PC.</div>
       </div>
       <div class="row">
-        <span class="pill">Local · Offline</span>
+        <span class="pill">Sur ton PC · rien n’est envoyé</span>
         <a class="muted" href="scan-update.html" title="Mise à jour Scan">Scan Update</a>
-        <a class="muted" href="index.html" title="Retour à PRISME">PRISME</a>
+        <a class="btn btn-secondary" href="index.html" style="display:inline-flex;align-items:center">← PRISME</a>
       </div>
     </div>
 
@@ -102,7 +98,7 @@
 
     <div class="card">
       <div class="card-h">
-        <h2>1) Sélection des fichiers</h2>
+        <h2>1. Les fichiers Excel</h2>
         <span class="muted" id="convSupportBadge"></span>
       </div>
       <div class="card-b">
@@ -117,7 +113,7 @@
         </label>
         <div class="filelist" id="convFileList" style="display:none"></div>
         <div class="hint" style="margin-top:12px">
-          Conseil : si tu dois alimenter <strong>iPhone/Safari</strong>, fais la conversion ici sur PC, puis utilise les CSV dans PRISME.
+          Ensuite, dépose le ou les CSV obtenus sur l’écran de chargement de PRISME, comme les fichiers Excel.
         </div>
       </div>
     </div>
@@ -125,7 +121,7 @@
     <div style="height:12px"></div>
 
     <div class="card">
-      <div class="card-h"><h2>2) Options de sortie</h2></div>
+      <div class="card-h"><h2>2. Options</h2></div>
       <div class="card-b">
         <div class="grid">
           <div>
@@ -137,9 +133,9 @@
             </select>
           </div>
           <div>
-            <label for="convSheet">Feuille (index)</label>
+            <label for="convSheet">Feuille</label>
             <input id="convSheet" type="number" min="0" step="1" value="0">
-            <div class="muted" style="margin-top:6px">0 = première feuille (cas le plus courant).</div>
+            <div class="muted" style="margin-top:6px">0 = la première feuille du classeur (le cas habituel).</div>
           </div>
           <div>
             <label for="convBom">Compat Excel (BOM UTF‑8)</label>
@@ -151,8 +147,8 @@
           <div>
             <label for="convCrlf">Fin de ligne</label>
             <select id="convCrlf">
-              <option value="0">LF (\\n) — recommandé</option>
-              <option value="1">CRLF (\\r\\n) — compat Windows</option>
+              <option value="0">LF — recommandé</option>
+              <option value="1">CRLF — anciens outils Windows</option>
             </select>
           </div>
         </div>
@@ -174,7 +170,7 @@
                 <label for="convDedup">Doublons</label>
                 <select id="convDedup">
                   <option value="client-first">Par code client — priorité mon agence</option>
-                  <option value="client">Par code client — priorité meilleur CA 2026</option>
+                  <option value="client">Par code client — priorité au plus gros CA de l’année</option>
                   <option value="row">Lignes identiques uniquement</option>
                   <option value="none">Aucun (concatène tout)</option>
                 </select>
@@ -216,6 +212,6 @@
     </div>
   </div>
 
-  <script src="js/conv.js?v=20260425j"></script>
+  <script src="js/conv.js?v=20261027a"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /* js/parse-worker.js — Worker parsing : consommé + stock + ABC/FMR */
 'use strict';
-importScripts('https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js');
+importScripts('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
 
 // ── Constantes inline (depuis constants.js) ──────────────────────────────
 var CHUNK_SIZE = 5000;

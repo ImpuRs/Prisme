@@ -1,6 +1,6 @@
 /* js/conv-worker.js — Web Worker XLSX → CSV (chunked) */
 'use strict';
-importScripts('https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js');
+importScripts('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
 
 function _toStr(cell) {
   if (!cell) return '';
@@ -92,11 +92,16 @@ function _findKeyIdx(headers) {
 
 function _findScoreIdx(headers) {
   if (!headers || !headers.length) return -1;
-  // Heuristique Chalandise : CA 2026 (sinon CA N PDV Zone)
+  // Heuristique Chalandise : CA de l'année en cours (« CA 2026 »…), sinon la colonne « CA 20xx » la plus récente,
+  // sinon CA N PDV Zone
+  var year = new Date().getFullYear(), best = -1, bestY = 0;
   for (var i = 0; i < headers.length; i++) {
     var k = _normHeader(headers[i]);
-    if (k === 'ca2026') return i;
+    if (k === 'ca' + year) return i;
+    var m = /^ca(20\d\d)$/.exec(k);
+    if (m && +m[1] > bestY) { bestY = +m[1]; best = i; }
   }
+  if (best >= 0) return best;
   for (var j = 0; j < headers.length; j++) {
     var k2 = _normHeader(headers[j]);
     if (k2.indexOf('canpdvzone') !== -1) return j;
