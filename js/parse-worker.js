@@ -847,7 +847,7 @@ async function _handleParseMessage(data) {
               if (!byMonthStoreClients[_storeKey_bm][_midx_h]) byMonthStoreClients[_storeKey_bm][_midx_h] = new Set();
               byMonthStoreClients[_storeKey_bm][_midx_h].add(_cc_bm_h);
               // byMonthStoreClientCA — CA mensuel par client par store
-              if (caLigne_h > 0) {
+              if (caLigne_h !== 0) { // net : avoirs compris (comme Qlik, règle 11)
                 if (!byMonthStoreClientCA[_storeKey_bm]) byMonthStoreClientCA[_storeKey_bm] = {};
                 if (!byMonthStoreClientCA[_storeKey_bm][_midx_h]) byMonthStoreClientCA[_storeKey_bm][_midx_h] = {};
                 byMonthStoreClientCA[_storeKey_bm][_midx_h][_cc_bm_h] = (byMonthStoreClientCA[_storeKey_bm][_midx_h][_cc_bm_h] || 0) + caLigne_h;
@@ -867,7 +867,7 @@ async function _handleParseMessage(data) {
             _bme_h.sumVMBPrel += _rvp;
           }
           // caClientParStore hors-MAGASIN — AVANT filtre période
-          if (_cc_bm_h && codeArt_h && caLigne_h > 0) {
+          if (_cc_bm_h && codeArt_h && caLigne_h !== 0) { // net : avoirs compris
             var _skCps_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
             if (!caClientParStore[_skCps_h]) caClientParStore[_skCps_h] = new Map();
             caClientParStore[_skCps_h].set(_cc_bm_h, (caClientParStore[_skCps_h].get(_cc_bm_h) || 0) + caLigne_h);
@@ -1097,7 +1097,7 @@ async function _handleParseMessage(data) {
       // caClientParStore — TOUS canaux, PAS de filtre période, par store × client
       if (!lowMem && cc2 && code) {
         var _ccaS = caP + caE;
-        if (_ccaS > 0) {
+        if (_ccaS !== 0) { // net : avoirs compris
           if (!caClientParStore[sk]) caClientParStore[sk] = new Map();
           caClientParStore[sk].set(cc2, (caClientParStore[sk].get(cc2) || 0) + _ccaS);
         }
@@ -1158,7 +1158,7 @@ async function _handleParseMessage(data) {
           byMonthStoreClients[sk][_midx_cl].add(cc2);
           // byMonthStoreClientCA MAGASIN — CA mensuel par client par store
           var _ccaM = caP + caE;
-          if (_ccaM > 0) {
+          if (_ccaM !== 0) { // net : avoirs compris
             if (!byMonthStoreClientCA[sk]) byMonthStoreClientCA[sk] = {};
             if (!byMonthStoreClientCA[sk][_midx_cl]) byMonthStoreClientCA[sk][_midx_cl] = {};
             byMonthStoreClientCA[sk][_midx_cl][cc2] = (byMonthStoreClientCA[sk][_midx_cl][cc2] || 0) + _ccaM;

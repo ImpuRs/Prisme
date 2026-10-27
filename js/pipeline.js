@@ -111,7 +111,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
             // nécessitent _byMonthClients/_byMonthClientsByCanal. Les vieux caches ont _byMonth
             // mais pas ces sets → refilter période peut perdre des clients (ex: REPRESENTANT-only).
             // Idem pour le contenu des BL (co-achats de la fiche article, oct. 2026) : absent des sessions plus anciennes.
-            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule) || (_S.finalData.some(r => /^[23]\b/.test(String(r.statut || '').trim())) && !_S.finalData.some(r => r._finDeVie)) || _S.finalData.some(r => (r._mmRule === 'implant_colis' || r._mmRule === 'implant_reseau') && !isImplantable(r.code, r.statut)))));
+            const _needsUpgrade = !_S.lowMemMode && ((_S._byMonth && (!_S._byMonthClients || !_S._byMonthClientsByCanal || !_S._byMonthClientCAByCanal)) || !(_S.coBL?.length) || (_S.finalData?.length && (!('dateSortie' in _S.finalData[0]) || !_S.finalData.some(r => r._mmRule) || (_S.finalData.some(r => /^[23]\b/.test(String(r.statut || '').trim())) && !_S.finalData.some(r => r._finDeVie)) || !_S._caNet || _S.finalData.some(r => (r._mmRule === 'implant_colis' || r._mmRule === 'implant_reseau') && !isImplantable(r.code, r.statut)))));
             if (!_needsUpgrade) {
               showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
               btn.disabled = false;
@@ -307,6 +307,7 @@ import { _scheduleIdleSquelette, renderCurrentTab, setPeriodePreset } from './re
       _S._byMonthStoreClients = _bmsc;
     } else { _S._byMonthStoreClients = null; }
     _S._byMonthStoreClientCA = r.byMonthStoreClientCA || null;
+    _S._caNet = true; // CA client net des avoirs (oct. 2026) — sinon relecture des fichiers
     if (r.byMonthClients) {
       const _bmc = {};
       for (const k in r.byMonthClients) _bmc[k] = new Set(r.byMonthClients[k]);
@@ -899,7 +900,7 @@ _S.articleMonthlySales=monthlySales;
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParAgence[sk])_S.ventesParAgence[sk]={};if(!_S.ventesParAgence[sk][code])_S.ventesParAgence[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParAgence[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParAgence[sk][code].sumEnleve+=qteE;_S.ventesParAgence[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParAgence[sk][code].countBL++;_S.ventesParAgence[sk][code].sumVMB+=_rvp+_rve;if(canal){const _bck=_S.ventesParAgence[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=_rvp+_rve;}if(code&&(!canal||canal==='MAGASIN')){const _canalKey='MAGASIN';if(!_S.ventesParAgenceByCanal[sk])_S.ventesParAgenceByCanal[sk]={};if(!_S.ventesParAgenceByCanal[sk][_canalKey])_S.ventesParAgenceByCanal[sk][_canalKey]={};if(!_S.ventesParAgenceByCanal[sk][_canalKey][code])_S.ventesParAgenceByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParAgenceByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=_rvp;const _vmbE2=_rve;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
       // V2 Phase 1: DataStore.ventesLocalMagPeriode (myStore only) + _S.ventesClientsPerStore (all stores)
       // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesLocalMag12MG)
-      if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);{const _cca=caP+caE;if(_cca>0){if(!_S.caClientParStore[sk])_S.caClientParStore[sk]=new Map();_S.caClientParStore[sk].set(cc2,(_S.caClientParStore[sk].get(cc2)||0)+_cca);}}}
+      if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);{const _cca=caP+caE;if(_cca!==0){if(!_S.caClientParStore[sk])_S.caClientParStore[sk]=new Map();_S.caClientParStore[sk].set(cc2,(_S.caClientParStore[sk].get(cc2)||0)+_cca);}}}
       // commandesPerStoreCanal : N° commande (ou BL) uniques par store × canal (pour nbCommandes dans agenceStore)
       {const _ncCmd=_rncb;if(_ncCmd){const _canalCmd=canal||'MAGASIN';if(!_S.commandesPerStoreCanal[sk])_S.commandesPerStoreCanal[sk]={};if(!_S.commandesPerStoreCanal[sk][_canalCmd])_S.commandesPerStoreCanal[sk][_canalCmd]=new Set();_S.commandesPerStoreCanal[sk][_canalCmd].add(_ncCmd);}}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
