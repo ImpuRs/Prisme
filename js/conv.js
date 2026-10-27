@@ -307,7 +307,7 @@
       if (isClientFirst) {
         elDedupHint.innerHTML = '<strong>Priorité mon agence</strong> : le fichier principal (au-dessus) est prioritaire. Les complémentaires ajoutent les clients manquants sans écraser.';
       } else if (dedup === 'client') {
-        elDedupHint.innerHTML = '<strong>Priorité CA 2026</strong> : garde la ligne avec le plus gros CA 2026.';
+        elDedupHint.innerHTML = '<strong>Priorité au plus gros CA</strong> : garde la ligne avec le plus gros CA de l’année (colonne « CA ' + new Date().getFullYear() + ' », sinon « CA N PDV Zone »).';
       } else if (dedup === 'row') {
         elDedupHint.innerHTML = 'Supprime les lignes 100% identiques (safe pour doublons copier/coller).';
       } else {
