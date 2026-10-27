@@ -426,6 +426,7 @@ async function _saveSessionToIDBNow() {
       // ── Territoire (lines dans store séparé IDB_TERR) ──
       // ── Chalandise ──
       chalandiseData:        [..._S.chalandiseData],
+      clientProfil:          _S.clientProfil ? [..._S.clientProfil] : null,
       chalandiseReady:       _S.chalandiseReady,
       chalandiseMetiers:     _S.chalandiseMetiers,
       // ── Table de forçage commercial ──
@@ -575,6 +576,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
     _S.chalandiseData    = new Map(data.chalandiseData || []);
+    _S.clientProfil      = data.clientProfil ? new Map(data.clientProfil) : null;
     _S.chalandiseReady   = data.chalandiseReady   || false;
     _S.chalandiseMetiers = data.chalandiseMetiers || [];
     _S.forcageCommercial = new Map(data.forcageCommercial || []);

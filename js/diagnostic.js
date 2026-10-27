@@ -153,7 +153,7 @@ function _refNow(){ const d=_S.consommePeriodMaxFull||_S.consommePeriodMax; retu
 
 function _renderClient360(clientCode,source){
   // ── Données client ──────────────────────────────────────────────
-  const info=_S.chalandiseData?.get(clientCode)||{};
+  const info=_S.chalandiseData?.get(clientCode)||(_S.clientProfil?.get(clientCode)?{..._S.clientProfil.get(clientCode),_horsZone:true}:{});
   const _csRec=_S.clientStore?.get(clientCode);
   const nom=_csRec?.nom||info.nom||clientCode;
   const artMapPeriod=DataStore.ventesLocalMagPeriode?.get(clientCode);
@@ -211,7 +211,7 @@ function _renderClient360(clientCode,source){
         ${classifBadge}
       </div>
       <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
-      <p class="text-xs t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}${info.secteur?' ('+escapeHtml(info.secteur)+')':''}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
+      <p class="text-xs t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info._horsZone?'hors zone de chalandise':'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}${info.secteur?' ('+escapeHtml(info.secteur)+')':''}`:''].filter(Boolean).join(' · ')||(_S.chalandiseReady?(info.nom?'Aucun détail renseigné':'Hors zone chalandise'):'Données chalandise non chargées')}</p>
     </div>
     <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;
@@ -598,7 +598,7 @@ function _c360SwitchTab(clientCode,tabId){
 }
 
 function _c360CopyResume(clientCode){
-  const info=_S.chalandiseData?.get(clientCode)||{};
+  const info=_S.chalandiseData?.get(clientCode)||(_S.clientProfil?.get(clientCode)?{..._S.clientProfil.get(clientCode),_horsZone:true}:{});
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
   const _artP=DataStore.ventesLocalMagPeriode?.get(clientCode);
   const _artF=_S.ventesLocalMag12MG?.get(clientCode);
@@ -651,7 +651,7 @@ function _c360CopyResume(clientCode){
 }
 
 function _c360ExportRadio(clientCode){
-  const info=_S.chalandiseData?.get(clientCode)||{};
+  const info=_S.chalandiseData?.get(clientCode)||(_S.clientProfil?.get(clientCode)?{..._S.clientProfil.get(clientCode),_horsZone:true}:{});
   const nom=_S.clientStore?.get(clientCode)?.nom||info.nom||clientCode;
   const artMapFull=_S.ventesLocalMag12MG?.get(clientCode);
   const horsMag=getVentesHorsMagFullMap().get(clientCode);

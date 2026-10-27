@@ -1,9 +1,9 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
-import { computeSquelette, verdictLabel, VERDICT_PLAIN_ICON } from './engine.js';
+import { computeSquelette, verdictLabel, VERDICT_PLAIN_ICON, isClientStrategique } from './engine.js';
 import { articleLib } from './article-store.js';
-import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
+import { FAMILLE_LOOKUP, metierToSegments } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
 import { getVentesClientMagFull, hasVentesClientMagFull, getVentesHorsMagFullMap } from './sales.js';
 import { renderPlanFamille } from './plan-famille.js';
@@ -259,11 +259,10 @@ function _prComputeRoles(codeFam) {
     const hmSet = hmBuyers.get(code);
     if (hmSet) for (const cc of hmSet) allBuyers.add(cc);
     let nbCli = 0, nbCliMetierStrat = 0;
-    if (allBuyers.size && _S.chalandiseData?.size) {
+    if (allBuyers.size && (_S.chalandiseData?.size || _S.clientProfil?.size)) {
       for (const cc of allBuyers) {
         nbCli++;
-        const metier = (_S.chalandiseData.get(cc)?.metier || '').toLowerCase();
-        if (metier && METIERS_STRATEGIQUES.some(m => metier.includes(m))) nbCliMetierStrat++;
+        if (isClientStrategique(cc)) nbCliMetierStrat++; // même règle que le squelette (liste exacte / indicateur Qlik)
       }
     }
 
@@ -453,15 +452,8 @@ function computePlanStock() {
 
   // Pré-calcule Set<cc> des clients "métier stratégique" (utilisé par _getRole + boucle clients)
   const stratClients = new Set();
-  if (_S.chalandiseData?.size) {
-    for (const [cc, info] of _S.chalandiseData) {
-      const metier = (info?.metier || '').toLowerCase();
-      if (!metier) continue;
-      for (let i = 0; i < METIERS_STRATEGIQUES.length; i++) {
-        if (metier.includes(METIERS_STRATEGIQUES[i])) { stratClients.add(cc); break; }
-      }
-    }
-  }
+  if (_S.chalandiseData?.size) for (const cc of _S.chalandiseData.keys()) if (isClientStrategique(cc)) stratClients.add(cc);
+  if (_S.clientProfil?.size) for (const cc of _S.clientProfil.keys()) if (isClientStrategique(cc)) stratClients.add(cc);
 
   // Pré-index : nbClients réseau par code article (une seule passe O(clients×articles))
   // ventesReseauTousCanaux = Map<cc, Map<code, {sumCA, countBL}>>

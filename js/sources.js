@@ -203,13 +203,24 @@ async function _prepStock(now) {
   }
 }
 
+async function _prepClients(now) {
+  const inC = document.getElementById('fileClients')?.files?.[0];
+  const rec = await _get('clients');
+  if (inC) {
+    if (rec && inC.name === rec.name && inC.lastModified === rec.lastModified) return;
+    await _put('clients', { blob: inC, gz: false, name: inC.name, lastModified: inC.lastModified, updated: now });
+  } else if (rec) {
+    _setInput('fileClients', [new File([rec.blob], rec.name || 'PRISME_indicateurs_clients.csv', { lastModified: rec.lastModified || rec.updated })]);
+  }
+}
+
 /** Appelé au début de processData() (et à la sélection d'une chalandise, données déjà chargées) :
  *  fusionne les nouveaux fichiers avec ceux gardés, ou restitue les fichiers gardés, et met la base à jour. */
 export async function prepareSources(only) {
   if (_S.lowMemMode) return;                 // mobile : pas de copie des fichiers (mémoire)
   const now = Date.now();
-  const steps = { consomme: _prepConsomme, chalandise: _prepChalandise, stock: _prepStock };
-  const label = { consomme: 'consommé', chalandise: 'chalandise', stock: 'état du stock' };
+  const steps = { consomme: _prepConsomme, chalandise: _prepChalandise, stock: _prepStock, clients: _prepClients };
+  const label = { consomme: 'consommé', chalandise: 'chalandise', stock: 'état du stock', clients: 'indicateurs clients' };
   for (const k of only ? [only] : Object.keys(steps)) {
     try { showLoading('Mise à jour des fichiers…', label[k]); await steps[k](now); }
     catch (e) {
@@ -248,10 +259,10 @@ export async function getZzat() {
 const _ymLabel = (ym) => ym ? new Date(Math.floor(ym / 12), ym % 12, 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 const _d = (t) => t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
 export async function refreshSourcesPanel() {
-  let c = null, h = null, s = null, z = null, d = null;
-  try { [c, h, s, z, d] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock'), _get('zzat'), _get('zzss')]); } catch (_) {}
+  let c = null, h = null, s = null, z = null, d = null, k = null;
+  try { [c, h, s, z, d, k] = await Promise.all([_get('consomme'), _get('chalandise'), _get('stock'), _get('zzat'), _get('zzss'), _get('clients')]); } catch (_) {}
   _info = { consomme: c ? { meta: c.meta, updated: c.updated } : null, chalandise: h ? { meta: h.meta, updated: h.updated } : null, stock: s ? { name: s.name, updated: s.updated } : null };
-  window.__prismeSources = { consomme: !!c, stock: !!s, chalandise: !!h };
+  window.__prismeSources = { consomme: !!c, stock: !!s, chalandise: !!h , clients: !!k };
   const el = document.getElementById('sourcesPanel');
   if (!el) return;
   if (!c && !h && !s) { el.innerHTML = ''; return; }
@@ -264,6 +275,7 @@ export async function refreshSourcesPanel() {
     ${c ? row('Consommé', `${_ymLabel(c.meta?.mois?.[0])} → ${_ymLabel(c.meta?.mois?.[1])} · ${c.meta?.agences || '?'} agences · ${(c.meta?.lignes || 0).toLocaleString('fr-FR')} lignes · mis à jour le ${_d(c.updated)}`) : ''}
     ${h ? row('Chalandise', `${(h.meta?.clients || 0).toLocaleString('fr-FR')} clients${h.meta?.absents ? ` (dont ${h.meta.absents.toLocaleString('fr-FR')} absents du dernier export, gardés)` : ''} · mis à jour le ${_d(h.updated)}`) : ''}
     ${s ? row('État du stock', `${s.name || ''} · du ${_d(s.updated)}`) : ''}
+    ${k ? row('Indicateurs clients', `${k.name || ''} · du ${_d(k.updated)}`) : ''}
     ${d ? row('ZZSS022B', `${d.name || ''} · du ${_d(d.updated)} — dispo SASO et statuts du jour`) : ''}
     ${z ? row('ZZAT018', `${z.name || ''} · du ${_d(z.updated)} — stock, MIN/MAX ERP et liste des articles de l'agence`) : ''}
     <div class="pt-row pt-between" style="gap:12px;flex-wrap:wrap;padding-top:6px">

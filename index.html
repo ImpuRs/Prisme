@@ -2025,6 +2025,13 @@
               <span class="ob-files">Choisir ou glisser les fichiers</span>
               <input type="file" id="fileChalandise" class="ob-input" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)"/>
             </label>
+            <label id="dropClients" class="ob-card ob-opt" for="fileClients">
+              <span class="ob-top"><span class="ob-ico" aria-hidden="true">👥</span><span id="statusClients" class="ob-status">⭕</span></span>
+              <span class="ob-title">Indicateurs clients</span>
+              <span class="ob-desc">Export Qlik « Principaux indicateurs par client » (toutes agences, année) : métier, classification et client stratégique, y compris hors zone.</span>
+              <span class="ob-files">Choisir ou glisser le fichier</span>
+              <input type="file" id="fileClients" class="ob-input" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropClients')"/>
+            </label>
             <label id="dropForcage" class="ob-card ob-opt" for="fileForcage">
               <span class="ob-top"><span class="ob-ico" aria-hidden="true">🔗</span><span id="statusForcage" class="ob-status">⭕</span></span>
               <span class="ob-title">Rattachement commercial</span>
@@ -2209,7 +2216,7 @@
   </script>
   <script>
   (function () {
-    var ASSET_V = '20261027a';
+    var ASSET_V = '20261027b';
     var F = ['agence-store', 'animation', 'arbitrage', 'article-360', 'article-store', 'cache', 'chalandise-store', 'client-store', 'clients-decisions', 'commerce', 'commerce-conquete', 'commerce-conquete-controller', 'commerce-conquete-view', 'constants', 'contexte', 'conv', 'diagnostic', 'emplacement', 'engine', 'export-erp', 'helpers', 'main', 'parser', 'partie', 'periode', 'pipeline', 'plan-famille', 'planRayon', 'rapport', 'recherche', 'relances', 'render-stock', 'sales', 'scan-export', 'sources', 'state', 'minmax', 'store', 'suivi', 'ui', 'utils'];
     var map = {};
     F.forEach(function (f) { map['./js/' + f + '.js'] = './js/' + f + '.js?v=' + ASSET_V; });

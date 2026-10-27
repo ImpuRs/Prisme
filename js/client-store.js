@@ -69,9 +69,9 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         nom: chalInfo?.nom || _S.clientNomLookup?.[cc] || cc,
         // Chalandise
         inChalandise: !!chalInfo || !!forcedCom,
-        metier: chalInfo?.metier || '',
+        metier: chalInfo?.metier || _S.clientProfil?.get(cc)?.metier || '',
         commercial: forcedCom || chalInfo?.commercial || '',
-        classification: chalInfo?.classification || '',
+        classification: chalInfo?.classification || _S.clientProfil?.get(cc)?.classification || '',
         statut: chalInfo?.statut || '',
         activite: chalInfo?.activite || '',
         activitePDV: chalInfo?.activitePDV || '',

@@ -115,7 +115,8 @@ function _decisions(opts = {}) {
   const okCom = (cc) => { if (opts.all) return true; const i = chal.get(cc); return i ? _clientPassesFilters(i, cc) : !anyFilter; };
   const row = (cc, extra) => {
     const i = chal.get(cc);
-    return { cc, nom: i?.nom || _S.clientNomLookup?.[cc] || cc, metier: i?.metier || '', commercial: i?.commercial || '', ville: i?.ville || '', classif: i?.classification || '', ...extra };
+    const p = i ? null : _S.clientProfil?.get(cc); // hors zone : profil des indicateurs clients
+    return { cc, nom: i?.nom || _S.clientNomLookup?.[cc] || p?.nom || cc, metier: i?.metier || p?.metier || '', commercial: i?.commercial || '', ville: i?.ville || '', classif: i?.classification || p?.classification || '', ...extra };
   };
   const relancer = [], reconquerir = [], developper = [], rattacher = [], changeCanal = [];
   for (const [cc, c] of b.clients) {

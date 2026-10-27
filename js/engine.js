@@ -1196,6 +1196,17 @@ export function rowVerdictLabel(r) {
 }
 
 /** Invendu 12 mois : en stock, aucune vente locale sur la période, hors nouveautés et références père. */
+// ── Profil client : chalandise d'abord, sinon « Indicateurs clients » (clients hors zone compris) ──
+export function clientMetier(cc) {
+  return _S.chalandiseData?.get(cc)?.metier || _S.clientProfil?.get(cc)?.metier || '';
+}
+/** Client stratégique : indicateur Qlik si connu, sinon métier dans la liste des 15 métiers stratégiques. */
+export function isClientStrategique(cc) {
+  const p = _S.clientProfil?.get(cc);
+  if (p && p.strategique != null) return p.strategique;
+  return _isMetierStrategique(clientMetier(cc));
+}
+
 export function isInvendu(r) {
   return r.W === 0 && r.stockActuel > 0 && !r.isNouveaute && !r.isParent;
 }
@@ -1416,11 +1427,9 @@ export function applyVerdictOverrides() {
 
   // Cache clients dont le métier est stratégique (pré-calculé une seule fois)
   const stratMetierClients = new Set();
-  if (_S.chalandiseData?.size) {
-    for (const [cc, info] of _S.chalandiseData) {
-      if (info.metier && _isMetierStrategique(info.metier)) stratMetierClients.add(cc);
-    }
-  }
+  if (_S.chalandiseData?.size) for (const cc of _S.chalandiseData.keys()) if (isClientStrategique(cc)) stratMetierClients.add(cc);
+  // Clients hors chalandise connus par les indicateurs clients
+  if (_S.clientProfil?.size) for (const [cc, p] of _S.clientProfil) if (!stratMetierClients.has(cc) && isClientStrategique(cc)) stratMetierClients.add(cc);
 
   // Squelette : classifications par code (lite, finalData uniquement)
   const { classifMap, nbStByCode, caReseauByCode } = _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes });
