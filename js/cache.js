@@ -255,7 +255,7 @@ function _buildScanPayload() {
       code,
       libelle: r?.libelle,
       marque: r?.marque,
-      _refFourn: r?._refFourn,
+      _refFourn: r?._refFourn || _S.catalogueRefFourn?.get(code) || '',
       famille: r?.famille,
       sousFamille: r?.sousFamille,
       emplacement: r?.emplacement,

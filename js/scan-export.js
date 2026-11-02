@@ -278,7 +278,7 @@ function _exportScan(withPrices) {
       matriceVerdict: _M_LABELS[mKey] || '',
       _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '', _sqLabel: rowVerdictLabel(r), _invendu: isInvendu(r),
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
-      isParent: r.isParent, _refFourn: r._refFourn || '',
+      isParent: r.isParent, _refFourn: r._refFourn || _S.catalogueRefFourn?.get(r.code) || '',
     };
     if (withPrices) {
       const g = _reseauAgg(r.code, allStores, myStore);
