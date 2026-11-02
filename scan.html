@@ -185,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v22 · 02/11/2026';
+const SCAN_VERSION = 'v23 · 02/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -844,6 +844,12 @@ function useCatalogueVersion() {
     return () => window.removeEventListener('prisme-catalogue', h);
   }, []);
   return v;
+}
+
+// Réf. fournisseur absente des données (envoi PRISME sans catalogue) : va la chercher dans le catalogue
+function useRefFourn(a) {
+  const need = !!(a && !a.refFourn && !a.catalogOnly);
+  useEffect(() => { if (need) _ensureCatalogue(); }, [need, a?.code]);
 }
 
 // ── Atoms ─────────────────────────────────────────────────────
@@ -1723,6 +1729,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const editN = parseInt(editQty || '0', 10) || 0;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const a = _artByCode.get(code) || _catalogArticle(code);
+  useRefFourn(a);
   // Comptage à l'aveugle : départ vide (pas pré-rempli avec le stock ERP)
   const [invVal, setInvVal] = useState(invCurrentCount != null ? String(invCurrentCount) : '');
   if (!a) return (
@@ -3831,6 +3838,7 @@ function PCEmpty({ agency }) {
 }
 
 function PCArticle({ a, onClose }) {
+  useRefFourn(a);
   const d = _dispo(a);
   const [priceShown, setPriceShown] = useState(false);
   const ean = _eanOf(a.code);
