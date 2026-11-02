@@ -161,6 +161,10 @@ function _ensureCatalogue() {
   if (!data) return false;
   CATALOGUE = data;
   _catalogCache.clear(); // les « introuvable » mis en cache avant le chargement ne sont plus valables
+  // Réf. fournisseur manquante dans les données PRISME (envoi sans catalogue) → celle du catalogue
+  if (data.R) {
+    for (const a of ARTICLES) if (!a.refFourn && data.R[a.code]) { a.refFourn = data.R[a.code]; a._hay = null; _artByRef.set(a.refFourn, a); }
+  }
   if (Array.isArray(data.F)) {
     for (const f of data.F) if (f?.[0] && f[1] && !_famNames.has(f[0])) _famNames.set(f[0], f[1]);
     for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
@@ -181,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v21 · 26/10/2026';
+const SCAN_VERSION = 'v22 · 02/11/2026';
 
 const CTX = {
   greeting: AGENCY,
