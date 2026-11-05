@@ -185,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v23 · 02/11/2026';
+const SCAN_VERSION = 'v24 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -611,15 +611,15 @@ function _searchArticles(q, catalogMode, nLocal) {
 // Cache _catalogArticle results to avoid recreating objects
 const _catalogCache = new Map();
 
-/** Source et date des données pour l'en-tête : « · données du 6 oct. », « · stock ZZAT du 20 oct. »… */
+/** Source et date des données pour l'en-tête : « · stock du 5 nov. » (date du fichier stock), sinon « · données du 6 oct. », « · stock ZZAT du 20 oct. »… */
 function _srcLabel() {
   const d = (t) => t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
   if (DATA_SOURCE === 'loading') return ' · chargement…';
   if (DATA_SOURCE === 'empty') return ' · aucune donnée';
   if (window._zzatInfo?.n) return ` · stock ZZAT du ${d(window._zzatInfo.t)}`;
-  const t = window._dataInfo?.t;
+  const { t, stock } = window._dataInfo || {};
   const src = { json: 'fichier publié', import: 'fichier importé' }[DATA_SOURCE];
-  return `${src ? ' · ' + src : ''}${t ? ' · données du ' + d(t) : ''}`;
+  return `${src ? ' · ' + src : ''}${stock ? ' · stock du ' + d(stock) : t ? ' · données du ' + d(t) : ''}`;
 }
 let DATA_SOURCE = 'loading'; // 'loading' | 'idb' | 'json' | 'zzat' | 'import' | 'empty'
 let CATALOGUE = null; // catalogue-marques.json brut {M,F,S,A,E,R}
@@ -709,7 +709,7 @@ function _useRows(rows, meta, source) {
   DATA_SOURCE = source;
   const st = meta?.store || meta?.selectedMyStore;
   if (st) { CTX.agency = st; CTX.greeting = st; }
-  window._dataInfo = { t: meta?.dataDate || meta?.timestamp || 0, saved: meta?.timestamp || 0, source };
+  window._dataInfo = { t: meta?.dataDate || meta?.timestamp || 0, stock: meta?.stockTs || 0, saved: meta?.timestamp || 0, source };
   console.log('[Prisme] ' + source + ' · ' + ARTICLES.length + ' articles');
   window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source } }));
 }
@@ -737,14 +737,16 @@ function hydrateFromIDB() {
       if (_hydrated) return;
       const eanData = scan?.ean || current?.ean;
       if (eanData && typeof eanData === 'object') _setEanSource(eanData);
-      if (scan?.articles?.length) return _useRows(scan.articles, scan, 'idb');
-      if (current?.finalData?.length) return _useRows(current.finalData, { ...current, stockTs: current._stockFileTs, dataDate: current.consommePeriodMaxFull || current.consommePeriodMax }, 'idb');
-      _fallbackJson();
+      if (scan?.articles?.length) _useRows(scan.articles, scan, 'idb');
+      else if (current?.finalData?.length) _useRows(current.finalData, { ...current, stockTs: current._stockFileTs, dataDate: current.consommePeriodMaxFull || current.consommePeriodMax }, 'idb');
+      else return _fallbackJson();
+      _fetchScanJson(_DATA_TS).then(ok => { if (ok) _gToast(`Fichier publié plus récent : ${ARTICLES.length.toLocaleString('fr-FR')} articles`); });
     }).catch(() => _fallbackJson());
   };
 }
 
-function _fetchScanJson() {
+/** Charge le fichier publié (data/). Avec `newerThan` : seulement si son stock est plus récent que les données en place. */
+function _fetchScanJson(newerThan) {
   return fetch('data/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(files => {
     if (!files) return false;
     const f = files.find(n => n.startsWith('prisme-scan-') && n.endsWith('.json'));
@@ -752,6 +754,7 @@ function _fetchScanJson() {
     return fetch('data/' + f, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
       const rows = data?.articles || data?.finalData;
       if (!rows?.length) return false;
+      if (newerThan && (data.stockTs || data.timestamp || 0) <= newerThan) return false;
       if (data?.ean && typeof data.ean === 'object') _setEanSource(data.ean);
       const m = f.match(/prisme-scan-(.+)\.json/);
       _useRows(rows, { timestamp: data?.timestamp || (data?.date ? Date.parse(data.date) || 0 : 0), dataDate: data?.dataDate, stockTs: data?.stockTs, store: data?.store || (m && m[1]) }, 'json');
@@ -1693,7 +1696,7 @@ function SearchScreen({ onClose, onPick, onScan }) {
                       <span style={{fontSize:12,color:T.t3,fontWeight:700}} className="mono">{a.code}</span>
                       {isCat && <span style={{fontSize:12,fontWeight:800,color:'#60a5fa',background:'rgba(96,165,250,.15)',border:'1px solid rgba(96,165,250,.3)',padding:'1px 6px',borderRadius:99}}>CATALOGUE</span>}
                     </div>
-                    <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                    <div style={{fontSize:13,fontWeight:600,lineHeight:1.3,overflowWrap:'anywhere'}}>{a.lib}</div>
                     <div style={{fontSize:12,color:isCat?'#60a5fa':T.accent,fontWeight:600,marginTop:1}}>{isCat?a.fam:a.empl}<span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                   </div>
                   {!isCat && (
@@ -4105,7 +4108,7 @@ function PCApp() {
                       <span title={h.mode==='scan'?'douchette':'recherche'} style={{color:T.t3,display:'flex'}}><Ico d={h.mode==='scan'?ICONS.scan:ICONS.search} s={13} sw={2} /></span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:12,color:T.t3,fontWeight:600}}><span className="mono">{a.code}</span> · {tStr}</div>
-                        <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                        <div style={{fontSize:13,fontWeight:600,lineHeight:1.3,overflowWrap:'anywhere'}}>{a.lib}</div>
                       </div>
                       <div style={{fontSize:15,fontWeight:800,color:d.c}} className="tn">{d.n ?? '—'}</div>
                     </button>
@@ -4135,7 +4138,7 @@ function PCApp() {
                       }}>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:13,color:T.t2,fontWeight:700}} className="mono">{a.code}</div>
-                          <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:T.t1,marginTop:2}}>{a.lib}</div>
+                          <div style={{fontSize:13,fontWeight:600,lineHeight:1.3,overflowWrap:'anywhere',color:T.t1,marginTop:2}}>{a.lib}</div>
                           <div style={{fontSize:12,color:T.accent,fontWeight:700,marginTop:1}}><span className="mono">{a.empl}</span><span style={{color:T.t3,fontWeight:400,marginLeft:6}}>{a.marque}</span></div>
                         </div>
                         <div style={{textAlign:'right'}}>
