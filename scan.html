@@ -185,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v25 · 05/11/2026';
+const SCAN_VERSION = 'v26 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -2317,55 +2317,70 @@ function FindSheet({ code, onClose }) {
   const [found, setFound] = useState(false);
   const [seen, setSeen] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [res, setRes] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    let lastHit = 0;
+    // Les étiquettes vues de loin sont trop petites pour le lecteur (~1 px par barre) : l'image est lue
+    // entière, puis en 12 morceaux agrandis ×2,5-3 (lisible dès ~1,2 px par barre), un morceau par passage.
+    // Chaque code lu garde sa position (pixels vidéo) 4 s, le temps que le tour des morceaux se fasse.
+    const reads = new Map(); // texte → {pts, hit, ts}
+    let step = 0;
+    const FORMATS = ['EAN-13', 'EAN-8', 'Code128', 'Code39'];
     const loop = async () => {
       const v = videoRef.current;
       if (cancelled || !v || !streamRef.current) return;
       const vw = v.videoWidth, vh = v.videoHeight;
       if (!vw || !vh || typeof ZXingWASM === 'undefined') { timerRef.current = setTimeout(loop, 150); return; }
-      // Image entière (pas de viseur) : toutes les étiquettes du rayon dans le champ
-      const k = Math.min(1, 1920 / Math.max(vw, vh));
-      const w = Math.round(vw * k), h = Math.round(vh * k);
       if (!cvRef.current) cvRef.current = document.createElement('canvas');
-      const cv = cvRef.current; cv.width = w; cv.height = h;
+      const cv = cvRef.current;
       const ctx = cv.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(v, 0, 0, w, h);
+      const cols = vw > vh ? 4 : 3, rows = vw > vh ? 3 : 4, nTiles = cols * rows;
+      const t = step++ % (nTiles + 1);
+      let sx = 0, sy = 0, sw = vw, sh = vh, up;
+      if (t === 0) {
+        up = Math.min(1, 3840 / Math.max(vw, vh)); // image entière
+      } else {
+        const tw = vw / cols, th = vh / rows, i = t - 1;
+        const mx = tw * 0.15, my = th * 0.15; // recouvrement : une étiquette coupée au bord est entière dans le voisin
+        sx = Math.max(0, (i % cols) * tw - mx); sy = Math.max(0, Math.floor(i / cols) * th - my);
+        sw = Math.min(vw - sx, tw + 2 * mx); sh = Math.min(vh - sy, th + 2 * my);
+        up = Math.min(3, 3200 / Math.max(sw, sh));
+      }
+      const w = Math.round(sw * up), h = Math.round(sh * up);
+      cv.width = w; cv.height = h;
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
       let res = [];
-      try {
-        res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, w, h), { formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'], maxNumberOfSymbols: 40 });
-      } catch (e) {}
+      try { res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, w, h), { formats: FORMATS, maxNumberOfSymbols: 40 }); } catch (e) {}
       if (cancelled) return;
-      // Coordonnées image → écran (vidéo en object-fit:cover)
-      const dw = v.clientWidth, dh = v.clientHeight;
-      const sc = Math.max(dw / w, dh / h), ox = (w * sc - dw) / 2, oy = (h * sc - dh) / 2;
-      const out = [];
-      let hit = false;
+      const now = Date.now();
       for (const r of res) {
         const raw = (r.text || '').trim(), bc = raw.replace(/\s/g, '');
         if (!bc || !r.position) continue;
         if (!resolvedRef.current.has(bc)) resolvedRef.current.set(bc, _resolveBarcode(bc, raw) || '');
-        const isHit = resolvedRef.current.get(bc) === a?.code;
-        if (isHit) hit = true;
         const P = r.position;
-        out.push({ text: bc, hit: isHit, pts: [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft].map(p => [p.x * sc - ox, p.y * sc - oy]) });
+        reads.set(bc, { hit: resolvedRef.current.get(bc) === a?.code, ts: now,
+          pts: [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft].map(p => [sx + p.x / up, sy + p.y / up]) });
       }
-      const now = Date.now();
-      if (hit) {
-        lastHit = now; setFound(true);
+      for (const [k, f] of reads) if (now - f.ts > 4000) reads.delete(k);
+      // Pixels vidéo → écran (vidéo en object-fit:cover)
+      const dw = v.clientWidth, dh = v.clientHeight;
+      const sc = Math.max(dw / vw, dh / vh), ox = (vw * sc - dw) / 2, oy = (vh * sc - dh) / 2;
+      const out = [...reads.entries()].map(([text, f]) => ({ text, hit: f.hit, pts: f.pts.map(([x, y]) => [x * sc - ox, y * sc - oy]) }));
+      if (out.some(o => o.hit)) {
+        setFound(true);
         if (now - beepRef.current > 1200) { beepRef.current = now; _beep(1400, 90); }
       }
-      // Garder le cadre vert un instant si l'étiquette sort du champ sur une image (évite le clignotement)
-      if (out.length || now - lastHit > 600) setBoxes(out);
+      setBoxes(out);
       setSeen(n => Math.max(n, out.length));
-      timerRef.current = setTimeout(loop, 60);
+      timerRef.current = setTimeout(loop, 30);
     };
     (async () => {
       try {
         try { if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (_audioCtx.state === 'suspended') _audioCtx.resume(); } catch (e) {}
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+        // 4K si l'appareil le permet : double la distance de lecture des étiquettes
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
         try {
@@ -2374,6 +2389,7 @@ function FindSheet({ code, onClose }) {
         } catch (e) {}
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        const v = videoRef.current; if (v.videoWidth) setRes(`${Math.max(v.videoWidth, v.videoHeight)}p`.replace('3840p', '4K').replace('1920p', 'HD'));
         loop();
       } catch (e) { console.warn('[Trouver] caméra:', e); setFailed(true); }
     })();
@@ -2415,7 +2431,8 @@ function FindSheet({ code, onClose }) {
         <div style={{fontSize:15,fontWeight:800,color:T.t1,marginTop:3,lineHeight:1.3}}><span className="mono">{a?.code}</span> · {a?.lib}</div>
         <div style={{fontSize:13,color:T.t2,marginTop:2}}>
           {a?.empl ? <>Emplacement <span className="mono" style={{color:T.accent,fontWeight:800}}>{a.empl}</span> · </> : null}
-          {seen ? `${seen} étiquette${seen > 1 ? 's' : ''} lue${seen > 1 ? 's' : ''} d'un coup` : 'aucune étiquette lue pour l’instant'}
+          {seen ? `${seen} étiquette${seen > 1 ? 's' : ''} lue${seen > 1 ? 's' : ''} d'un coup` : 'aucune étiquette lue pour l’instant : tiens le téléphone stable'}
+          {res ? <span style={{color:T.t3}}> · caméra {res}</span> : null}
         </div>
       </div>
     </div>
