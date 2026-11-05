@@ -185,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v24 · 05/11/2026';
+const SCAN_VERSION = 'v25 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -1731,6 +1731,7 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
   const startEdit = (q) => { setEditQty(String(q ?? 0)); setEditFresh(true); };
   const editN = parseInt(editQty || '0', 10) || 0;
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const a = _artByCode.get(code) || _catalogArticle(code);
   useRefFourn(a);
   // Comptage à l'aveugle : départ vide (pas pré-rempli avec le stock ERP)
@@ -1954,7 +1955,11 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:800}}>Emplacement</div>
                 <div style={{fontSize:17,fontWeight:800,color:T.accent,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} className="mono">{a.empl}</div>
               </div>
+              <button onClick={()=>setFindOpen(true)} title="La caméra lit toutes les étiquettes du rayon et encadre celle de cet article" style={{marginLeft:'auto',flexShrink:0,minHeight:40,padding:'0 12px',borderRadius:10,border:`1px solid rgba(251,146,60,.35)`,background:T.accentSoft,color:T.accent,fontSize:13,fontWeight:800,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                <Ico d={ICONS.search} s={15} sw={2.5} /> Trouver en rayon
+              </button>
             </div>
+            {findOpen && <FindSheet code={a.code} onClose={()=>setFindOpen(false)} />}
             {a.prix != null && (
               <button onClick={()=>setPriceShown(p=>!p)} style={{padding:'10px 14px',background:'#0a0c10',borderRadius:12,border:'none',color:T.t1,textAlign:'left',cursor:'pointer'}}>
                 <div style={{fontSize:12,color:T.t3,textTransform:'uppercase',letterSpacing:.8,fontWeight:700}}>Prix de vente moy.</div>
@@ -2277,6 +2282,146 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
   );
 }
 
+// Résoudre un code-barre scanné → code article PRISME
+function _resolveBarcode(barcode, rawText) {
+  const clean = barcode.replace(/\D/g, '');
+  const numeric = /^\d+$/.test(barcode.trim());
+  // 1) Code article direct (5-6 chiffres) — seulement si le code lu n'a que des chiffres
+  //    (un Code128 fournisseur « SP-019123 » n'est pas l'article 019123)
+  let a = numeric ? (_artByCode.get(clean) || _artByCode.get(_normCode(clean))) : null;
+  if (a) return a.code;
+  // 2) Ref fournisseur (avec et sans espaces)
+  a = _artByRef.get(barcode) || _artByRef.get(barcode.toUpperCase());
+  if (!a && rawText && rawText !== barcode) a = _artByRef.get(rawText) || _artByRef.get(rawText.toUpperCase());
+  if (a) return a.code;
+  // 3) Custom EAN (associations terrain)
+  const custom = _customEanMap.get(clean);
+  if (custom && (_artByCode.get(custom) || _catalogHas(custom))) return _normCode(custom);
+  // 4) EAN via IDB eanMap (chargé globalement)
+  if (_eanRaw || window._eanMap) {
+    const c = _normCode(_eanLookup(clean));
+    if (c && (_artByCode.get(c) || _catalogHas(c))) return c;
+  }
+  // 5) Code 5-6 chiffres dans le catalogue national (pas en stock local)
+  if (numeric && /^\d{5,6}$/.test(clean) && _catalogHas(clean)) return _normCode(clean);
+  return null; // inconnu
+}
+
+// ── Trouver en rayon : la caméra lit toutes les étiquettes visibles d'un coup et encadre celle de l'article ──
+function FindSheet({ code, onClose }) {
+  const a = _artByCode.get(code) || _catalogArticle(code);
+  const videoRef = useRef(null), streamRef = useRef(null), timerRef = useRef(null), cvRef = useRef(null);
+  const resolvedRef = useRef(new Map()); // texte lu → code article (ou '')
+  const beepRef = useRef(0);
+  const [boxes, setBoxes] = useState([]); // [{pts:[[x,y]×4] en px écran, hit, text}]
+  const [found, setFound] = useState(false);
+  const [seen, setSeen] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let lastHit = 0;
+    const loop = async () => {
+      const v = videoRef.current;
+      if (cancelled || !v || !streamRef.current) return;
+      const vw = v.videoWidth, vh = v.videoHeight;
+      if (!vw || !vh || typeof ZXingWASM === 'undefined') { timerRef.current = setTimeout(loop, 150); return; }
+      // Image entière (pas de viseur) : toutes les étiquettes du rayon dans le champ
+      const k = Math.min(1, 1920 / Math.max(vw, vh));
+      const w = Math.round(vw * k), h = Math.round(vh * k);
+      if (!cvRef.current) cvRef.current = document.createElement('canvas');
+      const cv = cvRef.current; cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(v, 0, 0, w, h);
+      let res = [];
+      try {
+        res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, w, h), { formats: ['EAN-13', 'EAN-8', 'Code128', 'Code39'], maxNumberOfSymbols: 40 });
+      } catch (e) {}
+      if (cancelled) return;
+      // Coordonnées image → écran (vidéo en object-fit:cover)
+      const dw = v.clientWidth, dh = v.clientHeight;
+      const sc = Math.max(dw / w, dh / h), ox = (w * sc - dw) / 2, oy = (h * sc - dh) / 2;
+      const out = [];
+      let hit = false;
+      for (const r of res) {
+        const raw = (r.text || '').trim(), bc = raw.replace(/\s/g, '');
+        if (!bc || !r.position) continue;
+        if (!resolvedRef.current.has(bc)) resolvedRef.current.set(bc, _resolveBarcode(bc, raw) || '');
+        const isHit = resolvedRef.current.get(bc) === a?.code;
+        if (isHit) hit = true;
+        const P = r.position;
+        out.push({ text: bc, hit: isHit, pts: [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft].map(p => [p.x * sc - ox, p.y * sc - oy]) });
+      }
+      const now = Date.now();
+      if (hit) {
+        lastHit = now; setFound(true);
+        if (now - beepRef.current > 1200) { beepRef.current = now; _beep(1400, 90); }
+      }
+      // Garder le cadre vert un instant si l'étiquette sort du champ sur une image (évite le clignotement)
+      if (out.length || now - lastHit > 600) setBoxes(out);
+      setSeen(n => Math.max(n, out.length));
+      timerRef.current = setTimeout(loop, 60);
+    };
+    (async () => {
+      try {
+        try { if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (_audioCtx.state === 'suspended') _audioCtx.resume(); } catch (e) {}
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        try {
+          const track = stream.getVideoTracks()[0], caps = track.getCapabilities?.();
+          if (caps?.focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        } catch (e) {}
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        loop();
+      } catch (e) { console.warn('[Trouver] caméra:', e); setFailed(true); }
+    })();
+    return () => {
+      cancelled = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    };
+  }, [code]);
+
+  const hitBox = boxes.find(b => b.hit);
+  return (
+    <div style={{position:'fixed',inset:0,background:'#000',zIndex:300,display:'flex',flexDirection:'column'}}>
+      <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+        <video ref={videoRef} playsInline autoPlay muted style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+        <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+          {boxes.map((b, i) => {
+            const pts = b.pts.map(p => p.join(',')).join(' ');
+            return b.hit
+              ? <polygon key={i} points={pts} fill="rgba(34,197,94,.35)" stroke="#22c55e" strokeWidth="6" strokeLinejoin="round" />
+              : <polygon key={i} points={pts} fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.45)" strokeWidth="2" strokeLinejoin="round" />;
+          })}
+        </svg>
+        {hitBox && (() => {
+          const xs = hitBox.pts.map(p => p[0]), ys = hitBox.pts.map(p => p[1]);
+          const cx = (Math.min(...xs) + Math.max(...xs)) / 2, top = Math.min(...ys);
+          return <div style={{position:'absolute',left:cx,top:Math.max(8, top - 44),transform:'translateX(-50%)',padding:'6px 12px',borderRadius:99,background:'#22c55e',color:'#04210f',fontSize:15,fontWeight:900,letterSpacing:.5,whiteSpace:'nowrap',pointerEvents:'none'}}>C'EST ICI</div>;
+        })()}
+        <button aria-label="Fermer" onClick={onClose} style={{position:'absolute',top:'calc(14px + env(safe-area-inset-top))',left:14,width:44,height:44,borderRadius:99,background:'rgba(0,0,0,.6)',border:'none',color:'#fff',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <Ico d={ICONS.close} s={18} sw={2.5} />
+        </button>
+        {failed && <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center',color:'#fff',fontSize:15}}>Caméra indisponible. Autorise la caméra pour ce site puis réessaie.</div>}
+      </div>
+      <div style={{padding:'12px 16px calc(14px + env(safe-area-inset-bottom))',background:T.bg,borderTop:`1px solid ${T.border}`}}>
+        <div style={{fontSize:12,fontWeight:900,letterSpacing:1,textTransform:'uppercase',color:found?'#22c55e':T.t3}}>
+          {hitBox ? 'Trouvé — étiquette encadrée en vert' : found ? 'Trouvé — reviens dessus' : 'Balaye le rayon avec la caméra'}
+        </div>
+        <div style={{fontSize:15,fontWeight:800,color:T.t1,marginTop:3,lineHeight:1.3}}><span className="mono">{a?.code}</span> · {a?.lib}</div>
+        <div style={{fontSize:13,color:T.t2,marginTop:2}}>
+          {a?.empl ? <>Emplacement <span className="mono" style={{color:T.accent,fontWeight:800}}>{a.empl}</span> · </> : null}
+          {seen ? `${seen} étiquette${seen > 1 ? 's' : ''} lue${seen > 1 ? 's' : ''} d'un coup` : 'aucune étiquette lue pour l’instant'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const [haptic, setHaptic] = useState(true);
   const hapticRef = useRef(true); // lu par scanLoop/tryAdd (closures créées au montage)
@@ -2315,30 +2460,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const OCR_COOLDOWN = 2000;
   const DIRECT_SCAN_SETTLE_MS = 120;
 
-  // Résoudre un code-barre scanné → code article PRISME
-  const resolveBarcode = (barcode, rawText) => {
-    const clean = barcode.replace(/\D/g, '');
-    const numeric = /^\d+$/.test(barcode.trim());
-    // 1) Code article direct (5-6 chiffres) — seulement si le code lu n'a que des chiffres
-    //    (un Code128 fournisseur « SP-019123 » n'est pas l'article 019123)
-    let a = numeric ? (_artByCode.get(clean) || _artByCode.get(_normCode(clean))) : null;
-    if (a) return a.code;
-    // 2) Ref fournisseur (avec et sans espaces)
-    a = _artByRef.get(barcode) || _artByRef.get(barcode.toUpperCase());
-    if (!a && rawText && rawText !== barcode) a = _artByRef.get(rawText) || _artByRef.get(rawText.toUpperCase());
-    if (a) return a.code;
-    // 3) Custom EAN (associations terrain)
-    const custom = _customEanMap.get(clean);
-    if (custom && (_artByCode.get(custom) || _catalogHas(custom))) return _normCode(custom);
-    // 4) EAN via IDB eanMap (chargé globalement)
-    if (_eanRaw || window._eanMap) {
-      const c = _normCode(_eanLookup(clean));
-      if (c && (_artByCode.get(c) || _catalogHas(c))) return c;
-    }
-    // 5) Code 5-6 chiffres dans le catalogue national (pas en stock local)
-    if (numeric && /^\d{5,6}$/.test(clean) && _catalogHas(clean)) return _normCode(clean);
-    return null; // inconnu
-  };
+  const resolveBarcode = _resolveBarcode;
 
   const tryAdd = (code, barcode) => {
     const a = _artByCode.get(code) || _catalogArticle(code); if (!a) return;
