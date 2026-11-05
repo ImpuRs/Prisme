@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // merge-zzat.js — Met à jour prisme-scan-AGXX.json avec un export ZZAT018 frais
 // Usage: node merge-zzat.js <ZZAT018.csv> <prisme-scan-AGXX.json>
-// Résultat: écrase le JSON avec les stocks/min/max/emplacements/statuts à jour
+// Résultat: écrase le JSON — base = exactement les articles du ZZAT, stocks/min/max/emplacements/statuts à jour
 
 const fs = require('fs');
 const path = require('path');
@@ -117,14 +117,18 @@ for (const [code, z] of zzat) {
   }
   added++;
 }
-scan.articles = articles;
-scan.count = articles.length;
+// Le ZZAT fait foi sur la liste : articles absents du ZZAT retirés (table EAN du catalogue gardée)
+scan.articles = articles.filter(a => zzat.has(a.code));
+const removed = articles.length - scan.articles.length;
+scan.count = scan.articles.length;
 
-// Mettre à jour le timestamp
+// Horodatage : date du fichier ZZAT = date du stock (affichée par le Scan, qui préfère ce fichier
+// à une session PRISME locale dont le stock est plus ancien)
 scan.timestamp = Date.now();
+scan.stockTs = fs.statSync(csvPath).mtimeMs;
 
 // Sauvegarder
 fs.writeFileSync(jsonPath, JSON.stringify(scan));
-console.log(`✓ ${updated} articles mis à jour, ${unchanged} inchangés, ${added} ajoutés (${eanAdded} EAN)`);
+console.log(`✓ ${updated} articles mis à jour, ${unchanged} inchangés, ${added} ajoutés (${eanAdded} EAN), ${removed} retirés`);
 if (!cat) console.log('⚠ catalogue-marques.json introuvable — articles ajoutés sans enrichissement catalogue');
 console.log(`→ ${jsonPath}`);
