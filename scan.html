@@ -187,7 +187,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v28 · 05/11/2026';
+const SCAN_VERSION = 'v29 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -2449,6 +2449,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const ctxRef = useRef(null);
   const scanTimer = useRef(null);
   const lastCodesRef = useRef(new Map()); // Map<barcode, ts> anti-doublon brut
+  const unknownSeenRef = useRef(new Map()); // Map<barcode, {n, ts}> codes inconnus : confirmés par une 2e lecture identique
   const directBufRef = useRef(null); // buffer mode direct : {barcode, artCode, timer}
   const emptyFramesRef = useRef(0); // compteur frames sans détection
   const ocrReadyRef = useRef(false);
@@ -2692,6 +2693,16 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           await _ensureCatalogue();
           setCatLoading(false);
           artCode = resolveBarcode(barcode, rawText);
+        }
+        if (!artCode) {
+          // Code inconnu = souvent une mauvaise lecture (étiquette pliée, Code39 / Codabar sans contrôle qui
+          // « inventent » un code, ex. A168960197 lu sur l'étiquette 514865). Signalé seulement en EAN / Code128
+          // (clé de contrôle) et lu 2 fois de suite à l'identique ; sinon on continue de lire.
+          const strong = /EAN|128|OCR/i.test(r.format || '');
+          const u = unknownSeenRef.current.get(barcode);
+          const n = u && now - u.ts < 3000 ? u.n + 1 : 1;
+          unknownSeenRef.current.set(barcode, { n, ts: now });
+          if (!strong || n < 2) { lastCodesRef.current.delete(barcode); continue; }
         }
         if (!continu) {
           // Mode direct : attendre brièvement les autres passes, puis choisir le meilleur candidat.
