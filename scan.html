@@ -185,7 +185,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v26 · 05/11/2026';
+const SCAN_VERSION = 'v27 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -2321,11 +2321,12 @@ function FindSheet({ code, onClose }) {
 
   useEffect(() => {
     let cancelled = false;
-    // Les étiquettes vues de loin sont trop petites pour le lecteur (~1 px par barre) : l'image est lue
-    // entière, puis en 12 morceaux agrandis ×2,5-3 (lisible dès ~1,2 px par barre), un morceau par passage.
-    // Chaque code lu garde sa position (pixels vidéo) 4 s, le temps que le tour des morceaux se fasse.
+    // Les étiquettes vues de loin sont trop petites pour le lecteur (~1 px par barre). Leurs codes-barres
+    // sont horizontaux : l'image entière est étirée ×3 en largeur seulement (et tassée en hauteur, une barre
+    // verticale n'a besoin que de quelques lignes) → lisible dès ~1 px par barre, en une seule lecture
+    // (~12 Mpx au lieu de 12 morceaux agrandis dans les deux sens, ~100 Mpx).
+    // Codes tournés / en négatif non cherchés : une étiquette de rayon est droite, noir sur blanc.
     const reads = new Map(); // texte → {pts, hit, ts}
-    let step = 0;
     const FORMATS = ['EAN-13', 'EAN-8', 'Code128', 'Code39'];
     const loop = async () => {
       const v = videoRef.current;
@@ -2335,24 +2336,13 @@ function FindSheet({ code, onClose }) {
       if (!cvRef.current) cvRef.current = document.createElement('canvas');
       const cv = cvRef.current;
       const ctx = cv.getContext('2d', { willReadFrequently: true });
-      const cols = vw > vh ? 4 : 3, rows = vw > vh ? 3 : 4, nTiles = cols * rows;
-      const t = step++ % (nTiles + 1);
-      let sx = 0, sy = 0, sw = vw, sh = vh, up;
-      if (t === 0) {
-        up = Math.min(1, 3840 / Math.max(vw, vh)); // image entière
-      } else {
-        const tw = vw / cols, th = vh / rows, i = t - 1;
-        const mx = tw * 0.15, my = th * 0.15; // recouvrement : une étiquette coupée au bord est entière dans le voisin
-        sx = Math.max(0, (i % cols) * tw - mx); sy = Math.max(0, Math.floor(i / cols) * th - my);
-        sw = Math.min(vw - sx, tw + 2 * mx); sh = Math.min(vh - sy, th + 2 * my);
-        up = Math.min(3, 3200 / Math.max(sw, sh));
-      }
-      const w = Math.round(sw * up), h = Math.round(sh * up);
-      cv.width = w; cv.height = h;
+      const ux = Math.min(3, 6600 / vw), uy = Math.min(0.5, 1900 / vh);
+      const w = Math.round(vw * ux), h = Math.round(vh * uy);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
+      ctx.drawImage(v, 0, 0, vw, vh, 0, 0, w, h);
       let res = [];
-      try { res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, w, h), { formats: FORMATS, maxNumberOfSymbols: 40 }); } catch (e) {}
+      try { res = await ZXingWASM.readBarcodes(ctx.getImageData(0, 0, w, h), { formats: FORMATS, maxNumberOfSymbols: 80, tryRotate: false, tryInvert: false }); } catch (e) {}
       if (cancelled) return;
       const now = Date.now();
       for (const r of res) {
@@ -2361,9 +2351,9 @@ function FindSheet({ code, onClose }) {
         if (!resolvedRef.current.has(bc)) resolvedRef.current.set(bc, _resolveBarcode(bc, raw) || '');
         const P = r.position;
         reads.set(bc, { hit: resolvedRef.current.get(bc) === a?.code, ts: now,
-          pts: [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft].map(p => [sx + p.x / up, sy + p.y / up]) });
+          pts: [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft].map(p => [p.x / ux, p.y / uy]) });
       }
-      for (const [k, f] of reads) if (now - f.ts > 4000) reads.delete(k);
+      for (const [k, f] of reads) if (now - f.ts > 1200) reads.delete(k);
       // Pixels vidéo → écran (vidéo en object-fit:cover)
       const dw = v.clientWidth, dh = v.clientHeight;
       const sc = Math.max(dw / vw, dh / vh), ox = (vw * sc - dw) / 2, oy = (vh * sc - dh) / 2;
@@ -2374,7 +2364,7 @@ function FindSheet({ code, onClose }) {
       }
       setBoxes(out);
       setSeen(n => Math.max(n, out.length));
-      timerRef.current = setTimeout(loop, 30);
+      timerRef.current = setTimeout(loop, 20);
     };
     (async () => {
       try {
