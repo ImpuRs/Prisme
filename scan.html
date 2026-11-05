@@ -58,6 +58,8 @@
   @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 @keyframes fadeFlash{0%{opacity:1}100%{opacity:0}}
+/* iPhone : Safari zoome (et décale l'écran) sur un champ écrit en moins de 16 px quand on tape dedans */
+@media (pointer:coarse){input,textarea,select{font-size:16px!important}}
   @keyframes scanFlash{0%{background:rgba(251,146,60,.0)}30%{background:rgba(251,146,60,.18)}100%{background:rgba(251,146,60,0)}}
   .scan-flash{animation:scanFlash .35s ease-out}
   @keyframes pulseDot{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
@@ -185,7 +187,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v27 · 05/11/2026';
+const SCAN_VERSION = 'v28 · 05/11/2026';
 
 const CTX = {
   greeting: AGENCY,
