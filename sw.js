@@ -10,7 +10,7 @@
 //    la dernière connue sinon. Requête en `cache: 'no-cache'` : le navigateur revalide auprès
 //    du serveur (ETag) au lieu de resservir sa copie HTTP (GitHub Pages : max-age 10 min).
 'use strict';
-const CACHE_NAME = 'prisme-scan-v29';
+const CACHE_NAME = 'prisme-scan-v30';
 const PRECACHE = ['./scan.html', './manifest.json', './js/constants.js', './data/index.json'];
 const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -74,13 +74,11 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (CDN_HOSTS.includes(url.hostname)) {
-    // OCR (OpenCV / modèles Paddle, non versionnés et très lourds) : laissé au réseau
-    if (url.pathname.includes('paddleocr-browser')) return;
     e.respondWith(cacheFirst(req));
     return;
   }
   if (url.origin === self.location.origin) {
     e.respondWith(networkFirst(req));
   }
-  // Autres domaines (docs.opencv.org…) : comportement réseau normal
+  // Autres domaines : comportement réseau normal
 });
