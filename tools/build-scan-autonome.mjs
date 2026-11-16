@@ -218,9 +218,25 @@ $root = [System.IO.Path]::GetFullPath($PSScriptRoot)
 $mime = @{ '.html'='text/html; charset=utf-8'; '.js'='text/javascript; charset=utf-8'; '.mjs'='text/javascript; charset=utf-8';
   '.json'='application/json; charset=utf-8'; '.css'='text/css; charset=utf-8'; '.wasm'='application/wasm'; '.png'='image/png';
   '.woff2'='font/woff2'; '.txt'='text/plain; charset=utf-8'; '.onnx'='application/octet-stream'; '.csv'='text/csv; charset=utf-8' }
-$listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://localhost:$Port/")
-try { $listener.Start() } catch { Write-Host "Port $Port indisponible : $($_.Exception.Message)"; exit 1 }
+# Port déjà pris : soit le Scan tourne déjà (fenêtre du serveur restée ouverte) → on rouvre simplement la page,
+# soit un autre logiciel l'occupe → on essaie les ports suivants.
+$listener = $null
+foreach ($p in $Port..($Port + 9)) {
+  $l = New-Object System.Net.HttpListener
+  $l.Prefixes.Add("http://localhost:$p/")
+  try { $l.Start(); $listener = $l; $Port = $p; break } catch {
+    try { $l.Close() } catch {}
+    $deja = $false
+    try { $r = Invoke-WebRequest -Uri "http://localhost:$p/scan.html" -UseBasicParsing -TimeoutSec 3; $deja = ($r.Content -match 'PRISME Scan') } catch {}
+    if ($deja) {
+      Write-Host "Le Scan tourne deja sur ce poste : http://localhost:$p/scan.html"
+      if (-not $NoBrowser) { Start-Process "http://localhost:$p/scan.html" }
+      Start-Sleep -Seconds 3
+      exit 0
+    }
+  }
+}
+if (-not $listener) { Write-Host "Aucun port libre entre $Port et $($Port + 9)."; exit 1 }
 $url = "http://localhost:$Port/scan.html"
 Write-Host "PRISME Scan : $url"
 Write-Host "Laisser cette fenetre ouverte. Ctrl+C ou fermer la fenetre pour arreter."
@@ -292,6 +308,8 @@ LANCER
   Windows     : double-clic sur « Lancer le Scan.bat »
   Mac / Linux : ./lancer.sh        (demande Python 3)
   La page s'ouvre sur http://localhost:8000/scan.html
+  Laisser la fenêtre noire du serveur ouverte tant qu'on utilise le Scan.
+  Page fermée par erreur ? Relancer « Lancer le Scan.bat » : il rouvre la page (le serveur tourne déjà).
   Sur un écran large, le Scan passe en mode PC (recherche au clavier / douchette).
   Pour voir l'affichage téléphone sur un PC : réduire la largeur de la fenêtre puis recharger.
 
