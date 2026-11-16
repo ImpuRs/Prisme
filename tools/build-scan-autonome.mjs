@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // build-scan-autonome.mjs — assemble un dossier « PRISME Scan » autonome (sans GitHub, sans CDN).
 //
-// Usage :  node tools/build-scan-autonome.mjs [dossier-de-sortie] [--ocr]      (défaut : ./scan-autonome)
-//   --ocr : embarque aussi la lecture d'étiquette par OCR (+36 Mo, non utilisée en agence — retirée par défaut)
+// Usage :  node tools/build-scan-autonome.mjs [dossier-de-sortie]      (défaut : ./scan-autonome)
 //
 // Ce que fait le script :
 //  1. télécharge une fois les bibliothèques (versions figées, empreinte vérifiée contre celle de scan.html) ;
@@ -21,9 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ARGS = process.argv.slice(2);
-const WITH_OCR = ARGS.includes('--ocr');
-const OUT = path.resolve(ARGS.find(a => !a.startsWith('--')) || path.join(ROOT, 'scan-autonome'));
+const OUT = path.resolve(process.argv[2] || path.join(ROOT, 'scan-autonome'));
 const CACHE = path.join(os.tmpdir(), 'prisme-scan-vendor');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
@@ -36,14 +33,6 @@ const LIBS = [
   ['zxing/zxing_reader.wasm', JSD + 'zxing-wasm@3.0.3/dist/reader/zxing_reader.wasm', 'zxing-wasm 3.0.3 — moteur', 'MIT / Apache-2.0'],
   ['zbar/index.js', JSD + '@undecaf/zbar-wasm@0.11.0/dist/index.js', 'zbar-wasm 0.11.0 — lecture code-barres (2e lecteur)', 'LGPL-2.1'],
   ['zbar/zbar.wasm', JSD + '@undecaf/zbar-wasm@0.11.0/dist/zbar.wasm', 'zbar-wasm 0.11.0 — moteur', 'LGPL-2.1'],
-  ['ocr/esearch-ocr.js', JSD + 'esearch-ocr@5.1.5/dist/esearch-ocr.js', 'esearch-ocr 5.1.5 — lecture d\'étiquette (OCR)', 'MIT'],
-  ['ocr/ort.min.js', JSD + 'onnxruntime-web@1.17.3/dist/ort.min.js', 'onnxruntime-web 1.17.3 — OCR', 'MIT'],
-  ['ocr/ort-wasm.wasm', JSD + 'onnxruntime-web@1.17.3/dist/ort-wasm.wasm', 'onnxruntime-web 1.17.3 — moteur', 'MIT'],
-  ['ocr/ort-wasm-simd.wasm', JSD + 'onnxruntime-web@1.17.3/dist/ort-wasm-simd.wasm', 'onnxruntime-web 1.17.3 — moteur', 'MIT'],
-  ['ocr/opencv.js', 'https://docs.opencv.org/4.8.0/opencv.js', 'OpenCV.js 4.8.0 — OCR (préparation image)', 'Apache-2.0'],
-  ['ocr/ppocr_det.onnx', JSD + 'paddleocr-browser@1.0.4/dist/ppocr_det.onnx', 'PaddleOCR — modèle détection', 'Apache-2.0'],
-  ['ocr/ppocr_rec.onnx', JSD + 'paddleocr-browser@1.0.4/dist/ppocr_rec.onnx', 'PaddleOCR — modèle lecture', 'Apache-2.0'],
-  ['ocr/ppocr_keys_v1.txt', JSD + 'paddleocr-browser@1.0.4/dist/ppocr_keys_v1.txt', 'PaddleOCR — dictionnaire', 'Apache-2.0'],
 ];
 const BABEL_URL = 'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js'; // outil de build seulement, non livré
 const FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap';
@@ -90,7 +79,7 @@ const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
 // ── 1. Bibliothèques ─────────────────────────────────────────
 console.log('→ Bibliothèques');
 const inventory = [];
-for (const [rel, url, role, licence] of LIBS.filter(l => WITH_OCR || !l[0].startsWith('ocr/'))) {
+for (const [rel, url, role, licence] of LIBS) {
   const buf = await download(url);
   const hash = sha384(buf);
   // Empreinte déclarée dans scan.html pour cette URL : doit correspondre
@@ -124,7 +113,7 @@ write('vendor/fonts/fonts.css', fontCss);
 
 // ── 3. Page : scripts sortis dans des fichiers, JSX précompilé ─
 console.log('→ Page');
-const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'" + (WITH_OCR ? " 'unsafe-eval'" : '') + "; " + " style-src 'self' 'unsafe-inline'; "
+const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; "
   + "img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' data: blob:; "
   + "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'";
 
@@ -144,9 +133,9 @@ for (const [url, rel] of Object.entries(localSrc)) {
 
 // Scripts en ligne → fichiers
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g)];
-if (scripts.length !== 4) die(`scan.html a changé : ${scripts.length} scripts en ligne au lieu de 4`);
-const [boot, ocrLoader, app, loader] = scripts;
-if (!/serviceWorker/.test(boot[2]) || !/_loadPaddleOCR/.test(ocrLoader[2]) || !/id="app-src"/.test(app[1]) || !/Babel/.test(loader[2])) die('scan.html a changé : ordre des scripts inattendu');
+if (scripts.length !== 3) die(`scan.html a changé : ${scripts.length} scripts en ligne au lieu de 3`);
+const [boot, app, loader] = scripts;
+if (!/serviceWorker/.test(boot[2]) || !/id="app-src"/.test(app[1]) || !/Babel/.test(loader[2])) die('scan.html a changé : ordre des scripts inattendu');
 
 // Lecteur zxing : son moteur est dans vendor/ (par défaut il le demande à un CDN)
 const bootJs = `// PRISME Scan autonome — démarrage (extrait de scan.html)
@@ -156,19 +145,8 @@ if (typeof ZXingWASM !== 'undefined') ZXingWASM.prepareZXingModule({ overrides: 
 document.addEventListener('click', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-reload')) location.reload(); });
 `;
 write('scan-boot.js', bootJs);
-if (WITH_OCR) write('scan-ocr.js', swap(ocrLoader[2], JSD + 'esearch-ocr@5.1.5/dist/esearch-ocr.js', './vendor/ocr/esearch-ocr.js', 'chargeur OCR'));
 
 let jsx = app[2];
-{ // adresses de l'OCR ramenées en local (code inatteignable sans --ocr : le bouton est retiré)
-  jsx = swap(jsx, `sc.src = '${JSD}onnxruntime-web@1.17.3/dist/ort.min.js'`, `sc.src = 'vendor/ocr/ort.min.js'`, 'onnxruntime');
-  jsx = swap(jsx, `ort.env.wasm.wasmPaths = '${JSD}onnxruntime-web@1.17.3/dist/'`, `ort.env.wasm.wasmPaths = new URL('vendor/ocr/', document.baseURI).href`, 'onnxruntime wasm');
-  jsx = swap(jsx, `s.src = 'https://docs.opencv.org/4.8.0/opencv.js'`, `s.src = 'vendor/ocr/opencv.js'`, 'OpenCV');
-  jsx = swap(jsx, `const assetsPath = '${JSD}paddleocr-browser@1.0.4/dist/'`, `const assetsPath = new URL('vendor/ocr/', document.baseURI).href`, 'modèles OCR');
-}
-if (!WITH_OCR) {
-  // Lecture d'étiquette (OCR) non embarquée : bouton retiré de l'écran du scanner
-  jsx = swap(jsx, /\{\/\* OCR à la demande \*\/\}\s*<button[\s\S]*?<\/button>/, '', 'bouton OCR');
-}
 jsx = swap(jsx, /const SCAN_VERSION = '([^']+)'/, `const SCAN_VERSION = '$1 · autonome'`, 'version');
 
 const babelFile = path.join(CACHE, 'babel.cjs');
@@ -178,7 +156,6 @@ const appJs = Babel.transform(jsx, { presets: ['react'] }).code;
 write('scan-app.js', `// PRISME Scan ${version} — code de l'application, compilé depuis scan.html (ne pas modifier ici)\n` + appJs + '\n');
 
 html = html.replace(boot[0], '<script src="scan-boot.js"></script>')
-  .replace(ocrLoader[0], WITH_OCR ? '<script type="module" src="scan-ocr.js"></script>' : '')
   .replace(/<!-- Source JSX[^>]*-->\n/, '')
   .replace(app[0], '')
   .replace(loader[0], '<script src="scan-app.js"></script>');
@@ -204,9 +181,9 @@ write('scan-update.html', upd);
 // ── 5. Service worker (hors ligne) ───────────────────────────
 let sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 sw = swap(sw, /const CACHE_NAME = '[^']+';/, `const CACHE_NAME = 'prisme-scan-autonome-${stamp}';`, 'sw CACHE_NAME');
-const shell = ['./scan.html', './scan-boot.js', ...(WITH_OCR ? ['./scan-ocr.js'] : []), './scan-app.js', './manifest.json', './config.json', './js/constants.js', './data/index.json',
+const shell = ['./scan.html', './scan-boot.js', './scan-app.js', './manifest.json', './config.json', './js/constants.js', './data/index.json',
   './vendor/fonts/fonts.css', ...[...fontFiles.values()].map(n => './vendor/fonts/' + n),
-  ...inventory.filter(x => !x.rel.startsWith('vendor/ocr/') && !x.rel.startsWith('vendor/fonts/')).map(x => './' + x.rel)];
+  ...inventory.filter(x => !x.rel.startsWith('vendor/fonts/')).map(x => './' + x.rel)];
 sw = swap(sw, /const PRECACHE = \[[^\]]*\];/, `const PRECACHE = ${JSON.stringify(shell)};`, 'sw PRECACHE');
 sw = swap(sw, /const CDN_HOSTS = \[[^\]]*\];/, 'const CDN_HOSTS = [];', 'sw CDN_HOSTS');
 // Bibliothèques locales (vendor/) : cache d'abord — le nom du cache change à chaque build

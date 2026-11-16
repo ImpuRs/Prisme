@@ -125,10 +125,6 @@ window.addEventListener('unhandledrejection', function(e) {
     + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#60a5fa;color:#000;border:none;border-radius:8px;font-weight:700">Recharger</button></div>';
 });
 </script>
-<script type="module">
-// Loader ESM pour esearch-ocr — hors Babel pour éviter require()
-window._loadPaddleOCR = () => import('https://cdn.jsdelivr.net/npm/esearch-ocr@5.1.5/dist/esearch-ocr.js');
-</script>
 <!-- Source JSX : compilé par le chargeur en bas de page (Babel seulement si absent du cache) -->
 <script type="text/x-prisme-jsx" id="app-src">
 const { useState, useEffect, useMemo, useRef } = React;
@@ -187,7 +183,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v29 · 05/11/2026';
+const SCAN_VERSION = 'v30 · 16/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -2452,22 +2448,12 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
   const unknownSeenRef = useRef(new Map()); // Map<barcode, {n, ts}> codes inconnus : confirmés par une 2e lecture identique
   const directBufRef = useRef(null); // buffer mode direct : {barcode, artCode, timer}
   const emptyFramesRef = useRef(0); // compteur frames sans détection
-  const ocrReadyRef = useRef(false);
-  const ocrLoadingRef = useRef(false);
-  const ocrRequestRef = useRef(false); // OCR seulement à la demande (bouton « Lire l'étiquette »)
-  const [ocrAsk, setOcrAsk] = useState(false);
-  const [ocrFail, setOcrFail] = useState(false);
   const [torch, setTorch] = useState(null); // null = pas de lampe sur cet appareil, false/true = éteinte/allumée
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks?.()[0];
     if (!track) return;
     try { await track.applyConstraints({ advanced: [{ torch: !torch }] }); setTorch(!torch); } catch (e) { setTorch(null); }
   };
-  const ocrBusyRef = useRef(false);
-  const lastOcrTimeRef = useRef(0);
-  const paddleOcrRef = useRef(null);
-  const hdCanvasRef = useRef(null);
-  const OCR_COOLDOWN = 2000;
   const DIRECT_SCAN_SETTLE_MS = 120;
 
   const resolveBarcode = _resolveBarcode;
@@ -2494,105 +2480,10 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     if (hapticRef.current) _beep();
   };
 
-  // ── PaddleOCR lazy-load ──
-  const loadOpenCV = () => new Promise((resolve, reject) => {
-    if (typeof cv !== 'undefined' && cv.Mat) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
-    s.async = true;
-    s.onload = () => {
-      const check = () => {
-        if (typeof cv !== 'undefined' && cv.Mat) resolve();
-        else setTimeout(check, 100);
-      };
-      check();
-    };
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-
-  const initOCR = async () => {
-    if (ocrReadyRef.current || ocrLoadingRef.current) return;
-    ocrLoadingRef.current = true; // pendant le chargement du script : pas de second appel depuis la boucle de scan
-    if (typeof ort === 'undefined' && !window._ortFailed) {
-      // onnxruntime (≈ 550 Ko) n'est plus chargé au démarrage : seulement quand on demande « Lire l'étiquette »
-      await new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js'; sc.onload = res; sc.onerror = () => { window._ortFailed = true; res(); }; document.head.appendChild(sc); });
-    }
-    if (window._ortFailed || typeof ort === 'undefined') { console.warn('[OCR] ONNX Runtime unavailable'); ocrLoadingRef.current = false; ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true); return; }
-    ocrLoadingRef.current = true;
-    try {
-      // Config iOS-compatible (onnxruntime issue #22086)
-      ort.env.wasm.numThreads = 1;
-      ort.env.wasm.simd = false;
-      ort.env.wasm.proxy = false;
-      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
-      console.log('[OCR] Loading OpenCV.js...');
-      const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
-      await Promise.race([loadOpenCV(), timeout(15000)]);
-      console.log('[OCR] OpenCV ready, loading PaddleOCR models...');
-      const Paddle = await Promise.race([
-        window._loadPaddleOCR(),
-        timeout(15000)
-      ]);
-      const assetsPath = 'https://cdn.jsdelivr.net/npm/paddleocr-browser@1.0.4/dist/'; // version figée
-      const dicRes = await fetch(assetsPath + 'ppocr_keys_v1.txt');
-      const dic = await dicRes.text();
-      await Promise.race([
-        Paddle.init({ detPath: assetsPath + 'ppocr_det.onnx', recPath: assetsPath + 'ppocr_rec.onnx', dic, ort, node: false, cv }),
-        timeout(60000)
-      ]);
-      paddleOcrRef.current = Paddle;
-      ocrReadyRef.current = true;
-      ocrLoadingRef.current = false;
-      console.log('[OCR] PaddleOCR ready');
-    } catch(e) {
-      console.warn('[OCR] load error:', e);
-      // Échec (réseau, mémoire) : on le dit et on permet de réessayer
-      ocrLoadingRef.current = false; ocrRequestRef.current = false; setOcrAsk(false); setOcrFail(true);
-    }
-  };
-
-  const runOCR = async () => {
-    if (ocrBusyRef.current || !ocrReadyRef.current) return [];
-    const now = Date.now();
-    if (now - lastOcrTimeRef.current < OCR_COOLDOWN) return [];
-    ocrBusyRef.current = true;
-    lastOcrTimeRef.current = now;
-    try {
-      const video = videoRef.current;
-      const vw = video.videoWidth, vh = video.videoHeight;
-      if (!hdCanvasRef.current) hdCanvasRef.current = document.createElement('canvas');
-      const hdc = hdCanvasRef.current;
-      const hdctx = hdc.getContext('2d');
-      hdc.width = vw; hdc.height = vh;
-      hdctx.drawImage(video, 0, 0, vw, vh);
-      const dataURL = hdc.toDataURL('image/jpeg', 0.92);
-      const t0 = performance.now();
-      const result = await paddleOcrRef.current.ocr(dataURL);
-      console.log('[OCR]', Math.round(performance.now() - t0) + 'ms');
-      const ocrResults = [];
-      const paragraphs = result?.parragraphs || result?.paragraphs || [];
-      for (const p of paragraphs) {
-        const text = (p.text || '').replace(/\s/g, '');
-        if (!text) continue;
-        const matches = text.match(/(?<!\d)\d{13}(?!\d)|(?<!\d)\d{5,6}(?!\d)/g) || [];
-        // Prix, quantités, références : on ne garde qu'un EAN-13 à clé valide ou le code d'un article en stock
-        for (const m of matches) if (m.length === 13 ? _ean13Ok(m) : _artByCode.has(_normCode(m))) ocrResults.push({ text: m, format: 'OCR' });
-      }
-      return ocrResults;
-    } catch(e) {
-      console.warn('[OCR] error:', e);
-      return [];
-    } finally {
-      ocrBusyRef.current = false;
-    }
-  };
-
-  // Boucle de scan caméra — 3 moteurs + OCR fallback
+  // Boucle de scan caméra — 2 lecteurs (ZXing + ZBar)
   // Stage 1 (0-5 frames)  : ZXing + ZBar
   // Stage 2 (5-12 frames) : ZXing + ZBar
   // Stage 3 (12+ frames)  : ZXing tryHarder + ZBar
-  // Stage 4 (20+ frames)  : + PaddleOCR snapshot HD
   const scanLoop = async () => {
     const video = videoRef.current;
     if (!video || !streamRef.current) return;
@@ -2627,7 +2518,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
     const imageData = ctx.getImageData(0, 0, cw, ch);
 
     let emptyFrames = emptyFramesRef.current;
-    // Reset après 60 frames vides → relance le cycle OCR
+    // Reset après 60 frames vides → relance le cycle
     if (emptyFrames >= 60) { emptyFramesRef.current = 20; emptyFrames = 20; }
 
     try {
@@ -2661,20 +2552,6 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
       if (merged.length === 0) { emptyFramesRef.current++; }
       else { emptyFramesRef.current = 0; }
 
-      // Stage 4 — PaddleOCR fallback (lazy-load + snapshot HD)
-      const ef = emptyFramesRef.current;
-      // OCR (lourd : OpenCV + modèles, plusieurs dizaines de Mo) : uniquement à la demande
-      if (ocrRequestRef.current && !ocrReadyRef.current && !ocrLoadingRef.current) { console.log('[Scan] OCR demandé'); initOCR(); }
-      if (ocrRequestRef.current && ocrReadyRef.current && !ocrBusyRef.current && merged.length === 0) {
-        ocrRequestRef.current = false; setOcrAsk(false);
-        const ocrRes = await runOCR();
-        for (const r of ocrRes) {
-          if (!r.text || seen.has(r.text)) continue;
-          seen.add(r.text);
-          merged.push(r);
-        }
-      }
-
       const now = Date.now();
       for (const r of merged) {
         const rawText = r.text.trim();
@@ -2698,7 +2575,7 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           // Code inconnu = souvent une mauvaise lecture (étiquette pliée, Code39 / Codabar sans contrôle qui
           // « inventent » un code, ex. A168960197 lu sur l'étiquette 514865). Signalé seulement en EAN / Code128
           // (clé de contrôle) et lu 2 fois de suite à l'identique ; sinon on continue de lire.
-          const strong = /EAN|128|OCR/i.test(r.format || '');
+          const strong = /EAN|128/i.test(r.format || '');
           const u = unknownSeenRef.current.get(barcode);
           const n = u && now - u.ts < 3000 ? u.n + 1 : 1;
           unknownSeenRef.current.set(barcode, { n, ts: now });
@@ -2883,12 +2760,6 @@ function CameraSheet({ continu=true, onClose, onPick, onBatch, onUnknown }) {
           <button aria-label={torch ? 'Éteindre la lampe' : 'Allumer la lampe'} aria-pressed={torch} onClick={toggleTorch}
             style={{position:'absolute',bottom:52,left:14,width:52,height:52,borderRadius:99,border:'1px solid rgba(255,255,255,.35)',background:torch?'#fde68a':'rgba(0,0,0,.6)',color:torch?'#111':'#fff',fontSize:22,display:'flex',alignItems:'center',justifyContent:'center'}}>🔦</button>
         )}
-
-        {/* OCR à la demande */}
-        <button onClick={()=>{ ocrRequestRef.current = true; setOcrAsk(true); setOcrFail(false); }} disabled={ocrAsk}
-          style={{position:'absolute',bottom:56,left:'50%',transform:'translateX(-50%)',minHeight:44,padding:'0 18px',borderRadius:99,border:'1px solid rgba(255,255,255,.35)',background:'rgba(0,0,0,.6)',color:'#fff',fontSize:13,fontWeight:800}}>
-          {ocrAsk ? (ocrReadyRef.current ? 'Lecture de l’étiquette…' : 'Chargement de la lecture d’étiquette…') : ocrFail ? 'Lecture d’étiquette indisponible · réessayer' : 'Pas de code-barres ? Lire l’étiquette'}
-        </button>
 
         {/* hint */}
         <div style={{position:'absolute',bottom:24,left:0,right:0,textAlign:'center',color:'rgba(255,255,255,.7)',fontSize:12,fontWeight:500,padding:'0 20px'}}>
