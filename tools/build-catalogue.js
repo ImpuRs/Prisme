@@ -88,6 +88,8 @@ for (let i = 1; i < lines.length; i++) {
 const payload = { M: marques, F: familles, S: statuts, A: articles, E: eans, R: refs };
 const json = JSON.stringify(payload);
 fs.writeFileSync(DST, json, 'utf8');
+// Version compressée publiée (les hébergeurs limitent souvent la taille d'un fichier à 25 Mo)
+fs.writeFileSync(DST + '.gz', require('zlib').gzipSync(json, { level: 9 }));
 
 const sizeMB = (json.length / 1024 / 1024).toFixed(1);
 console.log(`\nRésultat:`);

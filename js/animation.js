@@ -548,11 +548,29 @@ const MARQUE_ALIASES = {
 // Chargement du catalogue marques (async, non bloquant)
 // ═══════════════════════════════════════════════════════════════
 
+// Catalogue publié compressé (catalogue-marques.json.gz, ~7 Mo au lieu de 27 : passe sous la limite de
+// 25 Mo par fichier des hébergeurs type Cloudflare Pages) ; repli sur le .json s'il est absent.
+// Le .gz peut arriver déjà décompressé par le serveur (Content-Encoding) : on regarde les 2 premiers octets.
+async function _fetchCatalogueJson(opts) {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const r = await fetch('js/catalogue-marques.json.gz', opts);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        const gz = buf[0] === 0x1f && buf[1] === 0x8b;
+        const txt = gz ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text() : new TextDecoder().decode(buf);
+        return JSON.parse(txt);
+      }
+    } catch (e) { console.warn('[PRISME] catalogue .gz illisible, repli .json', e); }
+  }
+  const r = await fetch('js/catalogue-marques.json', opts);
+  return r.ok ? r.json() : null;
+}
+
 export async function loadCatalogueMarques() {
   try {
-    const resp = await fetch('js/catalogue-marques.json');
-    if (!resp.ok) { console.warn('[PRISME] catalogue-marques.json non trouvé'); return; }
-    const data = await resp.json();
+    const data = await _fetchCatalogueJson();
+    if (!data) { console.warn('[PRISME] catalogue-marques.json non trouvé'); return; }
 
     _S.catalogueMarques = new Map();
     _S.marqueArticles = new Map();

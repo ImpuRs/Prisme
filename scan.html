@@ -150,13 +150,31 @@ import('./js/constants.js').then(m => {
   window.dispatchEvent(new Event('prisme-catalogue'));
 }).catch(() => {});
 
-// Catalogue national (25 Mo) : chargé au premier besoin seulement — code/EAN hors agence,
+// Catalogue national (27 Mo, 7 Mo compressé) : chargé au premier besoin seulement — code/EAN hors agence,
 // mode « Catalogue » de la recherche. Promesse mémoïsée ; résout à true si disponible.
+// Catalogue publié compressé (catalogue-marques.json.gz, ~7 Mo au lieu de 27 : passe sous la limite de
+// 25 Mo par fichier des hébergeurs type Cloudflare Pages) ; repli sur le .json s'il est absent.
+// Le .gz peut arriver déjà décompressé par le serveur (Content-Encoding) : on regarde les 2 premiers octets.
+async function _fetchCatalogueJson(opts) {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const r = await fetch('js/catalogue-marques.json.gz', opts);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        const gz = buf[0] === 0x1f && buf[1] === 0x8b;
+        const txt = gz ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text() : new TextDecoder().decode(buf);
+        return JSON.parse(txt);
+      }
+    } catch (e) { console.warn('[PRISME] catalogue .gz illisible, repli .json', e); }
+  }
+  const r = await fetch('js/catalogue-marques.json', opts);
+  return r.ok ? r.json() : null;
+}
 let _cataloguePromise = null;
 function _ensureCatalogue() {
   if (_cataloguePromise) return _cataloguePromise;
   _cataloguePromise = _localGet('catalogue').then(rec => { try { return rec?.text ? JSON.parse(rec.text) : null; } catch (e) { return null; } })
-    .then(loc => loc || fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null)).then(data => {
+    .then(loc => loc || _fetchCatalogueJson({ cache: 'no-cache' })).then(data => {
   if (!data) return false;
   CATALOGUE = data;
   _catalogCache.clear(); // les « introuvable » mis en cache avant le chargement ne sont plus valables
@@ -184,7 +202,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v31 · 16/11/2026';
+const SCAN_VERSION = 'v32 · 19/11/2026';
 
 const CTX = {
   greeting: AGENCY,

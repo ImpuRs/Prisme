@@ -49,5 +49,19 @@ git add "data/prisme-scan-AG${AG}.json"
 git commit -m "data: mise à jour stock AG$AG depuis ZZAT $(date +%d/%m/%Y)"
 git push
 
+# Site Scan privé de l'agence (~/prisme-scanXX construit par build-scan-autonome.mjs --site) : reconstruire et pousser
+SITE="$HOME/prisme-scan${AG}"
+if [ -f "$SITE/README.md" ] && grep -q -- "build-scan-autonome.mjs --site" "$SITE/README.md"; then
+  echo "→ Site Scan privé : $SITE"
+  TMP="$(mktemp -d)"
+  node "$SCRIPT_DIR/build-scan-autonome.mjs" --site "$TMP/site"
+  rsync -a --delete --exclude .git "$TMP/site/" "$SITE/"
+  rm -rf "$TMP"
+  cd "$SITE"
+  git add -A
+  git commit -m "data: stock AG$AG depuis ZZAT $(date +%d/%m/%Y)"
+  git push
+fi
+
 echo ""
 echo "✓ Poussé sur GitHub — les téléphones récupéreront les données au prochain refresh"
