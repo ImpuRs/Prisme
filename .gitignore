@@ -25,3 +25,5 @@ Thumbs.db
 # Scan autonome (build local, contient les données agence) — tools/build-scan-autonome.mjs
 /scan-autonome/
 /scan-autonome*.zip
+/scan-public/
+/scan-public*.zip

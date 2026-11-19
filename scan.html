@@ -150,12 +150,31 @@ import('./js/constants.js').then(m => {
   window.dispatchEvent(new Event('prisme-catalogue'));
 }).catch(() => {});
 
-// Catalogue national (25 Mo) : chargé au premier besoin seulement — code/EAN hors agence,
+// Catalogue national (27 Mo, 7 Mo compressé) : chargé au premier besoin seulement — code/EAN hors agence,
 // mode « Catalogue » de la recherche. Promesse mémoïsée ; résout à true si disponible.
+// Catalogue publié compressé (catalogue-marques.json.gz, ~7 Mo au lieu de 27 : passe sous la limite de
+// 25 Mo par fichier des hébergeurs type Cloudflare Pages) ; repli sur le .json s'il est absent.
+// Le .gz peut arriver déjà décompressé par le serveur (Content-Encoding) : on regarde les 2 premiers octets.
+async function _fetchCatalogueJson(opts) {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const r = await fetch('js/catalogue-marques.json.gz', opts);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        const gz = buf[0] === 0x1f && buf[1] === 0x8b;
+        const txt = gz ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text() : new TextDecoder().decode(buf);
+        return JSON.parse(txt);
+      }
+    } catch (e) { console.warn('[PRISME] catalogue .gz illisible, repli .json', e); }
+  }
+  const r = await fetch('js/catalogue-marques.json', opts);
+  return r.ok ? r.json() : null;
+}
 let _cataloguePromise = null;
 function _ensureCatalogue() {
   if (_cataloguePromise) return _cataloguePromise;
-  _cataloguePromise = fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
+  _cataloguePromise = _localGet('catalogue').then(rec => { try { return rec?.text ? JSON.parse(rec.text) : null; } catch (e) { return null; } })
+    .then(loc => loc || _fetchCatalogueJson({ cache: 'no-cache' })).then(data => {
   if (!data) return false;
   CATALOGUE = data;
   _catalogCache.clear(); // les « introuvable » mis en cache avant le chargement ne sont plus valables
@@ -183,7 +202,7 @@ function _ensureCatalogue() {
 
 // Version affichée (menu, barre du haut, mode PC). À incrémenter à chaque mise en ligne,
 // en même temps que CACHE_NAME dans sw.js (prisme-scan-vNN).
-const SCAN_VERSION = 'v30 · 16/11/2026';
+const SCAN_VERSION = 'v32 · 19/11/2026';
 
 const CTX = {
   greeting: AGENCY,
@@ -616,7 +635,7 @@ function _srcLabel() {
   if (DATA_SOURCE === 'empty') return ' · aucune donnée';
   if (window._zzatInfo?.n) return ` · stock ZZAT du ${d(window._zzatInfo.t)}`;
   const { t, stock } = window._dataInfo || {};
-  const src = { json: 'fichier publié', import: 'fichier importé' }[DATA_SOURCE];
+  const src = { json: 'fichier publié', import: 'fichier chargé' }[DATA_SOURCE];
   return `${src ? ' · ' + src : ''}${stock ? ' · stock du ' + d(stock) : t ? ' · données du ' + d(t) : ''}`;
 }
 let DATA_SOURCE = 'loading'; // 'loading' | 'idb' | 'json' | 'zzat' | 'import' | 'empty'
@@ -686,9 +705,94 @@ function addCustomEan(ean, code) { _customEanMap.set(ean, code); _saveCustomEan(
 function removeCustomEan(ean) { _customEanMap.delete(ean); _saveCustomEan(); }
 function getCustomEansForCode(code) { return [..._customEanMap.entries()].filter(([,c])=>c===code).map(([ean])=>ean); }
 
+// ── Fichiers chargés sur l'appareil ──────────────────────────
+// Menu › « Charger un fichier de données » : le fichier Scan (export PRISME) et le catalogue sont gardés
+// dans le navigateur de l'appareil (IndexedDB PRISME_SCAN_DATA, store kv : 'scan', 'catalogue', 'fam').
+// Rien n'est envoyé : le Scan peut être servi par un site qui ne contient aucune donnée.
+function _localDb() {
+  return new Promise((res, rej) => {
+    let rq; try { rq = indexedDB.open('PRISME_SCAN_DATA', 1); } catch (e) { rej(e); return; }
+    rq.onupgradeneeded = () => rq.result.createObjectStore('kv');
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  });
+}
+function _localGet(key) {
+  return _localDb().then(db => new Promise(res => {
+    const r = db.transaction('kv').objectStore('kv').get(key);
+    r.onsuccess = () => { db.close(); res(r.result || null); }; r.onerror = () => { db.close(); res(null); };
+  })).catch(() => null);
+}
+function _localPut(key, val) {
+  return _localDb().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('kv', 'readwrite');
+    val == null ? tx.objectStore('kv').delete(key) : tx.objectStore('kv').put(val, key);
+    tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = tx.onabort = () => { db.close(); rej(tx.error); };
+  }));
+}
+/** Applique un fichier Scan déjà lu ({articles, ean, store, stockTs…} ou tableau d'articles). */
+function _applyScanData(data, source, fileName) {
+  const rows = Array.isArray(data) ? data : (data?.articles || data?.finalData);
+  if (!rows?.length) return false;
+  if (data.ean && typeof data.ean === 'object') _setEanSource(data.ean);
+  const m = String(fileName || '').match(/prisme-scan-(.+?)\.json/i);
+  _useRows(rows, { timestamp: data.timestamp || (data.date ? Date.parse(data.date) || 0 : 0), dataDate: data.dataDate, stockTs: data.stockTs || data._stockFileTs, store: data.store || data.selectedMyStore || (m && m[1]) }, source);
+  return true;
+}
+/** Fichier Scan gardé sur l'appareil. Avec `newerThan` : seulement si son stock est plus récent que les données en place. */
+function _loadLocalScan(newerThan) {
+  return _localGet('scan').then(rec => {
+    if (!rec?.text) return false;
+    const data = JSON.parse(rec.text);
+    if (newerThan && (data.stockTs || data.timestamp || 0) <= newerThan) return false;
+    return _applyScanData(data, 'import', rec.name);
+  }).catch(() => false);
+}
+/** Lit un fichier choisi : CSV ZZAT (stock du jour), fichier Scan PRISME ou catalogue. Renvoie le message à afficher. */
+async function _importDataFile(f) {
+  const name = f.name || '';
+  const txt = (await _readTextAuto(f)).replace(/^\uFEFF/, '');
+  const c0 = txt.trimStart()[0];
+  if (name.toLowerCase().endsWith('.csv') || (c0 !== '{' && c0 !== '[' && txt.includes(';'))) {
+    try { return _zzatMsg(_importZzatText(txt, name)); } catch (e) { return '✕ Erreur lecture CSV'; }
+  }
+  let j; try { j = JSON.parse(txt); } catch (e) { return '✕ Lecture impossible : ' + name; }
+  const keep = (key, val) => _localPut(key, val).then(() => ' · gardé sur cet appareil', () => ' · non gardé (mémoire du navigateur pleine)');
+  // Catalogue national {M,F,S,A,E,R}
+  if (j && !Array.isArray(j) && j.A && typeof j.A === 'object' && !j.articles) {
+    const kept = await keep('catalogue', { name, t: Date.now(), text: txt });
+    if (Array.isArray(j.F)) _localPut('fam', j.F).catch(() => {});
+    _cataloguePromise = null;
+    await _ensureCatalogue();
+    return `✓ Catalogue : ${Object.keys(j.A).length.toLocaleString('fr-FR')} articles${kept}`;
+  }
+  if (!_applyScanData(j, 'import', name)) return '✕ Fichier non reconnu : ' + name;
+  const kept = await keep('scan', { name, t: Date.now(), text: txt });
+  return `✓ ${ARTICLES.length.toLocaleString('fr-FR')} articles${CTX.agency && CTX.agency !== '—' ? ' · ' + CTX.agency : ''}${kept}`;
+}
+function _pickDataFiles() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.multiple = true; inp.accept = '.json,.csv,.txt,application/json,text/csv';
+  inp.onchange = async () => {
+    for (const f of [...(inp.files || [])]) {
+      _gToast('Lecture de ' + f.name + '…');
+      let msg; try { msg = await _importDataFile(f); } catch (e) { msg = '✕ Lecture impossible : ' + f.name; }
+      _gToast(msg);
+    }
+  };
+  inp.click();
+}
+// Libellés famille du catalogue chargé (petit extrait, lu dès le démarrage)
+_localGet('fam').then(F => {
+  if (!Array.isArray(F)) return;
+  for (const f of F) if (f?.[0] && f[1] && !_famNames.has(f[0])) _famNames.set(f[0], f[1]);
+  for (const a of ARTICLES) if (a._raw) a.fam = _famDisplay(a._raw);
+  window.dispatchEvent(new Event('prisme-catalogue'));
+});
+
 // ── IDB hydrate ──────────────────────────────────────────────
 // Ordre : IndexedDB PRISME clé 'scan' (allégée, écrite à chaque sauvegarde) → clé 'current' (session complète,
-// seulement si 'scan' manque) → data/index.json → aucune donnée (écran « quoi faire »).
+// seulement si 'scan' manque) → fichier chargé sur l'appareil → data/index.json → aucune donnée (écran « quoi faire »).
+// Dans tous les cas, un fichier chargé ou publié dont le stock est plus récent remplace les données en place.
 // Le Scan n'ouvre la base qu'en lecture : s'il ne la trouve pas, il ne la crée pas (sinon PRISME la trouverait incomplète).
 let _hydrated = false;
 function _noData() {
@@ -697,7 +801,7 @@ function _noData() {
 }
 function _fallbackJson() {
   if (_hydrated) return; _hydrated = true;
-  _fetchScanJson().then(ok => { if (!ok) _noData(); }).catch(_noData);
+  _loadLocalScan().then(loc => _fetchScanJson(loc ? _DATA_TS : 0).then(pub => { if (!loc && !pub) _noData(); })).catch(_noData);
 }
 function _useRows(rows, meta, source) {
   _hydrated = true;
@@ -738,7 +842,7 @@ function hydrateFromIDB() {
       if (scan?.articles?.length) _useRows(scan.articles, scan, 'idb');
       else if (current?.finalData?.length) _useRows(current.finalData, { ...current, stockTs: current._stockFileTs, dataDate: current.consommePeriodMaxFull || current.consommePeriodMax }, 'idb');
       else return _fallbackJson();
-      _fetchScanJson(_DATA_TS).then(ok => { if (ok) _gToast(`Fichier publié plus récent : ${ARTICLES.length.toLocaleString('fr-FR')} articles`); });
+      _loadLocalScan(_DATA_TS).then(() => _fetchScanJson(_DATA_TS)).then(ok => { if (ok) _gToast(`Fichier publié plus récent : ${ARTICLES.length.toLocaleString('fr-FR')} articles`); });
     }).catch(() => _fallbackJson());
   };
 }
@@ -1189,41 +1293,8 @@ function App() {
         if (k === 'ean') { setSheet('ean'); return; }
         if (k === 'sync') { showToast('Synchronisation…'); _fetchScanJson().then(ok => { if (ok) showToast('✓ ' + ARTICLES.length + ' articles synchronisés'); else showToast('✕ Aucun fichier trouvé'); }); }
         if (k === 'purge') { if (confirm("Oublier le stock ZZAT importé et recharger les données de PRISME ?")) { try { localStorage.removeItem(ZZAT_KEY); } catch (e) {} location.reload(); } }
-        if (k === 'import') {
-          const inp = document.createElement('input');
-          inp.type = 'file'; inp.accept = '.json,.csv,application/json,text/csv';
-          inp.onchange = () => {
-            const f = inp.files?.[0]; if (!f) return;
-            const rd = new FileReader();
-            rd.onload = async () => {
-              const txt = rd.result;
-              // Détecter CSV ZZAT (séparateur ;, colonnes Article/Stock)
-              if (f.name.toLowerCase().endsWith('.csv') || (txt[0] !== '{' && txt[0] !== '[' && txt.includes(';'))) {
-                try {
-                  const up = _importZzatText(await _readTextAuto(f), f.name);
-                  showToast(_zzatMsg(up));
-                } catch(e) { showToast('✕ Erreur lecture CSV'); }
-                return;
-              }
-              // JSON classique
-              try {
-                const j = JSON.parse(txt);
-                const rows = Array.isArray(j) ? j
-                           : Array.isArray(j.articles) ? j.articles
-                           : Array.isArray(j.finalData) ? j.finalData
-                           : null;
-                if (!rows || !rows.length) { showToast('✕ JSON invalide'); return; }
-                _BASE_ROWS = rows;
-                ARTICLES = loadEngineData(rows); _rebuildArtIndex();
-                DATA_SOURCE = 'import';
-                window.dispatchEvent(new CustomEvent('prisme-data', { detail:{ count: ARTICLES.length, source:'import' } }));
-                showToast(`✓ ${ARTICLES.length} articles importés`);
-              } catch (e) { showToast('✕ Lecture impossible'); }
-            };
-            rd.readAsText(f);
-          };
-          inp.click();
-        }
+        if (k === 'import') _pickDataFiles();
+        if (k === 'forget') { if (confirm("Effacer de cet appareil le fichier Scan et le catalogue chargés ?")) Promise.all([_localPut('scan', null), _localPut('catalogue', null), _localPut('fam', null)]).catch(() => {}).then(() => location.reload()); }
       }} />}
       {sheet === 'camera' && <CameraSheet continu={scanContinu} onClose={()=>setSheet(null)} onPick={(c)=>{
         setSheet(null);
@@ -1483,8 +1554,9 @@ function HomeScreen({ t, onSearch, onScan, onScanDirect, onArticle, onInv, onDou
         DATA_SOURCE === 'loading' ? <div style={{flex:1}} /> :
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 28px',textAlign:'center',gap:12}}>
           <div style={{fontSize:17,fontWeight:800,color:T.t1}}>Aucune donnée sur cet appareil</div>
-          <div style={{fontSize:14,lineHeight:1.55,color:T.t2,maxWidth:320}}>Ouvre PRISME sur ce même navigateur et charge tes fichiers, ou récupère le dernier fichier publié avec « Resynchroniser ». Tu peux aussi importer un CSV ZZAT depuis le menu.</div>
-          <button onClick={()=>{ _fetchScanJson().then(ok => { if (!ok) _gToast('Aucun fichier publié trouvé'); }); }} style={{marginTop:6,minHeight:48,padding:'0 22px',borderRadius:14,border:0,background:T.accent,color:'#111',fontSize:15,fontWeight:800}}>Resynchroniser</button>
+          <div style={{fontSize:14,lineHeight:1.55,color:T.t2,maxWidth:320}}>Charge le fichier Scan de ton agence (export PRISME), et le catalogue si tu l'as : ils restent sur cet appareil, rien n'est envoyé.</div>
+          <button onClick={_pickDataFiles} style={{marginTop:6,minHeight:48,padding:'0 22px',borderRadius:14,border:0,background:T.accent,color:'#111',fontSize:15,fontWeight:800}}>Charger un fichier de données</button>
+          <button onClick={()=>{ _fetchScanJson().then(ok => { if (!ok) _gToast('Aucun fichier publié trouvé'); }); }} style={{minHeight:44,padding:'0 18px',borderRadius:12,border:`1px solid ${T.border}`,background:'transparent',color:T.t1,fontSize:14,fontWeight:700}}>Resynchroniser</button>
           <button onClick={onMenu} style={{minHeight:44,padding:'0 18px',borderRadius:12,border:`1px solid ${T.border}`,background:'transparent',color:T.t1,fontSize:14,fontWeight:700}}>Ouvrir le menu</button>
         </div>
       ) : (
@@ -2246,7 +2318,7 @@ function ZonePickerSheet({ onClose, onPick }) {
 
 function MenuSheet({ onClose, onItem, invMode, invZone }) {
   const items = [
-    { k:'import', l:'Importer JSON ou CSV', s:'JSON PRISME ou CSV état du stock ERP', dot:'#34d399', ic:ICONS.upload },
+    { k:'import', l:'Charger un fichier de données', s:'Fichier Scan PRISME, catalogue ou CSV état du stock · gardé sur cet appareil', dot:'#34d399', ic:ICONS.upload },
     invMode
       ? { k:'inv', l:`Reprendre l'inventaire · ${invZone||'—'}`, s:'Continuer le comptage en cours', dot:'#fbbf24', ic:ICONS.checkb }
       : { k:'inv', l:'Démarrer un inventaire', s:'Compter une zone', dot:'#22c55e', ic:ICONS.checkb },
@@ -2254,6 +2326,7 @@ function MenuSheet({ onClose, onItem, invMode, invZone }) {
     { k:'ean', l:`Codes-barres associés (${_customEanMap.size})`, s:'Voir et gérer les associations EAN', dot:'#fb923c', ic:ICONS.scan },
     { k:'sync', l:'Resynchroniser le cache', s:'Récupérer les dernières données', dot:'#60a5fa', ic:ICONS.sync },
     { k:'purge', l:'Oublier l’import ZZAT', s:'Recharger les données PRISME', dot:'#f87171', ic:ICONS.trash, danger:true },
+    { k:'forget', l:'Effacer les fichiers chargés', s:'Retire de cet appareil le fichier Scan et le catalogue', dot:'#f87171', ic:ICONS.trash, danger:true },
   ];
   return (
     <Sheet onClose={onClose} title="Menu">
@@ -3834,8 +3907,9 @@ function PCEmpty({ agency }) {
       <div style={{fontSize:12,fontWeight:800,letterSpacing:1.5,color:T.t3,textTransform:'uppercase'}}>Agence {agency} · {ARTICLES.length.toLocaleString('fr-FR')} articles</div>
       <div style={{fontSize:32,fontWeight:900,letterSpacing:-1,marginTop:8}}>Rechercher un article</div>
       <div style={{fontSize:14,color:T.t2,marginTop:10,lineHeight:1.5}}>
-        Scanne l'article avec la douchette ou tape dans le champ à gauche.
+        {ARTICLES.length ? "Scanne l'article avec la douchette ou tape dans le champ à gauche." : "Aucune donnée sur ce poste : charge le fichier Scan de ton agence (et le catalogue). Ils restent sur ce poste, rien n'est envoyé."}
       </div>
+      {!ARTICLES.length && DATA_SOURCE !== 'loading' && <button onClick={_pickDataFiles} style={{...pcBtn,marginTop:18,background:T.accent,color:'#111',border:0,fontWeight:800}}>Charger un fichier de données</button>}
       <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginTop:28}}>
         {HINTS.map(([l,ex]) => (
           <div key={l} style={{padding:'8px 12px',borderRadius:10,background:T.card,border:`1px solid ${T.border}`,textAlign:'left'}}>

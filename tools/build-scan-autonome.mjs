@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // build-scan-autonome.mjs — assemble un dossier « PRISME Scan » autonome (sans GitHub, sans CDN).
 //
-// Usage :  node tools/build-scan-autonome.mjs [dossier-de-sortie]      (défaut : ./scan-autonome)
+// Usage :  node tools/build-scan-autonome.mjs [dossier-de-sortie]             (défaut : ./scan-autonome)
+//          node tools/build-scan-autonome.mjs --public [dossier-de-sortie]    (défaut : ./scan-public)
+//   --public : site SANS AUCUNE DONNÉE (ni stock, ni codes-barres, ni catalogue, ni constantes PRISME), à publier
+//              tel quel (GitHub Pages…). Chaque appareil charge ses fichiers par le menu du Scan ; ils restent sur l'appareil.
 //
 // Ce que fait le script :
 //  1. télécharge une fois les bibliothèques (versions figées, empreinte vérifiée contre celle de scan.html) ;
@@ -20,7 +23,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.resolve(process.argv[2] || path.join(ROOT, 'scan-autonome'));
+const ARGS = process.argv.slice(2);
+const PUBLIC = ARGS.includes('--public');
+// --site : site hébergé (dépôt privé publié par Cloudflare Pages…) AVEC les données de l'agence, catalogue compressé
+// (.json.gz : limite de 25 Mo par fichier), sans lanceurs locaux
+const SITE = !PUBLIC && ARGS.includes('--site');
+const OUT = path.resolve(ARGS.find(a => !a.startsWith('--')) || path.join(ROOT, PUBLIC ? 'scan-public' : SITE ? 'scan-site' : 'scan-autonome'));
 const CACHE = path.join(os.tmpdir(), 'prisme-scan-vendor');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
@@ -147,7 +155,7 @@ document.addEventListener('click', function (e) { if (e.target && e.target.getAt
 write('scan-boot.js', bootJs);
 
 let jsx = app[2];
-jsx = swap(jsx, /const SCAN_VERSION = '([^']+)'/, `const SCAN_VERSION = '$1 · autonome'`, 'version');
+if (!PUBLIC && !SITE) jsx = swap(jsx, /const SCAN_VERSION = '([^']+)'/, `const SCAN_VERSION = '$1 · autonome'`, 'version');
 
 const babelFile = path.join(CACHE, 'babel.cjs');
 fs.writeFileSync(babelFile, await download(BABEL_URL));
@@ -168,15 +176,47 @@ write('scan.html', html);
 // ── 4. Données, icônes, manifeste ────────────────────────────
 console.log('→ Données');
 const copy = (rel, to = rel) => { const f = path.join(ROOT, rel); if (!fs.existsSync(f)) die('fichier manquant : ' + rel); write(to, fs.readFileSync(f)); };
-['manifest.json', 'icon-192.png', 'icon-512.png', 'js/constants.js', 'js/catalogue-marques.json', 'data/index.json'].forEach(f => copy(f));
-const dataFiles = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/index.json'), 'utf8'));
-dataFiles.forEach(f => copy('data/' + f));
+['manifest.json', 'icon-192.png', 'icon-512.png'].forEach(f => copy(f));
 write('config.json', '{}\n');
-// Page « Mise à jour Scan » (ZZAT → JSON) : sans les liens vers le reste de PRISME
-let upd = fs.readFileSync(path.join(ROOT, 'scan-update.html'), 'utf8');
-upd = swap(upd, /\s*<a class="muted" href="conv\.html">[^<]*<\/a>\s*<a class="muted" href="index\.html">[^<]*<\/a>/, '\n        <a class="muted" href="scan.html">Scan</a>', 'liens scan-update');
-if (/https?:\/\//.test(upd.replace(/http:\/\/www\.w3\.org[^"']*/g, ''))) die('scan-update.html appelle une adresse externe');
-write('scan-update.html', upd);
+const dataFiles = PUBLIC ? [] : JSON.parse(fs.readFileSync(path.join(ROOT, 'data/index.json'), 'utf8'));
+if (PUBLIC) {
+  // Aucune donnée : pas de fichier publié, pas de catalogue, constantes PRISME vides (libellés famille = catalogue chargé)
+  write('data/index.json', '[]\n');
+  write('js/constants.js', '// PRISME Scan public : aucune donnée embarquée.\nexport const FAMILLE_LOOKUP = {};\n');
+  write('index.html', '<!DOCTYPE html>\n<html lang="fr"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0; url=scan.html"><title>PRISME Scan</title></head><body><a href="scan.html">PRISME Scan</a></body></html>\n');
+  write('.nojekyll', '');
+} else {
+  ['js/constants.js', SITE ? 'js/catalogue-marques.json.gz' : 'js/catalogue-marques.json', 'data/index.json'].forEach(f => copy(f));
+  if (SITE) {
+    write('index.html', '<!DOCTYPE html>\n<html lang="fr"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0; url=scan.html"><title>PRISME Scan</title></head><body><a href="scan.html">PRISME Scan</a></body></html>\n');
+    write('.nojekyll', '');
+    // Cloudflare (Worker à fichiers statiques) : sans ce fichier, son build devine un framework (Hugo…) et échoue.
+    // html_handling none : scan.html servi sous son nom (pas de redirection vers /scan, qui casserait le service worker)
+    // workers_dev : adresse *.workers.dev ouverte — protégée par Cloudflare Access (application à créer dans Zero Trust
+    // AVANT le premier déploiement, sinon les données sont publiques). preview_urls false : pas d'adresse par version.
+    const ag = (dataFiles.map(f => (f.match(/prisme-scan-AG(\d+)\.json/) || [])[1]).find(Boolean)) || 'site';
+    // worker.js : n'est appelé que si aucun fichier ne correspond (html_handling none → « / » ne sert pas index.html) :
+    // l'adresse nue renvoie vers scan.html, le reste répond 404
+    write('wrangler.jsonc', JSON.stringify({ name: 'scan' + ag, compatibility_date: '2026-11-18', workers_dev: true, preview_urls: false,
+      main: 'worker.js', assets: { directory: './', binding: 'ASSETS', html_handling: 'none', not_found_handling: 'none' } }, null, 2) + '\n');
+    write('worker.js', `// Adresse nue (ou /index.html absent) → le Scan. Les fichiers du site sont servis avant ce script.
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname === '/' || url.pathname === '') return Response.redirect(new URL('/scan.html', url).toString(), 302);
+    return env.ASSETS.fetch(request);
+  },
+};
+`);
+    write('.assetsignore', ['.git', '.gitignore', 'wrangler.jsonc', '.assetsignore', 'README.md', 'worker.js', ''].join('\n'));
+  }
+  dataFiles.forEach(f => copy('data/' + f));
+  // Page « Mise à jour Scan » (ZZAT → JSON) : sans les liens vers le reste de PRISME
+  let upd = fs.readFileSync(path.join(ROOT, 'scan-update.html'), 'utf8');
+  upd = swap(upd, /\s*<a class="muted" href="conv\.html">[^<]*<\/a>\s*<a class="muted" href="index\.html">[^<]*<\/a>/, '\n        <a class="muted" href="scan.html">Scan</a>', 'liens scan-update');
+  if (/https?:\/\//.test(upd.replace(/http:\/\/www\.w3\.org[^"']*/g, ''))) die('scan-update.html appelle une adresse externe');
+  write('scan-update.html', upd);
+}
 
 // ── 5. Service worker (hors ligne) ───────────────────────────
 let sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
@@ -191,6 +231,7 @@ sw = swap(sw, "  if (url.origin === self.location.origin) {\n    e.respondWith(n
   "  if (url.origin === self.location.origin) {\n    e.respondWith(url.pathname.includes('/vendor/') ? cacheFirst(req) : networkFirst(req));", 'sw fetch');
 write('sw.js', sw);
 
+if (!PUBLIC && !SITE) {
 // ── 6. Lanceurs ──────────────────────────────────────────────
 write('Lancer le Scan.bat', [
   '@echo off', 'rem PRISME Scan autonome - petit serveur local (Windows, rien a installer)', 'cd /d "%~dp0"',
@@ -268,6 +309,8 @@ exec python3 -m http.server "$PORT" --bind 127.0.0.1
 `);
 fs.chmodSync(path.join(OUT, 'lancer.sh'), 0o755);
 
+}
+
 // ── 7. Notice + inventaire des dépendances ───────────────────
 const fmt = n => n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko';
 const meta = dataFiles.map(f => {
@@ -275,7 +318,8 @@ const meta = dataFiles.map(f => {
   const day = t => t ? new Date(t).toLocaleDateString('fr-FR') : '?';
   return `- data/${f} : agence ${d.store || '?'}, ${(d.articles || []).length.toLocaleString('fr-FR')} articles, stock du ${day(d.stockTs)}, ventes jusqu'au ${day(d.dataDate)}, ${Object.keys(d.ean || {}).length.toLocaleString('fr-FR')} codes-barres`;
 });
-const cat = JSON.parse(fs.readFileSync(path.join(ROOT, 'js/catalogue-marques.json'), 'utf8'));
+const cat = PUBLIC ? {} : JSON.parse(fs.readFileSync(path.join(ROOT, 'js/catalogue-marques.json'), 'utf8'));
+const CTX_STORE = () => dataFiles.map(f => (f.match(/prisme-scan-(.+)\.json/) || [])[1]).filter(Boolean).join(', ') || 'agence';
 write('DEPENDANCES.txt', `PRISME Scan autonome — bibliothèques embarquées (dossier vendor/)
 Build du ${new Date().toLocaleString('fr-FR')} — Scan ${version}
 
@@ -284,7 +328,17 @@ Toutes les bibliothèques sont des logiciels libres, copiés une fois dans ce do
 
 ${inventory.map(x => `${x.rel}  (${fmt(x.size)})\n    ${x.role} — licence ${x.licence}\n    origine : ${x.url}\n    ${x.hash}${x.verified ? '  (vérifiée)' : ''}`).join('\n\n')}
 `);
-write('LISEZMOI.txt', `PRISME Scan — version autonome
+if (SITE) write('README.md', `# PRISME Scan — ${CTX_STORE()}
+
+Site du Scan **avec les données de l'agence** (Scan ${version}). Dépôt **privé** : ne pas le rendre public.
+
+${meta.join('\n')}
+
+Publié par Cloudflare Pages (aucune commande de build, dossier publié = racine). Accès protégé par Cloudflare Access.
+
+Dossier généré par \`tools/build-scan-autonome.mjs --site\` depuis le dépôt Prisme — ne pas modifier à la main : relancer le build puis pousser.
+`);
+else if (!PUBLIC) write('LISEZMOI.txt', `PRISME Scan — version autonome
 Scan ${version} · dossier construit le ${new Date().toLocaleDateString('fr-FR')}
 
 Le Scan sert à auditer le rayon : on scanne une étiquette ou un code-barres, on voit le stock,
@@ -332,6 +386,29 @@ SUR TÉLÉPHONE
   Pour l'utiliser sur les téléphones du magasin sans passer par internet, il faut déposer ce dossier
   sur un serveur interne en https — c'est la seule chose à demander à l'informatique.
   Le dossier est statique : n'importe quel serveur web convient, sans base de données ni programme côté serveur.
+`);
+else write('README.md', `# PRISME Scan
+
+Application web d'audit de rayon : on scanne un code-barres, on retrouve la référence interne, le stock, le mini/maxi et quoi faire de l'article.
+
+Ce dépôt ne contient **que le code** (Scan ${version}). Il n'embarque **aucune donnée** : ni stock, ni codes-barres, ni catalogue.
+
+## Utilisation
+
+1. Ouvrir le site (\`scan.html\`) sur le téléphone ou le PC.
+2. Menu › **Charger un fichier de données** : choisir le fichier Scan de l'agence (export PRISME \`prisme-scan-AGxx.json\`) et, si besoin, le catalogue.
+3. Les fichiers restent dans le navigateur de l'appareil (IndexedDB) : rien n'est envoyé. « Effacer les fichiers chargés » les retire.
+
+Le stock du jour se met à jour en chargeant l'export ZZAT (CSV) par le même menu.
+
+## Sécurité
+
+- Aucun serveur applicatif, aucune base de données : fichiers statiques seulement.
+- La page porte une politique de sécurité (Content-Security-Policy) qui interdit tout appel vers un autre serveur que celui qui la sert.
+- Bibliothèques libres embarquées à version figée : voir \`DEPENDANCES.txt\`.
+- La caméra est traitée dans le navigateur ; aucune image ne sort de l'appareil.
+
+Dossier généré par \`tools/build-scan-autonome.mjs --public\` — ne pas modifier à la main.
 `);
 
 const total = (function walk(d) { return fs.readdirSync(d, { withFileTypes: true }).reduce((s, e) => s + (e.isDirectory() ? walk(path.join(d, e.name)) : fs.statSync(path.join(d, e.name)).size), 0); })(OUT);
