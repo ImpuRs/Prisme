@@ -195,9 +195,20 @@ if (PUBLIC) {
     // workers_dev : adresse *.workers.dev ouverte — protégée par Cloudflare Access (application à créer dans Zero Trust
     // AVANT le premier déploiement, sinon les données sont publiques). preview_urls false : pas d'adresse par version.
     const ag = (dataFiles.map(f => (f.match(/prisme-scan-AG(\d+)\.json/) || [])[1]).find(Boolean)) || 'site';
+    // worker.js : n'est appelé que si aucun fichier ne correspond (html_handling none → « / » ne sert pas index.html) :
+    // l'adresse nue renvoie vers scan.html, le reste répond 404
     write('wrangler.jsonc', JSON.stringify({ name: 'scan' + ag, compatibility_date: '2026-11-18', workers_dev: true, preview_urls: false,
-      assets: { directory: './', html_handling: 'none', not_found_handling: 'none' } }, null, 2) + '\n');
-    write('.assetsignore', ['.git', '.gitignore', 'wrangler.jsonc', '.assetsignore', 'README.md', ''].join('\n'));
+      main: 'worker.js', assets: { directory: './', binding: 'ASSETS', html_handling: 'none', not_found_handling: 'none' } }, null, 2) + '\n');
+    write('worker.js', `// Adresse nue (ou /index.html absent) → le Scan. Les fichiers du site sont servis avant ce script.
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname === '/' || url.pathname === '') return Response.redirect(new URL('/scan.html', url).toString(), 302);
+    return env.ASSETS.fetch(request);
+  },
+};
+`);
+    write('.assetsignore', ['.git', '.gitignore', 'wrangler.jsonc', '.assetsignore', 'README.md', 'worker.js', ''].join('\n'));
   }
   dataFiles.forEach(f => copy('data/' + f));
   // Page « Mise à jour Scan » (ZZAT → JSON) : sans les liens vers le reste de PRISME
