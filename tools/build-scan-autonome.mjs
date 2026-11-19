@@ -192,10 +192,10 @@ if (PUBLIC) {
     write('.nojekyll', '');
     // Cloudflare (Worker à fichiers statiques) : sans ce fichier, son build devine un framework (Hugo…) et échoue.
     // html_handling none : scan.html servi sous son nom (pas de redirection vers /scan, qui casserait le service worker)
-    // workers_dev / preview_urls false : un déploiement ne rouvre pas l'adresse publique — on l'active à la main dans
-    // le tableau de bord, avec Cloudflare Access (connexion obligatoire)
+    // workers_dev : adresse *.workers.dev ouverte — protégée par Cloudflare Access (application à créer dans Zero Trust
+    // AVANT le premier déploiement, sinon les données sont publiques). preview_urls false : pas d'adresse par version.
     const ag = (dataFiles.map(f => (f.match(/prisme-scan-AG(\d+)\.json/) || [])[1]).find(Boolean)) || 'site';
-    write('wrangler.jsonc', JSON.stringify({ name: 'scan' + ag, compatibility_date: '2026-11-18', workers_dev: false, preview_urls: false,
+    write('wrangler.jsonc', JSON.stringify({ name: 'scan' + ag, compatibility_date: '2026-11-18', workers_dev: true, preview_urls: false,
       assets: { directory: './', html_handling: 'none', not_found_handling: 'none' } }, null, 2) + '\n');
     write('.assetsignore', ['.git', '.gitignore', 'wrangler.jsonc', '.assetsignore', 'README.md', ''].join('\n'));
   }
