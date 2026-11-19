@@ -190,6 +190,12 @@ if (PUBLIC) {
   if (SITE) {
     write('index.html', '<!DOCTYPE html>\n<html lang="fr"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0; url=scan.html"><title>PRISME Scan</title></head><body><a href="scan.html">PRISME Scan</a></body></html>\n');
     write('.nojekyll', '');
+    // Cloudflare (Worker à fichiers statiques) : sans ce fichier, son build devine un framework (Hugo…) et échoue.
+    // html_handling none : scan.html servi sous son nom (pas de redirection vers /scan, qui casserait le service worker)
+    const ag = (dataFiles.map(f => (f.match(/prisme-scan-AG(\d+)\.json/) || [])[1]).find(Boolean)) || 'site';
+    write('wrangler.jsonc', JSON.stringify({ name: 'scan' + ag, compatibility_date: '2026-11-18',
+      assets: { directory: './', html_handling: 'none', not_found_handling: 'none' } }, null, 2) + '\n');
+    write('.assetsignore', ['.git', '.gitignore', 'wrangler.jsonc', '.assetsignore', 'README.md', ''].join('\n'));
   }
   dataFiles.forEach(f => copy('data/' + f));
   // Page « Mise à jour Scan » (ZZAT → JSON) : sans les liens vers le reste de PRISME
